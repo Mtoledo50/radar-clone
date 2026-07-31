@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(uuid())
+  name           String
+  email          String         @unique
+  password       String
+  role           String         @default("USER")
+  companyId      String?
+  company        Company?       @relation(fields: [companyId], references: [id])
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  companyProfile CompanyProfile?
+  employees      Employee[]
+  clients        Client[]
+  pricings       Pricing[]
+  plannings      Planning[]     // <-- NOVO: Relação inversa necessária para o Planning
+
+  @@map("users")
+}
+
+model Company {
+  id        String    @id @default(uuid())
+  name      String
+  cnpj      String?   @unique
+  state     String?
+  users     User[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@map("companies")
+}
+
+model CompanyProfile {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id])
+  
+  razaoSocial           String?
+  cnpj                  String?
+  estado                String?
+  
+  softwareConsultoria   Boolean  @default(false)
+  softwareContabil      Boolean  @default(false)
+  softwareFiscal        Boolean  @default(false)
+  
+  clientesHoje          Int      @default(0)
+  clientesAno           Int      @default(0)
+  funcionariosHoje      Int      @default(0)
+  funcionariosAno       Int      @default(0)
+  visaoEmpresa          String?
+  maiorDesafio          String?
+  compromisso           String?
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("company_profiles")
+}
+
+model Employee {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  name            String
+  email           String?
+  phone           String?
+  position        String
+  department      String?
+  admissionDate   DateTime
+  dismissalDate   DateTime?
+  salary          Float?
+  status          String   @default("ACTIVE")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@map("employees")
+}
+
+model Client {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  companyName     String
+  cnpj            String?
+  serviceType     String   @default("CONTABIL")
+  monthlyFee      Float
+  status          String   @default("ATIVO")
+  
+  startDate       DateTime
+  endDate         DateTime?
+  
+  contactName     String?
+  contactEmail    String?
+  contactPhone    String?
+  
+  observations    String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@map("clients")
+}
+
+model Pricing {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  title           String
+  serviceType     String   @default("CONTABIL")
+  complexity      String   @default("MEDIA")
+  
+  estimatedHours  Float
+  hourlyRate      Float
+  softwareCost    Float    @default(0)
+  profitMargin    Float    @default(20)
+  
+  finalValue      Float
+  status          String   @default("RASCUNHO")
+  
+  observations    String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@map("pricings")
+}
+
+model Planning {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  title           String
+  description     String?  @db.Text
+  category        String   @default("GERAL")
+  targetDate      DateTime
+  status          String   @default("PENDENTE")
+  progress        Float    @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@map("plannings")
+}
