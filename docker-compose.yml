@@ -6,7 +6,7 @@ services:
     container_name: radar-postgres
     restart: always
     ports:
-      - "5432:5432"
+      - "5434:5432" # <--- MUDAMOS AQUI DE 5432 PARA 5434
     environment:
       POSTGRES_USER: radar_user
       POSTGRES_PASSWORD: radar_password
