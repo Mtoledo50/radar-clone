@@ -10,45 +10,34 @@ import {
   Request,
 } from '@nestjs/common';
 import { PlanningService } from './planning.service';
-import { CreatePlanningDto } from './dto/create-planning.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller('plannings')
+@Controller('planning')
 @UseGuards(JwtAuthGuard)
 export class PlanningController {
   constructor(private planningService: PlanningService) {}
 
   @Get()
   async findAll(@Request() req) {
-    const plannings = await this.planningService.findAll(req.user.id);
+    const plannings = await this.planningService.findAll(req.user.companyId);
     return { data: plannings };
   }
 
-  @Get('metrics')
-  async getMetrics(@Request() req) {
-    const metrics = await this.planningService.getMetrics(req.user.id);
-    return { data: metrics };
-  }
-
   @Post()
-  async create(@Request() req, @Body() dto: CreatePlanningDto) {
-    const planning = await this.planningService.create(req.user.id, dto);
+  async create(@Request() req, @Body() dto: any) {
+    const planning = await this.planningService.create(req.user.companyId, req.user.id, dto);
     return { message: 'Planejamento criado com sucesso!', data: planning };
   }
 
   @Put(':id')
-  async update(
-    @Request() req,
-    @Param('id') id: string,
-    @Body() dto: CreatePlanningDto,
-  ) {
-    const planning = await this.planningService.update(req.user.id, id, dto);
+  async update(@Param('id') id: string, @Body() dto: any) {
+    const planning = await this.planningService.update(id, dto);
     return { message: 'Planejamento atualizado!', data: planning };
   }
 
   @Delete(':id')
-  async remove(@Request() req, @Param('id') id: string) {
-    await this.planningService.remove(req.user.id, id);
+  async remove(@Param('id') id: string) {
+    await this.planningService.delete(id);
     return { message: 'Planejamento removido!' };
   }
 }

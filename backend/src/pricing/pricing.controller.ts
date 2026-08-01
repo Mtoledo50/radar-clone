@@ -10,45 +10,34 @@ import {
   Request,
 } from '@nestjs/common';
 import { PricingService } from './pricing.service';
-import { CreatePricingDto } from './dto/create-pricing.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller('pricings')
+@Controller('pricing')
 @UseGuards(JwtAuthGuard)
 export class PricingController {
   constructor(private pricingService: PricingService) {}
 
   @Get()
   async findAll(@Request() req) {
-    const pricings = await this.pricingService.findAll(req.user.id);
+    const pricings = await this.pricingService.findAll(req.user.companyId);
     return { data: pricings };
   }
 
-  @Get('metrics')
-  async getMetrics(@Request() req) {
-    const metrics = await this.pricingService.getMetrics(req.user.id);
-    return { data: metrics };
-  }
-
   @Post()
-  async create(@Request() req, @Body() dto: CreatePricingDto) {
-    const pricing = await this.pricingService.create(req.user.id, dto);
+  async create(@Request() req, @Body() dto: any) {
+    const pricing = await this.pricingService.create(req.user.companyId, req.user.id, dto);
     return { message: 'Precificação criada com sucesso!', data: pricing };
   }
 
   @Put(':id')
-  async update(
-    @Request() req,
-    @Param('id') id: string,
-    @Body() dto: CreatePricingDto,
-  ) {
-    const pricing = await this.pricingService.update(req.user.id, id, dto);
+  async update(@Param('id') id: string, @Body() dto: any) {
+    const pricing = await this.pricingService.update(id, dto);
     return { message: 'Precificação atualizada!', data: pricing };
   }
 
   @Delete(':id')
-  async remove(@Request() req, @Param('id') id: string) {
-    await this.pricingService.remove(req.user.id, id);
+  async remove(@Param('id') id: string) {
+    await this.pricingService.delete(id);
     return { message: 'Precificação removida!' };
   }
 }

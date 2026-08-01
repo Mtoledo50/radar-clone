@@ -1,31 +1,34 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 
-interface User { id: string; name: string; email: string; role: string; }
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string; // 'ADMIN' ou 'CLIENTE'
+  companyId: string;
+  allowedModules: string[]; // Lista de módulos que o plano permite
+}
 
 interface AuthState {
   user: User | null;
   token: string | null;
-  isHydrated: boolean;
-  setUser: (user: User, token: string) => void;
+  login: (user: User, token: string) => void;
   logout: () => void;
-  setHydrated: (state: boolean) => void;
+  setUser: (user: User) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user: null, token: null, isHydrated: false,
-      setUser: (user, token) => set({ user, token }),
+      user: null,
+      token: null,
+      login: (user, token) => set({ user, token }),
       logout: () => set({ user: null, token: null }),
-      setHydrated: (state) => set({ isHydrated: state }),
+      setUser: (user) => set({ user }),
     }),
     {
-      name: 'auth-storage',
-      storage: createJSONStorage(() => localStorage),
-      onRehydrateStorage: () => (state) => {
-        state?.setHydrated(true);
-      },
+      name: 'radar-auth-storage', // Nome da chave no localStorage
     }
   )
 );

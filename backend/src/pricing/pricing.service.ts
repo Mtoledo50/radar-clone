@@ -1,63 +1,44 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePricingDto } from './dto/create-pricing.dto';
 
 @Injectable()
 export class PricingService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(userId: string) {
-    return this.prisma.pricing.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+  async findAll(companyId: string) {
+    return this.prisma.pricing.findMany({ where: { companyId }, orderBy: { createdAt: 'desc' } });
   }
 
-  async create(userId: string, dto: CreatePricingDto) {
+  async create(companyId: string, userId: string, data: any) {
     return this.prisma.pricing.create({
       data: {
+        ...data,
+        companyId,
         userId,
-        ...dto,
-        softwareCost: dto.softwareCost || 0,
-        profitMargin: dto.profitMargin || 20,
-        status: dto.status || 'RASCUNHO',
+        estimatedHours: parseFloat(data.estimatedHours),
+        hourlyRate: parseFloat(data.hourlyRate),
+        softwareCost: parseFloat(data.softwareCost) || 0,
+        profitMargin: parseFloat(data.profitMargin) || 20,
+        finalValue: parseFloat(data.finalValue),
       },
     });
   }
 
-  async update(userId: string, pricingId: string, dto: CreatePricingDto) {
+  async update(id: string, data: any) {
     return this.prisma.pricing.update({
-      where: { id: pricingId, userId },
+      where: { id },
       data: {
-        ...dto,
-        softwareCost: dto.softwareCost || 0,
-        profitMargin: dto.profitMargin || 20,
+        ...data,
+        estimatedHours: data.estimatedHours ? parseFloat(data.estimatedHours) : undefined,
+        hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : undefined,
+        softwareCost: data.softwareCost ? parseFloat(data.softwareCost) : undefined,
+        profitMargin: data.profitMargin ? parseFloat(data.profitMargin) : undefined,
+        finalValue: data.finalValue ? parseFloat(data.finalValue) : undefined,
       },
     });
   }
 
-  async remove(userId: string, pricingId: string) {
-    return this.prisma.pricing.delete({
-      where: { id: pricingId, userId },
-    });
-  }
-
-  /**
-   * Calcula métricas da precificação
-   */
-  async getMetrics(userId: string) {
-    const totalPricings = await this.prisma.pricing.count({
-      where: { userId },
-    });
-
-    const avgValue = await this.prisma.pricing.aggregate({
-      where: { userId },
-      _avg: { finalValue: true },
-    });
-
-    return {
-      totalPricings,
-      averageFinalValue: parseFloat((avgValue._avg.finalValue || 0).toFixed(2)),
-    };
+  async delete(id: string) {
+    return this.prisma.pricing.delete({ where: { id } });
   }
 }

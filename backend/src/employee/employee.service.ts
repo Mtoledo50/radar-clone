@@ -1,107 +1,94 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateEmployeeDto } from './dto/create-employee.dto';
 
 @Injectable()
 export class EmployeeService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Lista todos os colaboradores do usuário autenticado
-   */
-  async findAll(userId: string) {
-    return this.prisma.employee.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
+  async findAll(companyId: string) {
+    return this.prisma.employee.findMany({ 
+      where: { companyId }, 
+      orderBy: { name: 'asc' } 
     });
   }
 
-  /**
-   * Cria um novo colaborador
-   */
-  async create(userId: string, dto: CreateEmployeeDto) {
+  async getMetrics(companyId: string) {
+    const active = await this.prisma.employee.count({ where: { companyId, status: 'ACTIVE' } });
+    const total = await this.prisma.employee.count({ where: { companyId } });
+    
+    // Métricas básicas (pode ser expandido conforme necessidade)
+    return { 
+      totalActive: active, 
+      totalEmployees: total, 
+      admissionsThisMonth: 0, 
+      turnoverRate: 0 
+    };
+  }
+
+  async create(companyId: string, userId: string, data: any) {
+    // 🔥 VALIDAÇÃO ROBUSTA DE DATAS
+    const admissionDate = new Date(data.admissionDate);
+    if (isNaN(admissionDate.getTime())) {
+      throw new BadRequestException('Data de admissão inválida ou ausente. Use o formato AAAA-MM-DD.');
+    }
+
+    let dismissalDate = null;
+    if (data.dismissalDate) {
+      const dDate = new Date(data.dismissalDate);
+      if (!isNaN(dDate.getTime())) {
+        dismissalDate = dDate;
+      }
+    }
+
     return this.prisma.employee.create({
       data: {
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone || null,
+        position: data.position,
+        department: data.department || null,
+        status: data.status || 'ACTIVE',
+        companyId,
         userId,
-        ...dto,
-        admissionDate: new Date(dto.admissionDate),
-        dismissalDate: dto.dismissalDate ? new Date(dto.dismissalDate) : null,
-        status: dto.dismissalDate ? 'DISMISSED' : 'ACTIVE',
+        admissionDate,
+        dismissalDate,
+        salary: data.salary ? parseFloat(data.salary) : null,
       },
     });
   }
 
-  /**
-   * Atualiza um colaborador existente
-   */
-  async update(userId: string, employeeId: string, dto: CreateEmployeeDto) {
+  async update(id: string, data: any) {
+    const updateData: any = {};
+    
+    if (data.name) updateData.name = data.name;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.phone !== undefined) updateData.phone = data.phone;
+    if (data.position) updateData.position = data.position;
+    if (data.department !== undefined) updateData.department = data.department;
+    if (data.status) updateData.status = data.status;
+    if (data.salary !== undefined) updateData.salary = data.salary ? parseFloat(data.salary) : null;
+    
+    if (data.admissionDate) {
+      const aDate = new Date(data.admissionDate);
+      if (!isNaN(aDate.getTime())) updateData.admissionDate = aDate;
+    }
+    
+    if (data.dismissalDate !== undefined) {
+      if (data.dismissalDate) {
+        const dDate = new Date(data.dismissalDate);
+        if (!isNaN(dDate.getTime())) updateData.dismissalDate = dDate;
+      } else {
+        updateData.dismissalDate = null;
+      }
+    }
+
     return this.prisma.employee.update({
-      where: { id: employeeId, userId },
-      data: {
-        ...dto,
-        admissionDate: new Date(dto.admissionDate),
-        dismissalDate: dto.dismissalDate ? new Date(dto.dismissalDate) : null,
-        status: dto.dismissalDate ? 'DISMISSED' : 'ACTIVE',
-      },
+      where: { id },
+      data: updateData,
     });
   }
 
-  /**
-   * Remove um colaborador
-   */
-  async remove(userId: string, employeeId: string) {
-    return this.prisma.employee.delete({
-      where: { id: employeeId, userId },
-    });
-  }
-
-  /**
-   * Calcula métricas de turnover para o dashboard
-   * Turnover = (Demissões no período / Média de colaboradores) * 100
-   */
-  async getMetrics(userId: string) {
-    const now = new Date();
-    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    // Total de colaboradores ativos
-    const totalActive = await this.prisma.employee.count({
-      where: { userId, status: 'ACTIVE' },
-    });
-
-    // Total de colaboradores (ativos + demitidos)
-    const totalEmployees = await this.prisma.employee.count({
-      where: { userId },
-    });
-
-    // Admissões no mês atual
-    const admissionsThisMonth = await this.prisma.employee.count({
-      where: {
-        userId,
-        admissionDate: { gte: firstDayOfMonth },
-      },
-    });
-
-    // Demissões no mês atual
-    const dismissalsThisMonth = await this.prisma.employee.count({
-      where: {
-        userId,
-        status: 'DISMISSED',
-        dismissalDate: { gte: firstDayOfMonth },
-      },
-    });
-
-    // Taxa de turnover mensal (%)
-    const averageEmployees = (totalActive + totalEmployees) / 2;
-    const turnoverRate = averageEmployees > 0 
-      ? (dismissalsThisMonth / averageEmployees) * 100 
-      : 0;
-
-    return {
-      totalActive,
-      totalEmployees,
-      admissionsThisMonth,
-      dismissalsThisMonth,
-      turnoverRate: parseFloat(turnoverRate.toFixed(2)),
-    };
+  async delete(id: string) {
+    return this.prisma.employee.delete({ where: { id } });
   }
 }
