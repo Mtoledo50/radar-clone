@@ -12,7 +12,7 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto & { companyId?: string }) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
     });
@@ -23,18 +23,33 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
+    // 🔥 DEFAULT: Se não passar companyId, usa a empresa Admin padrão (para não quebrar o registro)
+    const defaultCompanyId = '00000000-0000-0000-0000-000000000001';
+
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
         email: dto.email,
         password: hashedPassword,
+        companyId: dto.companyId || defaultCompanyId,
+        role: 'CLIENTE',
+      },
+      include: {
+        company: true, // 🔥 Busca os dados da empresa para incluir no token
       },
     });
 
     const token = this.generateToken(user);
 
     return {
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId,
+        allowedModules: user.company?.allowedModules || []
+      },
       token,
     };
   }
@@ -42,6 +57,9 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
+      include: {
+        company: true, // 🔥 ESSENCIAL: Busca o plano e módulos permitidos
+      },
     });
 
     if (!user) {
@@ -57,13 +75,28 @@ export class AuthService {
     const token = this.generateToken(user);
 
     return {
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId,
+        allowedModules: user.company?.allowedModules || []
+      },
       token,
     };
   }
 
   private generateToken(user: any) {
-    const payload = { sub: user.id, email: user.email, name: user.name };
+    // 🔥 PAYLOAD COMPLETO PARA O JwtStrategy e Guards funcionarem
+    const payload = { 
+      sub: user.id, 
+      email: user.email, 
+      role: user.role,
+      companyId: user.companyId,
+      allowedModules: user.company?.allowedModules || [],
+    };
+    
     return this.jwtService.sign(payload, {
       expiresIn: process.env.JWT_EXPIRATION || '7d',
     });

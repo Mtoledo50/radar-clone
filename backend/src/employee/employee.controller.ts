@@ -10,7 +10,6 @@ import {
   Request,
 } from '@nestjs/common';
 import { EmployeeService } from './employee.service';
-import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('employees')
@@ -18,52 +17,33 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class EmployeeController {
   constructor(private employeeService: EmployeeService) {}
 
-  /**
-   * GET /employees - Lista todos os colaboradores
-   */
   @Get()
   async findAll(@Request() req) {
-    const employees = await this.employeeService.findAll(req.user.id);
+    const employees = await this.employeeService.findAll(req.user.companyId);
     return { data: employees };
   }
 
-  /**
-   * GET /employees/metrics - Retorna métricas de turnover
-   */
   @Get('metrics')
   async getMetrics(@Request() req) {
-    const metrics = await this.employeeService.getMetrics(req.user.id);
+    const metrics = await this.employeeService.getMetrics(req.user.companyId);
     return { data: metrics };
   }
 
-  /**
-   * POST /employees - Cria novo colaborador
-   */
   @Post()
-  async create(@Request() req, @Body() dto: CreateEmployeeDto) {
-    const employee = await this.employeeService.create(req.user.id, dto);
+  async create(@Request() req, @Body() dto: any) {
+    const employee = await this.employeeService.create(req.user.companyId, req.user.id, dto);
     return { message: 'Colaborador criado com sucesso!', data: employee };
   }
 
-  /**
-   * PUT /employees/:id - Atualiza colaborador
-   */
   @Put(':id')
-  async update(
-    @Request() req,
-    @Param('id') id: string,
-    @Body() dto: CreateEmployeeDto,
-  ) {
-    const employee = await this.employeeService.update(req.user.id, id, dto);
+  async update(@Param('id') id: string, @Body() dto: any) {
+    const employee = await this.employeeService.update(id, dto);
     return { message: 'Colaborador atualizado!', data: employee };
   }
 
-  /**
-   * DELETE /employees/:id - Remove colaborador
-   */
   @Delete(':id')
-  async remove(@Request() req, @Param('id') id: string) {
-    await this.employeeService.remove(req.user.id, id);
+  async remove(@Param('id') id: string) {
+    await this.employeeService.delete(id);
     return { message: 'Colaborador removido!' };
   }
 }

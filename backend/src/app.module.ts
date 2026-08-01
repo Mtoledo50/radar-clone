@@ -6,9 +6,11 @@ import { EmployeeModule } from './employee/employee.module';
 import { ClientModule } from './client/client.module'; // <-- ADICIONE
 import { PricingModule } from './pricing/pricing.module'; // <-- ADICIONE
 import { PlanningModule } from './planning/planning.module'; // <-- NOVO
-
+import { BiModule } from './bi/bi.module'; // <-- ADICIONE ESTA LINHA
+import { TurnoverModule } from './turnover/turnover.module';
+import { AdminModule } from './admin/admin.module'; // 🔥 NOVO IMPORT
 
 @Module({
-  imports: [PrismaModule, AuthModule, CompanyModule, EmployeeModule, ClientModule, PricingModule, PlanningModule],
+  imports: [PrismaModule, AuthModule, CompanyModule, EmployeeModule, ClientModule, PricingModule, PlanningModule, BiModule, TurnoverModule, AdminModule], // 🔥 ADICIONE AdminModule AQUI
 })
 export class AppModule {}
