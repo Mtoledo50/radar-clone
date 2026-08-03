@@ -15,6 +15,8 @@ model Company {
   name            String   
   cnpj            String?  @unique
   state           String?
+  pricingConfigs    PricingConfig?
+
   
   plan            String   @default("BASIC") 
   allowedModules  String[] @default(["dashboard", "pessoas", "clientes"]) 
@@ -23,7 +25,14 @@ model Company {
   updatedAt       DateTime @updatedAt
   
   users           User[]
-  turnoverDistributions TurnoverSectorDistribution[] // 🔥 CORREÇÃO: Relação inversa adicionada
+  turnoverDistributions TurnoverSectorDistribution[] 
+  
+  // 🔥 RELAÇÕES INVERSAS PARA OS NOVOS MODELOS DE PLANOS
+  serviceCategories ServiceCategory[]
+  serviceItems      ServiceItem[]
+  commercialPlans   CommercialPlan[]
+  pricingHourRules  PricingHourRule[]
+  pricingCalculations PricingCalculation[]
   
   @@map("companies")
 }
@@ -415,4 +424,198 @@ model TurnoverSectorDistribution {
   @@unique([companyId, year, month, sectorId])
   @@index([companyId])
   @@map("turnover_sector_distribution")
+}
+
+// =================================================================
+// 📦 MÓDULO DE PLANOS COMERCIAIS (Precificação)
+// =================================================================
+
+// Categoria de serviços (ex: "Fiscal e Tributário", "Departamento Pessoal")
+// Organiza os itens de serviço em grupos lógicos para exibição na proposta.
+model ServiceCategory {
+  id          String        @id @default(uuid())
+  companyId   String        // Isolamento multi-tenant
+  name        String        // Ex: "Fiscal e Tributário"
+  icon        String?       // Nome do ícone Lucide (ex: "FileText")
+  order       Int           @default(0) // Ordem de exibição
+  description String?       // Descrição opcional da categoria
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items       ServiceItem[]
+  
+  @@index([companyId])
+  @@map("service_categories")
+}
+
+// Item de serviço individual (ex: "Apuração mensal de impostos")
+// Cada item pode estar presente em um ou mais planos.
+model ServiceItem {
+  id          String            @id @default(uuid())
+  companyId   String            // Isolamento multi-tenant
+  categoryId  String            // Categoria à qual pertence
+  name        String            // Nome do serviço
+  description String?           // Descrição detalhada (opcional)
+  order       Int               @default(0) // Ordem dentro da categoria
+  
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category    ServiceCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  planItems   PlanServiceItem[]
+  
+  @@index([companyId])
+  @@index([categoryId])
+  @@map("service_items")
+}
+
+// Plano comercial (ex: START, PRIME, BLACK)
+// Define o multiplicador e os itens inclusos.
+model CommercialPlan {
+  id            String            @id @default(uuid())
+  companyId     String            // Isolamento multi-tenant
+  name          String            // Ex: "START", "PRIME", "BLACK"
+  multiplier    Float             // Ex: 0.65, 1.00, 1.45
+  order         Int               @default(0) // Ordem de exibição (menor primeiro)
+  isIndependent Boolean           @default(false) // Se true, não herda itens de planos menores
+  color         String?           // Cor do badge (hex)
+  badge         String?           // Texto do badge (ex: "MAIS POPULAR")
+  description   String?           // Descrição curta do plano
+  
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planItems     PlanServiceItem[]
+  
+  @@index([companyId])
+  @@map("commercial_plans")
+}
+
+// Tabela pivô: relaciona planos com itens de serviço
+// Define quais itens estão inclusos em cada plano.
+model PlanServiceItem {
+  id            String        @id @default(uuid())
+  planId        String
+  serviceItemId String
+  
+  createdAt     DateTime      @default(now())
+  
+  plan          CommercialPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  serviceItem   ServiceItem    @relation(fields: [serviceItemId], references: [id], onDelete: Cascade)
+  
+  @@unique([planId, serviceItemId]) // Um item só pode aparecer uma vez por plano
+  @@index([planId])
+  @@index([serviceItemId])
+  @@map("plan_service_items")
+}
+
+// =================================================================
+// 📊 CONFIGURAÇÃO DE PRECIFICAÇÃO (Custos da Empresa)
+// =================================================================
+
+// Armazena os parâmetros de custo e margem da empresa.
+// Usado para calcular o custo/hora do colaborador e o markup.
+model PricingConfig {
+  id                    String   @id @default(uuid())
+  companyId             String   @unique // Uma config por empresa
+  
+  // Custo do Colaborador
+  salaryAverage         Float    @default(4000)   // Salário Médio (R$)
+  chargesPercent        Float    @default(69)     // Encargos (%)
+  hoursPerMonth         Float    @default(160)    // Horas/Mês
+  livesPerEmployee      Float    @default(150)    // Vidas por Colaborador (DP)
+  
+  // Deduções / Markup
+  taxesPercent          Float    @default(10)     // Impostos (%)
+  backOfficePercent     Float    @default(4)      // Back Office (%)
+  adminPercent          Float    @default(5)      // Administrativo (%)
+  marginFC              Float    @default(15)     // Margem Fiscal/Contábil (%)
+  marginDP              Float    @default(15)     // Margem DP (%)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@map("pricing_configs")
+}
+
+// =================================================================
+// 📊 REGRAS DE HORAS (Por Perfil de Cliente)
+// =================================================================
+
+// Define quantas horas fiscais e contábeis são necessárias
+// para cada combinação de regime, atividade e faixa de faturamento.
+model PricingHourRule {
+  id              String   @id @default(uuid())
+  companyId       String
+  
+  regime          String   // Simples Nacional, Lucro Presumido, Lucro Real, MEI, Imune/Isenta
+  activity        String   // Comércio, Indústria, Serviço
+  annex           String?  // Anexo do Simples (opcional)
+  revenueMin      Float    @default(0)       // Faturamento mínimo (0 = sem mínimo)
+  revenueMax      Float    @default(0)       // Faturamento máximo (0 = ilimitado)
+  
+  hoursFiscal     Float    @default(0)       // Horas Fiscais necessárias
+  hoursAccounting Float    @default(0)       // Horas Contábeis necessárias
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
+  @@index([regime, activity])
+  @@map("pricing_hour_rules")
+}
+
+// =================================================================
+// 📊 CÁLCULO DE PREÇO SALVO (Proposta/Cálculo)
+// =================================================================
+
+// Armazena cada cálculo realizado, permitindo recuperar e gerar propostas.
+model PricingCalculation {
+  id                String   @id @default(uuid())
+  companyId         String
+  userId            String
+  
+  // Identificação
+  proposalNumber    String?  // Ex: 0001/2026
+  clientName        String   // Nome do cliente/prospecto
+  
+  // Perfil do Cliente
+  taxRegime         String   // Regime tributário
+  annex             String?  // Anexo do Simples
+  activity          String   // Atividade (Comércio, Indústria, Serviço)
+  monthlyRevenue    Float    // Faturamento médio mensal
+  employeeCount     Int      // Número de funcionários
+  dpMethod          String   @default("MARGIN") // MARGIN ou PER_EMPLOYEE
+  dpValue           Float    @default(0)        // Margem % ou Valor/func
+  hasBranches       Boolean  @default(false)
+  hasErp            Boolean  @default(false)
+  
+  // Resultados do Cálculo
+  hoursFiscal       Float    @default(0)
+  hoursAccounting   Float    @default(0)
+  costPerHour       Float    @default(0)
+  basePrice         Float    @default(0)    // Preço base sem multiplicador
+  currentCharge     Float?   // Quanto cobra hoje (opcional)
+  
+  // Planos calculados
+  planPrices        Json?    // Array: [{planId, planName, multiplier, finalPrice}]
+  
+  status            String   @default("DRAFT") // DRAFT, SENT, CLOSED, LOST
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
+  @@index([status])
+  @@map("pricing_calculations")
 }
