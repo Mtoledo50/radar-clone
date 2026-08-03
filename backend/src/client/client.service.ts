@@ -91,6 +91,7 @@ export class ClientService {
    * - Clientes ativos e inativos
    * - MRR (Monthly Recurring Revenue)
    * - Taxa de Churn
+   * - Ticket Médio
    */
   async getDashboard(companyId: string) {
     const clients = await this.prisma.client.findMany({

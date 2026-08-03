@@ -584,3 +584,33 @@ Detalhes das Alterações Técnicas:
   * Adição de dois botões na interface (PDF em vermelho, Excel em verde) com ícones
   * Integração com toast para feedback de sucesso após download
 
+Atualização: Carteira de Clientes (Gestão de Carteira)
+
+Descrição:
+* Implementação do módulo de gestão de carteira de clientes, permitindo o cadastro, edição e acompanhamento de todos os clientes do escritório, com métricas financeiras estratégicas.
+  * Funcionalidades Adicionadas:
+  * Dashboard de KPIs: Total de clientes, MRR (Monthly Recurring Revenue), Taxa de Churn e Ticket Médio.
+  * CRUD Completo: Criar, editar e remover clientes com modal dedicado.
+  * Busca Inteligente: Filtro por nome da empresa, contato ou tipo de serviço.
+  * Exportação CSV: Download da carteira completa em formato compatível com Excel.
+  * Status de Cliente: Acompanhamento de clientes Ativos, Inativos e em Churn.
+
+Arquivos Criados/Alterados:
+
+  * backend/src/client/client.service.ts
+  * backend/src/client/client.controller.ts
+  * backend/src/client/client.module.ts
+  * frontend/src/app/dashboard/clientes/page.tsx
+
+Detalhes das Alterações Técnicas:
+
+Backend:
+  * Criação do módulo ClientModule completo com Service e Controller.
+  * Implementação do método getDashboard() que calcula MRR, Churn Rate e Ticket Médio em tempo real.
+  * Endpoints REST: GET /clients, GET /clients/dashboard, POST /clients, PUT /clients/:id, DELETE /clients/:id.
+
+Frontend:
+  * Página completa com layout profissional e responsivo.
+  * Integração com API para carregamento dinâmico de dados.
+  * Modal de cadastro/edição com validação de campos obrigatórios.
+  * Função de exportação CSV com formatação brasileira (valores com vírgula).

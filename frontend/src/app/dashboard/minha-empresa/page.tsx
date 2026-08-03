@@ -1,3 +1,10 @@
+// =================================================================
+// INÍCIO: frontend/src/app/dashboard/minha-empresa/page.tsx
+// =================================================================
+/**
+ * Página: Minha Empresa
+ * Cadastro e configuração dos dados da empresa, softwares utilizados e metas.
+ */
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -28,21 +35,28 @@ export default function MinhaEmpresaPage() {
     compromisso: '',
   });
 
+  // =================================================================
+  // INÍCIO: Constantes de Estilos
+  // =================================================================
   const estados = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
     'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
     'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
   ];
 
-  // 🔥 CLASSE MÁGICA PARA INPUTS (Garante texto visível e contraste perfeito)
-  const inputClass = 
+  const inputClass =
     "w-full px-3 py-2.5 border border-slate-300 rounded-lg " +
-    "text-slate-900 placeholder:text-slate-400 " + // 👈 O SEGREDO DO CONTRASTE
+    "text-slate-900 placeholder:text-slate-400 " +
     "focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-white";
 
   const checkboxClass = "h-4 w-4 text-teal-600 focus:ring-teal-500 border-slate-300 rounded cursor-pointer";
+  // =================================================================
+  // FIM: Constantes de Estilos
+  // =================================================================
 
-  // Carregar dados existentes ao abrir a página
+  // =================================================================
+  // INÍCIO: Carregar Dados Existentes
+  // =================================================================
   useEffect(() => {
     async function fetchData() {
       try {
@@ -75,8 +89,13 @@ export default function MinhaEmpresaPage() {
     }
     fetchData();
   }, []);
+  // =================================================================
+  // FIM: Carregar Dados Existentes
+  // =================================================================
 
-  // Salvar ou Atualizar dados
+  // =================================================================
+  // INÍCIO: Salvar ou Atualizar Dados
+  // =================================================================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -108,7 +127,13 @@ export default function MinhaEmpresaPage() {
       setLoading(false);
     }
   };
+  // =================================================================
+  // FIM: Salvar ou Atualizar Dados
+  // =================================================================
 
+  // =================================================================
+  // INÍCIO: Renderização - Loading
+  // =================================================================
   if (fetching) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -117,20 +142,28 @@ export default function MinhaEmpresaPage() {
       </div>
     );
   }
+  // =================================================================
+  // FIM: Renderização - Loading
+  // =================================================================
 
+  // =================================================================
+  // INÍCIO: Renderização - Formulário Principal
+  // =================================================================
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* CABEÇALHO */}
       <div>
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Minha Empresa</h1>
-        <p className="text-slate-600">Cadastre os dados da sua empresa para personalizar sua experiência e desbloquear relatórios.</p>
+        <p className="text-slate-600">
+          Cadastre os dados da sua empresa para personalizar sua experiência e desbloquear relatórios.
+        </p>
       </div>
 
       {/* MENSAGEM DE SUCESSO OU ERRO */}
       {message.text && (
         <div className={`p-4 rounded-lg flex items-center gap-3 border ${
-          message.type === 'success' 
-            ? 'bg-green-50 text-green-800 border-green-200' 
+          message.type === 'success'
+            ? 'bg-green-50 text-green-800 border-green-200'
             : 'bg-red-50 text-red-800 border-red-200'
         }`}>
           <span className="text-xl">{message.type === 'success' ? '✅' : '❌'}</span>
@@ -139,8 +172,9 @@ export default function MinhaEmpresaPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8">
-        
+        {/* ================================================================= */}
         {/* SEÇÃO 1: DADOS BÁSICOS */}
+        {/* ================================================================= */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-6">
             <Building2 className="h-6 w-6 text-teal-600" />
@@ -183,7 +217,9 @@ export default function MinhaEmpresaPage() {
           </div>
         </div>
 
+        {/* ================================================================= */}
         {/* SEÇÃO 2: SOFTWARES UTILIZADOS */}
+        {/* ================================================================= */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-6">
             <Monitor className="h-6 w-6 text-teal-600" />
@@ -220,7 +256,9 @@ export default function MinhaEmpresaPage() {
           </div>
         </div>
 
+        {/* ================================================================= */}
         {/* SEÇÃO 3: METAS E NÚMEROS */}
+        {/* ================================================================= */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-6">
             <TrendingUp className="h-6 w-6 text-orange-600" />
@@ -246,7 +284,7 @@ export default function MinhaEmpresaPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Quantas pessoas trabalham hoje?</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Quantos funcionários você tem hoje?</label>
               <input
                 type="number"
                 value={formData.funcionariosHoje}
@@ -255,7 +293,7 @@ export default function MinhaEmpresaPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Quantas pessoas quer ter em 1 ano?</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Quantos funcionários quer ter em 1 ano?</label>
               <input
                 type="number"
                 value={formData.funcionariosAno}
@@ -266,7 +304,9 @@ export default function MinhaEmpresaPage() {
           </div>
         </div>
 
+        {/* ================================================================= */}
         {/* SEÇÃO 4: VISÃO DE FUTURO */}
+        {/* ================================================================= */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-6">
             <TrendingUp className="h-6 w-6 text-teal-600" />
@@ -306,7 +346,9 @@ export default function MinhaEmpresaPage() {
           </div>
         </div>
 
+        {/* ================================================================= */}
         {/* BOTÃO SALVAR */}
+        {/* ================================================================= */}
         <div className="flex justify-end pt-4">
           <button
             type="submit"
@@ -317,8 +359,13 @@ export default function MinhaEmpresaPage() {
             {loading ? 'Salvando...' : 'Salvar Dados'}
           </button>
         </div>
-
       </form>
     </div>
   );
+  // =================================================================
+  // FIM: Renderização - Formulário Principal
+  // =================================================================
 }
+// =================================================================
+// FIM: frontend/src/app/dashboard/minha-empresa/page.tsx
+// =================================================================

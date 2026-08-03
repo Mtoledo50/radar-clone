@@ -1,130 +1,113 @@
 // =================================================================
-// INÍCIO: client.service.ts
+// INÍCIO: client.controller.ts
 // =================================================================
 /**
- * ClientService
- * Gerencia a carteira de clientes, incluindo CRUD e métricas de dashboard (MRR, Churn).
+ * ClientController
+ * Endpoints REST para gestão da carteira de clientes.
  */
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
+import { ClientService } from './client.service';
+import { CreateClientDto } from './dto/create-client.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Injectable()
-export class ClientService {
-  constructor(private prisma: PrismaService) {}
+@Controller('clients')
+@UseGuards(JwtAuthGuard)
+export class ClientController {
+  constructor(private clientService: ClientService) {}
 
   // =================================================================
-  // INÍCIO: Método findAll
+  // INÍCIO: Endpoint GET /clients/dashboard
   // =================================================================
   /**
-   * Lista todos os clientes da empresa, ordenados por nome.
+   * Retorna as métricas da carteira de clientes (MRR, Churn, Total, etc.).
    */
-  async findAll(companyId: string) {
-    return this.prisma.client.findMany({
-      where: { companyId },
-      orderBy: { companyName: 'asc' },
-    });
+  @Get('dashboard')
+  async getDashboard(@Request() req) {
+    const data = await this.clientService.getDashboard(req.user.companyId);
+    return { success: true, data };
   }
   // =================================================================
-  // FIM: Método findAll
+  // FIM: Endpoint GET /clients/dashboard
   // =================================================================
 
   // =================================================================
-  // INÍCIO: Método create
+  // INÍCIO: Endpoint GET /clients
+  // =================================================================
+  /**
+   * Lista todos os clientes da empresa.
+   */
+  @Get()
+  async findAll(@Request() req) {
+    const clients = await this.clientService.findAll(req.user.companyId);
+    return { success: true, data: clients };
+  }
+  // =================================================================
+  // FIM: Endpoint GET /clients
+  // =================================================================
+
+  // =================================================================
+  // INÍCIO: Endpoint POST /clients
   // =================================================================
   /**
    * Cria um novo cliente na carteira.
    */
-  async create(companyId: string, userId: string, data: any) {
-    return this.prisma.client.create({
-      data: {
-        ...data,
-        companyId,
-        userId,
-        startDate: new Date(data.startDate),
-        endDate: data.endDate ? new Date(data.endDate) : null,
-      },
-    });
+  @Post()
+  async create(@Request() req, @Body() dto: CreateClientDto) {
+    const client = await this.clientService.create(
+      req.user.companyId,
+      req.user.id,
+      dto,
+    );
+    return {
+      success: true,
+      message: 'Cliente criado com sucesso!',
+      data: client,
+    };
   }
   // =================================================================
-  // FIM: Método create
+  // FIM: Endpoint POST /clients
   // =================================================================
 
   // =================================================================
-  // INÍCIO: Método update
+  // INÍCIO: Endpoint PUT /clients/:id
   // =================================================================
   /**
    * Atualiza os dados de um cliente existente.
    */
-  async update(id: string, data: any) {
-    return this.prisma.client.update({
-      where: { id },
-      data: {
-        ...data,
-        startDate: data.startDate ? new Date(data.startDate) : undefined,
-        endDate: data.endDate ? new Date(data.endDate) : null,
-      },
-    });
+  @Put(':id')
+  async update(@Param('id') id: string, @Body() dto: CreateClientDto) {
+    const client = await this.clientService.update(id, dto);
+    return { success: true, message: 'Cliente atualizado!', data: client };
   }
   // =================================================================
-  // FIM: Método update
+  // FIM: Endpoint PUT /clients/:id
   // =================================================================
 
   // =================================================================
-  // INÍCIO: Método delete
+  // INÍCIO: Endpoint DELETE /clients/:id
   // =================================================================
   /**
    * Remove um cliente da carteira.
    */
-  async delete(id: string) {
-    return this.prisma.client.delete({ where: { id } });
+  @Delete(':id')
+  async remove(@Param('id') id: string) {
+    await this.clientService.delete(id);
+    return { success: true, message: 'Cliente removido!' };
   }
   // =================================================================
-  // FIM: Método delete
-  // =================================================================
-
-  // =================================================================
-  // INÍCIO: Método getDashboard (NOVO - Para métricas MRR/Churn)
-  // =================================================================
-  /**
-   * Retorna métricas da carteira de clientes:
-   * - Total de clientes
-   * - Clientes ativos e inativos
-   * - MRR (Monthly Recurring Revenue)
-   * - Taxa de Churn
-   */
-  async getDashboard(companyId: string) {
-    const clients = await this.prisma.client.findMany({
-      where: { companyId },
-    });
-
-    const total = clients.length;
-    const active = clients.filter((c) => c.status === 'ATIVO').length;
-    const inactive = clients.filter((c) => c.status === 'INATIVO' || c.status === 'CHURN').length;
-
-    // MRR: Soma dos honorários mensais dos clientes ativos
-    const mrr = clients
-      .filter((c) => c.status === 'ATIVO')
-      .reduce((sum, c) => sum + (c.monthlyFee || 0), 0);
-
-    // Churn Rate: Percentual de clientes inativos em relação ao total
-    const churnRate = total > 0 ? (inactive / total) * 100 : 0;
-
-    // Ticket Médio: MRR dividido pelo número de clientes ativos
-    const averageTicket = active > 0 ? mrr / active : 0;
-
-    return {
-      total,
-      active,
-      inactive,
-      mrr: Math.round(mrr * 100) / 100,
-      churnRate: Math.round(churnRate * 100) / 100,
-      averageTicket: Math.round(averageTicket * 100) / 100,
-    };
-  }
-  // =================================================================
-  // FIM: Método getDashboard
+  // FIM: Endpoint DELETE /clients/:id
   // =================================================================
 }
 // =================================================================
-// FIM: client.service.ts
+// FIM: client.controller.ts
 // =================================================================
