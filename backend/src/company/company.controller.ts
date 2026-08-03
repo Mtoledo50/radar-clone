@@ -1,43 +1,50 @@
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
+// =================================================================
+// INÍCIO: company.controller.ts
+// =================================================================
+/**
+ * CompanyController
+ * Endpoints para gestão do perfil da empresa (Minha Empresa).
+ */
+import { Controller, Get, Post, Put, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { CompanyService } from './company.service';
-import { CreateCompanyProfileDto } from './dto/create-company-profile.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('company')
-@UseGuards(JwtAuthGuard) // Protege todas as rotas deste controller
 export class CompanyController {
-  constructor(private companyService: CompanyService) {}
+  constructor(private readonly service: CompanyService) {}
 
   /**
-   * POST /company - Cria ou atualiza o perfil da empresa
-   * Requer autenticação (JWT token no header)
+   * Busca os dados do perfil da empresa do usuário logado.
    */
-  @Post()
-  async createOrUpdate(
-    @Request() req,
-    @Body() dto: CreateCompanyProfileDto,
-  ) {
-    // req.user contém os dados do usuário autenticado (id, email, name)
-    const companyProfile = await this.companyService.createOrUpdate(
-      req.user.id,
-      dto,
-    );
-
-    return {
-      message: 'Dados da empresa salvos com sucesso!',
-      data: companyProfile,
-    };
+  @UseGuards(JwtAuthGuard)
+  @Get()
+  async getProfile(@Request() req) {
+    const data = await this.service.getProfile(req.user.id);
+    return { success: true, data, message: 'Perfil carregado com sucesso' };
   }
 
   /**
-   * GET /company - Busca o perfil da empresa do usuário autenticado
+   * Cria um novo perfil de empresa.
    */
-  @Get()
-  async findByUser(@Request() req) {
-    const companyProfile = await this.companyService.findByUserId(req.user.id);
+  @UseGuards(JwtAuthGuard)
+  @Post()
+  async createProfile(@Request() req, @Body() body: any) {
+    const data = await this.service.createProfile(req.user.id, body);
+    return { success: true, data, message: 'Dados da empresa salvos com sucesso!' };
+  }
 
-    return {
-      data: companyProfile,
-    };
+  /**
+   * Atualiza o perfil de empresa existente.
+   * (O :id é recebido na URL para compatibilidade com o frontend, 
+   * mas usamos o req.user.id para garantir a segurança dos dados).
+   */
+  @UseGuards(JwtAuthGuard)
+  @Put(':id')
+  async updateProfile(@Request() req, @Param('id') id: string, @Body() body: any) {
+    const data = await this.service.updateProfile(req.user.id, body);
+    return { success: true, data, message: 'Dados da empresa atualizados com sucesso!' };
   }
 }
+// =================================================================
+// FIM: company.controller.ts
+// =================================================================

@@ -1,3 +1,10 @@
+// =================================================================
+// INÍCIO: client.module.ts
+// =================================================================
+/**
+ * ClientModule
+ * Módulo responsável pela gestão da carteira de clientes.
+ */
 import { Module } from '@nestjs/common';
 import { ClientService } from './client.service';
 import { ClientController } from './client.controller';
@@ -8,3 +15,6 @@ import { ClientController } from './client.controller';
   exports: [ClientService],
 })
 export class ClientModule {}
+// =================================================================
+// FIM: client.module.ts
+// =================================================================

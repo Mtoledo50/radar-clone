@@ -1,43 +1,94 @@
+// =================================================================
+// INÍCIO: company.service.ts
+// =================================================================
+/**
+ * CompanyService
+ * Gerencia o perfil da empresa (CompanyProfile) vinculado ao usuário.
+ */
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCompanyProfileDto } from './dto/create-company-profile.dto';
 
 @Injectable()
 export class CompanyService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Cria ou atualiza o perfil da empresa para um usuário
+   * Busca o perfil da empresa pelo ID do usuário logado.
    */
-  async createOrUpdate(userId: string, dto: CreateCompanyProfileDto) {
-    // Verifica se já existe um perfil para este usuário
-    const existing = await this.prisma.companyProfile.findUnique({
+  async getProfile(userId: string) {
+    const profile = await this.prisma.companyProfile.findUnique({
       where: { userId },
     });
+    
+    // Retorna o perfil ou um objeto vazio com id null para o frontend lidar
+    return profile || { id: null };
+  }
 
-    if (existing) {
-      // Se existe, atualiza
-      return this.prisma.companyProfile.update({
-        where: { userId },
-        data: dto,
-      });
-    }
-
-    // Se não existe, cria
+  /**
+   * Cria um novo perfil de empresa para o usuário.
+   */
+  async createProfile(userId: string, data: any) {
     return this.prisma.companyProfile.create({
       data: {
         userId,
-        ...dto,
+        razaoSocial: data.razaoSocial,
+        cnpj: data.cnpj,
+        estado: data.estado,
+        softwareConsultoria: data.softwareConsultoria,
+        softwareContabil: data.softwareContabil,
+        softwareFiscal: data.softwareFiscal,
+        clientesHoje: data.clientesHoje,
+        clientesAno: data.clientesAno,
+        funcionariosHoje: data.funcionariosHoje,
+        funcionariosAno: data.funcionariosAno,
+        visaoEmpresa: data.visaoEmpresa,
+        maiorDesafio: data.maiorDesafio,
+        compromisso: data.compromisso,
       },
     });
   }
 
   /**
-   * Busca o perfil da empresa de um usuário
+   * Atualiza (ou cria, se não existir) o perfil da empresa.
+   * Usamos upsert para garantir que funcione mesmo se o registro for deletado.
    */
-  async findByUserId(userId: string) {
-    return this.prisma.companyProfile.findUnique({
+  async updateProfile(userId: string, data: any) {
+    return this.prisma.companyProfile.upsert({
       where: { userId },
+      update: {
+        razaoSocial: data.razaoSocial,
+        cnpj: data.cnpj,
+        estado: data.estado,
+        softwareConsultoria: data.softwareConsultoria,
+        softwareContabil: data.softwareContabil,
+        softwareFiscal: data.softwareFiscal,
+        clientesHoje: data.clientesHoje,
+        clientesAno: data.clientesAno,
+        funcionariosHoje: data.funcionariosHoje,
+        funcionariosAno: data.funcionariosAno,
+        visaoEmpresa: data.visaoEmpresa,
+        maiorDesafio: data.maiorDesafio,
+        compromisso: data.compromisso,
+      },
+      create: {
+        userId,
+        razaoSocial: data.razaoSocial,
+        cnpj: data.cnpj,
+        estado: data.estado,
+        softwareConsultoria: data.softwareConsultoria,
+        softwareContabil: data.softwareContabil,
+        softwareFiscal: data.softwareFiscal,
+        clientesHoje: data.clientesHoje,
+        clientesAno: data.clientesAno,
+        funcionariosHoje: data.funcionariosHoje,
+        funcionariosAno: data.funcionariosAno,
+        visaoEmpresa: data.visaoEmpresa,
+        maiorDesafio: data.maiorDesafio,
+        compromisso: data.compromisso,
+      },
     });
   }
 }
+// =================================================================
+// FIM: company.service.ts
+// =================================================================
