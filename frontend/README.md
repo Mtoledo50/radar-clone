@@ -598,3 +598,29 @@ Alterações Técnicas:
 * Frontend (precificacao/page.tsx):
   * Criação do estado period e da interface de botões de seleção.
   * Integração do parâmetro period nas requisições da API via useEffect.
+
+📈 Atualização: Gráfico de Taxa de Conversão no CRM
+Descrição:
+Implementação de um novo gráfico de linha no Dashboard Comercial (CRM) para visualizar a evolução da taxa de conversão de propostas ao longo do tempo, permitindo identificar tendências de melhoria ou queda no desempenho comercial.
+Funcionalidades Adicionadas:
+
+* Gráfico de Linha Interativo: Visualização da taxa de conversão (%) mês a mês, com pontos destacados e tooltip detalhado.
+* Integração com Filtros de Período: O gráfico de conversão responde dinamicamente aos filtros já existentes (3 Meses, 6 Meses, 1 Ano, Todo Período).
+* Cálculo Automático: A taxa é calculada em tempo real com base nas propostas enviadas vs. fechadas em cada mês, com precisão de 2 casas decimais.
+
+Arquivos Alterados:
+* backend/src/proposals/proposals.service.ts
+* backend/src/proposals/proposals.controller.ts
+* frontend/src/app/dashboard/precificacao/page.tsx
+
+Detalhes das Alterações Técnicas:
+
+* Backend (proposals.service.ts):
+Adição do método getConversionTrendData que agrupa propostas por mês e calcula a taxa de conversão (closed / sent * 100).
+Suporte ao parâmetro period para filtrar os dados conforme o período selecionado.
+* Backend (proposals.controller.ts):
+Adição do endpoint GET /proposals/conversion-trend com suporte ao decorador @Query('period').
+* Frontend (precificacao/page.tsx):
+Importação dos componentes LineChart e Line do Recharts.
+Adição do estado conversionData e nova requisição à API no loadData.
+Inserção do novo card de gráfico entre o gráfico de Pizza (Motivos de Perda) e o gráfico de Área (Receita).
