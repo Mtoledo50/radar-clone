@@ -242,6 +242,61 @@ export class ProposalsService {
   // =================================================================
   // FIM: getLossReasonsData
   // =================================================================
+    // =================================================================
+  // INÍCIO: getConversionTrendData (Taxa de Conversão por Mês)
+  // =================================================================
+  async getConversionTrendData(companyId: string, period: string = '6') {
+    const now = new Date();
+    let monthsToLookBack = 6;
+    if (period === '3') monthsToLookBack = 3;
+    else if (period === '12') monthsToLookBack = 12;
+    else if (period === 'all') monthsToLookBack = 60;
+
+    const startDate = new Date(now.getFullYear(), now.getMonth() - monthsToLookBack + 1, 1);
+
+    const proposals = await this.prisma.proposal.findMany({
+      where: {
+        companyId,
+        createdAt: period === 'all' ? undefined : { gte: startDate },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const monthlyData: any = {};
+    for (let i = monthsToLookBack - 1; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      monthlyData[key] = {
+        month: date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+        sent: 0,
+        closed: 0,
+        conversionRate: 0,
+      };
+    }
+
+    // Agrupar dados
+    proposals.forEach((prop) => {
+      const date = new Date(prop.createdAt);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (monthlyData[key]) {
+        if (prop.status === 'SENT' || prop.status === 'CLOSED' || prop.status === 'LOST') {
+          monthlyData[key].sent++;
+        }
+        if (prop.status === 'CLOSED') {
+          monthlyData[key].closed++;
+        }
+      }
+    });
+
+    // Calcular taxa de conversão
+    return Object.values(monthlyData).map((data: any) => ({
+      ...data,
+      conversionRate: data.sent > 0 ? Math.round((data.closed / data.sent) * 10000) / 100 : 0, // 2 casas decimais
+    }));
+  }
+  // =================================================================
+  // FIM: getConversionTrendData
+  // =================================================================
 }
 // =================================================================
 // FIM: proposals.service.ts
