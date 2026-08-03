@@ -1,36 +1,575 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎯 Radar Conta Certa - Sistema de Gestão Empresarial
 
-## Getting Started
+<div align="center">
 
-First, run the development server:
+![Status](https://img.shields.io/badge/status-em_desenvolvimento-yellow)
+![Next.js](https://img.shields.io/badge/Next.js-16.2-black)
+![React](https://img.shields.io/badge/React-19-blue)
+![NestJS](https://img.shields.io/badge/NestJS-10.x-red)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue)
+![Prisma](https://img.shields.io/badge/Prisma-5.x-teal)
+![License](https://img.shields.io/badge/license-Proprietary-green)
+
+**Sistema SaaS completo de gestão empresarial para escritórios contábeis**
+
+[Funcionalidades](#-funcionalidades) • [Instalação](#-instalação) • [Arquitetura](#-arquitetura) • [Roadmap](#-roadmap)
+
+</div>
+
+---
+
+## 📖 Sobre o Projeto
+
+O **Radar Conta Certa** é um sistema SaaS (Software as a Service) de gestão empresarial desenvolvido especificamente para escritórios contábeis. A plataforma oferece uma solução completa para administrar clientes, colaboradores, precificação de serviços, planejamento estratégico, business intelligence contábil e gestão multi-tenant, tudo em uma interface moderna e intuitiva alinhada com a identidade visual da **Conta Certa Soluções Empresariais**.
+
+### 🎯 Objetivo
+
+Transformar a gestão de escritórios contábeis através de:
+- **Automação** de processos administrativos e contábeis
+- **Inteligência de dados** com BI contábil integrado (DRE, Ponto Fora da Curva, Simulador Tributário)
+- **Precificação inteligente** baseada em horas, custos e margens
+- **Gestão de pessoas** com controle de turnover e motivos de desligamento
+- **Planejamento estratégico** com metas, KPIs e acompanhamento de progresso
+- **Gestão comercial** com planos, propostas e motivos de perda
+
+### 🏢 Identidade Visual
+
+O sistema foi desenvolvido com a identidade visual da **Conta Certa Soluções Empresariais**, utilizando uma paleta de cores profissional baseada no logotipo oficial:
+
+| Cor | Hex | Uso no Sistema |
+|-----|-----|----------------|
+| **Teal Principal** | `#0d9488` | Cor primária (botões, sidebar, destaques) |
+| **Teal Escuro** | `#0f766e` | Hover states, headers, profundidade |
+| **Laranja Vibrante** | `#f97316` | Cor secundária (CTAs, badges, alertas) |
+| **Cinza Escuro** | `#475569` | Textos e elementos neutros |
+
+---
+
+## ✨ Funcionalidades
+
+### 🔐 Autenticação e Segurança
+- [x] Login e cadastro de usuários com validação
+- [x] Autenticação JWT com refresh token
+- [x] Persistência de sessão com Zustand + localStorage (SSR-safe)
+- [x] Proteção de rotas no frontend e backend (Guards JWT)
+- [x] Arquitetura multi-tenant (separação por `companyId`)
+- [x] Controle de roles (Admin da empresa, usuário padrão)
+
+### 📊 Dashboard Executivo
+- [x] KPIs em tempo real (clientes ativos, faturamento, colaboradores, metas)
+- [x] Gráficos nativos com CSS puro (rosca e barras) - sem dependências pesadas
+- [x] Visualização de métricas financeiras consolidadas
+- [x] Cards de status dos módulos com acesso rápido
+- [x] Saudação dinâmica baseada no horário do dia
+
+### 👥 Gestão de Pessoas
+- [x] CRUD completo de colaboradores
+- [x] Controle de admissões e demissões com datas
+- [x] Cálculo automático de **Turnover** (rotatividade)
+- [x] Distribuição por setores (DP, Fiscal, Contábil, etc.)
+- [x] Motivos de desligamento configuráveis
+- [x] Métricas mensais de movimentação
+- [x] Exportação de dados para CSV (UTF-8 com BOM)
+
+### 🤝 Gestão de Clientes
+- [x] Cadastro completo (razão social, CNPJ, contatos)
+- [x] Classificação por tipo de serviço (Contábil, Fiscal, Pessoal, Completo)
+- [x] Controle de status (Ativo, Prospect, Inativo)
+- [x] Cálculo de honorários mensais e ticket médio
+- [x] Faturamento mensal consolidado
+- [x] Busca e filtragem em tempo real
+- [x] Exportação de carteira para CSV
+
+### 💰 Precificação de Serviços
+- [x] Modelos de precificação baseados em horas
+- [x] Cálculo automático: `(Horas × Valor Hora) + Software + Margem`
+- [x] Classificação por complexidade (Baixa, Média, Alta)
+- [x] Status de aprovação (Rascunho, Aprovado, Rejeitado)
+- [x] Valor médio de mercado
+- [x] Exportação de modelos para CSV
+
+### 🎯 Planejamento Estratégico
+- [x] Gestão de metas e objetivos estratégicos
+- [x] Categorias (Comercial, Operacional, Financeiro, Pessoas, Tecnologia)
+- [x] Controle de progresso (%) com barras visuais
+- [x] Prazos e status (Pendente, Em Andamento, Concluído)
+- [x] Métricas de conclusão e progresso médio
+- [x] Exportação de planos para CSV
+
+### 📈 Business Intelligence (BI) Contábil
+- [x] **DRE Gerencial Visual** (Demonstração do Resultado do Exercício)
+- [x] Evolução mensal de receitas e despesas (últimos 6 meses)
+- [x] **Ponto Fora da Curva** (detecção de despesas anormais via análise estatística)
+- [x] **Simulador de Regimes Tributários**:
+  - Simples Nacional
+  - Lucro Presumido
+  - Lucro Real
+- [x] Análise de economia potencial por regime
+- [x] Gráficos comparativos em CSS puro
+- [x] Lançamento de transações financeiras (receitas/despesas)
+
+### 📦 Planos Comerciais
+- [x] Configuração de planos (Essencial, Profissional, Premium)
+- [x] Multiplicadores de preço configuráveis
+- [x] Associação de itens de serviço por categoria
+- [x] Gestão de categorias e itens de serviço
+- [x] Propostas comerciais com itens selecionados
+- [x] Motivos de perda de proposta (Loss Reasons)
+
+### 🏢 Minha Empresa
+- [x] Cadastro de dados da empresa
+- [x] Configuração de setores obrigatórios
+- [x] Gestão de motivos de desligamento
+- [x] Controle de módulos ativos por empresa
+- [x] Configurações administrativas
+
+### 🔧 Painel Administrativo (Multi-Tenant)
+- [x] Gestão de empresas cadastradas
+- [x] Gestão de usuários e roles
+- [x] Proteção de empresa admin (não deletável)
+- [x] Métricas globais do sistema
+- [x] Ativação/desativação de módulos por empresa
+
+### 🎨 Experiência do Usuário (UX)
+- [x] Notificações **Toast** elegantes (Sonner) substituindo `alert()` e `confirm()`
+- [x] Confirmações interativas com botões estilizados
+- [x] Feedback visual em todas as ações (criar, editar, deletar, exportar)
+- [x] Design responsivo (desktop e mobile)
+- [x] Sidebar com sub-itens e destaque de rota ativa
+- [x] Animações suaves e transições
+- [x] Tema consistente com identidade Conta Certa (teal/laranja)
+
+### 📤 Exportação de Dados
+- [x] Exportação CSV com **UTF-8 + BOM** (acentos corretos no Excel)
+- [x] Exportação inteligente (respeita filtros ativos)
+- [x] Feedback visual da quantidade exportada
+- [x] Formato compatível com Excel, Google Sheets e LibreOffice
+
+---
+
+## 🛠️ Stack Tecnológica
+
+### Frontend
+| Tecnologia | Versão | Propósito |
+|------------|--------|-----------|
+| **Next.js** | 16.2.12 | Framework React com App Router |
+| **React** | 19 | Biblioteca de interface |
+| **TypeScript** | 5.x | Tipagem estática |
+| **Tailwind CSS** | 3.x | Estilização utility-first |
+| **Zustand** | 4.x | Gerenciamento de estado global |
+| **Sonner** | 1.x | Sistema de notificações Toast |
+| **Axios** | 1.x | Cliente HTTP com interceptors |
+| **Lucide React** | 1.x | Biblioteca de ícones |
+| **Turbopack** | - | Bundler nativo do Next.js |
+
+### Backend
+| Tecnologia | Versão | Propósito |
+|------------|--------|-----------|
+| **NestJS** | 10.x | Framework Node.js enterprise |
+| **TypeScript** | 5.x | Tipagem estática |
+| **Prisma** | 5.x | ORM moderno |
+| **PostgreSQL** | 15+ | Banco de dados relacional |
+| **JWT** | - | Autenticação e autorização |
+| **class-validator** | - | Validação de DTOs |
+| **bcrypt** | - | Hash de senhas |
+
+### Infraestrutura
+| Tecnologia | Propósito |
+|------------|-----------|
+| **Node.js** | Runtime JavaScript |
+| **npm** | Gerenciador de pacotes |
+| **Git** | Controle de versão |
+
+---
+
+## 🏗️ Arquitetura
+
+### Arquitetura Multi-Tenant Single-Database
+
+O sistema utiliza uma arquitetura **multi-tenant single-database**, onde todos os dados de todas as empresas são armazenados no mesmo banco, mas isolados logicamente através do campo `companyId`.
+┌─────────────────────────────────────────┐
+│ Frontend (Next.js) │
+│ ┌───────────────────────────────────┐ │
+│ │ React 19 + TypeScript + Tailwind │ │
+│ │ Zustand (Estado Global) │ │
+│ │ Sonner (Notificações) │ │
+│ └───────────────────────────────────┘ │
+└──────────────────┬──────────────────────┘
+│ HTTP/REST (Axios + JWT)
+▼
+┌─────────────────────────────────────────┐
+│ Backend (NestJS) │
+│ ┌───────────────────────────────────┐ │
+│ │ Controllers + Services + DTOs │ │
+│ │ Guards (JWT) + Interceptors │ │
+│ │ Prisma ORM │ │
+│ ───────────────────────────────────┘ │
+└──────────────────┬──────────────────────┘
+│ SQL
+▼
+┌─────────────────────────────────────────┐
+│ PostgreSQL Database │
+│ ┌───────────────────────────────────┐ │
+│ │ Tabelas com companyId │ │
+│ │ Índices para performance │ │
+│ │ Relações e constraints │ │
+│ └───────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+
+### Estrutura de Pastas
+radar-clone/
+├── frontend/ # Aplicação Next.js
+│ ├── public/ # Assets estáticos
+│ │ └── logo-conta-certa.png # Logotipo oficial
+│ └── src/
+│ ├── app/ # App Router (páginas e layouts)
+│ │ ├── layout.tsx # Layout raiz (Toaster global)
+│ │ ├── login/ # Tela de login/cadastro
+│ │ └── dashboard/ # Área logada
+│ │ ├── layout.tsx # Sidebar + proteção de rota
+│ │ ├── page.tsx # Dashboard executivo
+│ │ ├── minha-empresa/
+│ │ ├── pessoas/
+│ │ ├── clientes/
+│ │ ├── precificacao/
+│ │ └── planejamento/
+│ ├── components/ # Componentes reutilizáveis
+│ │ └── DashboardCharts.tsx
+│ ├── lib/ # Utilitários
+│ │ ├── axios.ts # Instância Axios configurada
+│ │ └── exportToCSV.ts # Função de exportação CSV
+│ └── store/ # Estado global
+│ └── authStore.ts # Zustand (autenticação)
+│
+├── backend/ # API NestJS
+│ ├── prisma/ # Schema e migrações
+│ │ ├── schema.prisma # Modelos do banco
+│ │ └── seed.ts # Dados iniciais realistas
+│ └── src/
+│ ├── auth/ # Módulo de autenticação
+│ ├── clients/ # Módulo de clientes
+│ ├── employees/ # Módulo de colaboradores
+│ ├── pricings/ # Módulo de precificação
+│ ├── plannings/ # Módulo de planejamento
+│ ├── turnover/ # Módulo de turnover
+│ ├── financial/ # Módulo financeiro (DRE)
+│ ├── bi/ # Business Intelligence
+│ ├── admin/ # Painel administrativo
+│ ├── proposals/ # Módulo de propostas
+│ └── common/ # Módulos compartilhados
+│
+└── README.md # Este arquivo
+
+
+---
+
+## 🚀 Instalação
+
+### Pré-requisitos
+
+- **Node.js** 18+ (recomendado 20+)
+- **PostgreSQL** 15+
+- **npm** 9+
+- **Git**
+
+### Passo a Passo
+
+#### 1. Clonar o Repositório
 
 ```bash
+git clone https://github.com/seu-usuario/radar-conta-certa.git
+cd radar-conta-certa
+
+2. Configurar o Backend
+
+cd backend
+
+# Instalar dependências
+npm install
+
+# Configurar variáveis de ambiente
+cp .env.example .env
+
+# Editar o arquivo .env com suas credenciais do PostgreSQL
+# DATABASE_URL="postgresql://usuario:senha@localhost:5432/radar_conta_certa"
+
+# Gerar o Prisma Client
+npx prisma generate
+
+# Rodar as migrações
+npx prisma migrate deploy
+
+# (Opcional) Popular o banco com dados de teste
+npx prisma db seed
+
+3. Configurar o Frontend
+
+cd ../frontend
+
+# Instalar dependências
+npm install
+
+# Configurar variáveis de ambiente
+cp .env.example .env.local
+
+# Editar o arquivo .env.local
+# NEXT_PUBLIC_API_URL=http://localhost:3001
+
+4. Iniciar o Desenvolvimento
+Abra dois terminais:
+Terminal 1 - Backend:
+
+cd backend
+npm run start:dev
+
+Terminal 2 - Frontend:
+cd frontend
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+O sistema estará disponível em:
+Frontend: http://localhost:3000
+Backend: http://localhost:3001
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+🔐 Variáveis de Ambiente
+Backend (backend/.env)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Banco de Dados
+DATABASE_URL="postgresql://usuario:senha@localhost:5432/radar_conta_certa?schema=public"
 
-## Learn More
+# JWT
+JWT_SECRET="sua-chave-secreta-super-segura-aqui"
+JWT_EXPIRATION="7d"
 
-To learn more about Next.js, take a look at the following resources:
+# Aplicação
+PORT=3001
+NODE_ENV=development
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Frontend (frontend/.env.local)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# API
+NEXT_PUBLIC_API_URL=http://localhost:3001
 
-## Deploy on Vercel
+# Aplicação
+NEXT_PUBLIC_APP_NAME="Radar Conta Certa"
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+📜 Scripts Disponíveis
+Backend
+Comando                         Descrição
+npm run start:dev               Inicia o servidor em modo desenvolvimento (watch)
+npm run build                   Compila o projeto para produção
+npm run start:prod              Inicia o servidor em produção
+npx prisma migrate dev          Cria e aplica migrações
+npx prisma migrate deploy       Aplica migrações em produção
+npx prisma generate             Gera o Prisma Client
+npx prisma studio               Abre o Prisma Studio (GUI do banco)
+npx prisma db seed              Popula o banco com dados iniciais
+
+Frontend
+Comando                         Descrição
+npm run dev                     Inicia o servidor de desenvolvimento (Turbopack)
+npm run build                   Compila o projeto para produção
+npm run start                   Inicia o servidor de produção
+npm run lint                    Executa o linter (ESLint)
+
+🎨 Decisões Técnicas Importantes
+1. Gráficos Nativos com CSS (sem Recharts)
+
+Problema: O Recharts 2.x apresentou incompatibilidade com React 19 + Turbopack, causando erros de NaN e minPointSize is not a function.
+
+Solução: Substituímos por gráficos nativos usando:
+* conic-gradient para gráficos de rosca
+* divs com altura proporcional para barras
+* Tailwind CSS para animações
+
+Benefícios:
+* Zero dependências externas pesadas
+* Performance superior
+* Compatibilidade 100% com Next.js 16
+* Bundle menor (~200KB economizados
+
+2. Exportação CSV com UTF-8 + BOM
+Problema: O Excel abre arquivos CSV assumindo codificação ANSI, quebrando acentos (ex: "Contábil" vira "ContÃ¡bil").
+Solução: Adicionamos o caractere BOM (\uFEFF) no início do arquivo, forçando o Excel a reconhecer UTF-8.
+
+3. Zustand com Persistência localStorage SSR-Safe
+Problema: O Next.js renderiza no servidor (SSR), onde localStorage não existe.
+Solução: Usamos createJSONStorage(() => localStorage) do Zustand, garantindo que a leitura só ocorra no browser, evitando erros de "window is not defined".
+
+4. Arquitetura Multi-Tenant Single-Database
+Decisão: Todas as empresas compartilham o mesmo banco, isoladas por companyId.
+
+Vantagens:
+* Simplicidade operacional (um único banco)
+* Custo reduzido
+* Manutenção centralizada
+* Migrações sincronizadas
+* Segurança: Todas as queries do backend filtram por companyId do usuário autenticado.
+
+5. Notificações Toast (Sonner)
+
+Problema: O alert() e confirm() nativos do navegador são feios e travam a interface.
+Solução: Implementamos o Sonner, que oferece:
+* Notificações elegantes no canto da tela
+* Confirmações interativas com botões
+* Auto-dismiss após 4 segundos
+* Cores semânticas (verde=success, vermelho=error)
+
+6. Correção de Inputs Invisíveis
+Problema: Inputs com texto branco em fundo branco tornavam o texto invisível.
+Solução: Aplicamos a classe text-slate-900 explicitamente em todos os inputs, garantindo contraste adequado.
+
+7. Schema Prisma - Comentários de Linha
+Problema: O Prisma não aceita comentários no formato JSDoc (/** ... */).
+Solução: Todos os comentários do schema foram convertidos para formato de linha única (//).
+
+📊 Módulos do Sistema
+Módulo de Autenticação (/auth)
+* Responsável por: Login, cadastro, refresh token, proteção de rotas
+* Tecnologias: JWT, bcrypt, Zustand
+* Endpoints: /auth/login, /auth/register, /auth/me
+
+Módulo de Clientes (/clients)
+* Responsável por: CRUD de clientes, métricas de faturamento
+* Features: Busca, filtros, exportação CSV
+* Endpoints: /clients, /clients/metrics
+
+Módulo de Pessoas (/employees)
+* Responsável por: CRUD de colaboradores, controle de turnover
+* Features: Admissões, demissões, setores, motivos
+* Endpoints: /employees, /employees/metrics
+
+Módulo de Turnover (/turnover)
+* Responsável por: Análise de rotatividade de pessoal
+* Features: Motivos de desligamento, cálculo de turnover rate
+* Endpoints: /turnover/metrics, /turnover/reasons
+
+Módulo de Precificação (/pricings)
+* Responsável por: Modelos de precificação de serviços
+* Features: Cálculo automático, complexidade, margens
+* Endpoints: /pricings, /pricings/metrics
+
+Módulo de Planejamento (/plannings)
+* Responsável por: Metas e objetivos estratégicos
+* Features: Progresso, categorias, prazos
+* Endpoints: /plannings, /plannings/metrics
+
+Módulo Financeiro (/financial)
+* Responsável por: Receitas e despesas
+* Features: Categorias, evolução mensal, DRE gerencial
+* Endpoints: /financial/transactions, /financial/dre
+
+Módulo de BI (/bi)
+* Responsável por: Business Intelligence contábil
+* Features: Ponto fora da curva, simulador tributário
+* Endpoints: /bi/outliers, /bi/tax-simulator
+
+Módulo de Planos (/plans)
+* Responsável por: Planos comerciais e itens de serviço
+* Features: Categorias, itens, multiplicadores
+* Endpoints: /plans, /plans/categories, /plans/items
+
+Módulo de Propostas (/proposals)
+* Responsável por: Propostas comerciais e motivos de perda
+* Features: Associação de itens, loss reasons
+* Endpoints: /proposals, /proposals/loss-reasons
+
+Módulo Admin (/admin)
+* Responsável por: Gestão global do sistema
+* Features: Empresas, usuários, métricas globais
+* Endpoints: /admin/companies, /admin/users
+
+🧪 Testes
+Testes Manuais
+1 - Autenticação:
+* Criar conta → Fazer login → Verificar redirect para dashboard
+* Logout → Tentar acessar rota protegida → Verificar redirect para login
+
+2- CRUD de Clientes:
+* Criar cliente → Editar → Exportar CSV → Deletar
+* Verificar toast de sucesso em cada ação
+3 - Exportação CSV:
+* Exportar dados → Abrir no Excel → Verificar acentos corretos
+4- Dashboard:
+* Verificar KPIs → Verificar gráficos → Verificar carregamento
+5- BI Contábil:
+* Lançar transações → Ver DRE → Testar simulador tributário
+
+Testes Automatizados (Futuro)
+* Testes unitários com Jest
+* Testes de integração com Supertest
+* Testes E2E com Playwright
+
+️ Roadmap
+✅ Fase 1 - Fundação (Concluída)
+* *utenticação e autorização
+* Dashboard executivo
+* Gestão de Pessoas
+* Gestão de Clientes
+* Precificação
+* Planejamento Estratégico
+* Exportação CSV
+* Notificações Toast
+* Rebranding Conta Certa
+
+✅ Fase 2 - BI e Comercial (Concluída)
+* DRE Gerencial
+* Ponto Fora da Curva
+* Simulador Tributário
+* Planos Comerciais
+* Propostas e Loss Reasons
+* Módulo de Turnover
+* Painel Admin Multi-Tenant
+
+Fase 3 - Produção (Em Andamento)
+* Docker e docker-compose
+* Deploy em produção (VPS/Render/Railway)
+* CI/CD com GitHub Actions
+* Monitoramento (Sentry, LogRocket)
+* Backup automático do banco
+* Variáveis de ambiente de produção
+
+Fase 4 - Expansão (Planejada)
+* Relatórios em PDF
+* Integração com APIs contábeis (Sintegra, eSocial)
+* Módulo de tarefas e projetos
+* Chat interno entre contador e cliente
+* App mobile (React Native)
+* Multi-idioma (i18n)
+* White-label (personalização por empresa)
+
+🤝 Contribuição
+Este é um projeto proprietário. Contribuições externas não são aceitas no momento.
+Para reportar bugs ou sugerir melhorias, entre em contato com a equipe de desenvolvimento.
+
+📄 Licença
+Proprietary License
+Copyright © 2026 Conta Certa Soluções Empresariais. Todos os direitos reservados.
+Este software é propriedade intelectual da Conta Certa e não pode ser copiado, modificado ou distribuído sem autorização expressa.
+
+👨‍💻 Autor
+Marcos - Desenvolvedor Full Stack
+Projeto: Radar Conta Certa
+Stack: Next.js 16 + NestJS + PostgreSQL + Prisma
+Ano: 2026
+
+🙏 Agradecimentos
+Next.js Team - Framework excepcional
+Vercel - Por manter o Next.js
+NestJS Team - Framework enterprise robusto
+Prisma - ORM moderno e intuitivo
+Tailwind CSS - Estilização utility-first incrível
+Lucide - Ícones bonitos e consistentes
+Sonner - Notificações elegantes
+Conta Certa Soluções Empresariais - Pela visão e identidade visual
+
+📞 Suporte
+Para dúvidas, suporte técnico ou informações comerciais:
+Email: contato@contacerta.com.br
+Website: www.contacerta.com.br
+<div align="center">
+
+Feito com ❤️ por Marcos e equipe Conta Certa
+⭐ Se este projeto foi útil, considere dar uma estrela!
+</div>
