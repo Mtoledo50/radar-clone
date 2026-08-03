@@ -92,8 +92,50 @@ export default function PrecificacaoPage() {
 // =================================================================
 
 // =================================================================
-// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM) COM FILTROS E CONVERSÃO
+// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM) COM TOOLTIPS INFORMATIVOS
 // =================================================================
+
+// =================================================================
+// INÍCIO: COMPONENTE REUTILIZÁVEL InfoTooltip
+// =================================================================
+/**
+ * InfoTooltip
+ * Exibe um ícone de informação (exclamação dentro de triângulo) que,
+ * ao passar o mouse, mostra uma descrição explicativa da métrica/gráfico.
+ */
+function InfoTooltip({ description }: { description: string }) {
+  return (
+    <div className="group relative inline-block ml-2 align-middle">
+      {/* Ícone de exclamação dentro de triângulo */}
+      <div className="w-5 h-5 flex items-center justify-center text-amber-500 hover:text-amber-600 cursor-help transition-colors">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="w-5 h-5"
+        >
+          <path
+            fillRule="evenodd"
+            d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </div>
+
+      {/* Tooltip que aparece no hover */}
+      <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200 absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-64 p-3 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl pointer-events-none">
+        {description}
+        {/* Setinha do tooltip */}
+        <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-2 h-2 bg-slate-900 rotate-45"></div>
+      </div>
+    </div>
+  );
+}
+// =================================================================
+// FIM: COMPONENTE REUTILIZÁVEL InfoTooltip
+// =================================================================
+
+
 function PropostasTab() {
   // --- Estados ---
   const [loading, setLoading] = useState(true);
@@ -101,7 +143,7 @@ function PropostasTab() {
   const [proposals, setProposals] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [lossReasonsData, setLossReasonsData] = useState<any[]>([]);
-  const [conversionData, setConversionData] = useState<any[]>([]); // 🔥 Novo estado
+  const [conversionData, setConversionData] = useState<any[]>([]);
   const [period, setPeriod] = useState<'3' | '6' | '12' | 'all'>('6');
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
@@ -122,13 +164,13 @@ function PropostasTab() {
         api.get('/proposals'),
         api.get(`/proposals/trend-data?period=${period}`),
         api.get(`/proposals/loss-reasons?period=${period}`),
-        api.get(`/proposals/conversion-trend?period=${period}`), // 🔥 Nova requisição
+        api.get(`/proposals/conversion-trend?period=${period}`),
       ]);
       setStats(statsRes.data.data);
       setProposals(proposalsRes.data.data);
       setTrendData(trendRes.data.data);
       setLossReasonsData(lossRes.data.data);
-      setConversionData(conversionRes.data.data); // 🔥 Salvando dados
+      setConversionData(conversionRes.data.data);
     } catch (err) {
       toast.error('Erro ao carregar dados do CRM');
     } finally {
@@ -239,9 +281,17 @@ function PropostasTab() {
       {/* 3. Gráficos de Tendência e Motivos de Perda */}
       {trendData.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Gráfico de Barras (Ocupa 2 colunas) */}
+          
+          {/* ================================================================= */}
+          {/* INÍCIO: Gráfico de Barras - Propostas por Mês */}
+          {/* ================================================================= */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-2">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Propostas por Mês</h3>
+            <div className="flex items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Propostas por Mês</h3>
+              <InfoTooltip 
+                description="Mostra o volume de propostas enviadas, fechadas e perdidas em cada mês do período selecionado. Ideal para identificar picos de atividade e sazonalidade comercial."
+              />
+            </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -255,10 +305,20 @@ function PropostasTab() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          {/* ================================================================= */}
+          {/* FIM: Gráfico de Barras - Propostas por Mês */}
+          {/* ================================================================= */}
 
-          {/* Gráfico de Pizza (Motivos de Perda) */}
+          {/* ================================================================= */}
+          {/* INÍCIO: Gráfico de Pizza - Motivos de Perda */}
+          {/* ================================================================= */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Motivos de Perda</h3>
+            <div className="flex items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Motivos de Perda</h3>
+              <InfoTooltip 
+                description="Distribuição percentual dos motivos pelos quais as propostas foram perdidas. Ajuda a identificar se o problema está no preço, concorrência ou no processo comercial."
+              />
+            </div>
             {lossReasonsData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
@@ -285,10 +345,20 @@ function PropostasTab() {
               </div>
             )}
           </div>
+          {/* ================================================================= */}
+          {/* FIM: Gráfico de Pizza - Motivos de Perda */}
+          {/* ================================================================= */}
 
-          {/* 🔥 NOVO: Gráfico de Linha (Taxa de Conversão) */}
+          {/* ================================================================= */}
+          {/* INÍCIO: Gráfico de Linha - Taxa de Conversão */}
+          {/* ================================================================= */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-3">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Taxa de Conversão (%)</h3>
+            <div className="flex items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Taxa de Conversão (%)</h3>
+              <InfoTooltip 
+                description="Percentual de propostas enviadas que resultaram em fechamento (venda). Uma taxa crescente indica melhoria no processo comercial; uma queda sinaliza necessidade de revisão na estratégia de vendas."
+              />
+            </div>
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={conversionData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -309,10 +379,20 @@ function PropostasTab() {
               </LineChart>
             </ResponsiveContainer>
           </div>
+          {/* ================================================================= */}
+          {/* FIM: Gráfico de Linha - Taxa de Conversão */}
+          {/* ================================================================= */}
 
-          {/* Gráfico de Área (Ocupa largura total) */}
+          {/* ================================================================= */}
+          {/* INÍCIO: Gráfico de Área - Receita Gerada */}
+          {/* ================================================================= */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-3">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Receita Gerada por Mês (R$)</h3>
+            <div className="flex items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Receita Gerada por Mês (R$)</h3>
+              <InfoTooltip 
+                description="Soma total da receita mensal proveniente das propostas fechadas no período. Essencial para acompanhar o crescimento financeiro e projetar o faturamento futuro do escritório."
+              />
+            </div>
             <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -323,6 +403,10 @@ function PropostasTab() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          {/* ================================================================= */}
+          {/* FIM: Gráfico de Área - Receita Gerada */}
+          {/* ================================================================= */}
+
         </div>
       )}
 
@@ -448,7 +532,7 @@ function PropostasTab() {
   );
 }
 // =================================================================
-// FIM: COMPONENTE DA ABA PROPOSTAS (CRM) COM FILTROS E CONVERSÃO
+// FIM: COMPONENTE DA ABA PROPOSTAS (CRM) COM TOOLTIPS INFORMATIVOS
 // =================================================================
 
 // =================================================================
