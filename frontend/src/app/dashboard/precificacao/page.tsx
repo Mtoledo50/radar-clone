@@ -92,40 +92,28 @@ export default function PrecificacaoPage() {
 // =================================================================
 
 // =================================================================
-// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM) COM TOOLTIPS INFORMATIVOS
+// INÍCIO: IMPORTS ADICIONAIS PARA EXPORTAÇÃO
 // =================================================================
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+// =================================================================
+// FIM: IMPORTS ADICIONAIS PARA EXPORTAÇÃO
+// =================================================================
+
 
 // =================================================================
 // INÍCIO: COMPONENTE REUTILIZÁVEL InfoTooltip
 // =================================================================
-/**
- * InfoTooltip
- * Exibe um ícone de informação (exclamação dentro de triângulo) que,
- * ao passar o mouse, mostra uma descrição explicativa da métrica/gráfico.
- */
 function InfoTooltip({ description }: { description: string }) {
   return (
     <div className="group relative inline-block ml-2 align-middle">
-      {/* Ícone de exclamação dentro de triângulo */}
       <div className="w-5 h-5 flex items-center justify-center text-amber-500 hover:text-amber-600 cursor-help transition-colors">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          className="w-5 h-5"
-        >
-          <path
-            fillRule="evenodd"
-            d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
-            clipRule="evenodd"
-          />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+          <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
         </svg>
       </div>
-
-      {/* Tooltip que aparece no hover */}
       <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200 absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-64 p-3 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl pointer-events-none">
         {description}
-        {/* Setinha do tooltip */}
         <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-2 h-2 bg-slate-900 rotate-45"></div>
       </div>
     </div>
@@ -136,6 +124,9 @@ function InfoTooltip({ description }: { description: string }) {
 // =================================================================
 
 
+// =================================================================
+// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM) COM EXPORTAÇÃO
+// =================================================================
 function PropostasTab() {
   // --- Estados ---
   const [loading, setLoading] = useState(true);
@@ -200,6 +191,146 @@ function PropostasTab() {
     }
   }
 
+  // =================================================================
+  // INÍCIO: FUNÇÃO exportToPDF
+  // =================================================================
+  /**
+   * Gera e baixa um relatório PDF completo do CRM
+   * Inclui: KPIs, resumo dos gráficos e tabela de propostas
+   */
+  function exportToPDF() {
+    const doc = new jsPDF();
+    const periodLabels: any = { '3': '3 Meses', '6': '6 Meses', '12': '1 Ano', 'all': 'Todo Período' };
+
+    // Cabeçalho
+    doc.setFontSize(18);
+    doc.setTextColor(20, 184, 166); // teal-600
+    doc.text('Relatório de Propostas - CRM', 14, 20);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text(`Período: ${periodLabels[period]}`, 14, 28);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 33);
+
+    // KPIs
+    if (stats) {
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42); // slate-900
+      doc.text('Resumo Executivo', 14, 45);
+
+      const kpiData = [
+        ['Total de Propostas', stats.totalProposals.toString()],
+        ['Enviadas', stats.sent.toString()],
+        ['Fechadas', stats.closed.toString()],
+        ['Perdidas', stats.lost.toString()],
+        ['Taxa de Conversão', `${stats.conversion}%`],
+        ['Ganho Mensal Total', `R$ ${stats.totalGain.toFixed(2)}`],
+      ];
+
+      autoTable(doc, {
+        startY: 50,
+        head: [['Métrica', 'Valor']],
+        body: kpiData,
+        theme: 'striped',
+        headStyles: { fillColor: [20, 184, 166] },
+      });
+    }
+
+    // Tabela de Propostas
+    doc.setFontSize(14);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Detalhamento das Propostas', 14, (doc as any).lastAutoTable.finalY + 15);
+
+    const proposalsData = proposals.map((prop) => [
+      prop.proposalNumber,
+      prop.clientName,
+      {
+        'SENT': 'Enviada',
+        'CLOSED': 'Fechada',
+        'LOST': 'Perdida',
+        'DRAFT': 'Rascunho'
+      }[prop.status] || prop.status,
+      `R$ ${prop.basePrice.toFixed(2)}`,
+      prop.status === 'CLOSED' ? (prop.closedPlanName || 'N/A') : '-',
+    ]);
+
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 20,
+      head: [['Nº Proposta', 'Cliente', 'Status', 'Valor Base', 'Plano Fechado']],
+      body: proposalsData,
+      theme: 'grid',
+      headStyles: { fillColor: [20, 184, 166] },
+      styles: { fontSize: 9 },
+    });
+
+    // Rodapé
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`Página ${i} de ${pageCount}`, 14, 285);
+    }
+
+    // Salvar PDF
+    doc.save(`relatorio-propostas-${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success('Relatório PDF baixado com sucesso!');
+  }
+  // =================================================================
+  // FIM: FUNÇÃO exportToPDF
+  // =================================================================
+
+  // =================================================================
+  // INÍCIO: FUNÇÃO exportToCSV
+  // =================================================================
+  /**
+   * Gera e baixa um relatório CSV/Excel das propostas
+   * Formato compatível com Excel e Google Sheets
+   */
+  function exportToCSV() {
+    // Cabeçalho CSV
+    const headers = ['Nº Proposta', 'Cliente', 'CNPJ', 'Status', 'Valor Base', 'Plano Fechado', 'Data Criação', 'Motivo de Perda'];
+    
+    // Dados
+    const rows = proposals.map((prop) => [
+      prop.proposalNumber,
+      prop.clientName,
+      prop.clientCnpj || '',
+      {
+        'SENT': 'Enviada',
+        'CLOSED': 'Fechada',
+        'LOST': 'Perdida',
+        'DRAFT': 'Rascunho'
+      }[prop.status] || prop.status,
+      prop.basePrice.toFixed(2).replace('.', ','),
+      prop.status === 'CLOSED' ? (prop.closedPlanName || 'N/A') : '',
+      new Date(prop.createdAt).toLocaleDateString('pt-BR'),
+      prop.lossReason || '',
+    ]);
+
+    // Criar conteúdo CSV
+    const csvContent = [
+      headers.join(';'),
+      ...rows.map((row) => row.join(';'))
+    ].join('\n');
+
+    // Criar blob e download
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `propostas-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success('Relatório CSV baixado com sucesso!');
+  }
+  // =================================================================
+  // FIM: FUNÇÃO exportToCSV
+  // =================================================================
+
   // --- Renderização ---
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
 
@@ -253,44 +384,66 @@ function PropostasTab() {
         </div>
       )}
 
-      {/* 2. Filtro de Período */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <h3 className="text-lg font-bold text-slate-900">Análise de Desempenho</h3>
-        <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
-          {[
-            { value: '3', label: '3 Meses' },
-            { value: '6', label: '6 Meses' },
-            { value: '12', label: '1 Ano' },
-            { value: 'all', label: 'Todo Período' },
-          ].map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value as any)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                period === p.value
-                  ? 'bg-white text-teal-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
+      {/* 2. Filtro de Período e Botões de Exportação */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-bold text-slate-900">Análise de Desempenho</h3>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Botões de Exportação */}
+          <button
+            onClick={exportToPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+            title="Exportar relatório em PDF"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            PDF
+          </button>
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+            title="Exportar relatório em Excel/CSV"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Excel
+          </button>
+          
+          {/* Filtro de Período */}
+          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg ml-2">
+            {[
+              { value: '3', label: '3M' },
+              { value: '6', label: '6M' },
+              { value: '12', label: '1A' },
+              { value: 'all', label: 'Todo' },
+            ].map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value as any)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  period === p.value
+                    ? 'bg-white text-teal-700 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* 3. Gráficos de Tendência e Motivos de Perda */}
+      {/* 3. Gráficos (mantidos iguais - com tooltips) */}
       {trendData.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* ================================================================= */}
-          {/* INÍCIO: Gráfico de Barras - Propostas por Mês */}
-          {/* ================================================================= */}
+          {/* Gráfico de Barras */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-2">
             <div className="flex items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900">Propostas por Mês</h3>
-              <InfoTooltip 
-                description="Mostra o volume de propostas enviadas, fechadas e perdidas em cada mês do período selecionado. Ideal para identificar picos de atividade e sazonalidade comercial."
-              />
+              <InfoTooltip description="Mostra o volume de propostas enviadas, fechadas e perdidas em cada mês do período selecionado." />
             </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={trendData}>
@@ -305,33 +458,17 @@ function PropostasTab() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          {/* ================================================================= */}
-          {/* FIM: Gráfico de Barras - Propostas por Mês */}
-          {/* ================================================================= */}
 
-          {/* ================================================================= */}
-          {/* INÍCIO: Gráfico de Pizza - Motivos de Perda */}
-          {/* ================================================================= */}
+          {/* Gráfico de Pizza */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900">Motivos de Perda</h3>
-              <InfoTooltip 
-                description="Distribuição percentual dos motivos pelos quais as propostas foram perdidas. Ajuda a identificar se o problema está no preço, concorrência ou no processo comercial."
-              />
+              <InfoTooltip description="Distribuição percentual dos motivos pelos quais as propostas foram perdidas." />
             </div>
             {lossReasonsData.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
-                  <Pie
-                    data={lossReasonsData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
+                  <Pie data={lossReasonsData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                     {lossReasonsData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
                     ))}
@@ -340,58 +477,32 @@ function PropostasTab() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-slate-400 text-sm">
-                Nenhuma proposta perdida no período.
-              </div>
+              <div className="flex items-center justify-center h-[300px] text-slate-400 text-sm">Nenhuma proposta perdida no período.</div>
             )}
           </div>
-          {/* ================================================================= */}
-          {/* FIM: Gráfico de Pizza - Motivos de Perda */}
-          {/* ================================================================= */}
 
-          {/* ================================================================= */}
-          {/* INÍCIO: Gráfico de Linha - Taxa de Conversão */}
-          {/* ================================================================= */}
+          {/* Gráfico de Linha - Conversão */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-3">
             <div className="flex items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900">Taxa de Conversão (%)</h3>
-              <InfoTooltip 
-                description="Percentual de propostas enviadas que resultaram em fechamento (venda). Uma taxa crescente indica melhoria no processo comercial; uma queda sinaliza necessidade de revisão na estratégia de vendas."
-              />
+              <InfoTooltip description="Percentual de propostas enviadas que resultaram em fechamento." />
             </div>
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={conversionData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
                 <YAxis stroke="#64748b" style={{ fontSize: '12px' }} unit="%" />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}
-                  formatter={(value: number) => [`${value.toFixed(2)}%`, 'Conversão']}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="conversionRate" 
-                  stroke="#3b82f6" 
-                  strokeWidth={3}
-                  dot={{ r: 5, fill: '#3b82f6' }}
-                  activeDot={{ r: 7 }}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value: number) => [`${value.toFixed(2)}%`, 'Conversão']} />
+                <Line type="monotone" dataKey="conversionRate" stroke="#3b82f6" strokeWidth={3} dot={{ r: 5, fill: '#3b82f6' }} activeDot={{ r: 7 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
-          {/* ================================================================= */}
-          {/* FIM: Gráfico de Linha - Taxa de Conversão */}
-          {/* ================================================================= */}
 
-          {/* ================================================================= */}
-          {/* INÍCIO: Gráfico de Área - Receita Gerada */}
-          {/* ================================================================= */}
+          {/* Gráfico de Área - Receita */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-3">
             <div className="flex items-center mb-4">
               <h3 className="text-lg font-bold text-slate-900">Receita Gerada por Mês (R$)</h3>
-              <InfoTooltip 
-                description="Soma total da receita mensal proveniente das propostas fechadas no período. Essencial para acompanhar o crescimento financeiro e projetar o faturamento futuro do escritório."
-              />
+              <InfoTooltip description="Soma total da receita mensal proveniente das propostas fechadas." />
             </div>
             <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={trendData}>
@@ -403,10 +514,6 @@ function PropostasTab() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          {/* ================================================================= */}
-          {/* FIM: Gráfico de Área - Receita Gerada */}
-          {/* ================================================================= */}
-
         </div>
       )}
 
@@ -472,7 +579,7 @@ function PropostasTab() {
         </div>
       </div>
 
-      {/* 5. Modal: Fechar Proposta */}
+      {/* Modais (mantidos iguais) */}
       {showCloseModal && selectedProposal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -503,7 +610,6 @@ function PropostasTab() {
         </div>
       )}
 
-      {/* 6. Modal: Marcar como Perdida */}
       {showLostModal && selectedProposal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -532,9 +638,8 @@ function PropostasTab() {
   );
 }
 // =================================================================
-// FIM: COMPONENTE DA ABA PROPOSTAS (CRM) COM TOOLTIPS INFORMATIVOS
+// FIM: COMPONENTE DA ABA PROPOSTAS (CRM) COM EXPORTAÇÃO
 // =================================================================
-
 // =================================================================
 // INÍCIO: COMPONENTE DA ABA CALCULADORA DE PREÇO
 // =================================================================
