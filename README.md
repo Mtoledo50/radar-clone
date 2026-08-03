@@ -171,13 +171,21 @@ O sistema foi desenvolvido com a identidade visual da **Conta Certa Soluções E
 
 O sistema utiliza uma arquitetura **multi-tenant single-database**, onde todos os dados de todas as empresas são armazenados no mesmo banco, mas isolados logicamente através do campo `companyId`.
 ┌─────────────────────────────────────────┐
+
 │ Frontend (Next.js) │
+
 │ ┌───────────────────────────────────┐ │
+
 │ │ React 19 + TypeScript + Tailwind │ │
+
 │ │ Zustand (Estado Global) │ │
+
 │ │ Sonner (Notificações) │ │
+
 │ └───────────────────────────────────┘ │
+
 └──────────────────┬──────────────────────┘
+
 │ HTTP/REST (Axios)
 ▼
 ┌─────────────────────────────────────────┐
