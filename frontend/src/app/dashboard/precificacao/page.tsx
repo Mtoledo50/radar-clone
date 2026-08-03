@@ -1,6 +1,6 @@
 /**
- * Página: Precificação
- * Abas: Calculadora | Configurações | Regras de Horas | Meus Planos | Categorias e Itens
+ * Página: Precificação e CRM de Propostas
+ * Abas: Calculadora | Configurações | Regras de Horas | Meus Planos | Categorias | Propostas
  */
 'use client';
 
@@ -10,7 +10,8 @@ import { toast } from 'sonner';
 import {
   Package, Plus, Trash2, Edit2, Save, X, Check,
   ChevronDown, ChevronRight, Loader2, Tag, FolderOpen, FileText,
-  Calculator, Settings, Clock, AlertTriangle, Download
+  Calculator, Settings, Clock, AlertTriangle, Download, TrendingUp, 
+  FileCheck, FileX, DollarSign, Users
 } from 'lucide-react';
 
 const inputClass = 'w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white';
@@ -18,16 +19,16 @@ const btnPrimary = 'flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-
 const btnSecondary = 'flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors';
 
 export default function PrecificacaoPage() {
-  const [activeTab, setActiveTab] = useState<'calculator' | 'config' | 'rules' | 'plans' | 'categories'>('calculator');
+  const [activeTab, setActiveTab] = useState<'calculator' | 'config' | 'rules' | 'plans' | 'categories' | 'propostas'>('calculator');
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
           <Calculator className="h-8 w-8 text-teal-600" />
-          Precificação
+          Precificação & Propostas
         </h1>
-        <p className="text-slate-600 mt-1">Configure custos, defina regras e calcule o preço ideal de honorários.</p>
+        <p className="text-slate-600 mt-1">Configure custos, calcule preços e acompanhe o fechamento de propostas.</p>
       </div>
 
       <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
@@ -37,6 +38,7 @@ export default function PrecificacaoPage() {
           { key: 'rules', label: 'Regras de Horas', icon: Clock },
           { key: 'plans', label: 'Meus Planos', icon: Tag },
           { key: 'categories', label: 'Categorias', icon: FolderOpen },
+          { key: 'propostas', label: 'Propostas (CRM)', icon: TrendingUp },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -55,6 +57,287 @@ export default function PrecificacaoPage() {
       {activeTab === 'rules' && <RulesTab />}
       {activeTab === 'plans' && <PlansTab />}
       {activeTab === 'categories' && <CategoriesTab />}
+      {activeTab === 'propostas' && <PropostasTab />}
+    </div>
+  );
+}
+
+// =================================================================
+// 📊 ABA: PROPOSTAS (CRM)
+// =================================================================
+function PropostasTab() {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any>(null);
+  const [proposals, setProposals] = useState<any[]>([]);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [showLostModal, setShowLostModal] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<any>(null);
+  
+  const [closeForm, setCloseForm] = useState({ planId: '', price: 0, discount: 0 });
+  const [lostReason, setLostReason] = useState('Preço alto');
+
+  useEffect(() => { loadData(); }, []);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const [statsRes, proposalsRes] = await Promise.all([
+        api.get('/proposals/dashboard/stats'),
+        api.get('/proposals'),
+      ]);
+      setStats(statsRes.data.data);
+      setProposals(proposalsRes.data.data);
+    } catch (err) {
+      toast.error('Erro ao carregar dados do CRM');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCloseProposal() {
+    try {
+      await api.post(`/proposals/${selectedProposal.id}/close`, closeForm);
+      toast.success('Proposta marcada como fechada!');
+      setShowCloseModal(false);
+      loadData();
+    } catch (err) {
+      toast.error('Erro ao fechar proposta');
+    }
+  }
+
+  async function handleMarkAsLost() {
+    try {
+      await api.post(`/proposals/${selectedProposal.id}/lost`, { reason: lostReason });
+      toast.success('Proposta marcada como perdida.');
+      setShowLostModal(false);
+      loadData();
+    } catch (err) {
+      toast.error('Erro ao marcar como perdida');
+    }
+  }
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
+
+  return (
+    <div className="space-y-6">
+      {/* KPIs */}
+      {stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <FileCheck className="h-5 w-5 text-teal-600" />
+              <span className="text-sm font-semibold text-slate-600">Enviadas</span>
+            </div>
+            <p className="text-2xl font-bold text-slate-900">{stats.sent}</p>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <Check className="h-5 w-5 text-green-600" />
+              <span className="text-sm font-semibold text-slate-600">Fechadas</span>
+            </div>
+            <p className="text-2xl font-bold text-slate-900">{stats.closed}</p>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <FileX className="h-5 w-5 text-red-600" />
+              <span className="text-sm font-semibold text-slate-600">Perdidas</span>
+            </div>
+            <p className="text-2xl font-bold text-slate-900">{stats.lost}</p>
+          </div>
+          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="h-5 w-5 text-blue-600" />
+              <span className="text-sm font-semibold text-slate-600">Conversão</span>
+            </div>
+            <p className="text-2xl font-bold text-slate-900">{stats.conversion}%</p>
+          </div>
+          <div className="bg-teal-50 p-4 rounded-xl border-2 border-teal-200 shadow-sm md:col-span-2">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="h-5 w-5 text-teal-700" />
+              <span className="text-sm font-bold text-teal-800">Ganho Mensal Total</span>
+            </div>
+            <p className="text-3xl font-bold text-teal-700">R$ {stats.totalGain.toFixed(2)}</p>
+          </div>
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm md:col-span-2">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="h-5 w-5 text-slate-600" />
+              <span className="text-sm font-bold text-slate-700">Total de Propostas</span>
+            </div>
+            <p className="text-3xl font-bold text-slate-900">{stats.totalProposals}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Tabela de Propostas */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="p-4 border-b border-slate-200">
+          <h3 className="text-lg font-bold text-slate-900">Histórico de Propostas</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase">Nº</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase">Cliente</th>
+                <th className="text-center px-4 py-3 text-xs font-bold text-slate-600 uppercase">Status</th>
+                <th className="text-right px-4 py-3 text-xs font-bold text-slate-600 uppercase">Valor Base</th>
+                <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase">Plano Fechado</th>
+                <th className="text-right px-4 py-3 text-xs font-bold text-slate-600 uppercase">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {proposals.map((prop) => {
+                const statusColors = {
+                  DRAFT: 'bg-slate-100 text-slate-700',
+                  SENT: 'bg-blue-100 text-blue-700',
+                  CLOSED: 'bg-green-100 text-green-700',
+                  LOST: 'bg-red-100 text-red-700',
+                };
+                const statusLabels = {
+                  DRAFT: 'Rascunho',
+                  SENT: 'Enviada',
+                  CLOSED: 'Fechada',
+                  LOST: 'Perdida',
+                };
+
+                return (
+                  <tr key={prop.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 text-sm font-medium text-slate-900">{prop.proposalNumber}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{prop.clientName}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${statusColors[prop.status as keyof typeof statusColors]}`}>
+                        {statusLabels[prop.status as keyof typeof statusLabels]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-700 text-right font-medium">R$ {prop.basePrice.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700">
+                      {prop.status === 'CLOSED' ? prop.closedPlanName || 'N/A' : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <a 
+                          href={`/proposta/${prop.slug}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded"
+                          title="Ver Proposta"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </a>
+                        {prop.status === 'SENT' && (
+                          <>
+                            <button 
+                              onClick={() => { setSelectedProposal(prop); setShowCloseModal(true); }}
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                              title="Marcar como Fechada"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button 
+                              onClick={() => { setSelectedProposal(prop); setShowLostModal(true); }}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                              title="Marcar como Perdida"
+                            >
+                              <FileX className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {proposals.length === 0 && (
+            <div className="text-center py-12 text-slate-500">
+              <TrendingUp className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+              <p>Nenhuma proposta registrada ainda.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal: Fechar Proposta */}
+      {showCloseModal && selectedProposal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-xl font-bold text-slate-900 mb-4">Registrar Fechamento</h3>
+            <p className="text-sm text-slate-600 mb-4">Cliente: <strong>{selectedProposal.clientName}</strong></p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Plano Escolhido</label>
+                <select 
+                  value={closeForm.planId} 
+                  onChange={(e) => setCloseForm({...closeForm, planId: e.target.value})}
+                  className={inputClass}
+                >
+                  <option value="">Selecione o plano...</option>
+                  {selectedProposal.includedPlans?.map((p: any) => (
+                    <option key={p.planId} value={p.planId}>{p.planName} (R$ {p.finalPrice.toFixed(2)})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Preço Final Negociado (R$)</label>
+                <input 
+                  type="number" 
+                  value={closeForm.price || ''} 
+                  onChange={(e) => setCloseForm({...closeForm, price: parseFloat(e.target.value) || 0})}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Desconto Aplicado (R$)</label>
+                <input 
+                  type="number" 
+                  value={closeForm.discount || ''} 
+                  onChange={(e) => setCloseForm({...closeForm, discount: parseFloat(e.target.value) || 0})}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowCloseModal(false)} className="flex-1 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
+              <button onClick={handleCloseProposal} className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg">Confirmar Fechamento</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Marcar como Perdida */}
+      {showLostModal && selectedProposal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-xl font-bold text-slate-900 mb-4">Motivo da Perda</h3>
+            <p className="text-sm text-slate-600 mb-4">Cliente: <strong>{selectedProposal.clientName}</strong></p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Motivo Principal</label>
+                <select 
+                  value={lostReason} 
+                  onChange={(e) => setLostReason(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="Preço alto">Preço alto</option>
+                  <option value="Concorrência">Concorrência</option>
+                  <option value="Sem resposta">Sem resposta do cliente</option>
+                  <option value="Não atende necessidades">Não atende às necessidades</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowLostModal(false)} className="flex-1 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
+              <button onClick={handleMarkAsLost} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg">Confirmar Perda</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -230,7 +513,7 @@ function CalculatorTab() {
 }
 
 // =================================================================
-// ️ ABA: CONFIGURAÇÕES
+// ⚙️ ABA: CONFIGURAÇÕES
 // =================================================================
 function ConfigTab() {
   const [loading, setLoading] = useState(true);
@@ -575,166 +858,4 @@ function CategoryCard({ category, onAddItem, onDeleteItem, onDeleteCategory }: a
     <div className="border-2 border-slate-300 rounded-lg overflow-hidden hover:border-teal-400 transition-colors">
       <div className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 cursor-pointer" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-center gap-3 flex-1">
-          {expanded ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
-          <FolderOpen className="h-5 w-5 text-teal-600" />
-          <div>
-            <h3 className="font-bold text-slate-900">{category.name}</h3>
-            <p className="text-xs text-slate-500 font-medium">{category._count.items} itens</p>
-          </div>
-        </div>
-        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => onAddItem(category.id)} className="p-1.5 text-slate-500 hover:text-teal-600"><Plus className="h-4 w-4" /></button>
-          <button onClick={onDeleteCategory} className="p-1.5 text-slate-500 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
-        </div>
-      </div>
-      {expanded && (
-        <div className="border-t-2 border-slate-200">
-          {category.items.length === 0 ? (<p className="p-4 text-sm text-slate-500 text-center">Nenhum item nesta categoria</p>) : (
-            <ul className="divide-y divide-slate-100">
-              {category.items.map((item: any) => (
-                <li key={item.id} className="flex items-center justify-between p-3 hover:bg-slate-50">
-                  <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-slate-400" /><span className="text-sm font-medium text-slate-700">{item.name}</span></div>
-                  <button onClick={() => onDeleteItem(item.id)} className="text-slate-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// =================================================================
-// 📄 MODAL: GERAR PROPOSTA
-// =================================================================
-function GenerateProposalModal({ isOpen, onClose, calculationResult, clientForm }: { isOpen: boolean; onClose: () => void; calculationResult: any; clientForm: any }) {
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1);
-  const [proposal, setProposal] = useState<any>(null);
-  const [formData, setFormData] = useState({
-    clientName: clientForm?.clientName || '',
-    clientCnpj: '',
-    aboutOffice: '',
-    differentials: '',
-    onboarding: '',
-    commercialTerms: '',
-    specificNote: '',
-    includedPlanIds: [] as string[],
-  });
-
-  useEffect(() => {
-    if (isOpen && calculationResult) {
-      const allPlanIds = calculationResult.planPrices?.map((p: any) => p.planId) || [];
-      setFormData(prev => ({ ...prev, includedPlanIds: allPlanIds }));
-    }
-  }, [isOpen, calculationResult]);
-
-  async function handleGenerate() {
-    setLoading(true);
-    try {
-      const includedPlans = calculationResult.planPrices.filter((p: any) => formData.includedPlanIds.includes(p.planId));
-      const res = await api.post('/proposals', {
-        ...formData,
-        taxRegime: clientForm.taxRegime,
-        activity: clientForm.activity,
-        monthlyRevenue: clientForm.monthlyRevenue,
-        employeeCount: clientForm.employeeCount,
-        basePrice: calculationResult.basePrice,
-        includedPlans,
-      });
-      setProposal(res.data.data);
-      setStep(2);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erro ao gerar proposta');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function togglePlan(planId: string) {
-    setFormData(prev => ({
-      ...prev,
-      includedPlanIds: prev.includedPlanIds.includes(planId) ? prev.includedPlanIds.filter((id) => id !== planId) : [...prev.includedPlanIds, planId],
-    }));
-  }
-
-  function copyLink() {
-    const link = `${window.location.origin}/proposta/${proposal.slug}`;
-    navigator.clipboard.writeText(link);
-    toast.success('Link copiado!');
-  }
-
-  function openProposal() {
-    window.open(`/proposta/${proposal.slug}`, '_blank');
-  }
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b-2 border-slate-200 sticky top-0 bg-white z-10">
-          <h2 className="text-xl font-bold text-slate-900">{step === 1 ? 'Gerar Proposta' : 'Proposta Gerada!'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-6 w-6" /></button>
-        </div>
-        {step === 1 && (
-          <div className="p-6 space-y-4">
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Cliente *</label><input type="text" value={formData.clientName} onChange={(e) => setFormData({ ...formData, clientName: e.target.value })} className={inputClass} /></div>
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">CNPJ (opcional)</label><input type="text" value={formData.clientCnpj} onChange={(e) => setFormData({ ...formData, clientCnpj: e.target.value })} className={inputClass} placeholder="00.000.000/0000-00" /></div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Planos a incluir</label>
-              <div className="space-y-2">
-                {calculationResult?.planPrices?.map((plan: any) => (
-                  <label key={plan.planId} className="flex items-center gap-3 p-3 border-2 border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
-                    <input type="checkbox" checked={formData.includedPlanIds.includes(plan.planId)} onChange={() => togglePlan(plan.planId)} className="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
-                    <div className="flex-1"><p className="font-semibold text-slate-900">{plan.planName}</p><p className="text-sm text-slate-500">R$ {plan.finalPrice.toFixed(2)}/mês</p></div>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-4 border-t-2 border-slate-200">
-              <button onClick={onClose} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
-              <button onClick={handleGenerate} disabled={loading || !formData.clientName || formData.includedPlanIds.length === 0} className={btnPrimary}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {loading ? 'Gerando...' : 'Gerar Proposta'}
-              </button>
-            </div>
-          </div>
-        )}
-        {step === 2 && proposal && (
-          <div className="p-6 space-y-4">
-            <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-              <p className="font-bold text-green-800 mb-1">✅ Proposta gerada com sucesso!</p>
-              <p className="text-sm text-green-700">Nº {proposal.proposalNumber}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Link Público</label>
-              <div className="flex gap-2">
-                <input type="text" readOnly value={`${window.location.origin}/proposta/${proposal.slug}`} className={inputClass + ' flex-1'} />
-                <button onClick={copyLink} className={btnSecondary}>Copiar</button>
-              </div>
-            </div>
-            <div className="flex gap-3 flex-wrap">
-              <button onClick={openProposal} className={btnPrimary + ' flex-1 min-w-[140px]'}>
-                Abrir Proposta
-              </button>
-              <button 
-                onClick={() => {
-                  const win = window.open(`/proposta/${proposal.slug}`, '_blank');
-                  toast.success('A proposta foi aberta. Clique no botão "Baixar PDF" dentro dela.');
-                }} 
-                className={btnSecondary + ' flex-1 min-w-[140px]'}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Baixar PDF
-              </button>
-              <button onClick={onClose} className={btnSecondary}>
-                Fechar
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+          {expanded ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className
