@@ -185,7 +185,7 @@ O sistema utiliza uma arquitetura **multi-tenant single-database**, onde todos o
 
 │  └───────────────────────────────────┘  │
 
-└──────────────────┬──────────────────────┘
+└──────────────────┬──────────────────────┘ 
 
 │ HTTP/REST (Axios)
 ▼
