@@ -258,4 +258,56 @@ export class ProposalsService {
       totalProposals: proposals.length,
     };
   }
+  /**
+   * Retorna dados agrupados por mês para gráficos de tendência.
+   * Últimos 6 meses de propostas enviadas, fechadas e perdidas.
+   */
+  async getTrendData(companyId: string) {
+    const proposals = await this.prisma.proposal.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Agrupar por mês
+    const monthlyData: any = {};
+    
+    // Inicializar últimos 6 meses
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      monthlyData[key] = {
+        month: date.toLocaleDateString('pt-BR', { month: 'short' }),
+        sent: 0,
+        closed: 0,
+        lost: 0,
+        revenue: 0,
+      };
+    }
+
+    // Preencher com dados reais
+    proposals.forEach((prop) => {
+      const date = new Date(prop.createdAt);
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (monthlyData[key]) {
+        if (prop.status === 'SENT' || prop.status === 'CLOSED' || prop.status === 'LOST') {
+          monthlyData[key].sent++;
+        }
+        if (prop.status === 'CLOSED') {
+          monthlyData[key].closed++;
+          monthlyData[key].revenue += prop.closedPrice || 0;
+        }
+        if (prop.status === 'LOST') {
+          monthlyData[key].lost++;
+        }
+      }
+    });
+
+    // Converter para array
+    return Object.values(monthlyData).map((data: any) => ({
+      ...data,
+      revenue: Math.round(data.revenue * 100) / 100,
+    }));
+  }  
 }

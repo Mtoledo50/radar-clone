@@ -2,7 +2,7 @@
  * ProposalsController
  * Endpoints para gestão de propostas comerciais.
  */
-import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ProposalsService } from './proposals.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -10,7 +10,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class ProposalsController {
   constructor(private readonly service: ProposalsService) {}
 
-  // 🔒 Endpoints autenticados (interno)
+  // =================================================================
+  // 🔒 Endpoints autenticados (INTERNO)
+  // =================================================================
+  
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Request() req, @Body() body: any) {
@@ -23,6 +26,21 @@ export class ProposalsController {
     return { success: true, data: await this.service.list(req.user.companyId, status) };
   }
 
+  // ⚠️ IMPORTANTE: Rotas específicas DEVEM vir antes de rotas com parâmetro (:id)
+  @UseGuards(JwtAuthGuard)
+  @Get('dashboard/stats')
+  async getDashboard(@Request() req) {
+    return { success: true, data: await this.service.getDashboard(req.user.companyId) };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('trend-data')
+  async getTrendData(@Request() req) {
+    const data = await this.service.getTrendData(req.user.companyId);
+    return { success: true, data };
+  }
+
+  // Agora sim, as rotas com parâmetro :id
   @UseGuards(JwtAuthGuard)
   @Get(':id')
   async getById(@Request() req, @Param('id') id: string) {
@@ -47,13 +65,9 @@ export class ProposalsController {
     return { success: true, data: await this.service.markAsLost(id, req.user.companyId, body.reason) };
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Get('dashboard/stats')
-  async getDashboard(@Request() req) {
-    return { success: true, data: await this.service.getDashboard(req.user.companyId) };
-  }
-
+  // =================================================================
   // 🌐 Endpoints PÚBLICOS (sem autenticação)
+  // =================================================================
   @Get('public/:slug')
   async getPublic(@Param('slug') slug: string) {
     const proposal = await this.service.getPublicBySlug(slug);
