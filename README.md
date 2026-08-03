@@ -173,17 +173,17 @@ O sistema utiliza uma arquitetura **multi-tenant single-database**, onde todos o
 
 ┌─────────────────────────────────────────┐
 
-│ Frontend (Next.js) │
+│            Frontend (Next.js)           │
 
-│ ┌───────────────────────────────────┐ │
+│  ┌───────────────────────────────────┐  │
 
-│ │ React 19 + TypeScript + Tailwind │ │
+│  │  React 19 + TypeScript + Tailwind │  │
 
-│ │ Zustand (Estado Global) │ │
+│  │       Zustand (Estado Global)     │  │
 
-│ │ Sonner (Notificações) │ │
+│  │        Sonner (Notificações)      │  │
 
-│ └───────────────────────────────────┘ │
+│  └───────────────────────────────────┘  │
 
 └──────────────────┬──────────────────────┘
 
