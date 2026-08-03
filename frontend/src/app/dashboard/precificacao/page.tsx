@@ -14,6 +14,11 @@ import {
   FileCheck, FileX, DollarSign, Users
 } from 'lucide-react';
 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  AreaChart, Area, ResponsiveContainer
+} from 'recharts';
+
 const inputClass = 'w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white';
 const btnPrimary = 'flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50';
 const btnSecondary = 'flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors';
@@ -64,11 +69,14 @@ export default function PrecificacaoPage() {
 
 // =================================================================
 // 📊 ABA: PROPOSTAS (CRM)
+// =================================================================// =================================================================
+// 📊 ABA: PROPOSTAS (CRM) COM GRÁFICOS
 // =================================================================
 function PropostasTab() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [proposals, setProposals] = useState<any[]>([]);
+  const [trendData, setTrendData] = useState<any[]>([]);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
@@ -81,12 +89,14 @@ function PropostasTab() {
   async function loadData() {
     setLoading(true);
     try {
-      const [statsRes, proposalsRes] = await Promise.all([
+      const [statsRes, proposalsRes, trendRes] = await Promise.all([
         api.get('/proposals/dashboard/stats'),
         api.get('/proposals'),
+        api.get('/proposals/trend-data'),
       ]);
       setStats(statsRes.data.data);
       setProposals(proposalsRes.data.data);
+      setTrendData(trendRes.data.data);
     } catch (err) {
       toast.error('Erro ao carregar dados do CRM');
     } finally {
@@ -168,6 +178,62 @@ function PropostasTab() {
         </div>
       )}
 
+      {/* Gráficos de Tendência */}
+      {trendData.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Gráfico de Propostas por Mês */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Propostas por Mês (Últimos 6 meses)</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
+                <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#f8fafc', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="sent" name="Enviadas" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="closed" name="Fechadas" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="lost" name="Perdidas" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Gráfico de Receita por Mês */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Receita Gerada por Mês (R$)</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
+                <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#f8fafc', 
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px'
+                  }}
+                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Receita']}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#14b8a6" 
+                  fill="#14b8a6" 
+                  fillOpacity={0.3}
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
       {/* Tabela de Propostas */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-200">
@@ -187,13 +253,13 @@ function PropostasTab() {
             </thead>
             <tbody className="divide-y divide-slate-200">
               {proposals.map((prop) => {
-                const statusColors = {
+                const statusColors: any = {
                   DRAFT: 'bg-slate-100 text-slate-700',
                   SENT: 'bg-blue-100 text-blue-700',
                   CLOSED: 'bg-green-100 text-green-700',
                   LOST: 'bg-red-100 text-red-700',
                 };
-                const statusLabels = {
+                const statusLabels: any = {
                   DRAFT: 'Rascunho',
                   SENT: 'Enviada',
                   CLOSED: 'Fechada',
@@ -205,8 +271,8 @@ function PropostasTab() {
                     <td className="px-4 py-3 text-sm font-medium text-slate-900">{prop.proposalNumber}</td>
                     <td className="px-4 py-3 text-sm text-slate-700">{prop.clientName}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${statusColors[prop.status as keyof typeof statusColors]}`}>
-                        {statusLabels[prop.status as keyof typeof statusLabels]}
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${statusColors[prop.status]}`}>
+                        {statusLabels[prop.status]}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-700 text-right font-medium">R$ {prop.basePrice.toFixed(2)}</td>
@@ -264,14 +330,13 @@ function PropostasTab() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <h3 className="text-xl font-bold text-slate-900 mb-4">Registrar Fechamento</h3>
             <p className="text-sm text-slate-600 mb-4">Cliente: <strong>{selectedProposal.clientName}</strong></p>
-            
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Plano Escolhido</label>
                 <select 
                   value={closeForm.planId} 
                   onChange={(e) => setCloseForm({...closeForm, planId: e.target.value})}
-                  className={inputClass}
+                  className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
                 >
                   <option value="">Selecione o plano...</option>
                   {selectedProposal.includedPlans?.map((p: any) => (
@@ -285,7 +350,7 @@ function PropostasTab() {
                   type="number" 
                   value={closeForm.price || ''} 
                   onChange={(e) => setCloseForm({...closeForm, price: parseFloat(e.target.value) || 0})}
-                  className={inputClass}
+                  className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
                 />
               </div>
               <div>
@@ -294,11 +359,10 @@ function PropostasTab() {
                   type="number" 
                   value={closeForm.discount || ''} 
                   onChange={(e) => setCloseForm({...closeForm, discount: parseFloat(e.target.value) || 0})}
-                  className={inputClass}
+                  className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
                 />
               </div>
             </div>
-
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowCloseModal(false)} className="flex-1 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
               <button onClick={handleCloseProposal} className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg">Confirmar Fechamento</button>
@@ -313,14 +377,13 @@ function PropostasTab() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <h3 className="text-xl font-bold text-slate-900 mb-4">Motivo da Perda</h3>
             <p className="text-sm text-slate-600 mb-4">Cliente: <strong>{selectedProposal.clientName}</strong></p>
-            
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Motivo Principal</label>
                 <select 
                   value={lostReason} 
                   onChange={(e) => setLostReason(e.target.value)}
-                  className={inputClass}
+                  className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
                 >
                   <option value="Preço alto">Preço alto</option>
                   <option value="Concorrência">Concorrência</option>
@@ -330,7 +393,6 @@ function PropostasTab() {
                 </select>
               </div>
             </div>
-
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowLostModal(false)} className="flex-1 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
               <button onClick={handleMarkAsLost} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg">Confirmar Perda</button>
