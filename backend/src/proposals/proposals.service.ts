@@ -48,7 +48,6 @@ export class ProposalsService {
   async create(companyId: string, userId: string, data: any) {
     const slug = this.generateSlug(data.clientName);
     
-    // Garante slug único
     let finalSlug = slug;
     let counter = 1;
     while (await this.prisma.proposal.findUnique({ where: { slug: finalSlug } })) {
@@ -91,19 +90,8 @@ export class ProposalsService {
     const proposal = await this.prisma.proposal.findUnique({
       where: { slug },
       include: {
-        company: {
-          select: {
-            name: true,
-            cnpj: true,
-            state: true,
-          },
-        },
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
+        company: { select: { name: true, cnpj: true, state: true } },
+        user: { select: { name: true, email: true } },
       },
     });
 
@@ -111,7 +99,6 @@ export class ProposalsService {
       throw new NotFoundException('Proposta não encontrada.');
     }
 
-    // Incrementa visualizações
     await this.prisma.proposal.update({
       where: { id: proposal.id },
       data: { views: { increment: 1 } },
@@ -133,9 +120,7 @@ export class ProposalsService {
     const proposals = await this.prisma.proposal.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { name: true } },
-      },
+      include: { user: { select: { name: true } } },
     });
 
     return proposals.map((p) => ({
@@ -150,9 +135,7 @@ export class ProposalsService {
   async getById(companyId: string, id: string) {
     const proposal = await this.prisma.proposal.findFirst({
       where: { id, companyId },
-      include: {
-        user: { select: { name: true } },
-      },
+      include: { user: { select: { name: true } } },
     });
 
     if (!proposal) {
@@ -170,7 +153,6 @@ export class ProposalsService {
    */
   async updateContent(id: string, companyId: string, data: any) {
     await this.getById(companyId, id);
-
     return this.prisma.proposal.update({
       where: { id },
       data: {
@@ -186,14 +168,8 @@ export class ProposalsService {
   /**
    * Registra o fechamento de uma proposta.
    */
-  async close(id: string, companyId: string, data: {
-    planId: string;
-    planName: string;
-    price: number;
-    discount?: number;
-  }) {
-    const proposal = await this.getById(companyId, id);
-
+  async close(id: string, companyId: string, data: { planId: string; planName: string; price: number; discount?: number }) {
+    await this.getById(companyId, id);
     const finalPrice = data.price - (data.discount || 0);
 
     return this.prisma.proposal.update({
@@ -212,7 +188,6 @@ export class ProposalsService {
    */
   async markAsLost(id: string, companyId: string, reason: string) {
     await this.getById(companyId, id);
-
     return this.prisma.proposal.update({
       where: { id },
       data: {
@@ -236,9 +211,7 @@ export class ProposalsService {
    * Dashboard de desempenho comercial.
    */
   async getDashboard(companyId: string) {
-    const proposals = await this.prisma.proposal.findMany({
-      where: { companyId },
-    });
+    const proposals = await this.prisma.proposal.findMany({ where: { companyId } });
 
     const sent = proposals.filter((p) => p.status === 'SENT').length;
     const closed = proposals.filter((p) => p.status === 'CLOSED').length;
@@ -258,9 +231,9 @@ export class ProposalsService {
       totalProposals: proposals.length,
     };
   }
+
   /**
    * Retorna dados agrupados por mês para gráficos de tendência.
-   * Últimos 6 meses de propostas enviadas, fechadas e perdidas.
    */
   async getTrendData(companyId: string) {
     const proposals = await this.prisma.proposal.findMany({
@@ -268,11 +241,9 @@ export class ProposalsService {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Agrupar por mês
     const monthlyData: any = {};
-    
-    // Inicializar últimos 6 meses
     const now = new Date();
+    
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -285,7 +256,6 @@ export class ProposalsService {
       };
     }
 
-    // Preencher com dados reais
     proposals.forEach((prop) => {
       const date = new Date(prop.createdAt);
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -304,10 +274,30 @@ export class ProposalsService {
       }
     });
 
-    // Converter para array
     return Object.values(monthlyData).map((data: any) => ({
       ...data,
       revenue: Math.round(data.revenue * 100) / 100,
     }));
-  }  
+  }
+
+  // 🔥 NOVO MÉTODO: Dados para o Gráfico de Motivos de Perda
+  async getLossReasonsData(companyId: string) {
+    const lostProposals = await this.prisma.proposal.findMany({
+      where: { companyId, status: 'LOST' },
+      select: { lossReason: true },
+    });
+
+    const reasonsCount: Record<string, number> = {};
+    
+    lostProposals.forEach((prop) => {
+      const reason = prop.lossReason || 'Não informado';
+      reasonsCount[reason] = (reasonsCount[reason] || 0) + 1;
+    });
+
+    // Converte o objeto em um array formatado para o Gráfico de Pizza (Recharts)
+    return Object.entries(reasonsCount).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  }
 }

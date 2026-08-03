@@ -10,9 +10,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class ProposalsController {
   constructor(private readonly service: ProposalsService) {}
 
-  // =================================================================
   // 🔒 Endpoints autenticados (INTERNO)
-  // =================================================================
   
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -26,7 +24,7 @@ export class ProposalsController {
     return { success: true, data: await this.service.list(req.user.companyId, status) };
   }
 
-  // ⚠️ IMPORTANTE: Rotas específicas DEVEM vir antes de rotas com parâmetro (:id)
+  // ⚠️ IMPORTANTE: Rotas específicas DEVEM vir antes das rotas com :id
   @UseGuards(JwtAuthGuard)
   @Get('dashboard/stats')
   async getDashboard(@Request() req) {
@@ -40,7 +38,15 @@ export class ProposalsController {
     return { success: true, data };
   }
 
-  // Agora sim, as rotas com parâmetro :id
+  // 🔥 NOVO: Endpoint para o Gráfico de Pizza (Motivos de Perda)
+  @UseGuards(JwtAuthGuard)
+  @Get('loss-reasons')
+  async getLossReasons(@Request() req) {
+    const data = await this.service.getLossReasonsData(req.user.companyId);
+    return { success: true, data };
+  }
+
+  // Agora sim, as rotas com parâmetro :id (DEVEM vir por último)
   @UseGuards(JwtAuthGuard)
   @Get(':id')
   async getById(@Request() req, @Param('id') id: string) {
@@ -65,9 +71,7 @@ export class ProposalsController {
     return { success: true, data: await this.service.markAsLost(id, req.user.companyId, body.reason) };
   }
 
-  // =================================================================
   // 🌐 Endpoints PÚBLICOS (sem autenticação)
-  // =================================================================
   @Get('public/:slug')
   async getPublic(@Param('slug') slug: string) {
     const proposal = await this.service.getPublicBySlug(slug);
