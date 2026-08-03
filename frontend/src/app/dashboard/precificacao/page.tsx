@@ -4,6 +4,9 @@
  */
 'use client';
 
+// =================================================================
+// INÍCIO: IMPORTS DE DEPENDÊNCIAS E BIBLIOTECAS
+// =================================================================
 import { useState, useEffect } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
@@ -16,13 +19,30 @@ import {
 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  AreaChart, Area, ResponsiveContainer
+  AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
+// =================================================================
+// FIM: IMPORTS DE DEPENDÊNCIAS E BIBLIOTECAS
+// =================================================================
 
+
+// =================================================================
+// INÍCIO: CONSTANTES DE ESTILO E CONFIGURAÇÃO
+// =================================================================
 const inputClass = 'w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white';
 const btnPrimary = 'flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50';
 const btnSecondary = 'flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors';
 
+// Cores para o gráfico de motivos de perda
+const LOSS_COLORS = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#06b6d4', '#8b5cf6'];
+// =================================================================
+// FIM: CONSTANTES DE ESTILO E CONFIGURAÇÃO
+// =================================================================
+
+
+// =================================================================
+// INÍCIO: COMPONENTE PRINCIPAL (PrecificacaoPage)
+// =================================================================
 export default function PrecificacaoPage() {
   const [activeTab, setActiveTab] = useState<'calculator' | 'config' | 'rules' | 'plans' | 'categories' | 'propostas'>('calculator');
 
@@ -66,17 +86,21 @@ export default function PrecificacaoPage() {
     </div>
   );
 }
+// =================================================================
+// FIM: COMPONENTE PRINCIPAL (PrecificacaoPage)
+// =================================================================
+
 
 // =================================================================
-// 📊 ABA: PROPOSTAS (CRM)
-// =================================================================// =================================================================
-// 📊 ABA: PROPOSTAS (CRM) COM GRÁFICOS
+// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM)
 // =================================================================
 function PropostasTab() {
+  // --- Estados ---
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [proposals, setProposals] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
+  const [lossReasonsData, setLossReasonsData] = useState<any[]>([]); // Estado para o gráfico de pizza
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
@@ -84,19 +108,23 @@ function PropostasTab() {
   const [closeForm, setCloseForm] = useState({ planId: '', price: 0, discount: 0 });
   const [lostReason, setLostReason] = useState('Preço alto');
 
+  // --- Efeitos ---
   useEffect(() => { loadData(); }, []);
 
+  // --- Funções de Manipulação de Dados ---
   async function loadData() {
     setLoading(true);
     try {
-      const [statsRes, proposalsRes, trendRes] = await Promise.all([
+      const [statsRes, proposalsRes, trendRes, lossRes] = await Promise.all([
         api.get('/proposals/dashboard/stats'),
         api.get('/proposals'),
         api.get('/proposals/trend-data'),
+        api.get('/proposals/loss-reasons'), // Busca os motivos de perda
       ]);
       setStats(statsRes.data.data);
       setProposals(proposalsRes.data.data);
       setTrendData(trendRes.data.data);
+      setLossReasonsData(lossRes.data.data);
     } catch (err) {
       toast.error('Erro ao carregar dados do CRM');
     } finally {
@@ -126,11 +154,12 @@ function PropostasTab() {
     }
   }
 
+  // --- Renderização ---
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
 
   return (
     <div className="space-y-6">
-      {/* KPIs */}
+      {/* 1. KPIs */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -178,24 +207,18 @@ function PropostasTab() {
         </div>
       )}
 
-      {/* Gráficos de Tendência */}
+      {/* 2. Gráficos de Tendência e Motivos de Perda */}
       {trendData.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Gráfico de Propostas por Mês */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Gráfico de Barras (Ocupa 2 colunas) */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-2">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Propostas por Mês (Últimos 6 meses)</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
                 <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#f8fafc', 
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px'
-                  }}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }} />
                 <Legend />
                 <Bar dataKey="sent" name="Enviadas" fill="#14b8a6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="closed" name="Fechadas" fill="#22c55e" radius={[4, 4, 0, 0]} />
@@ -204,37 +227,53 @@ function PropostasTab() {
             </ResponsiveContainer>
           </div>
 
-          {/* Gráfico de Receita por Mês */}
+          {/* Gráfico de Pizza (Motivos de Perda) */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Motivos de Perda</h3>
+            {lossReasonsData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={lossReasonsData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {lossReasonsData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-slate-400 text-sm">
+                Nenhuma proposta perdida registrada.
+              </div>
+            )}
+          </div>
+
+          {/* Gráfico de Área (Ocupa largura total) */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-3">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Receita Gerada por Mês (R$)</h3>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
                 <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#f8fafc', 
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px'
-                  }}
-                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Receita']}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#14b8a6" 
-                  fill="#14b8a6" 
-                  fillOpacity={0.3}
-                  strokeWidth={2}
-                />
+                <Tooltip contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Receita']} />
+                <Area type="monotone" dataKey="revenue" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.2} strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      {/* Tabela de Propostas */}
+      {/* 3. Tabela de Propostas */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-200">
           <h3 className="text-lg font-bold text-slate-900">Histórico de Propostas</h3>
@@ -253,57 +292,29 @@ function PropostasTab() {
             </thead>
             <tbody className="divide-y divide-slate-200">
               {proposals.map((prop) => {
-                const statusColors: any = {
-                  DRAFT: 'bg-slate-100 text-slate-700',
-                  SENT: 'bg-blue-100 text-blue-700',
-                  CLOSED: 'bg-green-100 text-green-700',
-                  LOST: 'bg-red-100 text-red-700',
-                };
-                const statusLabels: any = {
-                  DRAFT: 'Rascunho',
-                  SENT: 'Enviada',
-                  CLOSED: 'Fechada',
-                  LOST: 'Perdida',
-                };
+                const statusColors: any = { DRAFT: 'bg-slate-100 text-slate-700', SENT: 'bg-blue-100 text-blue-700', CLOSED: 'bg-green-100 text-green-700', LOST: 'bg-red-100 text-red-700' };
+                const statusLabels: any = { DRAFT: 'Rascunho', SENT: 'Enviada', CLOSED: 'Fechada', LOST: 'Perdida' };
 
                 return (
                   <tr key={prop.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 text-sm font-medium text-slate-900">{prop.proposalNumber}</td>
                     <td className="px-4 py-3 text-sm text-slate-700">{prop.clientName}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${statusColors[prop.status]}`}>
-                        {statusLabels[prop.status]}
-                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${statusColors[prop.status]}`}>{statusLabels[prop.status]}</span>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-700 text-right font-medium">R$ {prop.basePrice.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">
-                      {prop.status === 'CLOSED' ? prop.closedPlanName || 'N/A' : '-'}
-                    </td>
+                    <td className="px-4 py-3 text-sm text-slate-700">{prop.status === 'CLOSED' ? prop.closedPlanName || 'N/A' : '-'}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <a 
-                          href={`/proposta/${prop.slug}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded"
-                          title="Ver Proposta"
-                        >
+                        <a href={`/proposta/${prop.slug}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded" title="Ver Proposta">
                           <FileText className="h-4 w-4" />
                         </a>
                         {prop.status === 'SENT' && (
                           <>
-                            <button 
-                              onClick={() => { setSelectedProposal(prop); setShowCloseModal(true); }}
-                              className="p-1.5 text-green-600 hover:bg-green-50 rounded"
-                              title="Marcar como Fechada"
-                            >
+                            <button onClick={() => { setSelectedProposal(prop); setShowCloseModal(true); }} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Marcar como Fechada">
                               <Check className="h-4 w-4" />
                             </button>
-                            <button 
-                              onClick={() => { setSelectedProposal(prop); setShowLostModal(true); }}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                              title="Marcar como Perdida"
-                            >
+                            <button onClick={() => { setSelectedProposal(prop); setShowLostModal(true); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Marcar como Perdida">
                               <FileX className="h-4 w-4" />
                             </button>
                           </>
@@ -324,7 +335,7 @@ function PropostasTab() {
         </div>
       </div>
 
-      {/* Modal: Fechar Proposta */}
+      {/* 4. Modal: Fechar Proposta */}
       {showCloseModal && selectedProposal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -333,34 +344,18 @@ function PropostasTab() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Plano Escolhido</label>
-                <select 
-                  value={closeForm.planId} 
-                  onChange={(e) => setCloseForm({...closeForm, planId: e.target.value})}
-                  className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
-                >
+                <select value={closeForm.planId} onChange={(e) => setCloseForm({...closeForm, planId: e.target.value})} className={inputClass}>
                   <option value="">Selecione o plano...</option>
-                  {selectedProposal.includedPlans?.map((p: any) => (
-                    <option key={p.planId} value={p.planId}>{p.planName} (R$ {p.finalPrice.toFixed(2)})</option>
-                  ))}
+                  {selectedProposal.includedPlans?.map((p: any) => (<option key={p.planId} value={p.planId}>{p.planName} (R$ {p.finalPrice.toFixed(2)})</option>))}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Preço Final Negociado (R$)</label>
-                <input 
-                  type="number" 
-                  value={closeForm.price || ''} 
-                  onChange={(e) => setCloseForm({...closeForm, price: parseFloat(e.target.value) || 0})}
-                  className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
-                />
+                <input type="number" value={closeForm.price || ''} onChange={(e) => setCloseForm({...closeForm, price: parseFloat(e.target.value) || 0})} className={inputClass} />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Desconto Aplicado (R$)</label>
-                <input 
-                  type="number" 
-                  value={closeForm.discount || ''} 
-                  onChange={(e) => setCloseForm({...closeForm, discount: parseFloat(e.target.value) || 0})}
-                  className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
-                />
+                <input type="number" value={closeForm.discount || ''} onChange={(e) => setCloseForm({...closeForm, discount: parseFloat(e.target.value) || 0})} className={inputClass} />
               </div>
             </div>
             <div className="flex gap-3 mt-6">
@@ -371,7 +366,7 @@ function PropostasTab() {
         </div>
       )}
 
-      {/* Modal: Marcar como Perdida */}
+      {/* 5. Modal: Marcar como Perdida */}
       {showLostModal && selectedProposal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -380,11 +375,7 @@ function PropostasTab() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Motivo Principal</label>
-                <select 
-                  value={lostReason} 
-                  onChange={(e) => setLostReason(e.target.value)}
-                  className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white"
-                >
+                <select value={lostReason} onChange={(e) => setLostReason(e.target.value)} className={inputClass}>
                   <option value="Preço alto">Preço alto</option>
                   <option value="Concorrência">Concorrência</option>
                   <option value="Sem resposta">Sem resposta do cliente</option>
@@ -403,9 +394,13 @@ function PropostasTab() {
     </div>
   );
 }
+// =================================================================
+// FIM: COMPONENTE DA ABA PROPOSTAS (CRM)
+// =================================================================
+
 
 // =================================================================
-// 🧮 ABA: CALCULADORA DE PREÇO
+// INÍCIO: COMPONENTE DA ABA CALCULADORA DE PREÇO
 // =================================================================
 function CalculatorTab() {
   const [loading, setLoading] = useState(false);
@@ -413,22 +408,12 @@ function CalculatorTab() {
   const [showProposalModal, setShowProposalModal] = useState(false);
   
   const [form, setForm] = useState({
-    clientName: '',
-    taxRegime: 'Simples Nacional',
-    annex: '',
-    activity: 'Serviço',
-    monthlyRevenue: 0,
-    employeeCount: 0,
-    dpMethod: 'PER_EMPLOYEE',
-    dpValue: 60,
-    hasBranches: false,
-    hasErp: false,
-    currentCharge: 0,
+    clientName: '', taxRegime: 'Simples Nacional', annex: '', activity: 'Serviço',
+    monthlyRevenue: 0, employeeCount: 0, dpMethod: 'PER_EMPLOYEE', dpValue: 60,
+    hasBranches: false, hasErp: false, currentCharge: 0,
   });
 
-  const updateForm = (field: string, value: any) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const updateForm = (field: string, value: any) => setForm((prev) => ({ ...prev, [field]: value }));
 
   async function handleCalculate() {
     setLoading(true);
@@ -573,9 +558,13 @@ function CalculatorTab() {
     </div>
   );
 }
+// =================================================================
+// FIM: COMPONENTE DA ABA CALCULADORA DE PREÇO
+// =================================================================
+
 
 // =================================================================
-// ⚙️ ABA: CONFIGURAÇÕES
+// INÍCIO: COMPONENTE DA ABA CONFIGURAÇÕES
 // =================================================================
 function ConfigTab() {
   const [loading, setLoading] = useState(true);
@@ -608,9 +597,7 @@ function ConfigTab() {
     }
   }
 
-  const updateConfig = (field: string, value: any) => {
-    setConfig((prev: any) => ({ ...prev, [field]: value }));
-  };
+  const updateConfig = (field: string, value: any) => setConfig((prev: any) => ({ ...prev, [field]: value }));
 
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
   if (!config) return null;
@@ -654,9 +641,13 @@ function ConfigTab() {
     </div>
   );
 }
+// =================================================================
+// FIM: COMPONENTE DA ABA CONFIGURAÇÕES
+// =================================================================
+
 
 // =================================================================
-// 📏 ABA: REGRAS DE HORAS
+// INÍCIO: COMPONENTE DA ABA REGRAS DE HORAS
 // =================================================================
 function RulesTab() {
   const [rules, setRules] = useState<any[]>([]);
@@ -749,9 +740,13 @@ function RulesTab() {
     </div>
   );
 }
+// =================================================================
+// FIM: COMPONENTE DA ABA REGRAS DE HORAS
+// =================================================================
+
 
 // =================================================================
-// 📦 ABA: MEUS PLANOS
+// INÍCIO: COMPONENTE DA ABA MEUS PLANOS
 // =================================================================
 function PlansTab() {
   const [loading, setLoading] = useState(true);
@@ -761,6 +756,7 @@ function PlansTab() {
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
 
   useEffect(() => { loadData(); }, []);
+  
   async function loadData() {
     try {
       const [plansRes, catsRes] = await Promise.all([api.get('/commercial-plans/plans'), api.get('/commercial-plans/categories')]);
@@ -768,6 +764,7 @@ function PlansTab() {
       setCategories(catsRes.data.data || []);
     } catch (err) { toast.error('Erro ao carregar planos'); } finally { setLoading(false); }
   }
+  
   async function handleSaveAll() {
     setSaving(true);
     try {
@@ -777,13 +774,16 @@ function PlansTab() {
       await loadData();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao salvar'); } finally { setSaving(false); }
   }
+  
   function handleAddPlan() {
     setPlans([...plans, { id: '', name: 'Novo Plano', multiplier: 1.0, order: plans.length, isIndependent: false, itemCount: 0, items: [] }]);
     setEditingPlanId('new');
   }
+  
   function handleUpdatePlan(id: string, field: string, value: any) {
     setPlans(plans.map((p) => (p.id === id || (id === 'new' && !p.id) ? { ...p, [field]: value } : p)));
   }
+  
   async function handleDeletePlan(id: string) {
     if (!confirm('Remover este plano?')) return;
     try {
@@ -792,6 +792,7 @@ function PlansTab() {
       toast.success('Plano removido');
     } catch { toast.error('Erro ao remover'); }
   }
+  
   function handleToggleItem(planIndex: number, itemId: string) {
     const plan = plans[planIndex];
     const hasItem = plan.items.some((i: any) => i.id === itemId);
@@ -800,7 +801,9 @@ function PlansTab() {
     newPlans[planIndex] = { ...plan, items: newItems, itemCount: newItems.length };
     setPlans(newPlans);
   }
+  
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
+  
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
       <div className="flex items-center justify-between mb-6">
@@ -870,36 +873,48 @@ function PlansTab() {
     </div>
   );
 }
+// =================================================================
+// FIM: COMPONENTE DA ABA MEUS PLANOS
+// =================================================================
+
 
 // =================================================================
-// 📁 ABA: CATEGORIAS E ITENS
+// INÍCIO: COMPONENTE DA ABA CATEGORIAS E ITENS
 // =================================================================
 function CategoriesTab() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
   useEffect(() => { loadCategories(); }, []);
+  
   async function loadCategories() {
     try { const res = await api.get('/commercial-plans/categories'); setCategories(res.data.data || []); } catch (err) { toast.error('Erro ao carregar categorias'); } finally { setLoading(false); }
   }
+  
   async function handleAddCategory() {
     const name = prompt('Nome da nova categoria:');
     if (!name) return;
     try { await api.post('/commercial-plans/categories', { name, order: categories.length }); toast.success('Categoria criada'); loadCategories(); } catch { toast.error('Erro ao criar'); }
   }
+  
   async function handleDeleteCategory(id: string) {
     if (!confirm('Remover esta categoria e todos os seus itens?')) return;
     try { await api.delete(`/commercial-plans/categories/${id}`); toast.success('Categoria removida'); loadCategories(); } catch { toast.error('Erro ao remover'); }
   }
+  
   async function handleAddItem(categoryId: string) {
     const name = prompt('Nome do novo item:');
     if (!name) return;
     try { await api.post('/commercial-plans/items', { categoryId, name }); toast.success('Item criado'); loadCategories(); } catch { toast.error('Erro ao criar item'); }
   }
+  
   async function handleDeleteItem(itemId: string) {
     if (!confirm('Remover este item?')) return;
     try { await api.delete(`/commercial-plans/items/${itemId}`); toast.success('Item removido'); loadCategories(); } catch { toast.error('Erro ao remover'); }
   }
+  
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
+  
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
       <div className="flex items-center justify-between mb-6">
@@ -949,9 +964,13 @@ function CategoryCard({ category, onAddItem, onDeleteItem, onDeleteCategory }: a
     </div>
   );
 }
+// =================================================================
+// FIM: COMPONENTE DA ABA CATEGORIAS E ITENS
+// =================================================================
+
 
 // =================================================================
-// 📄 MODAL: GERAR PROPOSTA
+// INÍCIO: COMPONENTE MODAL GERAR PROPOSTA
 // =================================================================
 function GenerateProposalModal({ isOpen, onClose, calculationResult, clientForm }: { isOpen: boolean; onClose: () => void; calculationResult: any; clientForm: any }) {
   const [loading, setLoading] = useState(false);
@@ -1083,3 +1102,6 @@ function GenerateProposalModal({ isOpen, onClose, calculationResult, clientForm 
     </div>
   );
 }
+// =================================================================
+// FIM: COMPONENTE MODAL GERAR PROPOSTA
+// =================================================================
