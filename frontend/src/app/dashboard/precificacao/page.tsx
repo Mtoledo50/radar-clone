@@ -90,9 +90,8 @@ export default function PrecificacaoPage() {
 // FIM: COMPONENTE PRINCIPAL (PrecificacaoPage)
 // =================================================================
 
-
 // =================================================================
-// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM)
+// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM) COM FILTROS
 // =================================================================
 function PropostasTab() {
   // --- Estados ---
@@ -100,7 +99,8 @@ function PropostasTab() {
   const [stats, setStats] = useState<any>(null);
   const [proposals, setProposals] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
-  const [lossReasonsData, setLossReasonsData] = useState<any[]>([]); // Estado para o gráfico de pizza
+  const [lossReasonsData, setLossReasonsData] = useState<any[]>([]);
+  const [period, setPeriod] = useState<'3' | '6' | '12' | 'all'>('6'); // 🔥 Novo estado de período
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
@@ -109,7 +109,8 @@ function PropostasTab() {
   const [lostReason, setLostReason] = useState('Preço alto');
 
   // --- Efeitos ---
-  useEffect(() => { loadData(); }, []);
+  // Recarrega os dados sempre que o 'period' mudar
+  useEffect(() => { loadData(); }, [period]);
 
   // --- Funções de Manipulação de Dados ---
   async function loadData() {
@@ -118,8 +119,8 @@ function PropostasTab() {
       const [statsRes, proposalsRes, trendRes, lossRes] = await Promise.all([
         api.get('/proposals/dashboard/stats'),
         api.get('/proposals'),
-        api.get('/proposals/trend-data'),
-        api.get('/proposals/loss-reasons'), // Busca os motivos de perda
+        api.get(`/proposals/trend-data?period=${period}`), // 🔥 Passando o período
+        api.get(`/proposals/loss-reasons?period=${period}`), // 🔥 Passando o período
       ]);
       setStats(statsRes.data.data);
       setProposals(proposalsRes.data.data);
@@ -207,12 +208,37 @@ function PropostasTab() {
         </div>
       )}
 
-      {/* 2. Gráficos de Tendência e Motivos de Perda */}
+      {/* 🔥 2. Filtro de Período */}
+      <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <h3 className="text-lg font-bold text-slate-900">Análise de Desempenho</h3>
+        <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
+          {[
+            { value: '3', label: '3 Meses' },
+            { value: '6', label: '6 Meses' },
+            { value: '12', label: '1 Ano' },
+            { value: 'all', label: 'Todo Período' },
+          ].map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setPeriod(p.value as any)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                period === p.value
+                  ? 'bg-white text-teal-700 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. Gráficos de Tendência e Motivos de Perda */}
       {trendData.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Gráfico de Barras (Ocupa 2 colunas) */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-2">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Propostas por Mês (Últimos 6 meses)</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Propostas por Mês</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -252,7 +278,7 @@ function PropostasTab() {
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-[300px] text-slate-400 text-sm">
-                Nenhuma proposta perdida registrada.
+                Nenhuma proposta perdida no período.
               </div>
             )}
           </div>
@@ -273,7 +299,7 @@ function PropostasTab() {
         </div>
       )}
 
-      {/* 3. Tabela de Propostas */}
+      {/* 4. Tabela de Propostas */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-200">
           <h3 className="text-lg font-bold text-slate-900">Histórico de Propostas</h3>
@@ -335,7 +361,7 @@ function PropostasTab() {
         </div>
       </div>
 
-      {/* 4. Modal: Fechar Proposta */}
+      {/* 5. Modal: Fechar Proposta */}
       {showCloseModal && selectedProposal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -366,7 +392,7 @@ function PropostasTab() {
         </div>
       )}
 
-      {/* 5. Modal: Marcar como Perdida */}
+      {/* 6. Modal: Marcar como Perdida */}
       {showLostModal && selectedProposal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -395,7 +421,7 @@ function PropostasTab() {
   );
 }
 // =================================================================
-// FIM: COMPONENTE DA ABA PROPOSTAS (CRM)
+// FIM: COMPONENTE DA ABA PROPOSTAS (CRM) COM FILTROS
 // =================================================================
 
 
