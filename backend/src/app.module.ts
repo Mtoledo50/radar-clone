@@ -10,8 +10,9 @@ import { BiModule } from './bi/bi.module'; // <-- ADICIONE ESTA LINHA
 import { TurnoverModule } from './turnover/turnover.module';
 import { AdminModule } from './admin/admin.module'; // 🔥 NOVO IMPORT
 import { CommercialPlansModule } from './commercial-plans/commercial-plans.module';
-
+import { PricingCalculatorModule } from './pricing-calculator/pricing-calculator.module';
+import { ProposalsModule } from './proposals/proposals.module';
 @Module({
-  imports: [PrismaModule, AuthModule, CompanyModule, EmployeeModule, ClientModule, PricingModule, PlanningModule, BiModule, TurnoverModule, AdminModule, CommercialPlansModule], // 🔥 ADICIONE AdminModule E CommercialPlansModule AQUI
+  imports: [PrismaModule, AuthModule, CompanyModule, EmployeeModule, ClientModule, PricingModule, PlanningModule, BiModule, TurnoverModule, AdminModule, CommercialPlansModule, PricingCalculatorModule, ProposalsModule], // 🔥 ADICIONE AdminModule E CommercialPlansModule AQUI
 })
 export class AppModule {}
