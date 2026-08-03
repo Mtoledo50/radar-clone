@@ -858,4 +858,166 @@ function CategoryCard({ category, onAddItem, onDeleteItem, onDeleteCategory }: a
     <div className="border-2 border-slate-300 rounded-lg overflow-hidden hover:border-teal-400 transition-colors">
       <div className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 cursor-pointer" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-center gap-3 flex-1">
-          {expanded ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className
+          {expanded ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
+          <FolderOpen className="h-5 w-5 text-teal-600" />
+          <div>
+            <h3 className="font-bold text-slate-900">{category.name}</h3>
+            <p className="text-xs text-slate-500 font-medium">{category._count.items} itens</p>
+          </div>
+        </div>
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <button onClick={() => onAddItem(category.id)} className="p-1.5 text-slate-500 hover:text-teal-600"><Plus className="h-4 w-4" /></button>
+          <button onClick={onDeleteCategory} className="p-1.5 text-slate-500 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+        </div>
+      </div>
+      {expanded && (
+        <div className="border-t-2 border-slate-200">
+          {category.items.length === 0 ? (<p className="p-4 text-sm text-slate-500 text-center">Nenhum item nesta categoria</p>) : (
+            <ul className="divide-y divide-slate-100">
+              {category.items.map((item: any) => (
+                <li key={item.id} className="flex items-center justify-between p-3 hover:bg-slate-50">
+                  <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-slate-400" /><span className="text-sm font-medium text-slate-700">{item.name}</span></div>
+                  <button onClick={() => onDeleteItem(item.id)} className="text-slate-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =================================================================
+// 📄 MODAL: GERAR PROPOSTA
+// =================================================================
+function GenerateProposalModal({ isOpen, onClose, calculationResult, clientForm }: { isOpen: boolean; onClose: () => void; calculationResult: any; clientForm: any }) {
+  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState(1);
+  const [proposal, setProposal] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    clientName: clientForm?.clientName || '',
+    clientCnpj: '',
+    aboutOffice: '',
+    differentials: '',
+    onboarding: '',
+    commercialTerms: '',
+    specificNote: '',
+    includedPlanIds: [] as string[],
+  });
+
+  useEffect(() => {
+    if (isOpen && calculationResult) {
+      const allPlanIds = calculationResult.planPrices?.map((p: any) => p.planId) || [];
+      setFormData(prev => ({ ...prev, includedPlanIds: allPlanIds }));
+    }
+  }, [isOpen, calculationResult]);
+
+  async function handleGenerate() {
+    setLoading(true);
+    try {
+      const includedPlans = calculationResult.planPrices.filter((p: any) => formData.includedPlanIds.includes(p.planId));
+      const res = await api.post('/proposals', {
+        ...formData,
+        taxRegime: clientForm.taxRegime,
+        activity: clientForm.activity,
+        monthlyRevenue: clientForm.monthlyRevenue,
+        employeeCount: clientForm.employeeCount,
+        basePrice: calculationResult.basePrice,
+        includedPlans,
+      });
+      setProposal(res.data.data);
+      setStep(2);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao gerar proposta');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function togglePlan(planId: string) {
+    setFormData(prev => ({
+      ...prev,
+      includedPlanIds: prev.includedPlanIds.includes(planId) ? prev.includedPlanIds.filter((id) => id !== planId) : [...prev.includedPlanIds, planId],
+    }));
+  }
+
+  function copyLink() {
+    const link = `${window.location.origin}/proposta/${proposal.slug}`;
+    navigator.clipboard.writeText(link);
+    toast.success('Link copiado!');
+  }
+
+  function openProposal() {
+    window.open(`/proposta/${proposal.slug}`, '_blank');
+  }
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b-2 border-slate-200 sticky top-0 bg-white z-10">
+          <h2 className="text-xl font-bold text-slate-900">{step === 1 ? 'Gerar Proposta' : 'Proposta Gerada!'}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-6 w-6" /></button>
+        </div>
+        {step === 1 && (
+          <div className="p-6 space-y-4">
+            <div><label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Cliente *</label><input type="text" value={formData.clientName} onChange={(e) => setFormData({ ...formData, clientName: e.target.value })} className={inputClass} /></div>
+            <div><label className="block text-sm font-semibold text-slate-700 mb-1">CNPJ (opcional)</label><input type="text" value={formData.clientCnpj} onChange={(e) => setFormData({ ...formData, clientCnpj: e.target.value })} className={inputClass} placeholder="00.000.000/0000-00" /></div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Planos a incluir</label>
+              <div className="space-y-2">
+                {calculationResult?.planPrices?.map((plan: any) => (
+                  <label key={plan.planId} className="flex items-center gap-3 p-3 border-2 border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
+                    <input type="checkbox" checked={formData.includedPlanIds.includes(plan.planId)} onChange={() => togglePlan(plan.planId)} className="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+                    <div className="flex-1"><p className="font-semibold text-slate-900">{plan.planName}</p><p className="text-sm text-slate-500">R$ {plan.finalPrice.toFixed(2)}/mês</p></div>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-4 border-t-2 border-slate-200">
+              <button onClick={onClose} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
+              <button onClick={handleGenerate} disabled={loading || !formData.clientName || formData.includedPlanIds.length === 0} className={btnPrimary}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {loading ? 'Gerando...' : 'Gerar Proposta'}
+              </button>
+            </div>
+          </div>
+        )}
+        {step === 2 && proposal && (
+          <div className="p-6 space-y-4">
+            <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+              <p className="font-bold text-green-800 mb-1">✅ Proposta gerada com sucesso!</p>
+              <p className="text-sm text-green-700">Nº {proposal.proposalNumber}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Link Público</label>
+              <div className="flex gap-2">
+                <input type="text" readOnly value={`${window.location.origin}/proposta/${proposal.slug}`} className={inputClass + ' flex-1'} />
+                <button onClick={copyLink} className={btnSecondary}>Copiar</button>
+              </div>
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <button onClick={openProposal} className={btnPrimary + ' flex-1 min-w-[140px]'}>
+                Abrir Proposta
+              </button>
+              <button 
+                onClick={() => {
+                  window.open(`/proposta/${proposal.slug}`, '_blank');
+                  toast.success('A proposta foi aberta. Clique no botão "Baixar PDF" dentro dela.');
+                }} 
+                className={btnSecondary + ' flex-1 min-w-[140px]'}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Baixar PDF
+              </button>
+              <button onClick={onClose} className={btnSecondary}>
+                Fechar
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
