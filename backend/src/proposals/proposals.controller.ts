@@ -45,7 +45,13 @@ export class ProposalsController {
     const data = await this.service.getLossReasonsData(req.user.companyId, period);
     return { success: true, data };
   }
-
+  //  NOVO: Endpoint para Taxa de Conversão
+  @UseGuards(JwtAuthGuard)
+  @Get('conversion-trend')
+  async getConversionTrend(@Request() req, @Query('period') period: string = '6') {
+    const data = await this.service.getConversionTrendData(req.user.companyId, period);
+    return { success: true, data };
+  }
   // Rotas com parâmetro :id (DEVEM vir por último)
   @UseGuards(JwtAuthGuard)
   @Get(':id')

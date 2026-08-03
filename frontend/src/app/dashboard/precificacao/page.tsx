@@ -19,7 +19,8 @@ import {
 
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell
+  AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell,
+  LineChart, Line // 🔥 Adicionado para o gráfico de conversão
 } from 'recharts';
 // =================================================================
 // FIM: IMPORTS DE DEPENDÊNCIAS E BIBLIOTECAS
@@ -91,7 +92,7 @@ export default function PrecificacaoPage() {
 // =================================================================
 
 // =================================================================
-// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM) COM FILTROS
+// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM) COM FILTROS E CONVERSÃO
 // =================================================================
 function PropostasTab() {
   // --- Estados ---
@@ -100,7 +101,8 @@ function PropostasTab() {
   const [proposals, setProposals] = useState<any[]>([]);
   const [trendData, setTrendData] = useState<any[]>([]);
   const [lossReasonsData, setLossReasonsData] = useState<any[]>([]);
-  const [period, setPeriod] = useState<'3' | '6' | '12' | 'all'>('6'); // 🔥 Novo estado de período
+  const [conversionData, setConversionData] = useState<any[]>([]); // 🔥 Novo estado
+  const [period, setPeriod] = useState<'3' | '6' | '12' | 'all'>('6');
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
@@ -109,23 +111,24 @@ function PropostasTab() {
   const [lostReason, setLostReason] = useState('Preço alto');
 
   // --- Efeitos ---
-  // Recarrega os dados sempre que o 'period' mudar
   useEffect(() => { loadData(); }, [period]);
 
   // --- Funções de Manipulação de Dados ---
   async function loadData() {
     setLoading(true);
     try {
-      const [statsRes, proposalsRes, trendRes, lossRes] = await Promise.all([
+      const [statsRes, proposalsRes, trendRes, lossRes, conversionRes] = await Promise.all([
         api.get('/proposals/dashboard/stats'),
         api.get('/proposals'),
-        api.get(`/proposals/trend-data?period=${period}`), // 🔥 Passando o período
-        api.get(`/proposals/loss-reasons?period=${period}`), // 🔥 Passando o período
+        api.get(`/proposals/trend-data?period=${period}`),
+        api.get(`/proposals/loss-reasons?period=${period}`),
+        api.get(`/proposals/conversion-trend?period=${period}`), // 🔥 Nova requisição
       ]);
       setStats(statsRes.data.data);
       setProposals(proposalsRes.data.data);
       setTrendData(trendRes.data.data);
       setLossReasonsData(lossRes.data.data);
+      setConversionData(conversionRes.data.data); // 🔥 Salvando dados
     } catch (err) {
       toast.error('Erro ao carregar dados do CRM');
     } finally {
@@ -208,7 +211,7 @@ function PropostasTab() {
         </div>
       )}
 
-      {/* 🔥 2. Filtro de Período */}
+      {/* 2. Filtro de Período */}
       <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
         <h3 className="text-lg font-bold text-slate-900">Análise de Desempenho</h3>
         <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
@@ -281,6 +284,30 @@ function PropostasTab() {
                 Nenhuma proposta perdida no período.
               </div>
             )}
+          </div>
+
+          {/* 🔥 NOVO: Gráfico de Linha (Taxa de Conversão) */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-3">
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Taxa de Conversão (%)</h3>
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={conversionData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
+                <YAxis stroke="#64748b" style={{ fontSize: '12px' }} unit="%" />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                  formatter={(value: number) => [`${value.toFixed(2)}%`, 'Conversão']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="conversionRate" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3}
+                  dot={{ r: 5, fill: '#3b82f6' }}
+                  activeDot={{ r: 7 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
 
           {/* Gráfico de Área (Ocupa largura total) */}
@@ -421,9 +448,8 @@ function PropostasTab() {
   );
 }
 // =================================================================
-// FIM: COMPONENTE DA ABA PROPOSTAS (CRM) COM FILTROS
+// FIM: COMPONENTE DA ABA PROPOSTAS (CRM) COM FILTROS E CONVERSÃO
 // =================================================================
-
 
 // =================================================================
 // INÍCIO: COMPONENTE DA ABA CALCULADORA DE PREÇO
