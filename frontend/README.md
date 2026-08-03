@@ -573,3 +573,28 @@ Website: www.contacerta.com.br
 Feito com ❤️ por Marcos e equipe Conta Certa
 ⭐ Se este projeto foi útil, considere dar uma estrela!
 </div>
+
+📊 Atualização: Filtros de Período no CRM de Propostas
+
+Descrição:
+Implementação de filtros de período interativos no Dashboard Comercial (CRM), permitindo que o usuário visualize o desempenho das propostas (enviadas, fechadas, perdidas e receita) em diferentes janelas de tempo.
+
+Funcionalidades Adicionadas:
+* Seleção de Período: Botões para filtrar os dados por 3 Meses, 6 Meses, 1 Ano e Todo o Período.
+* Atualização Dinâmica: Todos os gráficos (Barras, Área e Pizza) e os KPIs são recalculados instantaneamente ao mudar o período selecionado.
+* Filtro de Motivos de Perda: O gráfico de pizza (Motivos de Perda) agora reflete apenas as propostas perdidas dentro do período escolhido.
+
+Arquivos Alterados:
+* backend/src/proposals/proposals.service.ts
+* backend/src/proposals/proposals.controller.ts
+* frontend/src/app/dashboard/precificacao/page.tsx
+
+Alterações Técnicas:
+* Backend (proposals.service.ts):
+  * Atualização dos métodos getTrendData e getLossReasonsData para receber e processar o parâmetro period.
+  * Lógica de cálculo de data dinâmica baseada no período selecionado (3, 6, 12 meses ou ilimitado).
+* Backend (proposals.controller.ts):
+  * Adição do decorador @Query('period') nos endpoints /trend-data e /loss-reasons.
+* Frontend (precificacao/page.tsx):
+  * Criação do estado period e da interface de botões de seleção.
+  * Integração do parâmetro period nas requisições da API via useEffect.
