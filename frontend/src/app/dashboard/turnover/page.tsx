@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 // =================================================================
-//  PALETA E UTILITÁRIOS
+// 🎨 PALETA E UTILITÁRIOS
 // =================================================================
 const inputClass = 
   "w-full px-3 py-2 border border-slate-300 rounded-lg " +
@@ -29,7 +29,7 @@ const contractTypes = [
 ];
 
 // =================================================================
-//  PÁGINA PRINCIPAL
+// 🎯 PÁGINA PRINCIPAL
 // =================================================================
 export default function TurnoverPage() {
   const [loading, setLoading] = useState(true);
@@ -70,7 +70,7 @@ export default function TurnoverPage() {
       setPositions(positionsRes.data.data);
       setResignations(resignationsRes.data.data);
     } catch (err) {
-      toast.error('Erro ao carregar dados');
+      toast.error('Erro ao carregar dados de turnover');
     } finally {
       setLoading(false);
     }
@@ -84,8 +84,6 @@ export default function TurnoverPage() {
       console.error('Erro ao carregar distribuição:', err);
     }
   }
-
-  const currentMonthData = data?.monthlyData?.find((m: any) => m.month === selectedMonth);
 
   if (loading) {
     return (
@@ -240,20 +238,23 @@ export default function TurnoverPage() {
 }
 
 // =================================================================
-//  TAB EMPRESA
+// 📊 TAB EMPRESA
 // =================================================================
 function EmpresaTab({ data, year, onEdit }: any) {
   if (!data) return null;
+
+  // 🔥 CORREÇÃO: Proteção contra undefined no turnoverAcumulado
+  const turnoverAcumuladoSafe = Number(data.turnoverAcumulado) >= 0 ? Number(data.turnoverAcumulado).toFixed(1) : '0.0';
 
   return (
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard icon={Users} label="Total da Equipe" value={data.totalTeam} sublabel="Colaboradores ativos" color="teal" />
+        <KpiCard icon={Users} label="Total da Equipe" value={data.totalTeam || 0} sublabel="Colaboradores ativos" color="teal" />
         <KpiCard 
           icon={TrendingUp} 
           label="Turnover Acumulado 12m" 
-          value={`${data.turnoverAcumulado}%`} 
+          value={`${turnoverAcumuladoSafe}%`} 
           sublabel="Média anual"
           extra={
             <div className="text-xs text-slate-500 mt-2 p-2 bg-slate-50 rounded">
@@ -272,19 +273,26 @@ function EmpresaTab({ data, year, onEdit }: any) {
         <h3 className="text-lg font-bold text-slate-900 mb-4">Turnover nos Últimos 12 Meses</h3>
         <div className="h-64 flex items-end justify-around gap-2 border-b border-l border-slate-200 pb-2 pl-2">
           {data.monthlyData?.map((m: any, idx: number) => {
-            const hcMedio = (m.initial + m.final) / 2;
-            const turnover = hcMedio > 0 ? (m.dismissals / hcMedio) * 100 : 0;
+            // 🔥 CORREÇÃO: Garantir que os valores sejam números para evitar NaN
+            const initial = Number(m.initial) || 0;
+            const final = Number(m.final) || 0;
+            const dismissals = Number(m.dismissals) || 0;
+            
+            const hcMedio = (initial + final) / 2;
+            const turnover = hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
+            
             const maxVal = Math.max(...data.monthlyData.map((mm: any) => {
-              const hc = (mm.initial + mm.final) / 2;
-              return hc > 0 ? (mm.dismissals / hc) * 100 : 0;
+              const hc = (Number(mm.initial) + Number(mm.final)) / 2;
+              return hc > 0 ? (Number(mm.dismissals) / hc) * 100 : 0;
             }), 1);
+            
             const height = (turnover / maxVal) * 100;
             
             return (
               <div key={idx} className="flex flex-col items-center flex-1">
                 <div className="w-full flex justify-center" style={{ height: '200px' }}>
                   <div 
-                    className="w-2 bg-teal-500 rounded-t transition-all hover:bg-teal-700 cursor-pointer"
+                    className="w-4 bg-teal-500 rounded-t transition-all hover:bg-teal-700 cursor-pointer"
                     style={{ height: `${Math.max(height, 2)}%`, marginBottom: '0px' }}
                     title={`${monthsShort[idx]}: ${turnover.toFixed(2)}%`}
                   />
@@ -317,19 +325,25 @@ function EmpresaTab({ data, year, onEdit }: any) {
             </thead>
             <tbody className="divide-y divide-slate-200">
               {data.monthlyData?.map((m: any, idx: number) => {
-                const hcMedio = (m.initial + m.final) / 2;
-                const turnoverMensal = hcMedio > 0 ? (m.dismissals / hcMedio) * 100 : 0;
-                const demissAcum = data.monthlyData.slice(0, idx + 1).reduce((acc: number, mm: any) => acc + mm.dismissals, 0);
-                const hcAcum = data.monthlyData.slice(0, idx + 1).reduce((acc: number, mm: any) => acc + (mm.initial + mm.final) / 2, 0);
+                const initial = Number(m.initial) || 0;
+                const final = Number(m.final) || 0;
+                const admissions = Number(m.admissions) || 0;
+                const dismissals = Number(m.dismissals) || 0;
+                
+                const hcMedio = (initial + final) / 2;
+                const turnoverMensal = hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
+                
+                const demissAcum = data.monthlyData.slice(0, idx + 1).reduce((acc: number, mm: any) => acc + (Number(mm.dismissals) || 0), 0);
+                const hcAcum = data.monthlyData.slice(0, idx + 1).reduce((acc: number, mm: any) => acc + ((Number(mm.initial) || 0) + (Number(mm.final) || 0)) / 2, 0);
                 const turnoverAcum = hcAcum > 0 ? (demissAcum / hcAcum) * 100 : 0;
                 
                 return (
                   <tr key={idx} className="hover:bg-slate-50">
                     <td className="px-6 py-4 font-medium text-slate-900">{months[idx]}</td>
-                    <td className="px-6 py-4 text-center">{m.initial}</td>
-                    <td className="px-6 py-4 text-center text-green-600">{m.admissions}</td>
-                    <td className="px-6 py-4 text-center text-red-600">{m.dismissals}</td>
-                    <td className="px-6 py-4 text-center font-semibold">{m.final}</td>
+                    <td className="px-6 py-4 text-center">{initial}</td>
+                    <td className="px-6 py-4 text-center text-green-600">{admissions}</td>
+                    <td className="px-6 py-4 text-center text-red-600">{dismissals}</td>
+                    <td className="px-6 py-4 text-center font-semibold">{final}</td>
                     <td className="px-6 py-4 text-center text-teal-600 font-medium">{turnoverMensal.toFixed(2)}%</td>
                     <td className="px-6 py-4 text-center font-semibold">{turnoverAcum.toFixed(2)}%</td>
                     <td className="px-6 py-4 text-right">
@@ -384,19 +398,19 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-slate-600">Equipe Inicial Total</p>
-              <p className="text-2xl font-bold text-slate-900">{monthData.initial}</p>
+              <p className="text-2xl font-bold text-slate-900">{Number(monthData.initial) || 0}</p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Admissões Totais</p>
-              <p className="text-2xl font-bold text-green-600">{monthData.admissions}</p>
+              <p className="text-2xl font-bold text-green-600">{Number(monthData.admissions) || 0}</p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Demissões Totais</p>
-              <p className="text-2xl font-bold text-red-600">{monthData.dismissals}</p>
+              <p className="text-2xl font-bold text-red-600">{Number(monthData.dismissals) || 0}</p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Equipe Final Total</p>
-              <p className="text-2xl font-bold text-slate-900">{monthData.final}</p>
+              <p className="text-2xl font-bold text-slate-900">{Number(monthData.final) || 0}</p>
             </div>
           </div>
         </div>
@@ -420,9 +434,9 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
           </thead>
           <tbody className="divide-y divide-slate-200">
             {contractTypes.map((ct) => {
-              const initial = data?.monthlyData?.find((m: any) => m.month === selectedMonth)?.[`${ct.key}Initial`] || 0;
-              const admissions = data?.monthlyData?.find((m: any) => m.month === selectedMonth)?.[`${ct.key}Admissions`] || 0;
-              const dismissals = data?.monthlyData?.find((m: any) => m.month === selectedMonth)?.[`${ct.key}Dismissals`] || 0;
+              const initial = Number(data?.monthlyData?.find((m: any) => m.month === selectedMonth)?.[`${ct.key}Initial`]) || 0;
+              const admissions = Number(data?.monthlyData?.find((m: any) => m.month === selectedMonth)?.[`${ct.key}Admissions`]) || 0;
+              const dismissals = Number(data?.monthlyData?.find((m: any) => m.month === selectedMonth)?.[`${ct.key}Dismissals`]) || 0;
               const final = initial + admissions - dismissals;
               const hcMedio = (initial + final) / 2;
               const turnover = hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
@@ -440,14 +454,14 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
             })}
             <tr className="bg-slate-50 font-bold">
               <td className="px-6 py-4">Total</td>
-              <td className="px-6 py-4 text-center">{monthData?.initial || 0}</td>
-              <td className="px-6 py-4 text-center text-green-600">{monthData?.admissions || 0}</td>
-              <td className="px-6 py-4 text-center text-red-600">{monthData?.dismissals || 0}</td>
-              <td className="px-6 py-4 text-center">{monthData?.final || 0}</td>
+              <td className="px-6 py-4 text-center">{Number(monthData?.initial) || 0}</td>
+              <td className="px-6 py-4 text-center text-green-600">{Number(monthData?.admissions) || 0}</td>
+              <td className="px-6 py-4 text-center text-red-600">{Number(monthData?.dismissals) || 0}</td>
+              <td className="px-6 py-4 text-center">{Number(monthData?.final) || 0}</td>
               <td className="px-6 py-4 text-center text-teal-600">
                 {monthData ? (() => {
-                  const hc = (monthData.initial + monthData.final) / 2;
-                  return hc > 0 ? ((monthData.dismissals / hc) * 100).toFixed(2) + '%' : '0.00%';
+                  const hc = (Number(monthData.initial) + Number(monthData.final)) / 2;
+                  return hc > 0 ? ((Number(monthData.dismissals) / hc) * 100).toFixed(2) + '%' : '0.00%';
                 })() : '0.00%'}
               </td>
             </tr>
@@ -464,7 +478,6 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
 function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDistribution, setSectorDistribution, onManageSectors, onSaveDistribution }: any) {
   const monthData = data?.monthlyData?.find((m: any) => m.month === selectedMonth);
 
-  // Calcular totais distribuídos
   const distributedTotals = useMemo(() => {
     const initial = sectorDistribution.reduce((acc: number, d: any) => acc + (Number(d.initial) || 0), 0);
     const admissions = sectorDistribution.reduce((acc: number, d: any) => acc + (Number(d.admissions) || 0), 0);
@@ -472,17 +485,15 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
     return { initial, admissions, dismissals };
   }, [sectorDistribution]);
 
-  // Verificar se a distribuição é válida
   const isDistributionValid = useMemo(() => {
     if (!monthData) return false;
     return (
-      distributedTotals.initial === monthData.initial &&
-      distributedTotals.admissions === monthData.admissions &&
-      distributedTotals.dismissals === monthData.dismissals
+      distributedTotals.initial === Number(monthData.initial) &&
+      distributedTotals.admissions === Number(monthData.admissions) &&
+      distributedTotals.dismissals === Number(monthData.dismissals)
     );
   }, [distributedTotals, monthData]);
 
-  // Atualizar distribuição de um setor
   const updateSectorDistribution = (sectorId: string, field: string, value: number) => {
     setSectorDistribution((prev: any[]) => 
       prev.map((d: any) => 
@@ -491,14 +502,15 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
     );
   };
 
-  // Calcular turnover por setor
   const getSectorTurnover = (dist: any) => {
-    const final = (Number(dist.initial) || 0) + (Number(dist.admissions) || 0) - (Number(dist.dismissals) || 0);
-    const hcMedio = ((Number(dist.initial) || 0) + final) / 2;
-    return hcMedio > 0 ? ((Number(dist.dismissals) || 0) / hcMedio) * 100 : 0;
+    const initial = Number(dist.initial) || 0;
+    const admissions = Number(dist.admissions) || 0;
+    const dismissals = Number(dist.dismissals) || 0;
+    const final = initial + admissions - dismissals;
+    const hcMedio = (initial + final) / 2;
+    return hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
   };
 
-  // Ranking de turnover por setor
   const turnoverRanking = useMemo(() => {
     return sectorDistribution
       .map((d: any) => ({
@@ -510,7 +522,6 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
 
   return (
     <div className="space-y-6">
-      {/* Seletor de Mês + Gerenciar Setores */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex-1">
           <h3 className="font-semibold text-slate-900 mb-3">Selecione o Mês</h3>
@@ -539,7 +550,6 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
         </button>
       </div>
 
-      {/* Valores para Distribuir */}
       {monthData && (
         <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl">
           <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
@@ -549,25 +559,24 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-slate-600">Equipe Inicial</p>
-              <p className="text-2xl font-bold text-slate-900">{monthData.initial}</p>
+              <p className="text-2xl font-bold text-slate-900">{Number(monthData.initial) || 0}</p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Admissões</p>
-              <p className="text-2xl font-bold text-green-600">{monthData.admissions}</p>
+              <p className="text-2xl font-bold text-green-600">{Number(monthData.admissions) || 0}</p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Demissões</p>
-              <p className="text-2xl font-bold text-red-600">{monthData.dismissals}</p>
+              <p className="text-2xl font-bold text-red-600">{Number(monthData.dismissals) || 0}</p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Equipe Final</p>
-              <p className="text-2xl font-bold text-slate-900">{monthData.final}</p>
+              <p className="text-2xl font-bold text-slate-900">{Number(monthData.final) || 0}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Status da Distribuição */}
       <div className={`p-4 rounded-xl border-2 ${isDistributionValid ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'}`}>
         <div className="flex items-center gap-3">
           {isDistributionValid ? (
@@ -590,7 +599,6 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
         </div>
       </div>
 
-      {/* Ranking de Turnover por Setor */}
       {turnoverRanking.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Ranking de Turnover por Setor - {months[selectedMonth - 1]}</h3>
@@ -608,7 +616,6 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
         </div>
       )}
 
-      {/* Tabela de Distribuição por Setor */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center">
           <h3 className="text-lg font-bold text-slate-900">Distribuição por Setor - {months[selectedMonth - 1]}</h3>
@@ -653,7 +660,6 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
                     dismissals: 0,
                     sector,
                   };
-                  const final = (Number(dist.initial) || 0) + (Number(dist.admissions) || 0) - (Number(dist.dismissals) || 0);
                   const turnover = getSectorTurnover(dist);
 
                   return (
@@ -683,7 +689,9 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
                           className="w-20 px-2 py-1 border border-slate-300 rounded text-center text-red-600 focus:ring-2 focus:ring-teal-500"
                         />
                       </td>
-                      <td className="px-6 py-4 text-center font-semibold">{final}</td>
+                      <td className="px-6 py-4 text-center font-semibold">
+                        {(Number(dist.initial) || 0) + (Number(dist.admissions) || 0) - (Number(dist.dismissals) || 0)}
+                      </td>
                       <td className="px-6 py-4 text-center text-teal-600 font-medium">{turnover.toFixed(2)}%</td>
                     </tr>
                   );
@@ -699,10 +707,10 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
                 {monthData && (
                   <tr className="bg-blue-50">
                     <td className="px-6 py-4 font-medium text-blue-900">Meta (Tipo Contratual)</td>
-                    <td className="px-6 py-4 text-center text-blue-900">{monthData.initial}</td>
-                    <td className="px-6 py-4 text-center text-blue-900">{monthData.admissions}</td>
-                    <td className="px-6 py-4 text-center text-blue-900">{monthData.dismissals}</td>
-                    <td className="px-6 py-4 text-center text-blue-900">{monthData.final}</td>
+                    <td className="px-6 py-4 text-center text-blue-900">{Number(monthData.initial) || 0}</td>
+                    <td className="px-6 py-4 text-center text-blue-900">{Number(monthData.admissions) || 0}</td>
+                    <td className="px-6 py-4 text-center text-blue-900">{Number(monthData.dismissals) || 0}</td>
+                    <td className="px-6 py-4 text-center text-blue-900">{Number(monthData.final) || 0}</td>
                     <td className="px-6 py-4 text-center">-</td>
                   </tr>
                 )}
@@ -721,7 +729,6 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
 function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sectors, onAdd, onDelete }: any) {
   return (
     <div className="space-y-6">
-      {/* Sub-tabs */}
       <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
         {[
           { key: 'dashboard', label: 'Dashboard' },
@@ -805,7 +812,6 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
 
       {subTab === 'config' && (
         <div className="space-y-6">
-          {/* Motivos */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-4">
               <div>
@@ -845,7 +851,6 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
             </div>
           </div>
 
-          {/* Cargos */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-4">
               <div>
@@ -917,7 +922,7 @@ function KpiCard({ icon: Icon, label, value, sublabel, extra, color }: any) {
 }
 
 // =================================================================
-// 📝 MODAL: Editar Dados Mensais (COM CÁLCULOS EM TEMPO REAL)
+// 📝 MODAL: Editar Dados Mensais
 // =================================================================
 function EditMonthlyModal({ month, year, initialData, onClose, onSave }: any) {
   const [form, setForm] = useState({
@@ -935,10 +940,9 @@ function EditMonthlyModal({ month, year, initialData, onClose, onSave }: any) {
     partnerDismissals: initialData?.partnerDismissals || 0,
   });
 
-  // 🔥 CÁLCULOS EM TEMPO REAL
-  const totalInitial = form.cltInitial + form.internInitial + form.thirdInitial + form.partnerInitial;
-  const totalAdmissions = form.cltAdmissions + form.internAdmissions + form.thirdAdmissions + form.partnerAdmissions;
-  const totalDismissals = form.cltDismissals + form.internDismissals + form.thirdDismissals + form.partnerDismissals;
+  const totalInitial = Number(form.cltInitial) + Number(form.internInitial) + Number(form.thirdInitial) + Number(form.partnerInitial);
+  const totalAdmissions = Number(form.cltAdmissions) + Number(form.internAdmissions) + Number(form.thirdAdmissions) + Number(form.partnerAdmissions);
+  const totalDismissals = Number(form.cltDismissals) + Number(form.internDismissals) + Number(form.thirdDismissals) + Number(form.partnerDismissals);
   const totalFinal = totalInitial + totalAdmissions - totalDismissals;
   const hcMedio = (totalInitial + totalFinal) / 2;
   const turnoverMes = hcMedio > 0 ? (totalDismissals / hcMedio) * 100 : 0;
@@ -989,7 +993,6 @@ function EditMonthlyModal({ month, year, initialData, onClose, onSave }: any) {
             </div>
           ))}
 
-          {/* Resumo Automático em Tempo Real */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
             <h3 className="font-semibold text-slate-900 mb-3">Resumo Automático</h3>
             <div className="grid grid-cols-3 gap-4 mb-3">
@@ -1025,7 +1028,7 @@ function EditMonthlyModal({ month, year, initialData, onClose, onSave }: any) {
 }
 
 // =================================================================
-//  MODAL: Adicionar Rescisão
+// 📝 MODAL: Adicionar Rescisão
 // =================================================================
 function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: any) {
   const [form, setForm] = useState({
