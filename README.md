@@ -549,3 +549,38 @@ Feito com ❤️ por Marcos e equipe Conta Certa
 </div>
 ---
 
+Atualização: Exportação de Relatórios (PDF e Excel)
+
+Descrição:
+Implementação de funcionalidades de exportação de dados do CRM, permitindo que os usuários gerem relatórios completos em PDF (com formatação profissional) e planilhas CSV/Excel (para manipulação de dados).
+
+Funcionalidades Adicionadas:
+
+* Exportação para PDF: Gera um relatório formatado com:
+   * Cabeçalho com período selecionado e data de geração
+   * Resumo executivo com todos os KPIs (total, enviadas, fechadas, perdidas, conversão, ganho total)
+   * Tabela detalhada de todas as propostas do período
+   * Numeração de páginas automática
+
+* Exportação para Excel/CSV: Gera uma planilha com:
+   * Todas as colunas da tabela de propostas
+   * Dados formatados para compatibilidade com Excel e Google Sheets
+   * Valores em formato brasileiro (R$ com vírgula)
+* Nomes de arquivos automáticos: Incluem a data atual (ex: relatorio-propostas-2026-08-04.pdf)
+
+Arquivos Alterados:
+
+frontend/src/app/dashboard/precificacao/page.tsx
+
+Dependências Instaladas:
+ * jspdf - Geração de PDFs
+ * jspdf-autotable - Criação de tabelas formatadas em PDF
+
+Detalhes das Alterações Técnicas:
+* Frontend:
+  * Adição dos imports jsPDF e autoTable
+  * Criação da função exportToPDF() que monta o documento com cabeçalho, KPIs em tabela e lista de propostas
+  * Criação da função exportToCSV() que gera arquivo CSV com BOM para suportar caracteres especiais em português
+  * Adição de dois botões na interface (PDF em vermelho, Excel em verde) com ícones
+  * Integração com toast para feedback de sucesso após download
+
