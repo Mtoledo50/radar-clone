@@ -6,23 +6,30 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 // =================================================================
 // 🏢 EMPRESA (TENANT)
 // =================================================================
 model Company {
-  id              String   @id @default(uuid())
-  name            String   
-  cnpj            String?  @unique
-  state           String?
+  id                String   @id @default(uuid())
+  name              String   
+  cnpj              String?  @unique
+  state             String?
   
-  plan            String   @default("BASIC") 
-  allowedModules  String[] @default(["dashboard", "pessoas", "clientes"]) 
+  // 🔥 Novos campos para o módulo "Minha Empresa"
+  email             String?
+  phone             String?
+  address           String?
+  logoUrl           String?
+  softwareStack     String[] @default([])
+  businessGoals     String?  @db.Text
   
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  plan              String   @default("BASIC") 
+  allowedModules    String[] @default(["dashboard", "pessoas", "clientes"]) 
   
-  users           User[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  users             User[]
   turnoverDistributions TurnoverSectorDistribution[] 
   
   // Relações para Planos Comerciais
@@ -679,14 +686,4 @@ model Proposal {
   @@index([slug])
   @@index([status])
   @@map("proposals")
-}
-
-// Configuração do seed
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
