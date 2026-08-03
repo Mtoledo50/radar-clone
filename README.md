@@ -170,34 +170,61 @@ O sistema foi desenvolvido com a identidade visual da **Conta Certa Soluções E
 ### Arquitetura Multi-Tenant
 
 O sistema utiliza uma arquitetura **multi-tenant single-database**, onde todos os dados de todas as empresas são armazenados no mesmo banco, mas isolados logicamente através do campo `companyId`.
+
 ┌─────────────────────────────────────────┐
-│ Frontend (Next.js) │
-│ ┌───────────────────────────────────┐ │
-│ │ React 19 + TypeScript + Tailwind │ │
-│ │ Zustand (Estado Global) │ │
-│ │ Sonner (Notificações) │ │
-│ └───────────────────────────────────┘ │
-└──────────────────┬──────────────────────┘
+
+│            Frontend (Next.js)           │
+
+│  ┌───────────────────────────────────┐  │
+
+│  │  React 19 + TypeScript + Tailwind │  │
+
+│  │       Zustand (Estado Global)     │  │
+
+│  │        Sonner (Notificações)      │  │
+
+│  └───────────────────────────────────┘  │
+
+└──────────────────┬──────────────────────┘ 
+
 │ HTTP/REST (Axios)
 ▼
+
 ┌─────────────────────────────────────────┐
+
 │ Backend (NestJS) │
+
 │ ┌───────────────────────────────────┐ │
+
 │ │ Controllers + Services + DTOs │ │
+
 │ │ Guards (JWT) + Interceptors │ │
+
 │ │ Prisma ORM │ │
+
 │ └───────────────────────────────────┘ │
+
 ──────────────────┬──────────────────────┘
+
 │ SQL
+
 ▼
 ┌─────────────────────────────────────────┐
+
 │ PostgreSQL Database │
+
 │ ┌───────────────────────────────────┐ │
+
 │ │ Tabelas com companyId │ │
+
 │ │ Índices para performance │ │
+
 │ │ Relações e constraints │ │
+
 │ └───────────────────────────────────┘ │
+
 └─────────────────────────────────────────┘
+
 
 
 ### Estrutura de Pastas
