@@ -1,6 +1,6 @@
 /**
  * CommercialPlansController
- * Endpoints REST para gestão de planos comerciais.
+ * Endpoints REST para gestão de planos comerciais, categorias e itens.
  */
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { CommercialPlansService } from './commercial-plans.service';
@@ -11,6 +11,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class CommercialPlansController {
   constructor(private readonly service: CommercialPlansService) {}
 
+  // =================================================================
+  // 🏢 PLANOS
+  // =================================================================
   @Get('plans')
   async getPlans(@Request() req) {
     return { success: true, data: await this.service.getPlans(req.user.companyId) };
@@ -32,6 +35,9 @@ export class CommercialPlansController {
     return { success: true };
   }
 
+  // =================================================================
+  // 📁 CATEGORIAS
+  // =================================================================
   @Get('categories')
   async getCategories(@Request() req) {
     return { success: true, data: await this.service.getCategories(req.user.companyId) };
@@ -53,6 +59,9 @@ export class CommercialPlansController {
     return { success: true };
   }
 
+  // =================================================================
+  // 📦 ITENS DE SERVIÇO
+  // =================================================================
   @Post('items')
   async createServiceItem(@Request() req, @Body() body: any) {
     return { success: true, data: await this.service.createServiceItem(req.user.companyId, body) };
@@ -64,14 +73,11 @@ export class CommercialPlansController {
     return { success: true };
   }
 
+  // =================================================================
+  // 💾 SALVAMENTO EM LOTE (Configuração Completa)
+  // =================================================================
   @Post('save-configuration')
   async saveConfiguration(@Request() req, @Body() body: { plans: any[] }) {
     return { success: true, data: await this.service.savePlansConfiguration(req.user.companyId, body.plans) };
-  }
-  
-  @Post('calculate')
-  async calculatePrice(@Request() req, @Body() body: any) {
-    const result = await this.service.calculatePrice(req.user.companyId, body);
-    return { success: true, data: result };
   }
 }
