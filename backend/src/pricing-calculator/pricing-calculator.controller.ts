@@ -1,7 +1,3 @@
-/**
- * PricingCalculatorController
- * Endpoints REST para a calculadora de preço.
- */
 import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { PricingCalculatorService } from './pricing-calculator.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -44,7 +40,7 @@ export class PricingCalculatorController {
 
   @Post('calculate')
   async calculate(@Request() req, @Body() body: any) {
-    return this.service.calculate(req.user.companyId, body);
+    return { success: true, data: await this.service.calculate(req.user.companyId, body) };
   }
 
   @Post('save-calculation')

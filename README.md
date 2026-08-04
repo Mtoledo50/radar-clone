@@ -614,3 +614,5 @@ Frontend:
   * Integração com API para carregamento dinâmico de dados.
   * Modal de cadastro/edição com validação de campos obrigatórios.
   * Função de exportação CSV com formatação brasileira (valores com vírgula).
+
+  
