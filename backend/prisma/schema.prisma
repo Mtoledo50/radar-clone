@@ -6,6 +6,7 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
 // =================================================================
 // 🏢 EMPRESA (TENANT)
 // =================================================================
@@ -15,7 +16,6 @@ model Company {
   cnpj              String?  @unique
   state             String?
   
-  // 🔥 Novos campos para o módulo "Minha Empresa"
   email             String?
   phone             String?
   address           String?
@@ -32,21 +32,23 @@ model Company {
   users             User[]
   turnoverDistributions TurnoverSectorDistribution[] 
   
-  // Relações para Planos Comerciais
   serviceCategories ServiceCategory[]
   serviceItems      ServiceItem[]
   commercialPlans   CommercialPlan[]
   
-  // Relações para Calculadora de Preço
   pricingConfigs      PricingConfig?
   pricingHourRules    PricingHourRule[]
   pricingCalculations PricingCalculation[]
-
-  // 📄 PROPOSTA COMERCIAL (Link Público + PDF)
   proposals           Proposal[]
-
-   // 🔥 NOVA RELAÇÃO: Dados mensais da carteira de clientes
   clientMonthlyData   ClientMonthlyData[]
+  
+  // 🔥 NOVAS RELAÇÕES: Planejamento Estratégico
+  planningCycles    PlanningCycle[]
+  planningAreas     PlanningArea[]
+  planningObjectives PlanningObjective[]
+  planningGoals     PlanningGoal[]
+  planningKpis      PlanningKPI[]
+  actionPlans       ActionPlan[]
   
   @@map("companies")
 }
@@ -78,13 +80,8 @@ model User {
   resignations          Resignation[]
   turnoverDistributions TurnoverSectorDistribution[] 
   
-  // 🔥 NOVA RELAÇÃO: Cálculos de precificação feitos por este usuário
   pricingCalculations   PricingCalculation[]
-  
-  // 📄 PROPOSTA COMERCIAL (Link Público + PDF)
-  proposals           Proposal[]
-
-   // 🔥 NOVA RELAÇÃO: Dados mensais da carteira de clientes
+  proposals             Proposal[]
   clientMonthlyData     ClientMonthlyData[]
   
   @@index([companyId])
@@ -214,7 +211,7 @@ model Pricing {
 }
 
 // =================================================================
-// 📋 PLANEJAMENTO
+// 📋 PLANEJAMENTO (Legado - pode ser removido no futuro)
 // =================================================================
 model Planning {
   id              String   @id @default(uuid())
@@ -450,10 +447,8 @@ model TurnoverSectorDistribution {
 }
 
 // =================================================================
-// 📦 MÓDULO DE PLANOS COMERCIAIS (Precificação)
+// 📦 MÓDULO DE PLANOS COMERCIAIS
 // =================================================================
-
-// Categoria de serviços (ex: "Fiscal e Tributário", "Departamento Pessoal")
 model ServiceCategory {
   id          String        @id @default(uuid())
   companyId   String
@@ -472,7 +467,6 @@ model ServiceCategory {
   @@map("service_categories")
 }
 
-// Item de serviço individual (ex: "Apuração mensal de impostos")
 model ServiceItem {
   id          String            @id @default(uuid())
   companyId   String
@@ -493,7 +487,6 @@ model ServiceItem {
   @@map("service_items")
 }
 
-// Plano comercial (ex: START, PRIME, BLACK)
 model CommercialPlan {
   id            String            @id @default(uuid())
   companyId     String
@@ -515,7 +508,6 @@ model CommercialPlan {
   @@map("commercial_plans")
 }
 
-// Tabela pivô: relaciona planos com itens de serviço
 model PlanServiceItem {
   id            String        @id @default(uuid())
   planId        String
@@ -533,21 +525,17 @@ model PlanServiceItem {
 }
 
 // =================================================================
-// 📊 CONFIGURAÇÃO DE PRECIFICAÇÃO (Custos da Empresa)
+// 📊 CONFIGURAÇÃO DE PRECIFICAÇÃO
 // =================================================================
-
-// Armazena os parâmetros de custo e margem da empresa.
 model PricingConfig {
   id                    String   @id @default(uuid())
   companyId             String   @unique
   
-  // Custo do Colaborador
   salaryAverage         Float    @default(4000)
   chargesPercent        Float    @default(69)
   hoursPerMonth         Float    @default(160)
   livesPerEmployee      Float    @default(150)
   
-  // Deduções / Markup
   taxesPercent          Float    @default(10)
   backOfficePercent     Float    @default(4)
   adminPercent          Float    @default(5)
@@ -562,11 +550,6 @@ model PricingConfig {
   @@map("pricing_configs")
 }
 
-// =================================================================
-// 📊 REGRAS DE HORAS (Por Perfil de Cliente)
-// =================================================================
-
-// Define quantas horas fiscais e contábeis são necessárias por perfil
 model PricingHourRule {
   id              String   @id @default(uuid())
   companyId       String
@@ -590,21 +573,14 @@ model PricingHourRule {
   @@map("pricing_hour_rules")
 }
 
-// =================================================================
-// 📊 CÁLCULO DE PREÇO SALVO (Proposta/Cálculo)
-// =================================================================
-
-// Armazena cada cálculo realizado, permitindo recuperar e gerar propostas.
 model PricingCalculation {
   id                String   @id @default(uuid())
   companyId         String
   userId            String
   
-  // Identificação
   proposalNumber    String?
   clientName        String
   
-  // Perfil do Cliente
   taxRegime         String
   annex             String?
   activity          String
@@ -615,14 +591,12 @@ model PricingCalculation {
   hasBranches       Boolean  @default(false)
   hasErp            Boolean  @default(false)
   
-  // Resultados do Cálculo
   hoursFiscal       Float    @default(0)
   hoursAccounting   Float    @default(0)
   costPerHour       Float    @default(0)
   basePrice         Float    @default(0)
   currentCharge     Float?
   
-  // Planos calculados
   planPrices        Json?
   
   status            String   @default("DRAFT")
@@ -636,49 +610,41 @@ model PricingCalculation {
   @@index([status])
   @@map("pricing_calculations")
 }
-// =================================================================
-// 📄 PROPOSTA COMERCIAL (Link Público + PDF)
-// =================================================================
 
-// Armazena cada proposta gerada para um cliente específico.
-// Possui um slug único para acesso público sem login.
+// =================================================================
+// 📄 PROPOSTA COMERCIAL
+// =================================================================
 model Proposal {
   id                String   @id @default(uuid())
   companyId         String
   userId            String
   
-  // Identificação
-  proposalNumber    String   @unique // Ex: 0001/2026
-  slug              String   @unique // URL amigável: querencia-amada-ltda
+  proposalNumber    String   @unique
+  slug              String   @unique
   clientName        String
   clientCnpj        String?
   
-  // Dados do cálculo
   taxRegime         String
   activity          String
   monthlyRevenue    Float
   employeeCount     Int
   basePrice         Float
   
-  // Planos incluídos na proposta
-  includedPlans     Json     // Array: [{planId, planName, multiplier, finalPrice, items: []}]
+  includedPlans     Json
   
-  // Conteúdo da proposta (textos personalizados)
   aboutOffice       String?  @db.Text
   differentials     String?  @db.Text
   onboarding        String?  @db.Text
   commercialTerms   String?  @db.Text
   specificNote      String?  @db.Text
   
-  // Status e rastreamento
-  status            String   @default("DRAFT") // DRAFT, SENT, CLOSED, LOST
+  status            String   @default("DRAFT")
   sentAt            DateTime?
   closedAt          DateTime?
   closedPlanId      String?
   closedPrice       Float?
   lossReason        String?
   
-  // Visualizações
   views             Int      @default(0)
   whatsappClicks    Int      @default(0)
   
@@ -693,8 +659,9 @@ model Proposal {
   @@index([status])
   @@map("proposals")
 }
+
 // =================================================================
-// 📊 DADOS MENSAIS DA CARTEIRA DE CLIENTES (Para Cálculo de Churn/MRR)
+// 📊 DADOS MENSAIS DA CARTEIRA DE CLIENTES
 // =================================================================
 model ClientMonthlyData {
   id              String   @id @default(uuid())
@@ -702,7 +669,7 @@ model ClientMonthlyData {
   userId          String
   
   year            Int
-  month           Int      // 1 a 12
+  month           Int
   
   initialClients  Int      @default(0)
   newClients      Int      @default(0)
@@ -713,8 +680,8 @@ model ClientMonthlyData {
   lostRevenue     Float    @default(0)
   finalRevenue    Float    @default(0)
   
-  churnRate       Float    @default(0)        // Churn do mês (%)
-  accumulatedChurn Float   @default(0)        // Churn acumulado no ano (%)
+  churnRate       Float    @default(0)
+  accumulatedChurn Float   @default(0)
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -726,4 +693,123 @@ model ClientMonthlyData {
   @@index([companyId])
   @@index([userId])
   @@map("client_monthly_data")
+}
+
+// =================================================================
+// 🎯 PLANEJAMENTO ESTRATÉGICO (NOVOS MODELOS)
+// =================================================================
+
+model PlanningCycle {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  responsible String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  objectives  PlanningObjective[]
+  
+  @@index([companyId])
+  @@map("planning_cycles")
+}
+
+model PlanningArea {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  leader      String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
+  @@map("planning_areas")
+}
+
+model PlanningObjective {
+  id          String   @id @default(uuid())
+  companyId   String
+  cycleId     String
+  code        String
+  title       String
+  context     String?  @db.Text
+  startDate   DateTime
+  endDate     DateTime
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  cycle       PlanningCycle     @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  goals       PlanningGoal[]
+  
+  @@index([companyId])
+  @@index([cycleId])
+  @@map("planning_objectives")
+}
+
+model PlanningGoal {
+  id          String   @id @default(uuid())
+  companyId   String
+  objectiveId String
+  areaId      String?
+  title       String
+  targetValue Float
+  unit        String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  objective   PlanningObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  actionPlans ActionPlan[]
+  
+  @@index([companyId])
+  @@index([objectiveId])
+  @@map("planning_goals")
+}
+
+model PlanningKPI {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  description String?  @db.Text
+  formula     String?  @db.Text
+  unit        String
+  direction   String
+  frequency   String
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
+  @@map("planning_kpis")
+}
+
+model ActionPlan {
+  id          String   @id @default(uuid())
+  companyId   String
+  goalId      String
+  action      String   @db.Text
+  responsible String
+  dueDate     DateTime
+  status      String   @default("PENDENTE")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  goal        PlanningGoal  @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
+  @@index([goalId])
+  @@map("planning_action_plans")
 }
