@@ -751,20 +751,20 @@ function CalculatorTab() {
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-xl font-bold text-slate-900 mb-2">PREÇO SUGERIDO: <span className="text-teal-600">R$ {result.basePrice.toFixed(2)}</span></h2>
             <p className="text-sm text-slate-500 mb-4">{form.taxRegime} • {form.activity} • {form.employeeCount} funcionário(s)</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                 <p className="text-xs font-semibold text-slate-500 mb-1">Fiscal / Contábil</p>
-                <p className="text-lg font-bold text-slate-900">R$ {result.priceFC.toFixed(2)}</p>
-                <p className="text-xs text-slate-500">{result.totalHours}h × R$ {result.costPerHour.toFixed(2)}/h</p>
+                <p className="text-lg font-bold text-slate-900">R$ {(result.costFC || 0).toFixed(2)}</p>
+                <p className="text-xs text-slate-500">{result.totalHours || 0}h estimadas</p>
               </div>
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                 <p className="text-xs font-semibold text-slate-500 mb-1">Departamento Pessoal</p>
-                <p className="text-lg font-bold text-slate-900">R$ {result.priceDP.toFixed(2)}</p>
-                <p className="text-xs text-slate-500">{form.employeeCount} func.</p>
+                <p className="text-lg font-bold text-slate-900">R$ {(result.costDP || 0).toFixed(2)}</p>
+                <p className="text-xs text-slate-500">{form.employeeCount} funcionário(s)</p>
               </div>
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <p className="text-xs font-semibold text-slate-500 mb-1">Total</p>
-                <p className="text-lg font-bold text-teal-600">R$ {result.basePrice.toFixed(2)}</p>
+                <p className="text-xs font-semibold text-slate-500 mb-1">Total Sugerido</p>
+                <p className="text-lg font-bold text-teal-600">R$ {(result.basePrice || 0).toFixed(2)}</p>
               </div>
             </div>
             <h3 className="text-lg font-bold text-slate-900 mb-3">Enquadramento em Planos</h3>

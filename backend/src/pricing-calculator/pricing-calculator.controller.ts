@@ -7,6 +7,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class PricingCalculatorController {
   constructor(private readonly service: PricingCalculatorService) {}
 
+  // =================================================================
+  // 📊 CONFIGURAÇÕES
+  // =================================================================
   @Get('config')
   async getConfig(@Request() req) {
     return { success: true, data: await this.service.getConfig(req.user.companyId) };
@@ -17,6 +20,9 @@ export class PricingCalculatorController {
     return { success: true, data: await this.service.updateConfig(req.user.companyId, body) };
   }
 
+  // =================================================================
+  // ⏰ REGRAS DE HORAS
+  // =================================================================
   @Get('hour-rules')
   async getHourRules(@Request() req) {
     return { success: true, data: await this.service.getHourRules(req.user.companyId) };
@@ -38,11 +44,17 @@ export class PricingCalculatorController {
     return { success: true };
   }
 
+  // =================================================================
+  // 🧮 CALCULADORA (ESTA ROTA É A QUE ESTÁ FALTANDO!)
+  // =================================================================
   @Post('calculate')
   async calculate(@Request() req, @Body() body: any) {
     return { success: true, data: await this.service.calculate(req.user.companyId, body) };
   }
 
+  // =================================================================
+  // 💾 SALVAR CÁLCULO
+  // =================================================================
   @Post('save-calculation')
   async saveCalculation(@Request() req, @Body() body: any) {
     return { success: true, data: await this.service.saveCalculation(req.user.companyId, req.user.id, body) };
