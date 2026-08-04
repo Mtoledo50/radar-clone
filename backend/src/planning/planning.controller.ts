@@ -1,43 +1,35 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { PlanningService } from './planning.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
-@Controller('planning')
+@Controller('plannings')
 @UseGuards(JwtAuthGuard)
 export class PlanningController {
-  constructor(private planningService: PlanningService) {}
+  constructor(private readonly service: PlanningService) {}
 
   @Get()
   async findAll(@Request() req) {
-    const plannings = await this.planningService.findAll(req.user.companyId);
-    return { data: plannings };
+    return { success: true, data: await this.service.findAll(req.user.companyId) };
+  }
+
+  @Get('metrics')
+  async getMetrics(@Request() req) {
+    return { success: true, data: await this.service.getMetrics(req.user.companyId) };
   }
 
   @Post()
-  async create(@Request() req, @Body() dto: any) {
-    const planning = await this.planningService.create(req.user.companyId, req.user.id, dto);
-    return { message: 'Planejamento criado com sucesso!', data: planning };
+  async create(@Request() req, @Body() body: any) {
+    return { success: true, data: await this.service.create(req.user.companyId, req.user.id, body) };
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: any) {
-    const planning = await this.planningService.update(id, dto);
-    return { message: 'Planejamento atualizado!', data: planning };
+  async update(@Param('id') id: string, @Body() body: any) {
+    return { success: true, data: await this.service.update(id, body) };
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
-    await this.planningService.delete(id);
-    return { message: 'Planejamento removido!' };
+    await this.service.remove(id);
+    return { success: true };
   }
 }
