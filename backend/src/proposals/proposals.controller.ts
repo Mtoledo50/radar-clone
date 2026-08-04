@@ -8,7 +8,7 @@ export class ProposalsController {
   constructor(private readonly service: ProposalsService) {}
 
   // =================================================================
-  // 📊 ROTAS ESPECÍFICAS (DEVEM VIR PRIMEIRO, ANTES DO :id)
+  //  ROTAS ESPECÍFICAS (DEVEM VIR PRIMEIRO)
   // =================================================================
   @Get('dashboard/stats')
   async getDashboardStats(@Request() req, @Query('period') period?: string) {
@@ -31,14 +31,14 @@ export class ProposalsController {
   }
 
   // =================================================================
-  // 📋 CRUD BÁSICO
+  //  CRUD BÁSICO
   // =================================================================
   @Get()
   async findAll(@Request() req, @Query('status') status?: string) {
     return { success: true, data: await this.service.findAll(req.user.companyId, status) };
   }
 
-  @Get(':id') // 🔥 ESTA ROTA DEVE VIR POR ÚLTIMO ENTRE AS ROTAS GET
+  @Get(':id')
   async findOne(@Param('id') id: string) {
     return { success: true, data: await this.service.findOne(id) };
   }
@@ -59,9 +59,6 @@ export class ProposalsController {
     return { success: true };
   }
 
-  // =================================================================
-  // 🔄 AÇÕES DE STATUS
-  // =================================================================
   @Post(':id/close')
   async closeProposal(@Param('id') id: string, @Body() body: any) {
     return { success: true, data: await this.service.closeProposal(id, body) };
@@ -70,24 +67,5 @@ export class ProposalsController {
   @Post(':id/lost')
   async markAsLost(@Param('id') id: string, @Body() body: any) {
     return { success: true, data: await this.service.markAsLost(id, body) };
-  }
-}
-
-// =================================================================
-// 🌍 ROTAS PÚBLICAS (Sem autenticação JWT)
-// =================================================================
-@Controller('proposals/public')
-export class PublicProposalsController {
-  constructor(private readonly service: ProposalsService) {}
-
-  @Get(':slug')
-  async findBySlug(@Param('slug') slug: string) {
-    return { success: true, data: await this.service.findBySlug(slug) };
-  }
-
-  @Post(':slug/whatsapp-click')
-  async trackWhatsAppClick(@Param('slug') slug: string) {
-    await this.service.trackWhatsAppClick(slug);
-    return { success: true };
   }
 }

@@ -71,8 +71,18 @@ export default function PublicProposalPage() {
 
   if (!proposal) return null;
 
-  const plans = proposal.includedPlans || [];
-
+// 🔥 Parse seguro: o banco retorna string JSON, precisamos converter para array
+let plans: any[] = [];
+try {
+  if (typeof proposal.includedPlans === 'string') {
+    plans = JSON.parse(proposal.includedPlans);
+  } else if (Array.isArray(proposal.includedPlans)) {
+    plans = proposal.includedPlans;
+  }
+} catch (err) {
+  console.error('Erro ao parsear includedPlans:', err);
+  plans = [];
+}
   return (
     <>
       {/* Estilos específicos para impressão */}
