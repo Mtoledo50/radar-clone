@@ -624,3 +624,39 @@ Adição do endpoint GET /proposals/conversion-trend com suporte ao decorador @Q
 Importação dos componentes LineChart e Line do Recharts.
 Adição do estado conversionData e nova requisição à API no loadData.
 Inserção do novo card de gráfico entre o gráfico de Pizza (Motivos de Perda) e o gráfico de Área (Receita).
+
+---
+
+## 🤖 Módulo de Conciliação Bancária Automática
+
+### Visão Geral
+Sistema inteligente de conciliação bancária que realiza matching automático entre o controle de caixa (Excel) e a base contábil (CSV), sugerindo as contas de Débito e Crédito corretas com base no plano de contas padrão (SCI 90113).
+
+### Funcionalidades
+- **Upload de 2 arquivos**: Excel (controle de caixa) + CSV (base contábil)
+- **Matching automático** em 2 etapas:
+  1. Por **VALOR EXATO** (tolerância de R$ 0,01)
+  2. Por **SIMILARIDADE DE TEXTO** (Jaccard similarity > 60%)
+- **Sugestão de contas contábeis** do plano padrão
+- **Revisão manual** no frontend antes de salvar
+
+### Status
+✅ **Passo 1 Concluído**: Service de Conciliação criado
+- ✅ Parser de Excel (controle de caixa)
+- ✅ Parser de CSV (base contábil)
+- ✅ Lógica de matching por valor
+- ✅ Lógica de matching por similaridade de texto
+- ✅ Integração com plano de contas global
+- ✅ Endpoint POST `/accounting/reconcile`
+
+### Próximos Passos
+⏳ **Passo 2**: Criar componente React para revisão manual
+⏳ **Passo 3**: Implementar salvamento no banco de dados
+⏳ **Passo 4**: Adicionar filtros e relatórios
+
+### Como Testar
+1. Backend rodando: `npm run start:dev`
+2. Usar Postman ou frontend para enviar POST para `/accounting/reconcile`
+3. Enviar 2 arquivos: `files[0]` (Excel) e `files[1]` (CSV)
+4. Receber JSON com lançamentos conciliados
+
