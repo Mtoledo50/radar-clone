@@ -1,0 +1,129 @@
+ O volume na unidade H ‚ Novo volume
+ O N£mero de S‚rie do Volume ‚ 1EC2-23F0
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard
+
+04/08/2026  13:32    <DIR>          .
+03/08/2026  12:30    <DIR>          ..
+31/07/2026  23:36    <DIR>          admin
+31/07/2026  18:17    <DIR>          bi
+31/07/2026  11:25    <DIR>          clientes
+04/08/2026  13:32                 0 dash.txt
+31/07/2026  20:37    <DIR>          indicadores
+04/08/2026  08:33    <DIR>          lancamentos
+31/07/2026  11:44             4.982 layout copy.tsx
+01/08/2026  00:00             9.712 layout.tsx
+30/07/2026  15:02    <DIR>          minha-empresa
+31/07/2026  16:15             9.802 page copy.tsx
+31/07/2026  16:51            13.112 page.tsx
+31/07/2026  09:28    <DIR>          pessoas
+31/07/2026  12:18    <DIR>          planejamento
+31/07/2026  21:00    <DIR>          planejamento-tributario
+31/07/2026  20:23    <DIR>          ponto-fora-da-curva
+03/08/2026  09:43    <DIR>          precificacao
+31/07/2026  21:17    <DIR>          reforma-tributaria
+31/07/2026  21:34    <DIR>          turnover
+               5 arquivo(s)         37.608 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\admin
+
+31/07/2026  23:36    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+03/08/2026  08:21            19.158 page.tsx
+               1 arquivo(s)         19.158 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\bi
+
+31/07/2026  18:17    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+04/08/2026  08:06            47.386 page.tsx
+               1 arquivo(s)         47.386 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\clientes
+
+31/07/2026  11:25    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+03/08/2026  21:26            16.137 page.tsx
+               1 arquivo(s)         16.137 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\indicadores
+
+31/07/2026  20:37    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+31/07/2026  20:38            16.188 page.tsx
+               1 arquivo(s)         16.188 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\lancamentos
+
+04/08/2026  08:33    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+04/08/2026  10:23            38.420 page.tsx
+               1 arquivo(s)         38.420 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\minha-empresa
+
+30/07/2026  15:02    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+03/08/2026  23:04            19.223 page.tsx
+               1 arquivo(s)         19.223 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\pessoas
+
+31/07/2026  09:28    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+31/07/2026  22:41            12.471 page.tsx
+               1 arquivo(s)         12.471 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\planejamento
+
+31/07/2026  12:18    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+03/08/2026  23:17            23.997 page.tsx
+               1 arquivo(s)         23.997 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\planejamento-tributario
+
+31/07/2026  21:00    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+31/07/2026  21:01            13.468 page.tsx
+               1 arquivo(s)         13.468 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\ponto-fora-da-curva
+
+31/07/2026  20:23    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+31/07/2026  20:23             7.065 page.tsx
+               1 arquivo(s)          7.065 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\precificacao
+
+03/08/2026  09:43    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+03/08/2026  09:43    <DIR>          meus-planos
+03/08/2026  22:34            76.119 page.tsx
+               1 arquivo(s)         76.119 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\precificacao\meus-planos
+
+03/08/2026  09:43    <DIR>          .
+03/08/2026  09:43    <DIR>          ..
+03/08/2026  09:43            19.295 page.tsx
+               1 arquivo(s)         19.295 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\reforma-tributaria
+
+31/07/2026  21:17    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+31/07/2026  21:18            17.823 page.tsx
+               1 arquivo(s)         17.823 bytes
+
+ Pasta de H:\radar-clone\frontend\src\app\dashboard\turnover
+
+31/07/2026  21:34    <DIR>          .
+04/08/2026  13:32    <DIR>          ..
+03/08/2026  20:35            63.521 page.tsx
+               1 arquivo(s)         63.521 bytes
+
+     Total de Arquivos na Lista:
+              19 arquivo(s)        427.879 bytes
+              44 pasta(s)   226.866.864.128 bytes dispon¡veis
