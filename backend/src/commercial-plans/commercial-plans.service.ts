@@ -1,7 +1,3 @@
-/**
- * CommercialPlansService
- * Camada de negócio para gestão de planos comerciais.
- */
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -9,13 +5,20 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CommercialPlansService {
   constructor(private prisma: PrismaService) {}
 
+  // =================================================================
+  // 🏢 PLANOS COMERCIAIS
+  // =================================================================
   async getPlans(companyId: string) {
     const plans = await this.prisma.commercialPlan.findMany({
       where: { companyId },
       orderBy: { multiplier: 'asc' },
       include: {
         planItems: {
-          include: { serviceItem: { include: { category: true } } },
+          include: {
+            serviceItem: {
+              include: { category: true },
+            },
+          },
         },
       },
     });
@@ -33,19 +36,20 @@ export class CommercialPlansService {
   }
 
   async createPlan(companyId: string, data: any) {
-    if (data.multiplier <= 0) throw new BadRequestException('O multiplicador deve ser maior que zero.');
-    
+    if (data.multiplier <= 0) {
+      throw new BadRequestException('O multiplicador deve ser maior que zero.');
+    }
     const { itemCount, items, planItems, ...validData } = data;
-    return this.prisma.commercialPlan.create({ 
-      data: { companyId, ...validData } 
+    return this.prisma.commercialPlan.create({
+      data: { companyId, ...validData },
     });
   }
 
   async updatePlan(id: string, data: any) {
     const { itemCount, items, planItems, ...validData } = data;
-    return this.prisma.commercialPlan.update({ 
-      where: { id }, 
-      data: validData 
+    return this.prisma.commercialPlan.update({
+      where: { id },
+      data: validData,
     });
   }
 
@@ -54,23 +58,31 @@ export class CommercialPlansService {
     return this.prisma.commercialPlan.delete({ where: { id } });
   }
 
+  // =================================================================
+  // 📁 CATEGORIAS
+  // =================================================================
   async getCategories(companyId: string) {
     return this.prisma.serviceCategory.findMany({
       where: { companyId },
       orderBy: { order: 'asc' },
-      include: { 
-        _count: { select: { items: true } }, 
-        items: { orderBy: { order: 'asc' } } 
+      include: {
+        _count: { select: { items: true } },
+        items: { orderBy: { order: 'asc' } },
       },
     });
   }
 
   async createCategory(companyId: string, data: any) {
-    return this.prisma.serviceCategory.create({ data: { companyId, ...data } });
+    return this.prisma.serviceCategory.create({
+      data: { companyId, ...data },
+    });
   }
 
   async updateCategory(id: string, data: any) {
-    return this.prisma.serviceCategory.update({ where: { id }, data });
+    return this.prisma.serviceCategory.update({
+      where: { id },
+      data,
+    });
   }
 
   async deleteCategory(id: string) {
@@ -78,8 +90,13 @@ export class CommercialPlansService {
     return this.prisma.serviceCategory.delete({ where: { id } });
   }
 
+  // =================================================================
+  // 📦 ITENS DE SERVIÇO
+  // =================================================================
   async createServiceItem(companyId: string, data: any) {
-    return this.prisma.serviceItem.create({ data: { companyId, ...data } });
+    return this.prisma.serviceItem.create({
+      data: { companyId, ...data },
+    });
   }
 
   async deleteServiceItem(id: string) {
@@ -87,58 +104,70 @@ export class CommercialPlansService {
     return this.prisma.serviceItem.delete({ where: { id } });
   }
 
-  // 🔥 MÉTODO CORRIGIDO: Filtra campos e usa apenas IDs para a relação
+  // =================================================================
+  // 💾 SALVAR CONFIGURAÇÃO COMPLETA (Transação)
+  // =================================================================
   async savePlansConfiguration(companyId: string, plansData: any[]) {
     return this.prisma.$transaction(async (tx) => {
       const results = [];
-      
-      for (const planData of plansData) {
-        // 1. Extrair apenas os IDs dos itens marcados no frontend
-        const itemIds = (planData.items || []).map((item: any) => item.id);
-        
-        // 2. Definir APENAS os campos escalares válidos para o model CommercialPlan
-        const validPlanData = {
-          name: planData.name,
-          multiplier: planData.multiplier,
-          order: planData.order,
-          isIndependent: planData.isIndependent,
-          color: planData.color,
-          badge: planData.badge,
-          description: planData.description,
-        };
-        
-        let plan;
-        if (planData.id && planData.id !== '') {
-          // Atualiza plano existente
-          plan = await tx.commercialPlan.update({ 
-            where: { id: planData.id }, 
-            data: validPlanData 
+
+      for (const plan of plansData) {
+        // 1. Criar ou atualizar o plano
+        let savedPlan;
+        if (plan.id) {
+          savedPlan = await tx.commercialPlan.update({
+            where: { id: plan.id },
+            data: {
+              name: plan.name,
+              multiplier: plan.multiplier,
+              order: plan.order,
+              isIndependent: plan.isIndependent,
+              badge: plan.badge,
+            },
           });
         } else {
-          // Cria novo plano
-          plan = await tx.commercialPlan.create({ 
-            data: { companyId, ...validPlanData } 
+          savedPlan = await tx.commercialPlan.create({
+            data: {
+              companyId,
+              name: plan.name,
+              multiplier: plan.multiplier,
+              order: plan.order,
+              isIndependent: plan.isIndependent,
+              badge: plan.badge,
+            },
           });
         }
 
-        // 3. Remove associações antigas e cria as novas com os IDs extraídos
-        await tx.planServiceItem.deleteMany({ where: { planId: plan.id } });
-        
+        // 2. Limpar itens antigos do plano
+        await tx.planServiceItem.deleteMany({
+          where: { planId: savedPlan.id },
+        });
+
+        // 3. Adicionar novos itens
+        const itemIds = (plan.items || []).map((item: any) => item.id).filter(Boolean);
         if (itemIds.length > 0) {
           await tx.planServiceItem.createMany({
-            data: itemIds.map((serviceItemId: string) => ({ 
-              planId: plan.id, 
-              serviceItemId 
+            data: itemIds.map((serviceItemId: string) => ({
+              planId: savedPlan.id,
+              serviceItemId,
             })),
           });
         }
-        
-        // 4. Recarregar com itens para retornar ao frontend atualizado
-        const updatedPlan = await tx.commercialPlan.findUnique({ 
-          where: { id: plan.id },
-          include: { planItems: { include: { serviceItem: { include: { category: true } } } } }
+
+        // 4. Recarregar plano com itens para retornar ao frontend
+        const updatedPlan = await tx.commercialPlan.findUnique({
+          where: { id: savedPlan.id },
+          include: {
+            planItems: {
+              include: {
+                serviceItem: {
+                  include: { category: true },
+                },
+              },
+            },
+          },
         });
-        
+
         results.push({
           ...updatedPlan,
           itemCount: updatedPlan.planItems.length,
@@ -150,6 +179,7 @@ export class CommercialPlansService {
           })),
         });
       }
+
       return results;
     });
   }

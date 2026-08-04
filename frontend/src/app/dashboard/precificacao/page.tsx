@@ -873,8 +873,9 @@ function ConfigTab() {
             <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm border border-slate-200">
               <div className="flex justify-between"><span className="text-slate-600 font-medium">Custo Colaborador:</span><span className="font-bold text-slate-900">R$ {config.derived.employeeCost.toFixed(2)}</span></div>
               <div className="flex justify-between"><span className="text-slate-600 font-medium">Custo/Hora:</span><span className="font-bold text-slate-900">R$ {config.derived.costPerHour.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-slate-600 font-medium">Fator Markup FC:</span><span className="font-bold text-slate-900">{config.derived.markupFC.toFixed(4)}</span></div>
-              <div className="flex justify-between"><span className="text-slate-600 font-medium">Fator Markup DP:</span><span className="font-bold text-slate-900">{config.derived.markupDP.toFixed(4)}</span></div>
+              {/* 🔥 CORREÇÃO AQUI: factorMarkupFC e factorMarkupDP */}
+              <div className="flex justify-between"><span className="text-slate-600 font-medium">Fator Markup FC:</span><span className="font-bold text-slate-900">{config.derived.factorMarkupFC.toFixed(4)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-600 font-medium">Fator Markup DP:</span><span className="font-bold text-slate-900">{config.derived.factorMarkupDP.toFixed(4)}</span></div>
             </div>
           )}
         </div>

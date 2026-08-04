@@ -29,7 +29,7 @@ const contractTypes = [
 ];
 
 // =================================================================
-// 🎯 PÁGINA PRINCIPAL
+//  PÁGINA PRINCIPAL
 // =================================================================
 export default function TurnoverPage() {
   const [loading, setLoading] = useState(true);
@@ -231,6 +231,16 @@ export default function TurnoverPage() {
             toast.success('Setor removido');
             loadData();
           }}
+          onAddCell={async (sectorId: string, cellName: string) => {
+            await api.post(`/turnover/sectors/${sectorId}/cells`, { name: cellName });
+            toast.success('Célula adicionada!');
+            loadData();
+          }}
+          onDeleteCell={async (sectorId: string, cellId: string) => {
+            await api.delete(`/turnover/sectors/${sectorId}/cells/${cellId}`);
+            toast.success('Célula removida');
+            loadData();
+          }}
         />
       )}
     </div>
@@ -243,7 +253,6 @@ export default function TurnoverPage() {
 function EmpresaTab({ data, year, onEdit }: any) {
   if (!data) return null;
 
-  // 🔥 CORREÇÃO: Proteção contra undefined no turnoverAcumulado
   const turnoverAcumuladoSafe = Number(data.turnoverAcumulado) >= 0 ? Number(data.turnoverAcumulado).toFixed(1) : '0.0';
 
   return (
@@ -273,7 +282,6 @@ function EmpresaTab({ data, year, onEdit }: any) {
         <h3 className="text-lg font-bold text-slate-900 mb-4">Turnover nos Últimos 12 Meses</h3>
         <div className="h-64 flex items-end justify-around gap-2 border-b border-l border-slate-200 pb-2 pl-2">
           {data.monthlyData?.map((m: any, idx: number) => {
-            // 🔥 CORREÇÃO: Garantir que os valores sejam números para evitar NaN
             const initial = Number(m.initial) || 0;
             const final = Number(m.final) || 0;
             const dismissals = Number(m.dismissals) || 0;
@@ -473,7 +481,7 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
 }
 
 // =================================================================
-// 🏢 TAB SETORES (COM VALIDAÇÃO EM TEMPO REAL)
+//  TAB SETORES (COM VALIDAÇÃO EM TEMPO REAL)
 // =================================================================
 function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDistribution, setSectorDistribution, onManageSectors, onSaveDistribution }: any) {
   const monthData = data?.monthlyData?.find((m: any) => m.month === selectedMonth);
@@ -1165,22 +1173,37 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
 }
 
 // =================================================================
-// ⚙️ MODAL: Gerenciar Setores
+// ⚙️ MODAL: Gerenciar Setores e Células (COMPLETO)
 // =================================================================
-function ManageSectorsModal({ sectors, onClose, onAdd, onDelete }: any) {
+function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDeleteCell }: any) {
   const [newSector, setNewSector] = useState('');
+  const [expandedSector, setExpandedSector] = useState<string | null>(null);
+  const [newCellName, setNewCellName] = useState('');
+  const [showOtherSectors, setShowOtherSectors] = useState(false);
+
+  // Setores populares de outras empresas (simulação)
+  const otherSectors = [
+    { name: 'Diretoria', count: 9 },
+    { name: 'Administrativo', count: 8 },
+    { name: 'Comercial', count: 7 },
+    { name: 'Financeiro', count: 7 },
+    { name: 'Atendimento', count: 4 },
+    { name: 'Direção', count: 4 },
+    { name: 'Controladoria', count: 3 },
+  ];
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <h2 className="text-xl font-bold text-slate-900">Gerenciar Setores</h2>
+          <h2 className="text-xl font-bold text-slate-900">Gerenciar Setores e Células</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X className="h-6 w-6" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
+          {/* Adicionar Novo Setor */}
           <div className="flex gap-2">
             <input
               type="text"
@@ -1196,29 +1219,118 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete }: any) {
                   setNewSector('');
                 }
               }}
-              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg"
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg flex items-center gap-2"
             >
               <Plus className="h-4 w-4" />
+              Adicionar
+            </button>
+            <button
+              onClick={() => setShowOtherSectors(!showOtherSectors)}
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg flex items-center gap-2"
+            >
+              <Briefcase className="h-4 w-4" />
+              Setores de outras empresas (20)
             </button>
           </div>
+
+          {/* Dropdown de Setores Populares */}
+          {showOtherSectors && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+              <p className="text-xs text-slate-600 mb-2 font-medium">Setores usados por outras empresas</p>
+              <div className="space-y-1">
+                {otherSectors.map((s) => (
+                  <button
+                    key={s.name}
+                    onClick={() => {
+                      onAdd(s.name);
+                      setShowOtherSectors(false);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-teal-50 rounded border border-slate-200 transition-colors"
+                  >
+                    <span className="text-sm font-medium text-slate-700">{s.name}</span>
+                    <span className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">{s.count} empresas</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <p className="text-xs text-slate-500">
             ℹ️ Setores com cadeado são obrigatórios e não podem ser removidos
           </p>
 
+          {/* Lista de Setores */}
           <div className="space-y-2">
             {sectors.map((s: any) => (
-              <div key={s.id} className="flex items-center justify-between p-3 border border-slate-200 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-slate-900">{s.name}</span>
-                  {s.mandatory && (
-                    <span className="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">Obrigatório</span>
+              <div key={s.id} className="border border-slate-200 rounded-lg overflow-hidden">
+                {/* Header do Setor */}
+                <div className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center gap-2 flex-1">
+                    <button
+                      onClick={() => setExpandedSector(expandedSector === s.id ? null : s.id)}
+                      className="text-slate-400 hover:text-slate-600"
+                    >
+                      {expandedSector === s.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    <span className="font-medium text-slate-900">{s.name}</span>
+                    {s.mandatory && (
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">Obrigatório</span>
+                    )}
+                  </div>
+                  {!s.mandatory && (
+                    <button onClick={() => onDelete(s.id)} className="text-red-600 hover:text-red-800">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   )}
                 </div>
-                {!s.mandatory && (
-                  <button onClick={() => onDelete(s.id)} className="text-red-600 hover:text-red-800">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+
+                {/* Células de Trabalho (Expandido) */}
+                {expandedSector === s.id && (
+                  <div className="border-t border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-medium text-slate-600 mb-2">Células de Trabalho</p>
+                    
+                    {/* Adicionar Célula */}
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        type="text"
+                        value={newCellName}
+                        onChange={(e) => setNewCellName(e.target.value)}
+                        placeholder="Nome da célula..."
+                        className={inputClass + ' flex-1 text-sm'}
+                      />
+                      <button
+                        onClick={() => {
+                          if (newCellName.trim()) {
+                            onAddCell(s.id, newCellName.trim());
+                            setNewCellName('');
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg flex items-center gap-1"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Adicionar
+                      </button>
+                    </div>
+
+                    {/* Lista de Células */}
+                    {s.cells && s.cells.length > 0 ? (
+                      <div className="space-y-1">
+                        {s.cells.map((cell: any) => (
+                          <div key={cell.id} className="flex items-center justify-between px-3 py-2 bg-white rounded border border-slate-200">
+                            <span className="text-sm text-slate-700">{cell.name}</span>
+                            <button
+                              onClick={() => onDeleteCell(s.id, cell.id)}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 text-center py-2">Nenhuma célula cadastrada</p>
+                    )}
+                  </div>
                 )}
               </div>
             ))}

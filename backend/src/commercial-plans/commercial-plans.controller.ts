@@ -1,7 +1,3 @@
-/**
- * CommercialPlansController
- * Endpoints REST para gestão de planos comerciais, categorias e itens.
- */
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { CommercialPlansService } from './commercial-plans.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -12,7 +8,7 @@ export class CommercialPlansController {
   constructor(private readonly service: CommercialPlansService) {}
 
   // =================================================================
-  // 🏢 PLANOS
+  // 🏢 PLANOS COMERCIAIS
   // =================================================================
   @Get('plans')
   async getPlans(@Request() req) {
@@ -60,7 +56,7 @@ export class CommercialPlansController {
   }
 
   // =================================================================
-  // 📦 ITENS DE SERVIÇO
+  //  ITENS DE SERVIÇO
   // =================================================================
   @Post('items')
   async createServiceItem(@Request() req, @Body() body: any) {
@@ -74,10 +70,10 @@ export class CommercialPlansController {
   }
 
   // =================================================================
-  // 💾 SALVAMENTO EM LOTE (Configuração Completa)
+  //  SALVAR CONFIGURAÇÃO COMPLETA (Planos + Itens)
   // =================================================================
   @Post('save-configuration')
-  async saveConfiguration(@Request() req, @Body() body: { plans: any[] }) {
+  async saveConfiguration(@Request() req, @Body() body: any) {
     return { success: true, data: await this.service.savePlansConfiguration(req.user.companyId, body.plans) };
   }
 }

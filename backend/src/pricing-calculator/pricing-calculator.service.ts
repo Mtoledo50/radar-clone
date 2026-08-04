@@ -1,8 +1,4 @@
-/**
- * PricingCalculatorService
- * Motor de cálculo de precificação contábil.
- */
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -20,35 +16,35 @@ export class PricingCalculatorService {
       });
     }
 
+    // Calcular valores derivados
     const employeeCost = config.salaryAverage * (1 + config.chargesPercent / 100);
     const costPerHour = employeeCost / config.hoursPerMonth;
-    const markupFC = 1 - (config.taxesPercent + config.backOfficePercent + config.adminPercent + config.marginFC) / 100;
-    const markupDP = 1 - (config.taxesPercent + config.backOfficePercent + config.adminPercent + config.marginDP) / 100;
+    const factorMarkupFC = 1 - (config.taxesPercent + config.backOfficePercent + config.adminPercent + config.marginFC) / 100;
+    const factorMarkupDP = 1 - (config.taxesPercent + config.backOfficePercent + config.adminPercent + config.marginDP) / 100;
 
     return {
       ...config,
       derived: {
-        employeeCost: Math.round(employeeCost * 100) / 100,
-        costPerHour: Math.round(costPerHour * 100) / 100,
-        markupFC: Math.round(markupFC * 10000) / 10000,
-        markupDP: Math.round(markupDP * 10000) / 10000,
+        employeeCost,
+        costPerHour,
+        factorMarkupFC,
+        factorMarkupDP,
       },
     };
   }
 
   async updateConfig(companyId: string, data: any) {
-    const { derived, ...validData } = data;
     return this.prisma.pricingConfig.upsert({
       where: { companyId },
-      update: validData,
-      create: { companyId, ...validData },
+      update: data,
+      create: { companyId, ...data },
     });
   }
 
   async getHourRules(companyId: string) {
     return this.prisma.pricingHourRule.findMany({
       where: { companyId },
-      orderBy: [{ regime: 'asc' }, { activity: 'asc' }, { revenueMin: 'asc' }],
+      orderBy: [{ regime: 'asc' }, { activity: 'asc' }],
     });
   }
 
@@ -59,160 +55,121 @@ export class PricingCalculatorService {
   }
 
   async updateHourRule(id: string, data: any) {
-    return this.prisma.pricingHourRule.update({ where: { id }, data });
+    return this.prisma.pricingHourRule.update({
+      where: { id },
+      data,
+    });
   }
 
   async deleteHourRule(id: string) {
-    return this.prisma.pricingHourRule.delete({ where: { id } });
+    return this.prisma.pricingHourRule.delete({
+      where: { id },
+    });
   }
 
-  async calculate(companyId: string, input: any) {
-    const config = await this.prisma.pricingConfig.findUnique({
-      where: { companyId },
+  async calculate(companyId: string, data: any) {
+    const { taxRegime, activity, monthlyRevenue, employeeCount, dpMethod, dpValue, currentCharge } = data;
+
+    // Buscar regras de horas
+    const rules = await this.prisma.pricingHourRule.findMany({
+      where: {
+        companyId,
+        regime: { in: [taxRegime, 'Qualquer'] },
+        activity: { in: [activity, 'Qualquer'] },
+      },
     });
 
-    if (!config) {
-      throw new BadRequestException('Configure os custos de precificação antes de calcular.');
+    // Encontrar regra aplicável
+    let applicableRule = rules.find(
+      (r) =>
+        r.regime === taxRegime &&
+        r.activity === activity &&
+        (!r.revenueMin || monthlyRevenue >= r.revenueMin) &&
+        (!r.revenueMax || monthlyRevenue <= r.revenueMax)
+    );
+
+    if (!applicableRule) {
+      applicableRule = rules.find(
+        (r) =>
+          r.regime === 'Qualquer' &&
+          r.activity === 'Qualquer' &&
+          (!r.revenueMin || monthlyRevenue >= r.revenueMin) &&
+          (!r.revenueMax || monthlyRevenue <= r.revenueMax)
+      );
     }
 
-    const hourRule = await this.findMatchingHourRule(companyId, input);
-
-    const employeeCost = config.salaryAverage * (1 + config.chargesPercent / 100);
-    const costPerHour = employeeCost / config.hoursPerMonth;
-
-    const markupFC = 1 - (config.taxesPercent + config.backOfficePercent + config.adminPercent + config.marginFC) / 100;
-    const markupDP = 1 - (config.taxesPercent + config.backOfficePercent + config.adminPercent + config.marginDP) / 100;
-
-    let totalHoursFiscal = hourRule?.hoursFiscal || 0;
-    let totalHoursAccounting = hourRule?.hoursAccounting || 0;
-
-    if (input.hasErp) {
-      totalHoursFiscal += 1;
-      totalHoursAccounting += 1;
+    if (!applicableRule) {
+      throw new NotFoundException('Nenhuma regra encontrada para este perfil');
     }
 
-    const totalHours = totalHoursFiscal + totalHoursAccounting;
+    // Buscar configurações
+    const config = await this.getConfig(companyId);
 
-    const costFC = totalHours * costPerHour;
-    const priceFC = markupFC > 0 ? costFC / markupFC : costFC;
+    // Calcular horas totais
+    const hoursFiscal = applicableRule.hoursFiscal;
+    const hoursAccounting = applicableRule.hoursAccounting;
+    const totalHours = hoursFiscal + hoursAccounting;
 
-    let priceDP = 0;
-    if (input.employeeCount > 0) {
-      if (input.dpMethod === 'MARGIN') {
-        const costDP = input.employeeCount * (config.salaryAverage / config.livesPerEmployee);
-        priceDP = markupDP > 0 ? costDP / markupDP : costDP;
-      } else {
-        priceDP = input.employeeCount * input.dpValue;
-      }
-    }
+    // Calcular custo
+    const costFC = totalHours * config.derived.costPerHour;
+    const costDP = dpMethod === 'MARGIN' 
+      ? (employeeCount * dpValue * config.derived.factorMarkupDP) / 100
+      : employeeCount * dpValue;
 
-    const basePrice = priceFC + priceDP;
+    // Calcular preço base
+    const basePrice = (costFC * config.derived.factorMarkupFC) + costDP;
 
+    // Buscar planos comerciais
     const plans = await this.prisma.commercialPlan.findMany({
       where: { companyId },
       orderBy: { multiplier: 'asc' },
+      include: {
+        planItems: { include: { serviceItem: true } },
+      },
     });
 
+    // Calcular preço por plano
     const planPrices = plans.map((plan) => ({
       planId: plan.id,
       planName: plan.name,
       multiplier: plan.multiplier,
-      finalPrice: Math.round(basePrice * plan.multiplier * 100) / 100,
+      finalPrice: basePrice * plan.multiplier,
       badge: plan.badge,
     }));
 
-    const middlePlan = planPrices[Math.floor(planPrices.length / 2)] || planPrices[0];
-    const dreProjection = this.calculateDRE(
-      middlePlan?.finalPrice || basePrice,
-      priceFC,
-      priceDP,
-      config
-    );
-
-    let leavingOnTable = 0;
-    if (input.currentCharge && input.currentCharge > 0) {
-      leavingOnTable = basePrice - input.currentCharge;
-    }
+    // Calcular "deixando dinheiro na mesa"
+    const leavingOnTable = currentCharge && currentCharge < basePrice ? basePrice - currentCharge : 0;
 
     return {
-      success: true,
-      data: {
-        input,
-        hourRule: hourRule || null,
-        costPerHour: Math.round(costPerHour * 100) / 100,
-        employeeCost: Math.round(employeeCost * 100) / 100,
-        totalHours,
-        totalHoursFiscal,
-        totalHoursAccounting,
-        priceFC: Math.round(priceFC * 100) / 100,
-        priceDP: Math.round(priceDP * 100) / 100,
-        basePrice: Math.round(basePrice * 100) / 100,
-        planPrices,
-        dreProjection,
-        leavingOnTable: Math.round(leavingOnTable * 100) / 100,
-      },
-    };
-  }
-
-  private async findMatchingHourRule(companyId: string, input: any) {
-    const rules = await this.prisma.pricingHourRule.findMany({
-      where: { companyId },
-      orderBy: [{ revenueMin: 'desc' }],
-    });
-
-    for (const rule of rules) {
-      const regimeMatch = rule.regime === input.taxRegime || rule.regime === 'Qualquer';
-      const activityMatch = rule.activity === input.activity || rule.activity === 'Qualquer';
-      const annexMatch = !rule.annex || rule.annex === input.annex;
-      const revenueMatch =
-        input.monthlyRevenue >= rule.revenueMin &&
-        (rule.revenueMax === 0 || input.monthlyRevenue <= rule.revenueMax);
-
-      if (regimeMatch && activityMatch && annexMatch && revenueMatch) {
-        return rule;
-      }
-    }
-
-    return null;
-  }
-
-  private calculateDRE(finalPrice: number, priceFC: number, priceDP: number, config: any) {
-    const costFC = priceFC * (config.taxesPercent + config.backOfficePercent + config.adminPercent) / 100;
-    const costDP = priceDP * (config.taxesPercent + config.backOfficePercent + config.adminPercent) / 100;
-    
-    const marginFC = priceFC - costFC;
-    const marginDP = priceDP - costDP;
-    const totalProfit = marginFC + marginDP;
-
-    return {
-      marginFC: Math.round(marginFC * 100) / 100,
-      marginFCPercent: priceFC > 0 ? Math.round((marginFC / priceFC) * 10000) / 100 : 0,
-      marginDP: Math.round(marginDP * 100) / 100,
-      marginDPPercent: priceDP > 0 ? Math.round((marginDP / priceDP) * 10000) / 100 : 0,
-      totalProfit: Math.round(totalProfit * 100) / 100,
-      totalProfitPercent: finalPrice > 0 ? Math.round((totalProfit / finalPrice) * 10000) / 100 : 0,
+      basePrice,
+      hoursFiscal,
+      hoursAccounting,
+      totalHours,
+      costFC,
+      costDP,
+      leavingOnTable,
+      planPrices,
+      appliedRule: applicableRule,
     };
   }
 
   async saveCalculation(companyId: string, userId: string, data: any) {
-    const { success, ...calcData } = data;
     return this.prisma.pricingCalculation.create({
       data: {
         companyId,
         userId,
-        ...calcData,
-        planPrices: JSON.stringify(calcData.planPrices || []),
+        ...data,
       },
     });
   }
 
   async getCalculations(companyId: string, status?: string) {
-    const where: any = { companyId };
-    if (status) where.status = status;
     return this.prisma.pricingCalculation.findMany({
-      where,
+      where: {
+        companyId,
+        status: status || undefined,
+      },
       orderBy: { createdAt: 'desc' },
-      include: { user: { select: { name: true } } },
     });
   }
 }
