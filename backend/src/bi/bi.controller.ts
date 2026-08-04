@@ -1,16 +1,34 @@
 import { Controller, Get, Post, Query, UseGuards, Request, Body } from '@nestjs/common';
 import { BiService } from './bi.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PlanGuard, RequireModule } from '../auth/guards/plan.guard'; // 🔥 NOVO IMPORT
 
+/**
+ * =================================================================
+ * 📊 BI CONTROLLER - Rotas do Business Intelligence
+ * =================================================================
+ * 
+ * ROTAS DISPONÍVEIS:
+ * - GET  /bi/dre              → DRE Gerencial (Receitas vs Despesas)
+ * - GET  /bi/clients          → Lista de clientes (para filtro)
+ * - GET  /bi/outliers         → Ponto Fora da Curva (anomalias)
+ * - GET  /bi/indicators       → Indicadores de Eficiência (KPIs)
+ * - POST /bi/simulate-tax     → Simulador de Regimes Tributários
+ * - POST /bi/simulate-reform  → Simulador de Reforma Tributária
+ * 
+ * SEGURANÇA:
+ * Todas as rotas exigem JWT válido (JwtAuthGuard).
+ */
 @Controller('bi')
-@UseGuards(JwtAuthGuard, PlanGuard) // 🔥 ADICIONADO PlanGuard aqui
+@UseGuards(JwtAuthGuard)
 export class BiController {
   constructor(private readonly biService: BiService) {}
 
   @Get('dre')
-  @RequireModule('bi') // 🔥 BLOQUEIA se 'bi' não estiver no allowedModules
-  async getDre(@Request() req, @Query('months') months: string = '6', @Query('clientId') clientId?: string) {
+  async getDre(
+    @Request() req, 
+    @Query('months') months: string = '6', 
+    @Query('clientId') clientId?: string
+  ) {
     const { companyId } = req.user;
     const monthsNum = parseInt(months, 10) || 6;
     const data = await this.biService.getDre(companyId, monthsNum, clientId);
@@ -18,7 +36,6 @@ export class BiController {
   }
 
   @Get('clients')
-  @RequireModule('bi')
   async getClients(@Request() req) {
     const { companyId } = req.user;
     const clients = await this.biService.getClients(companyId);
@@ -26,7 +43,6 @@ export class BiController {
   }
 
   @Get('outliers')
-  @RequireModule('bi')
   async getOutliers(@Request() req) {
     const { companyId } = req.user;
     const data = await this.biService.getOutliers(companyId);
@@ -34,7 +50,6 @@ export class BiController {
   }
 
   @Get('indicators')
-  @RequireModule('indicadores') // 🔥 BLOQUEIA se 'indicadores' não estiver no allowedModules
   async getIndicators(@Request() req) {
     const { companyId } = req.user;
     const data = await this.biService.getIndicators(companyId);
@@ -42,7 +57,6 @@ export class BiController {
   }
 
   @Post('simulate-tax')
-  @RequireModule('planejamento-tributario')
   async simulateTax(@Request() req, @Body() body: any) {
     const { companyId } = req.user;
     const data = await this.biService.simulateTaxRegimes(companyId, body);
@@ -50,7 +64,6 @@ export class BiController {
   }
 
   @Post('simulate-reform')
-  @RequireModule('reforma-tributaria')
   async simulateReform(@Request() req, @Body() body: any) {
     const { companyId } = req.user;
     const data = await this.biService.simulateTaxReform(companyId, body);

@@ -49,6 +49,10 @@ model Company {
   planningGoals     PlanningGoal[]
   planningKpis      PlanningKPI[]
   actionPlans       ActionPlan[]
+
+  // 🔥 NOVAS RELAÇÕES: Lançamentos Contábeis
+  accountingAccounts AccountingAccount[]
+  accountingEntries  AccountingEntry[]
   
   @@map("companies")
 }
@@ -812,4 +816,73 @@ model ActionPlan {
   @@index([companyId])
   @@index([goalId])
   @@map("planning_action_plans")
+}
+
+// =================================================================
+// 📊 LANÇAMENTOS CONTÁBEIS
+// =================================================================
+model AccountingEntry {
+  id              String   @id @default(uuid())
+  companyId       String
+  entryDate       DateTime // Data do lançamento
+  description     String   @db.Text
+  documentNumber  String?  // Nº do documento (NF, recibo, etc)
+  
+  // Identificação da contraparte (cliente/fornecedor)
+  counterpartyName String?
+  counterpartyCpfCnpj String?
+  counterpartyType String? // "CLIENTE" ou "FORNECEDOR"
+  
+  // Débito
+  debitAccountId  String?
+  debitAccount    AccountingAccount? @relation("DebitEntries", fields: [debitAccountId], references: [id])
+  debitValue      Decimal  @db.Decimal(15, 2) @default(0)
+  
+  // Crédito
+  creditAccountId String?
+  creditAccount   AccountingAccount? @relation("CreditEntries", fields: [creditAccountId], references: [id])
+  creditValue     Decimal  @db.Decimal(15, 2) @default(0)
+  
+  // Metadados
+  source          String   @default("MANUAL") // "MANUAL", "PDF", "EXCEL", "CSV"
+  status          String   @default("PENDENTE") // "PENDENTE", "CONCILIADO", "CANCELADO"
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@index([companyId])
+  @@index([entryDate])
+  @@index([counterpartyCpfCnpj])
+  @@map("accounting_entries")
+}
+
+// =================================================================
+// 📒 CONTAS CONTÁBEIS (Plano de Contas Padrão)
+// =================================================================
+model AccountingAccount {
+  id          String   @id @default(uuid())
+  companyId   String?  // NULL = conta global/padrão (nº 90113 SCI)
+  code        String   // Ex: "1.1.01.001"
+  name        String   // Ex: "Caixa e Equivalentes"
+  type        String   // "ATIVO", "PASSIVO", "PATRIMONIO_LIQUIDO", "RECEITA", "DESPESA"
+  nature      String   // "DEBITORA" ou "CREDORA"
+  level       Int      @default(1)
+  parentId    String?
+  isActive    Boolean  @default(true)
+  sciCode     String?  // Código no sistema SCI (ex: "90113")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent      AccountingAccount? @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    AccountingAccount[] @relation("AccountHierarchy")
+  debitEntries  AccountingEntry[] @relation("DebitEntries")
+  creditEntries AccountingEntry[] @relation("CreditEntries")
+  
+  @@index([companyId])
+  @@index([code])
+  @@map("accounting_accounts")
 }

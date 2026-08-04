@@ -1,0 +1,1208 @@
+Código;Classificação;Nome
+1;01;ATIVO
+2;01.1; ATIVO CIRCULANTE
+3;01.1.1;  DISPONIBILIDADES
+4;01.1.1.01;   CAIXA
+5;01.1.1.01.001;    Caixa
+1126;01.1.1.01.002;    Caixa Permuta
+6;01.1.1.02;   BANCOS CONTA MOVIMENTO
+7;01.1.1.02.001;    Banco do Brasil S/A
+8;01.1.1.02.002;    Caixa Econômica Federal S/A
+9;01.1.1.02.003;    Bradesco S/A
+10;01.1.1.02.004;    Santander S/A
+615;01.1.1.02.005;    Banrisul S/A
+616;01.1.1.02.006;    Itaú
+617;01.1.1.02.007;    Sicredi
+618;01.1.1.02.008;    Inter
+726;01.1.1.02.009;    HSBC
+749;01.1.1.02.010;    BB AG. 486-3 C/C 28768-7
+750;01.1.1.02.011;    CEF AG.1589 C/C 003/00001874-1
+751;01.1.1.02.012;    Banrisul ag 0215 c/c 06.063766.0-5
+752;01.1.1.02.013;    Itaú ag. 1438 c/c23803-0
+753;01.1.1.02.014;    Itaú ag. 1438 c/c24174-5
+754;01.1.1.02.015;    Santander ag. 1094 c/c 13-000745-4
+755;01.1.1.02.016;    Bradesco ag. 1775 c/c 44335-2
+756;01.1.1.02.017;    Coop. Unicred 
+777;01.1.1.02.018;    Santander C/C 13.001897-9
+837;01.1.1.02.019;    Banco Siccob
+843;01.1.1.02.020;    BANCO PAG SEGURO
+875;01.1.1.02.021;    Banco Neon
+920;01.1.1.02.022;    Banco Cora
+925;01.1.1.02.023;    Banco Nubank
+951;01.1.1.02.024;    Conta PJ Conta Azul
+952;01.1.1.02.025;    Sicredi Conta Capital
+953;01.1.1.02.026;    Banco B2C - Receba Fácil
+1121;01.1.1.02.027;    Banco Asaas
+1216;01.1.1.02.028;    Omie Cash
+11;01.1.1.03;   APLICAÇÕES DE LIQUIDEZ IMEDIATA - FAF
+12;01.1.1.03.001;    Banco do Brasil
+13;01.1.1.03.002;    Caixa Econômica Federal
+619;01.1.1.03.003;    Bradesco
+720;01.1.1.03.004;    Bco Itaú
+773;01.1.1.03.005;    BCO SANTANDER
+776;01.1.1.03.006;    Banrisul Aplicação
+844;01.1.1.03.007;    BANCO PAG SEGURO
+857;01.1.1.03.009;    Aplicação Unicred RDCPRO500+
+876;01.1.1.03.010;    Sicredi
+884;01.1.1.03.011;    Aplicação Unicred INVEST-499
+885;01.1.1.03.012;    Aplicação Unicred RDC PRO500
+886;01.1.1.03.013;    Aplicação Unicred RDC PLUS
+887;01.1.1.03.014;    Aplicação Unicred
+896;01.1.1.03.015;    Banco do Brasil Ourocap
+897;01.1.1.03.016;    Banco do Brasil Brasilprev
+898;01.1.1.03.017;    Brasilcap Capitalização
+954;01.1.1.03.018;    Santander - Aplicações
+955;01.1.1.03.019;    Santander - Investimentos
+956;01.1.1.03.020;    RDC Escalonado CDI 80-1
+957;01.1.1.03.021;    RDC Escalonado CDI 16906262
+958;01.1.1.03.022;    RDC Flexível
+959;01.1.1.03.023;    Sicredi Aplicações
+1044;01.1.1.03.024;    Aplicação CEF CDB 95
+1045;01.1.1.03.025;    Aplicação CEF FDO
+1046;01.1.1.03.026;    Siccob
+14;01.1.2;  DIREITOS REALIZÁVEIS A CURTO PRAZO
+15;01.1.2.01;   CLIENTES NACIONAIS
+16;01.1.2.01.01;    Clientes nacionais
+17;01.1.2.02;   CLIENTES NACIONAIS
+18;01.1.2.02.001;    Clientes Diversos
+784;01.1.2.02.002;    RECEBIMENTO DE CARTÃO
+1224;01.1.2.02.003;    Cristiano Duarte Krás Borges
+19;01.1.2.03;   CLIENTES INTERNACIONAIS
+20;01.1.2.03.001;    Clientes internacionais
+21;01.1.2.04;   CARTÕES DE CRÉDITO
+22;01.1.2.04.001;    Cartão Mastercard
+23;01.1.2.04.002;    Cartão Redeshop
+937;01.1.2.04.003;    Cartão Unicred
+960;01.1.2.04.004;    Adiantamento de Cartão
+24;01.1.2.05;   APLICAÇÕES FINANCEIRAS DE RENDA FIXA
+25;01.1.2.05.001;    Aplicações no fundo de commodities
+26;01.1.2.05.002;    Aplicações no fundo DI
+725;01.1.2.05.003;    Título de Capitalização
+27;01.1.2.06;   APLICAÇÕES FINANCEIRAS DE RENDA VARIÁVEL
+28;01.1.2.06.001;    Aplicações em ações
+29;01.1.2.07;   APLICAÇÕES FINANCEIRAS DIVERSAS
+30;01.1.2.07.001;    Adiantamento de Funcionários
+31;01.1.2.07.002;    Aplicações depósito especial remunerado
+849;01.1.2.07.004;    Adiantamento de fornecedores
+32;01.1.2.08;   ADIANTAMENTOS
+33;01.1.2.08.001;    Adiantamentos de salários e empregados
+34;01.1.2.08.002;    Adiantamentos de pró-labore a diretores
+35;01.1.2.08.003;    Adiantamentos para viagens
+36;01.1.2.08.004;    Adiantamentos para futuro aumento de capital
+37;01.1.2.08.005;    Adiantamento a fornecedores
+38;01.1.2.08.006;    Adiantamento 13º Salário
+39;01.1.2.08.007;    Adiantamento Férias
+647;01.1.2.08.008;    Adiantamento de Distribuição de Lucros
+648;01.1.2.08.009;    Adiantamento Pedágio
+649;01.1.2.08.010;    Clientes a Regularizar
+874;01.1.2.08.011;    Adiantamento a Cooperados
+899;01.1.2.08.012;    Adiantamento de Pró-Labore Egon Kroeff Neto
+900;01.1.2.08.013;    Adiantamento de Pró-Labore Bernardo Kroeff
+961;01.1.2.08.014;    Adiantamento de Terceiros
+1047;01.1.2.08.015;    Lançamentos que faltam conciliação
+1183;01.1.2.08.016;    Adiantamento de Lucros
+40;01.1.2.09;   TRIBUTOS E CONTRIBUIÇÕES A COMPENSAR
+41;01.1.2.09.001;    ICMS a Recuperar
+42;01.1.2.09.002;    IPI a Recuperar
+43;01.1.2.09.003;    IRRF a Recuperar
+44;01.1.2.09.004;    IRPJ Estimado a Recuperar
+45;01.1.2.09.005;    Contribuição Social Estimada a Recuperar
+46;01.1.2.09.006;    PIS a Recuperar
+47;01.1.2.09.007;    COFINS a Recuperar
+48;01.1.2.09.008;    CSLL a Recuperar
+49;01.1.2.09.009;    ISS a Recuperar
+50;01.1.2.09.010;    ICMS Bens Ativo a Recuperar
+51;01.1.2.09.011;    INSS a Recuperar
+650;01.1.2.09.012;    CSRF a Compensar
+717;01.1.2.09.013;    Simples a Recuperar
+52;01.1.2.10;   EMPRÉSTIMOS
+53;01.1.2.10.001;    Instituição financeira
+620;01.1.2.10.002;    Empréstimo Sócios
+621;01.1.2.10.003;    Xanddy Transportes Ltda
+926;01.1.2.10.004;    Empréstimo Thymus
+54;01.1.2.11;   ESTOQUES
+55;01.1.2.11.001;    Estoque de Mercadoria Para Revenda
+56;01.1.2.11.002;    Estoque de Matéria-Prima
+57;01.1.2.11.003;    Estoque de Material de Consumo de Almoxarifado
+58;01.1.2.11.004;    Estoque de Produtos Em Elaboração
+59;01.1.2.11.005;    Estoque de Produtos Acabados
+652;01.1.2.11.006;    Bens Recebidos para Conserto
+1029;01.1.2.11.007;    Estoque de mercadorias SP
+1030;01.1.2.11.008;    Estoque de mercadorias RS
+60;01.1.2.12;   DEDUÇÕES DOS DIREITOS
+61;01.1.2.12.001;    Duplicatas descontadas
+62;01.1.2.12.002;    Provisão P/ Créditos de Liquidação Duvidosa
+63;01.1.2.12.003;    Provisão P/Ajuste Aplicação Em Ouro
+64;01.1.2.13;   REMESSA DE PRODUTOS/MERCADORIAS
+65;01.1.2.13.001;    Remessa de Produtos/Mercadorias
+651;01.1.2.13.002;    Remessa para Industrialização
+66;01.1.2.14;   RETORNO DE PRODUTOS/MERCADORIAS
+67;01.1.2.14.001;    Retorno de Produtos/Mercadorias
+68;01.1.3;  DESPESAS DO EXERCÍCIO SEGUINTE
+69;01.1.3.01;   SEGUROS A APROPRIAR
+70;01.1.3.01.001;    Seguros Contra Incêndios a Apropriar
+71;01.1.3.01.002;    Seguros Contra Roubo a Apropriar
+72;01.1.3.01.003;    Seguros Contra Lucros Cessantes
+653;01.1.3.01.004;    Prêmio de Seguro a apropriar
+654;01.1.3.01.005;    Seguro Inadinplência
+655;01.1.3.01.006;    Juros a apropriar
+730;01.1.3.01.007;    Seguro de Vida
+73;01.1.3.02;   ASSINATURAS DE PERIÓDICOS A APROPRIAR
+74;01.1.3.02.001;    Assinatura de Boletins Jornais Revistas
+75;01.1.3.03;   ALUGUEL ANTECIPADO A APROPRIAR
+76;01.1.3.03.001;    Aluguel de Bens Imóveis
+77;01.1.3.03.002;    Aluguel de Bens Móveis
+656;01.1.3.03.003;    Cartão Banricompras
+743;01.1.3.04;   CERTIFICAÇÃO DIGITAL ANTECIPADA A APROP
+744;01.1.3.04.001;    Certificação Digital Antecipada a Aprop
+657;01.1.4;  CRÉDITOS
+658;01.1.4.01;   DIVERSOS
+659;01.1.4.01.001;    Cartão Visa Santander
+947;01.1.4.01.002;    Cartão Empresarial Elo
+1039;01.1.4.01.003;    Seguros (Indenização)
+660;01.1.4.02;   ADIANTAMENTO A TERCEIROS
+661;01.1.4.02.001;    Ourocap Banco do Brasil
+662;01.1.4.02.002;    Crédito de Pessoas Ligadas
+663;01.1.4.03;   DEPÓSITOS PARA AQUISIÇÃO DE BENS
+664;01.1.4.03.001;    Consórcios
+78;01.2; ATIVO NÃO CIRCULANTE
+79;01.2.1;  ATIVO REALIZÁVEL A LONGO PRAZO
+80;01.2.1.01;   TÍTULOS A RECEBER DE TERCEIROS
+81;01.2.1.01.001;    Nota Promissória a Receber
+665;01.2.1.01.002;    CRÉDITO DE PESSOAS LIGADAS
+82;01.2.1.02;   DEPÓSITOS JUDICIAIS
+83;01.2.1.02.001;    Causas Trabalhistas
+84;01.2.1.02.002;    PIS sobre receitas operacionais
+85;01.2.1.03;   EMPRÉSTIMOS COMPULSÓRIOS ELETROBRÁS
+86;01.2.1.03.001;    Adicionais conversíveis créditos Eletrobrás
+87;01.2.1.03.002;    Créditos Eletrobrás
+88;01.2.1.03.003;    Juros sobre créditos Eletrobrás a receber
+89;01.2.1.04;   EMPRÉSTIMOS A PESSOAS LIGADAS
+90;01.2.1.04.001;    EMPRESTIMO PESSOA JURÍDICA
+693;01.2.1.04.002;    Sócios C/C
+962;01.2.1.04.003;    Urbia Inteligencia Urbana Tecnologia Ltda
+964;01.2.1.04.004;    Adiantamento a Acionistas/Socios
+965;01.2.1.04.005;    Juliano Trindade Souto
+966;01.2.1.04.006;    Luiz Antonio Gomes Camargo
+91;01.2.1.05;   TITULOS DE CAPITALIZAÇÃO
+92;01.2.1.05.001;    Ourocap - BB
+93;01.2.2;  INVESTIMENTOS
+94;01.2.2.01;   INVESTIMENTOS EM COLIGADAS E CONTROLADAS
+95;01.2.2.01.001;    Empresa 1 S/A
+698;01.2.2.01.002;    CRT
+963;01.2.2.01.003;    Coop de Credito Unicredi
+695;01.2.2.02;   APLICAÇÕES FINANC DE RENDA VARIÁVEL
+696;01.2.2.02.001;    Títulos de Capitalização 
+697;01.2.2.02.002;    INTEGRALIZAÇAO DE CAPITAL SICREDI
+1012;01.2.2.02.003;    Integ de Capital Unicred
+989;01.2.2.03;   Consórcios
+990;01.2.2.03.001;    Bradesco Consórcio
+991;01.2.2.03.002;    Banco do Brasil Consórcios
+96;01.2.3;  IMOBILIZADO
+97;01.2.3.01;   BENS E DIREITOS EM USO
+98;01.2.3.01.001;    Máquinas e Equipamentos
+99;01.2.3.01.002;    Móveis e Utensílios
+100;01.2.3.01.003;    Ferramentas
+101;01.2.3.01.004;    Imóveis
+102;01.2.3.01.005;    Veículos
+103;01.2.3.01.006;    Computadores e periféricos
+104;01.2.3.01.007;    Direito de uso de linha telefônica
+105;01.2.3.01.008;    Softwares
+106;01.2.3.01.009;    Marcas e patentes de invenção
+107;01.2.3.01.010;    Benfeitorias em imóveis de terceiros
+108;01.2.3.01.011;    Equipamentos de Proc de dados
+109;01.2.3.01.012;    Terrenos
+110;01.2.3.01.013;    Luminosos/Placas
+622;01.2.3.01.014;    Equipamentos disdáticos
+666;01.2.3.01.015;    Instalações
+992;01.2.3.01.016;    Edifícios
+994;01.2.3.01.017;    Máquinas Estacionárias
+111;01.2.3.02;   BENS EM CONSTRUÇÃO
+112;01.2.3.02.001;    Bens em construção
+1013;01.2.3.02.002;    Bens em Construção Nova Sede
+113;01.2.3.04;   PARTICIPAÇÃO EM CONSÓRCIOS
+114;01.2.3.04.001;    Consórcio
+115;01.2.3.05;   (-) DEPRECIAÇÃO ACUMULADA
+116;01.2.3.05.001;    (-) Máquinas e equipamentos
+117;01.2.3.05.002;    (-) Móveis e Utensílios
+118;01.2.3.05.003;    (-) Ferramentas
+119;01.2.3.05.004;    (-) Imóveis
+120;01.2.3.05.005;    (-) Veículos
+121;01.2.3.05.006;    (-) Computadores Periféricos
+122;01.2.3.05.007;    (-) Luminosos/Placas
+623;01.2.3.05.008;    (-) Equipamentos e Processamento de dados 
+667;01.2.3.05.009;    (-) Instalações - Depreciação
+922;01.2.3.05.010;    (-) Benfeitorias
+993;01.2.3.05.011;    (-) Edifícios
+123;01.2.4;  ATIVO INTANGÍVEL
+124;01.2.4.01;   BENS DE NATUREZA INTANGÍVEL
+125;01.2.4.01.001;    Capital Intelectual
+126;01.2.4.01.002;    Marcas e Patentes de Invenção
+127;01.2.4.01.003;    Fundo de Comércio
+128;01.2.4.01.004;    Concessões
+129;01.2.4.01.005;    Direitos Autorais
+130;01.2.4.01.006;    Softwares ou Programas de Computador
+131;01.2.4.01.007;    Franquias
+132;01.2.4.02;   (-) AMORTIZAÇÃO ACUMULADA
+133;01.2.4.02.001;    (-) Capital Intelectual
+134;01.2.4.02.002;    (-) Marcas Pat. de Invenção
+135;01.2.4.02.003;    (-) Fundo de Comércio
+136;01.2.4.02.004;    (-) Concessões
+137;01.2.4.02.005;    (-) Direitos Autorais
+138;01.2.4.02.006;    (-) Softwares
+139;01.2.4.02.007;    (-) Franquias
+140;01.3; CONTAS DE COMPENSAÇÃO
+141;01.3.1;  CONTAS DE COMPENSAÇÃO
+142;01.3.1.01;   CONTAS DE COMPENSAÇÃO
+143;01.3.1.01.001;    Contas de Compensação
+144;02;PASSIVO
+145;02.1; PASSIVO CIRCULANTE
+146;02.1.1;  FORNECEDORES
+147;02.1.1.01;   FORNECEDORES
+148;02.1.1.01.001;    Fornecedores
+149;02.1.1.02;   FORNECEDORES
+150;02.1.1.02.001;    Fornecedores Diversos
+862;02.1.1.05;   Fornecedores Diversos
+863;02.1.1.05.0001;    Fornecedores Diversos
+151;02.1.2;  EMPRÉSTIMOS E FINANCIAMENTOS
+152;02.1.2.01;   EMPRÉSTIMOS E FINANCIAMENTOS BANCÁRIOS
+153;02.1.2.01.001;    Banco do Brasil S/A
+154;02.1.2.01.002;    Caixa Econômica Federal
+155;02.1.2.01.003;    BNDES
+711;02.1.2.01.004;    Banrisul
+723;02.1.2.01.005;    Bco HSBC
+724;02.1.2.01.006;    Bco Bradesco
+727;02.1.2.01.007;    Bco Itaú
+731;02.1.2.01.008;    Bco Santander
+732;02.1.2.01.009;    FINAME
+733;02.1.2.01.010;    BANCO RCI BRASIL S.A.
+734;02.1.2.01.011;    FINASA BMC
+735;02.1.2.01.012;    BCO FINASA FORD KA
+736;02.1.2.01.013;    Bco ITAU CELTA
+737;02.1.2.01.014;    BCO FINASDA UNO IGV-1902
+738;02.1.2.01.015;    BCO BB - ELEBADOR
+741;02.1.2.01.016;    FIAT AUTOMÓVEIS S/A
+746;02.1.2.01.017;    BV FINANCEIRA
+758;02.1.2.01.018;    BB AG. 486-3 C/C 28768-7
+759;02.1.2.01.019;    CEF AG.1589 C/C 003/00001874-1
+760;02.1.2.01.020;    Banrisul ag. 0215 c/c 06.063766.0-5
+761;02.1.2.01.021;    Itaú ag 1438 c/c 23803-0
+762;02.1.2.01.022;    Itaú ag 1438 c/c 24174-5
+763;02.1.2.01.023;    Santander ag.1094 c/c 13-000745-4
+764;02.1.2.01.024;    Bradesco ag.1775 c/c 44335-2
+765;02.1.2.01.025;    Coop Unicred integ ag.6001 c/c 906026
+766;02.1.2.01.026;    LAMDESBANK BADEN-WURTTEMBERG
+769;02.1.2.01.027;    Ctr CEF N° 18.3461.606.0000005-39
+770;02.1.2.01.028;    BCO BNDS FINAME
+771;02.1.2.01.029;    BCO SICREDI PAS
+791;02.1.2.01.030;    AYMORÉ CREDITO
+838;02.1.2.01.031;    Banco Sicoob
+858;02.1.2.01.032;    Coop Unicred
+879;02.1.2.01.033;    Banco Sicredi - Pronampe
+881;02.1.2.01.034;    Banco Sicredi
+892;02.1.2.01.035;    Badesul
+893;02.1.2.01.036;    Banco do Brasil - Pronampe
+894;02.1.2.01.037;    Banco Sicredi - BNDES
+901;02.1.2.01.038;    BB Giro Cont 325202744
+919;02.1.2.01.039;    BANCO MONEO
+940;02.1.2.01.040;    Coop Unicred - Cap de Giro Longo Price
+941;02.1.2.01.041;    Coop Unicred - Reforma e Construção
+943;02.1.2.01.042;    Banco do Brasil Pronampe
+949;02.1.2.01.043;    Nubank
+969;02.1.2.01.044;    CDB Financiamento 
+970;02.1.2.01.045;    Capital de Giro n° 90549079 - SICOOB
+971;02.1.2.01.046;    Capital de Giro nº 29092364 - SICOOB
+972;02.1.2.01.047;    Capital de Giro nº 68079077 - SICOOB
+156;02.1.2.02;   EMPRÉSTIMOS DE PESSOAS LIGADAS
+157;02.1.2.02.001;    Emprestimo de coligadas
+624;02.1.2.02.002;    Empréstimo de Sócios
+747;02.1.2.03;   EMPRESTIMO A TERCEIROS
+748;02.1.2.03.001;    EMPRÉSTIMO DE PESSOAS FÍSICAS/JURÍDICAS
+625;02.1.2.04;   EMPRÉSTIMO PESSOA JURÍDICA
+626;02.1.2.04.001;    Xanddy Transportes Ltda
+669;02.1.2.04.002;    Adiantamento de Clientes
+670;02.1.2.05;   CARTÃO DE CRÉDITO
+671;02.1.2.05.001;    Visa Santander
+672;02.1.2.05.002;    Banricompras
+789;02.1.2.05.003;    Banco Inter
+790;02.1.2.05.004;    Nubank
+967;02.1.2.05.005;    Cartão Siccob
+968;02.1.2.05.006;    Sicredi
+987;02.1.2.05.007;    Cartão Sicredi
+988;02.1.2.05.008;    Cartão Santander
+1010;02.1.2.05.009;    Cartão Unicred
+1014;02.1.2.05.010;    Cartão Banco do Brasil
+1192;02.1.2.05.011;    Cartões de Créditos a pagar
+158;02.1.3;  OBRIGAÇÕES TRABALHISTAS
+159;02.1.3.01;   FOLHA DE PAGAMENTO DE EMPREGADOS
+785;02.1.3.01;   FOLHA DE PAGAMENTO DE EMPREGADOS
+160;02.1.3.01.001;    Salários a pagar
+161;02.1.3.01.002;    Férias a pagar
+162;02.1.3.01.003;    Rescisões a pagar
+163;02.1.3.01.004;    13º salário a pagar
+164;02.1.3.01.006;    Participação lucros e resultados a pagar
+165;02.1.3.01.007;    Pensão alimentícia
+627;02.1.3.01.008;    Consignados a pagar
+786;02.1.3.01.009;    FOLHA DE PAGAMENTO DE EMPREGADOS
+1119;02.1.3.01.010;    Remuneração de Estagiários a pagar
+166;02.1.3.02;   FOLHA DE PAGAMENTO DE AUTÔNOMOS
+167;02.1.3.02.001;    Rendimentos Autônomos a Pagar
+168;02.1.3.03;   FOLHA DE PAGAMENTO DE DIRIGENTES
+169;02.1.3.03.001;    Pro-labore a pagar
+902;02.1.3.03.002;    Pro-Labore a pagar Bernardo
+903;02.1.3.03.003;    Pro-Labore a pagar Egon
+904;02.1.3.03.004;    Pro-Labore a Pagar Marga
+170;02.1.3.04;   ENCARGOS SOCIAIS A PAGAR
+171;02.1.3.04.001;    INSS a pagar
+172;02.1.3.04.003;    FGTS a pagar
+173;02.1.3.04.004;    Contribuições Sindicais a Pagar
+174;02.1.3.04.005;    GRRF a Pagar
+905;02.1.3.04.006;    Inss a pagar Egon
+175;02.1.3.05;   PROVISÕES DA FOLHA DE PAGAMENTO
+176;02.1.3.05.001;    Provisão de 13º salário
+177;02.1.3.05.002;    Provisão de férias
+178;02.1.3.05.003;    Provisão FGTS 13º
+179;02.1.3.05.004;    Provisão FGTS Férias
+180;02.1.3.05.005;    Provisão INSS 13º
+181;02.1.3.05.006;    Provisão INSS Férias
+182;02.1.4;  OBRIGAÇÕES TRIBUTÁRIAS
+183;02.1.4.01;   IMPOSTOS RETIDOS A RECOLHER
+184;02.1.4.01.001;    IRRF a Recolher - Pessoa Física
+185;02.1.4.01.002;    IRRF a Recolher - Pessoa Jurídica
+186;02.1.4.01.003;    ISS Retido a Recolher
+187;02.1.4.01.004;    IRRF a Recolher - Contribuintes
+188;02.1.4.01.005;    IRRF a Recolher - PLR
+628;02.1.4.01.006;    CRF a recolher
+189;02.1.4.02;   IMPOSTOS E CONTRIBUIÇÕES SOBRE O LUCRO
+190;02.1.4.02.001;    IRPJ a Pagar
+191;02.1.4.02.003;    Contribuição Social s/Lucro Real a Pagar
+192;02.1.4.02.004;    Contribuição Social s/Lucro Presumido a Pagar
+193;02.1.4.02.005;    Contribuição Social s/Estimativa a Pagar
+194;02.1.4.03;   IMPOSTOS E CONTRIBUIÇÕES S/RECEITAS
+195;02.1.4.03.001;    ICMS a Pagar
+196;02.1.4.03.002;    COFINS a Pagar
+197;02.1.4.03.003;    PIS a Pagar
+198;02.1.4.03.004;    IPI a Pagar
+199;02.1.4.03.005;    Contribuição Social a Pagar
+200;02.1.4.03.006;    SIMPLES a Pagar
+201;02.1.4.03.007;    ISSQN a Pagar
+202;02.1.4.03.008;    SIMPLES NACIONAL a Pagar
+203;02.1.4.03.009;    ICMS ST a Pagar
+204;02.1.5;  CONTAS A PAGAR
+205;02.1.5.01;   CONTAS DE EMPRESAS PÚBLICAS
+206;02.1.5.01.001;    Energia elétrica
+207;02.1.5.01.002;    Brasil Telecom S/A
+208;02.1.5.01.003;    Água e esgoto
+209;02.1.5.01.004;    Embratel S/A
+210;02.1.5.02;   DEMAIS CONTAS A PAGAR
+211;02.1.5.02.001;    Seguros a Pagar
+212;02.1.5.02.002;    Assinatura de Periódicos a Pagar
+213;02.1.5.02.003;    Aluguel a Pagar
+629;02.1.5.02.004;    Parcelamento INSS
+630;02.1.5.02.005;    Parcelamento FGTS
+631;02.1.5.02.006;    Parcelamento ISS
+632;02.1.5.02.007;    Parcelamento RFB
+633;02.1.5.02.008;    Parcelamento Simples PGFN
+668;02.1.5.02.009;    Parcelamento INSS PGFN
+673;02.1.5.02.010;    CONSORCIOS A PAGAR
+710;02.1.5.02.011;    Desc. Emprest. Consig.
+716;02.1.5.02.012;    Parcelamento RFB - SIMPLES NACIONAL
+718;02.1.5.02.013;    Parcelamento ICMS
+767;02.1.5.02.014;    OUTRAS CONTAS A PAGAR
+772;02.1.5.02.015;    Lucros a Distribuir
+788;02.1.5.02.016;    Parcelamento PGFN
+840;02.1.5.02.017;    PARCELAMENTO RELP
+214;02.1.5.03;   OBRIGAÇÕES COM TERCEIROS
+215;02.1.5.03.001;    Adiantamento de Clientes
+216;02.1.5.03.002;    Adiantamento para futuro aumento de capital
+811;02.1.5.03.003;    Adiantamento Mauricio M Neu
+832;02.1.5.03.004;    Adiantamento João Cícero Bidart
+841;02.1.5.03.008;    Adiantamento Rafael Ibarra Martins
+973;02.1.5.03.009;    3S Contruções Ltda.
+974;02.1.5.03.010;    Dutra Incorp. Imobiliárias Ltda.
+975;02.1.5.03.011;    Costa Ferreira Fomento Mercantil
+976;02.1.5.03.012;    Cristiano Duarte Kras Borges & Cia. Ltda.
+977;02.1.5.03.013;    Green Incorporadora Ltda.
+995;02.1.5.03.014;    FM Pneus Ltda
+1049;02.1.5.03.015;    Jorge Luiz dos Santos
+217;02.1.5.04;   OBRIGAÇÕES PROVISIONADAS
+218;02.1.5.04.001;    Provisão p/ Férias
+219;02.1.5.04.002;    Provisão p/ 13º Salário
+1050;02.1.5.05;   OBRIGAÇÕES OPERACIONAIS
+1051;02.1.5.05.01;    Estoque em Elaboração
+1053;02.1.5.06;   Dividendos
+1054;02.1.5.06.01;    Dividendos a pagar
+850;02.1.7;  Passivo não Circulante
+851;02.1.7.3;   Exigivel a longo prazo
+852;02.1.7.3.01;    Emprestimos e Financiamento
+853;02.1.7.3.01.006;     Créditos de Investidores
+998;02.1.7.3.01.007;     Ricardo De Carli Dresch
+220;02.2; PASSIVO NÃO CIRCULANTE
+221;02.2.1;  EMPRÉSTIMOS E FINANCIAMENTOS
+860;02.2.1.;   DIVIDENDOS
+861;02.2.1.001;   Dividendos a pagar
+878;02.2.1.003;   Antecipações de Sócios
+1052;02.2.1.004;   Lucros a Distribuir
+222;02.2.1.01;   EMPRÉSTIMOS E FINANCIAMENTOS BANCÁRIOS
+223;02.2.1.01.001;    Banco do Brasil SA
+224;02.2.1.01.002;    Caixa Econômica Federal SA
+634;02.2.1.01.003;    Bradesco
+712;02.2.1.01.004;    BANRISUL
+721;02.2.1.01.005;    Bco Itaú
+722;02.2.1.01.006;    FINAME
+793;02.2.1.01.007;    Telmo Benedetti
+794;02.2.1.01.008;    Alvaro L Machiavelli
+795;02.2.1.01.009;    Jaime Schardong
+796;02.2.1.01.010;    Roberto Dão Quimaier Moraes
+797;02.2.1.01.011;    Milton Girardi
+798;02.2.1.01.012;    Leonidas Pires
+799;02.2.1.01.013;    Nilvo Fries
+800;02.2.1.01.014;    Rogério Moresco
+801;02.2.1.01.015;    Saulo Jose Husein
+802;02.2.1.01.016;    Valdir Sauer
+803;02.2.1.01.017;    Recuperação de Despesas
+804;02.2.1.01.018;    Luiz Alberto
+805;02.2.1.01.019;    Luis Ardemio Brum
+806;02.2.1.01.020;    Odilo João Benedetti
+807;02.2.1.01.021;    Kertony Washington Silvano
+808;02.2.1.01.022;    Alter Miranda da Silva
+809;02.2.1.01.023;    José Marino Clerice
+810;02.2.1.01.024;    Ivo Joel Borati
+877;02.2.1.01.025;    Banco Sicredi - Pronampe
+906;02.2.1.01.026;    Margaret Pasquali
+907;02.2.1.01.027;    Egon Kroeff Neto
+908;02.2.1.01.028;    Ricardo (irmão Margaret)
+909;02.2.1.01.029;    Katia Amaral
+927;02.2.1.01.030;    Clovis Inacio Dresch
+928;02.2.1.01.031;    Outros Credores 
+944;02.2.1.01.032;    Banco do Brasil Pronampe II
+945;02.2.1.01.033;    Coop Unicred Cap de Giro Longo Price
+946;02.2.1.01.034;    Coop Unicred - Reforma e construção
+978;02.2.1.01.035;    Sicredi
+979;02.2.1.01.036;    Badesul
+980;02.2.1.01.037;    CDB Financiamento
+981;02.2.1.01.038;    Capital de Giro n° 29092364 - SICOOB
+982;02.2.1.01.039;    Capital de Giro nº 68079077 - SICOOB
+1000;02.2.1.01.040;    Bnco Banrisul
+1001;02.2.1.01.041;    Banco Caixa Econômica federal - Projer
+1002;02.2.1.01.042;    Banco do Brasil - Finame
+1003;02.2.1.01.043;    Caixa Econômica Federal - Variação Monetária
+1004;02.2.1.01.044;    Banco do Brasil - Variações Monetárias
+1005;02.2.1.01.045;    Bradesco - Variação Monetária
+1006;02.2.1.01.046;    Banrisul - Variações Monetárias
+1007;02.2.1.01.047;    Caixa Econômica Federal - Garantia FGO
+1011;02.2.1.01.048;    Concretize
+1034;02.2.1.01.049;    Nubank
+635;02.2.1.02;   PARCELAMENTOS LONGO PRAZO
+636;02.2.1.02.001;    Simples Nacional 
+910;02.2.1.02.002;    Inss
+918;02.2.1.02.003;    IR Aluguel
+996;02.2.1.02.004;    Parcelamento de Icms
+997;02.2.1.02.005;    Parcelamento Pert
+1015;02.2.1.02.006;    Proc Prev 15274428-2
+1016;02.2.1.02.007;    Proc Prev 16428164-9
+1017;02.2.1.02.008;    Proc Prev 18231230-5
+1018;02.2.1.02.009;    Proc Prev 19635259-2
+1019;02.2.1.02.010;    Proc Prev 19414.199.789
+1020;02.2.1.02.011;    Proc IRRF Trabalhista 19414.199.732
+1021;02.2.1.02.012;    Proc IRPF 00.2.23.015599-11
+1022;02.2.1.02.013;    Parcelamento FGTS
+1023;02.2.1.02.014;    Proc Prev 19414.891.372
+1024;02.2.1.02.015;    Proc IRRF Trabalhista 19414.788.144
+812;02.2.1.03;   LUCROS A PAGAR
+813;02.2.1.03.001;    Lucros Roberto Dão Quimaier
+814;02.2.1.03.002;    Lucros Telmo Bnedetti
+834;02.2.1.03.003;    Lucros Saulo Husein
+835;02.2.1.03.004;    Lucros Ivo Joel Boratti
+836;02.2.1.03.005;    Lucros José Marino Clerice
+891;02.2.1.03.006;    Lucros Jaime Luiz Schardong
+924;02.2.1.03.007;    Antecipações de Lucros
+984;02.2.1.03.008;    Lucros Juliano Trindade Souto
+985;02.2.1.03.009;    Lucros Luiz Antonio Gomes Camargo
+1008;02.2.1.03.010;    Lucros Odilo João Benedetti
+1009;02.2.1.03.011;    Lucros Alvaro L Machiavelli
+1025;02.2.1.03.012;    Antecipações de Lucros Egon
+1026;02.2.1.03.013;    Antecipações de Lucros Marga
+1027;02.2.1.03.014;    Antecipações de Lucros Bernanrdo
+1032;02.2.1.03.015;    Lucros Fábio Grespan Godinho
+1033;02.2.1.03.016;    Lucros Marcia Grespan Godinho
+1055;02.2.1.03.017;    Lucros Clóvis Inácio Dresch
+1056;02.2.1.03.018;    Lucros Miriane Bertuol Pinto
+1057;02.2.1.03.019;    Lucros Vitor Pereira Faro
+1061;02.2.1.03.020;    Lucros Luiza Villa Verde Linde
+1062;02.2.1.03.021;    Lucros Raissa Marques Rocha
+1063;02.2.1.03.022;    Lucros Alexei Hahn Somorovsky
+1064;02.2.1.03.023;    Lucros Felipe Guillante
+1065;02.2.1.03.024;    Lucros Bruna de Sá Barcelos Pinto
+1066;02.2.1.03.025;    Lucros Henrique Farias Langeloh
+1067;02.2.1.03.026;    Lucros Nadine Boufleur Kunz
+1068;02.2.1.03.027;    Lucros Mike Steyvanne Miranda de Andrade 
+1069;02.2.1.03.028;    Lucros Solido Empreendimentos 
+1120;02.2.1.03.029;    Lucros a pagar
+1122;02.2.1.03.030;    Lucros Pedro da Rocha Cruz
+1123;02.2.1.03.031;    Lucros Eduardo Benites Cabral
+846;02.2.1.04;   EXIGIVEL A LONGO PRAZO
+847;02.2.1.04.001;    EMPRESTIMOS E FINANCIAMENTOS A LONGO PRAZO
+848;02.2.1.04.001.001;     Créditos de Investidores
+225;02.3; PATRIMÔNIO LÍQUIDO
+226;02.3.1;  CAPITAL
+227;02.3.1.01;   CAPITAL SOCIAL
+228;02.3.1.01.001;    Capital Social Subscrito
+229;02.3.1.01.002;    Capital Social Integralizado
+815;02.3.1.01.003;    Jaime Luiz Schardong
+816;02.3.1.01.004;    Leonidas Pires
+817;02.3.1.01.005;    Nilvo Reinoldo Fries
+818;02.3.1.01.006;    Odilo João Benedetti
+819;02.3.1.01.007;    Roberto Dão Quimaier Moraes
+820;02.3.1.01.008;    Rogerio Moresco da Rosa
+821;02.3.1.01.009;    Saulo Salgado Husein
+822;02.3.1.01.010;    Telmo Luiz Benedetti
+823;02.3.1.01.011;    Valdir Sauer
+824;02.3.1.01.012;    Kertony Washington Silvano
+825;02.3.1.01.013;    Milton Girardi
+826;02.3.1.01.014;    Alter Miranda da Silva
+827;02.3.1.01.015;    Alvaro Machiavelli Filho
+828;02.3.1.01.016;    Luis Ardemio Brum
+829;02.3.1.01.017;    Ivo Joel Borati
+830;02.3.1.01.018;    José Marino Clerice
+831;02.3.1.01.019;    Luiz Alberto
+230;02.3.2;  RESERVAS
+231;02.3.2.01;   RESERVAS DE CAPITAL
+232;02.3.2.01.001;    Reservas de Correção Monetária do Capita
+233;02.3.2.02;   RESERVAS DE LUCROS
+234;02.3.2.02.001;    Reserva de Lucros
+235;02.3.2.02.002;    Reserva de Contingências
+236;02.3.2.02.003;    Reserva Legal
+237;02.3.2.02.004;    Reserva Estatutária
+238;02.3.2.02.005;    Reserva de Lucros para Expansão
+239;02.3.2.02.006;    Reserva de Incentivos Fiscais
+745;02.3.2.02.007;    Lucros Distribuidos
+699;02.3.2.03;   SÓCIOS CONTA CORRENTE
+700;02.3.2.03.001;    JOSÉ S DE SOUZA
+701;02.3.2.03.002;    ANA LUCIA FRANCO
+702;02.3.2.03.003;    GERTRUDES FRAGA DE SOUZA
+703;02.3.2.03.004;    LUCI FRAGA DE SOUZA
+240;02.3.3;  AJUSTES DE AVALIAÇÃO PATRIMONIAL
+241;02.3.3.01;   AJUSTES DE AVALIAÇÃO PATRIMONIAL
+242;02.3.3.01.001;    Normas Internacionais de Contabilidade
+243;02.3.3.01.002;    (-) Normas Internacionais de Contabilidade
+244;02.3.3.01.003;    Avaliação de Instrumentos Financeiros
+245;02.3.3.01.004;    (-) Avaliação de Instrumentos Financeiros
+246;02.3.3.01.005;    Ajustes ao Valor de Mercado
+247;02.3.3.01.006;    (-) Ajustes ao Valor de Mercado
+999;02.3.3.01.007;    AVP
+248;02.3.4;  LUCROS OU PREJUÍZOS ACUMULADOS
+249;02.3.4.03;   LUCROS OU PREJUÍZOS ACUMULADOS
+250;02.3.4.03.001;    Lucros Acumulados
+251;02.3.4.03.002;    Prejuízos Acumulados
+921;02.3.4.03.003;    Lucros Exercicios Anteriores
+252;02.3.4.04;   RESULTADO DO EXERCÍCIO
+253;02.3.4.04.001;    Resultado do Exercício
+254;02.3.4.04.003;    Ajustes de Exercícios Anteriores
+854;02.3.5;  LUCROS OU PREJUÍZOS ACUMULADOS
+855;02.3.5.01;   LUCROS OU PREJUÍZOS ACUMULADOS
+856;02.3.5.01.001;    Lucros Acumulados
+255;02.4; CONTAS DE COMPENSAÇÃO
+256;02.4.1;  CONTAS DE COMPENSAÇÃO
+257;02.4.1.01;   CONTAS DE COMPENSAÇÃO
+258;02.4.1.01.001;    Contas de Compensação
+259;03;RECEITAS
+260;03.1; RECEITAS OPERACIONAIS
+261;03.1.1;  RECEITA BRUTA COM VENDAS E SERVIÇOS
+262;03.1.1.01;   RECEITA COM VENDAS
+263;03.1.1.01.001;    Vendas de Produtos
+264;03.1.1.01.002;    Vendas Produtos Fabricação Própria a Prazo
+265;03.1.1.01.003;    Vendas de Mercadorias
+266;03.1.1.01.004;    Vendas de Imóveis Próprios
+637;03.1.1.01.005;    Venda Produtos Fabricação Própria Vista
+638;03.1.1.01.006;    Revenda de mercadorias a vista
+639;03.1.1.01.007;    Revenda de mercadorias a prazo
+911;03.1.1.01.008;    Vendas de Obras Diversas Porto Alegre
+912;03.1.1.01.009;    Vendas de Obras Diversas São Paulo
+1127;03.1.1.02;   RECEITAS DIRETAS
+1128;03.1.1.02.001;    Comissão Externa Recebida
+1129;03.1.1.02.002;    Clientes Serviços Prestados
+1130;03.1.1.02.003;    Clientes Revenda de Mercadoria
+1131;03.1.1.02.004;    Repasse de Clientes - Vendas Galeria
+1217;03.1.1.02.005;    Clientes - Venda de Mercadoria Fabricada
+267;03.1.1.03;   RECEITAS COM SERVIÇOS
+268;03.1.1.03.001;    Serviços Prestados
+269;03.1.1.03.002;    Serviços de Industrialização
+270;03.1.1.03.003;    Serviços de Fretes
+271;03.1.1.03.004;    Serviços de Prestados
+775;03.1.1.03.005;    Serviços prestados a Vista
+942;03.1.1.03.006;    Outras Receitas de Serviços
+640;03.1.1.04;   OUTRAS RECEITAS
+895;03.1.1.04.01;    Outras Receitas não operacionais
+938;03.1.1.04.02;    Outras Receitas
+641;03.1.1.05;   DOAÇÕES E SUBVENÇÕES
+1132;03.1.1.06;   RECEITAS INDIRETAS
+1133;03.1.1.06.001;    Dividendos Recebidos
+1134;03.1.1.06.002;    Rendimentos de Aplicações
+1135;03.1.1.06.003;    Resgate de Aplicação Automática
+1136;03.1.1.06.004;    Venda de Livros
+1137;03.1.1.06.005;    Reembolso de Despesa - Pagto. Desp.
+272;03.1.2;  DEDUÇÕES DAS RECEITAS C/VENDAS E SERVIÇO
+273;03.1.2.01;   DEVOLUÇÕES E ABATIMENTOS
+274;03.1.2.01.001;    Devoluções de Vendas
+275;03.1.2.01.002;    Abatimentos Concedidos
+642;03.1.2.01.003;    Recuperação de despesas
+1138;03.1.2.01.004;    Devoluções de Compra de Mercadoria de Revenda
+1139;03.1.2.01.005;    Devoluções de Compra de Material de Consumo
+1140;03.1.2.01.006;    Devolução de Compra de Materia Prima
+1141;03.1.2.01.007;    Devolução de Compra de Ativo
+1142;03.1.2.01.008;    Devolução de Compra de Serviços
+1185;03.1.2.01.009;    Devolução de Vendas de Serviços Prestados
+276;03.1.2.02;   IMPOSTOS S/VENDAS E SERVIÇOS
+277;03.1.2.02.001;    ICMS sobre vendas
+278;03.1.2.02.002;    PIS sobre vendas e serviços
+279;03.1.2.02.003;    COFINS sobre vendas e serviços
+280;03.1.2.02.004;    Contribuição social sobre vendas e serviços
+281;03.1.2.02.005;    IPI sobre vendas e serviços
+282;03.1.2.02.006;    Simples sobre vendas e serviços
+283;03.1.2.02.007;    ISSQN sobre serviços
+284;03.1.2.02.008;    Simples Nacional sobre vendas e serviços
+285;03.1.2.02.009;    IRPJ sobre vendas e serviços
+643;03.1.2.02.010;    ISS INDEVIDO
+1193;03.1.2.02.011;    ICMS s/Faturamento(Despesa)
+1194;03.1.2.02.012;    IPI s/Faturamento
+1195;03.1.2.02.013;    PIS s/Faturamento
+1196;03.1.2.02.014;    COFINS s/Faturamento
+1197;03.1.2.02.015;    ICMS ST a Recolher
+1198;03.1.2.02.016;    ICMS ST s/Faturamento
+1199;03.1.2.02.017;    DIFAL a Recolher
+1200;03.1.2.02.018;    DIFAL s/Faturamento
+1201;03.1.2.02.019;    FCP a Recolher
+1202;03.1.2.02.020;    FCP DIFAL a Recolher
+1203;03.1.2.02.021;    FCP s/Faturamento
+1204;03.1.2.02.022;    FCP DIFAL s/Faturamento
+286;03.1.3;  RECEITAS FINANCEIRAS
+287;03.1.3.01;   RECEITAS COM ATUALIZAÇÕES
+288;03.1.3.01.001;    Variação Monetária Ativa
+289;03.1.3.01.002;    Variação Cambial Ativa
+290;03.1.3.02;   GANHOS COM APLICAÇÕES FINANCEIRAS
+291;03.1.3.02.001;    Rendimentos de Aplicação do FAF
+292;03.1.3.02.002;    Ganho Real de Aplicações de Renda Fixa
+293;03.1.3.02.003;    Ganho Real de Aplicações de Renda Variável
+294;03.1.3.02.004;    Rendimentos de Caderneta de Poupança
+913;03.1.3.02.005;    Rendimentos de Aplicação Finanaceira
+295;03.1.3.03;   JUROS E DESCONTOS OBTIDOS
+296;03.1.3.03.001;    Juros Ativos
+297;03.1.3.03.002;    Descontos Obtidos
+1215;03.1.3.03.003;    Multas Recebidas
+644;03.1.3.04;   DESCONTO TRIBUTÁRIO
+645;03.1.3.04.001;    dESCONTO pert 2018
+298;03.1.4;  RECEITAS COM PARTICIPAÇÕES SOCIETÁRIAS
+299;03.1.4.01;   DIVIDENDOS E LUCROS DISTRIBUÍDOS
+300;03.1.4.01.001;    Dividendos Distribuídos
+301;03.1.4.01.002;    Lucros Distribuídos
+302;03.1.4.02;   RESULTADO DE EQUIVALÊNCIA PATRIMONIAL
+303;03.1.4.02.001;    Equivalência Patrimonial Positiva
+304;03.2; OUTRAS RECEITAS
+305;03.2.1;  OUTRAS RECEITAS
+306;03.2.1.01;   OUTRAS RECEITAS
+307;03.2.1.01.001;    Bonificações
+308;03.2.1.01.002;    Doações
+309;03.2.1.01.003;    Benefício Fiscal
+310;03.2.1.01.004;    Despesas Recuperadas
+311;03.2.1.01.005;    Indenizações Trabalhistas
+614;03.2.1.01.006;    Receitas de Aluguel
+792;03.2.1.01.007;    OUTRAS RECEITAS
+914;03.2.1.01.008;    Alienação de Imóveis
+1040;03.2.1.01.009;    Indenizações Seguros
+1143;03.2.1.01.010;    Adiantamento de Clientes
+1144;03.2.1.01.011;    Reembolso de Despesas
+1145;03.2.1.01.012;    Emprestimos Bancários
+1146;03.2.1.01.013;    Vendas de Ativos
+1147;03.2.1.01.014;    Mútuo
+312;03.2.1.02;   ALIENAÇÃO DE INVESTIMENTOS
+313;03.2.1.02.001;    Alienação Participação Societária Avaliada pelo Metódo Custeio
+314;03.2.1.02.002;    Alienação Participação Societária Avaliada pela Equivalencia Patrimonial
+774;03.2.1.02.003;    Alienação CRT
+315;03.2.1.03;   ALIENAÇÃO DE IMOBILIZADO
+316;03.2.1.03.001;    Alienação de Máquinas e Equipamentos
+317;03.2.1.03.002;    Alienação de Móveis e Utensílios
+318;03.2.1.03.003;    Alienação de Ferramentas
+319;03.2.1.03.004;    Alienação de Imóveis
+320;03.2.1.03.005;    Alienação de Veículos
+321;03.2.1.03.006;    Alienação de Computadores e Periféricos
+322;03.2.1.03.007;    Alienação de Direito de Uso de Telefones
+646;03.2.1.04;   ALIENAÇÃO DE BENS
+323;03.2.2;  DEDUÇÕES DAS ALIENAÇÕES DE BENS
+324;03.2.2.01;   CUSTO DA ALIENAÇÃO DE INVESTIMENTOS
+325;03.2.2.01.001;    Custo Alienação Partic Soc Aval Custo Co
+326;03.2.2.01.002;    Custo Alienação Partic Soc Aval Equiv Pa
+327;03.2.2.02;   CUSTO DA ALIENAÇÃO DE IMOBILIZADO
+328;03.2.2.02.001;    Custo da Alienação Máquinas e Equipamentos
+329;03.2.2.02.002;    Custo da Alienação Móveis e Utensílios
+330;03.2.2.02.003;    Custo da Alienação Ferramentas
+331;03.2.2.02.004;    Custo da Alienação Imóveis
+332;03.2.2.02.005;    Custo da Alienação Veículos
+333;03.2.2.02.006;    Custo da Alienação Computadores e Periféricos
+334;03.2.2.02.007;    Custo da Alienação Direito Uso Telefone
+335;04;CUSTOS E DESPESAS
+336;04.1; CUSTOS
+337;04.1.1;  CUSTO DAS MERCADORIAS VENDIDAS
+338;04.1.1.01;   ESTOQUE INICIAL
+339;04.1.1.01.001;    Estoque inicial de mercadorias
+678;04.1.1.01.1;    CUSTO DA MERCADORIA VENDIDA
+1148;04.1.1.01.1.001;     Pagamento de Obra - Pertence ao Sócio
+1153;04.1.1.01.1.002;     Pagamento de Obra ao Proprietário
+1157;04.1.1.01.1.003;     Adiantamento ao Artista
+1158;04.1.1.01.1.004;     Despesa Anterior - Descontar Contrato
+340;04.1.1.02;   COMPRAS
+341;04.1.1.02.001;    Custo Das Mercadorias Vendidas
+342;04.1.1.02.002;    Compra de Mercadoria para Revenda
+343;04.1.1.02.006;    Fretes sobre Compras
+344;04.1.1.02.007;    ICMS sobre Compras
+345;04.1.1.02.008;    IPI sobre Compras
+346;04.1.1.02.009;    (-) Devolução de Compras
+347;04.1.1.02.010;    Compra com entrega futura
+705;04.1.1.02.011;    Compra de Mat Prima e Insumos
+706;04.1.1.02.012;    Compra de Mat de Consumo de Almox
+707;04.1.1.02.013;    Compra de Mat para Uso e Consumo
+708;04.1.1.02.014;    (-) Bonificação em Mercadorias
+880;04.1.1.02.015;    Icms Diferencial de Alíquota
+915;04.1.1.02.016;    Custo das vendas Obras Diversas POA
+916;04.1.1.02.017;    Custo das Vendas Obras Diversas SP
+917;04.1.1.02.018;    Custo Reserva Técnica
+1149;04.1.1.02.019;    Transporte de Obras
+1150;04.1.1.02.020;    Compra de Serviços
+1151;04.1.1.02.021;    Moldura
+1152;04.1.1.02.022;    Restauro
+1154;04.1.1.02.023;    Transporte Nacional
+1155;04.1.1.02.024;    Curadoria
+1156;04.1.1.02.025;    Correios
+1209;04.1.1.02.026;    ICMS s/Frete a Recuperar
+1210;04.1.1.02.027;    PIS a Recuperar
+1211;04.1.1.02.028;    COFINS a Recuperar
+1212;04.1.1.02.029;    ICMS ST a Recuperar
+1213;04.1.1.02.030;    PIS s/Frete a Recuperar
+1214;04.1.1.02.031;    COFINS s/Fretes a Recuperar
+348;04.1.1.03;   (-) ESTOQUE FINAL
+349;04.1.1.03.001;    Estoque Final de mercadorias
+350;04.1.2;  CUSTO DOS PRODUTOS VENDIDOS
+351;04.1.2.01;   ESTOQUE INICIAL DE PRODUTOS
+354;04.1.2.01.003;    Estoque Inicial de Material de Consumo
+355;04.1.2.01.004;    Estoque Inicial de Matéria prima
+356;04.1.2.01.005;    Estoque Inicial de Embalagens
+674;04.1.2.01.01;    ESTOQUE INICIAL DE PRODUTOS EM ELABORAÇÃO
+352;04.1.2.01.01.001;     Estoque Inicial de Produtos Em Elaboração
+675;04.1.2.01.01.02;     ESTOQUE INICIAL DE PRODUTOS ACABADOS
+353;04.1.2.01.01.02.001;      Estoque Inicial de Produtos Acabados
+357;04.1.2.03;   CUSTOS DAS MATÉRIAS-PRIMAS
+358;04.1.2.03.001;    Custo Das Matérias-Primas
+359;04.1.2.03.002;    (-) Bonificações
+360;04.1.2.03.003;    (-) Devoluções
+361;04.1.2.03.004;    Compra de Matéria-prima
+362;04.1.2.03.005;    Compra de Material de Consumo
+363;04.1.2.03.006;    Compra de Matéria Prima e Insumos
+364;04.1.2.03.007;    Compra de Material para Uso e Consumo
+365;04.1.2.03.008;    Compra de Material de Almoxarifado
+366;04.1.2.03.009;    Fretes s/ Compras
+367;04.1.2.03.010;    ICMS Diferencial de Alíquota
+368;04.1.2.03.011;    Compra de Embalagens
+369;04.1.2.03.012;    Compra com entrega futura
+370;04.1.2.06;   (-) ESTOQUE FINAL
+373;04.1.2.06.003;    Estoque Final de Material de Consumo
+374;04.1.2.06.004;    Estoque Final de Matéria Prima
+375;04.1.2.06.005;    Estoque Final de Embalagens
+676;04.1.2.06.01;    (-)ESTOQUE FINAL DE PRODUTOS EM ELABORAÇÃO
+371;04.1.2.06.01.001;     Estoque Final de Produtos Em Elaboração
+677;04.1.2.06.02;    ESTOQUE FINAL DE PRODUTOS ACABADOS
+372;04.1.2.06.02.001;     Estoque Final de Produtos Acabados
+376;04.1.2.08;   CUSTO DA MÃO-DE-OBRA DIRETA
+377;04.1.2.08.001;    13.Salário
+378;04.1.2.08.002;    Adicional Noturno
+379;04.1.2.08.003;    Aviso Prévio/Indenizacões Trabalhistas
+380;04.1.2.08.004;    Contribuições Sindicais
+381;04.1.2.08.005;    FGTS
+382;04.1.2.08.006;    Férias
+383;04.1.2.08.007;    Gratificações
+384;04.1.2.08.008;    Horas Extras
+385;04.1.2.08.009;    INSS
+386;04.1.2.08.010;    Multa Rescisória FGTS
+387;04.1.2.08.011;    PIS S/ Folha
+388;04.1.2.08.012;    Plano Brasil Maior - Desoneração da Folha
+389;04.1.2.08.013;    SALARIO
+390;04.1.2.08.014;    Vale Transporte
+1041;04.1.2.08.015;    Remuneração de Terceiros
+391;04.1.2.09;   GASTOS GERAIS DE FABRICAÇÃO
+392;04.1.2.09.001;    Água e Esgoto
+393;04.1.2.09.002;    Bens não imobilizáveis de pequeno valor
+394;04.1.2.09.003;    Brindes
+395;04.1.2.09.004;    Combustíveis e Lubrificantes
+396;04.1.2.09.005;    Depreciações e Amortizações
+397;04.1.2.09.006;    Energia Elétrica
+398;04.1.2.09.007;    Fretes e Carretos
+399;04.1.2.09.008;    Manutenção e Conservação
+400;04.1.2.09.009;    Material de Consumo
+401;04.1.2.09.010;    Material de Expediente
+402;04.1.2.09.011;    Material de Segurança
+403;04.1.2.09.012;    Serviços de Terceiros - Pessoa Física
+404;04.1.2.09.013;    Serviços de Terceiros - Pessoa Jurídica
+405;04.1.2.09.014;    Telefone
+406;04.1.2.09.015;    Viagens
+407;04.1.2.09.016;    Material de Limpeza
+408;04.1.2.09.017;    Dispendio com Alimentação
+1042;04.1.2.09.018;    Serviços de Munck
+1043;04.1.2.09.019;    Aluguel de Máquinas
+409;04.1.3;  CUSTO DOS SERVIÇOS PRESTADOS
+410;04.1.3.01;   MATERIAIS CONSUMIDOS
+411;04.1.3.01.001;    (-) Devolução de compras
+412;04.1.3.01.002;    Frete s/ Compras
+413;04.1.3.01.003;    Matéria Prima
+414;04.1.3.01.004;    Material de Consumo
+415;04.1.3.01.005;    Material de Expediente
+923;04.1.3.01.006;    Custo Serviços Prestados
+1070;04.1.3.01.1;    PONTE TRIUNFO CNO 90.026.78248/78
+1071;04.1.3.01.101;    (-)DEVOLUÇÃO DE COMPRAS
+1072;04.1.3.01.102;    FRETES S/ COMPRAS
+1073;04.1.3.01.103;    MATÉRIA PRIMA
+1074;04.1.3.01.104;    MATERIAL DE CONSUMO
+1075;04.1.3.01.105;    MATERIAL EXPEDIENTE
+1076;04.1.3.01.106;    CUSTO SERVIÇOS PRESTADOS
+1077;04.1.3.01.2;    PONTE POUSO NOVO CNO 90.025.97291/77
+1078;04.1.3.01.201;    (-) DEVOLUÇÃO DE COMPRA
+1079;04.1.3.01.202;    FRETES S/COMPRAS
+1080;04.1.3.01.203;    MATERIA PRIMA
+1081;04.1.3.01.204;    MATERIAL DE CONSUMO
+1082;04.1.3.01.205;    MATERIAL DE EXPEDIENTE
+1083;04.1.3.01.206;    CUSTO SERVIÇOS PRESTADOS
+1084;04.1.3.01.3;    PASSO DO SOBRADO CNO 90.019.84003/77
+1085;04.1.3.01.301;    (-) DEVOLUÇÃO DE COMPRAS
+1086;04.1.3.01.302;    FRETES S/ COMPRAS
+1087;04.1.3.01.303;    MATERIA PRIMA
+1088;04.1.3.01.304;    MATERIAL DE CONSUMO
+1089;04.1.3.01.305;    MATERIAL DE EXPEDIENTE
+1090;04.1.3.01.306;    CUSTO SERVIÇOS PRESTADOS
+1091;04.1.3.01.4;    PONTE FR17 CNO 90.025.07671/77
+1092;04.1.3.01.401;    (-) DEVOLUÇÃO DE COMPRAS
+1093;04.1.3.01.402;    FRETES S/ COMPRAS
+1094;04.1.3.01.403;    MATERIA PRIMA
+1095;04.1.3.01.404;    MATERIAL DE CONSUMO
+1096;04.1.3.01.405;    MATERIAL EXPEDIENTE
+1097;04.1.3.01.406;    CUSTO SERVIÇOS PRESTADOS
+1098;04.1.3.01.5;    PONTE LAJEADO DO MEIO CNO 90.024.17616/72
+1099;04.1.3.01.501;    (-) DEVOLUÇÃO DE COMPRAS
+1100;04.1.3.01.502;    FRETES S/COMPRAS
+1101;04.1.3.01.503;    MATERIA PRIMA
+1102;04.1.3.01.504;    MATERIAL DE CONSUMO
+1103;04.1.3.01.505;    MATERIAL EXPEDIENTE
+1104;04.1.3.01.506;    CUSTO SERVIÇO PRESTADO
+1105;04.1.3.01.6;    PONTE SINIMBU CNO 90.024.62540/79
+1106;04.1.3.01.601;    (-) DEVOLUÇÃO DE COMPRAS
+1107;04.1.3.01.602;    FRETES S/ COMPRAS
+1108;04.1.3.01.603;    MATERIA PRIMA
+1109;04.1.3.01.604;    MATERIAL DE CONSUMO
+1110;04.1.3.01.605;    MATERIAL DE EXPEDIENTE
+1111;04.1.3.01.606;    CUSTO SERVIÇOS PRESTADOS
+1112;04.1.3.01.7;    PONTE BORGUETTI CNO 90.024.17616/72
+1113;04.1.3.01.701;    (-) DEVOLUÇÃO DE COMPRAS
+1114;04.1.3.01.702;    FRETES S/ COMPRAS
+1115;04.1.3.01.703;    MATERIA PRIMA
+1116;04.1.3.01.704;    MATERIAL DE CONSUMO
+1117;04.1.3.01.705;    MATERIAL DE EXPEDIENTE
+1118;04.1.3.01.706;    CUSTO SERVIÇOS PRESTADOS
+416;04.1.3.02;   CUSTO DA MÃO-DE-OBRA DIRETA
+417;04.1.3.02.001;    13.Salário
+418;04.1.3.02.002;    Adicional Noturno
+419;04.1.3.02.003;    Aviso Prévio/Indenizações Trabalhistas
+420;04.1.3.02.004;    Contribuições Sindicais
+421;04.1.3.02.005;    FGTS
+422;04.1.3.02.006;    Férias
+423;04.1.3.02.007;    Gratificações
+424;04.1.3.02.008;    Honorários Serviços Autônomos
+425;04.1.3.02.009;    Horas Extras
+426;04.1.3.02.010;    INSS
+427;04.1.3.02.011;    Multa Rescisória FGTS
+428;04.1.3.02.012;    PIS S/ Folha
+429;04.1.3.02.013;    Salários
+430;04.1.3.02.014;    Serviços Contratados Pessoa Jurídica
+431;04.1.3.02.015;    Vale Alimentação
+432;04.1.3.02.016;    Vale Transporte
+934;04.1.3.02.017;    Remuneração de Estagiários
+935;04.1.3.02.018;    Remuneração de Terceiros
+983;04.1.3.02.019;    Serviços Contratados Pessoa Fisica
+1124;04.1.3.02.020;    Vale Transporte Estagiários
+433;04.1.3.03;   OUTROS CUSTOS DOS SERVIÇOS
+434;04.1.3.03.001;    Água e Esgoto
+435;04.1.3.03.002;    Aluguel
+436;04.1.3.03.003;    Bens não imobilizáveis de pequeno valor
+437;04.1.3.03.004;    Brindes
+438;04.1.3.03.005;    Combustíveis e Lubrificantes
+439;04.1.3.03.006;    Depreciações e Amortizações
+440;04.1.3.03.007;    Energia Elétrica
+441;04.1.3.03.008;    Fretes e Carretos
+442;04.1.3.03.009;    Manutenção e Conservação
+443;04.1.3.03.010;    Material de Consumo
+444;04.1.3.03.011;    Material de Expediente
+445;04.1.3.03.012;    Material de Segurança
+446;04.1.3.03.013;    Serviços de Terceiros - Pessoa Física
+447;04.1.3.03.014;    Serviços de Terceiros - Pessoa Jurídica
+448;04.1.3.03.015;    Telefone
+449;04.1.3.03.016;    Viagens
+450;04.1.3.03.017;    Propaganda e Publicidade
+451;04.1.3.03.018;    Material de Limpeza
+452;04.1.3.03.019;    Dispêndios com Alimentação
+929;04.1.3.03.020;    Aluguel de carro
+930;04.1.3.03.021;    Crea
+931;04.1.3.03.022;    Custo Bento Gonçalves
+932;04.1.3.03.023;    Epis
+933;04.1.3.03.024;    Hospedagens
+1035;04.1.3.03.025;    Aluguel de máquinas
+1038;04.1.3.03.026;    Serviços de Munck
+679;04.1.3.04;   DESPESA
+453;04.2; DESPESAS OPERACIONAIS
+454;04.2.1;  DESPESAS ADMINISTRATIVAS
+455;04.2.1.01;   DESPESAS TRABALHISTAS
+456;04.2.1.01.001;    Salários
+457;04.2.1.01.002;    Pró-Labore
+458;04.2.1.01.003;    Horas extras
+459;04.2.1.01.004;    Férias
+460;04.2.1.01.005;    13.Salário
+461;04.2.1.01.006;    Aviso prévio/indenizações trabalhistas
+462;04.2.1.01.007;    Gratificações
+463;04.2.1.01.008;    Adicional noturno
+464;04.2.1.01.009;    Sindicato patronal/associação de classe
+465;04.2.1.01.010;    Vale-transporte
+694;04.2.1.01.011;    Ajuda de Custo
+768;04.2.1.01.012;    Auxilio Escola
+787;04.2.1.01.013;    Atestado
+839;04.2.1.01.014;    Extravio de Uniforme
+948;04.2.1.01.015;    Auxilio Combustível
+1031;04.2.1.01.016;    Extravio de Material
+1162;04.2.1.01.017;    Adiantamentos
+1163;04.2.1.01.018;    Rescisões
+1169;04.2.1.01.019;    Retirada de Sócios
+466;04.2.1.02;   ENCARGOS SOCIAIS
+467;04.2.1.02.001;    INSS
+468;04.2.1.02.002;    FGTS
+469;04.2.1.02.003;    Multa rescisória FGTS
+470;04.2.1.02.004;    PIS sobre folha
+471;04.2.1.02.005;    Contribuições Sindicais
+680;04.2.1.02.006;    Sindicato Patronal/ Associação de Classe
+1164;04.2.1.02.007;    IRRF
+472;04.2.1.03;   DESPESAS GERAIS
+473;04.2.1.03.001;    Aluguel
+474;04.2.1.03.002;    Água e esgoto
+475;04.2.1.03.003;    Energia elétrica
+476;04.2.1.03.004;    Internet
+477;04.2.1.03.005;    Comissões sobre vendas
+478;04.2.1.03.006;    Material de expediente
+479;04.2.1.03.007;    Material de limpeza
+480;04.2.1.03.008;    Material de escritório
+481;04.2.1.03.009;    Manutenção e conservação
+482;04.2.1.03.012;    Correios e Malotes
+483;04.2.1.03.013;    Depreciações e Amortizações
+484;04.2.1.03.014;    Propaganda e Publicidade
+485;04.2.1.03.015;    Fretes e Carretos
+486;04.2.1.03.016;    Assistência Médica
+487;04.2.1.03.018;    Leasing
+488;04.2.1.03.019;    Serviços de Terceiros - Pessoa Física
+489;04.2.1.03.020;    Serviços de Terceiros - Pessoa Jurídica
+490;04.2.1.03.022;    Feiras/Congressos/Simpósios/Cursos
+491;04.2.1.03.023;    Serviço de comunicação
+492;04.2.1.03.024;    PAT - Programa alimentação ao trabalhador
+493;04.2.1.03.026;    Bens de pequeno valor
+494;04.2.1.03.028;    Jornais
+495;04.2.1.03.030;    Confraternizações
+496;04.2.1.03.033;    Condução
+497;04.2.1.03.034;    Seguros
+498;04.2.1.03.035;    Refeições
+499;04.2.1.03.036;    Estadias
+500;04.2.1.03.037;    Dispêndios com alimentação
+501;04.2.1.03.038;    Combustíveis
+502;04.2.1.03.039;    Pedágios
+503;04.2.1.03.040;    Material de Consumo
+504;04.2.1.03.041;    Uniformes
+505;04.2.1.03.042;    Donativos e Contribuições
+681;04.2.1.03.043;    Informática 
+685;04.2.1.03.045;    Mensalidade/Anuidades
+704;04.2.1.03.046;    Honorários Contábeis
+709;04.2.1.03.047;    Vale-Refeição / Alimentação
+713;04.2.1.03.048;    Tabelionato Cartório
+714;04.2.1.03.049;    Segurança
+715;04.2.1.03.050;    Taxas Diversas
+719;04.2.1.03.051;    Estacionamento
+728;04.2.1.03.052;    Manutenção e Conservação de Veículos
+729;04.2.1.03.053;    Consumo
+739;04.2.1.03.054;    Multas de Trânsito
+740;04.2.1.03.055;    Despesa com Estagiário
+757;04.2.1.03.056;    Certificado Digital
+780;04.2.1.03.057;    Cópias
+682;04.2.1.03.058;    Farmácia 
+833;04.2.1.03.059;    Telefone
+842;04.2.1.03.060;    Locação de Caminhões
+845;04.2.1.03.061;    Demais despesas
+882;04.2.1.03.062;    Plano de Saúde
+883;04.2.1.03.063;    Locações
+888;04.2.1.03.064;    Cursos e Treinamentos
+889;04.2.1.03.065;    Viagens
+890;04.2.1.03.066;    Software
+936;04.2.1.03.067;    Manutenção em Tecnologia
+939;04.2.1.03.068;    Manutenção de Máquinas
+950;04.2.1.03.069;    Honorários Advocatícios
+986;04.2.1.03.070;    Brindes
+1028;04.2.1.03.071;    Serviços de Limpeza
+1036;04.2.1.03.072;    Serviços Advocatícios
+1037;04.2.1.03.073;    Vale Transporte
+1048;04.2.1.03.074;    Vale Combustível
+1058;04.2.1.03.075;    Transporte Urbano
+1059;04.2.1.03.076;    Condominio
+1060;04.2.1.03.077;    Entidades e Associações
+1125;04.2.1.03.078;    Despesas Gerais com Cartão de Crédito
+1165;04.2.1.03.079;    Pensão Alimentícia
+1166;04.2.1.03.080;    Outros Benefícios
+1167;04.2.1.03.081;    Serralheria/Marcenaria
+1168;04.2.1.03.082;    IPTU
+1186;04.2.1.03.083;    Exposições Internas
+1218;04.2.1.03.084;    Órgão Fiscalizador
+1219;04.2.1.03.085;    Mensalidade - Agência de Emprego
+1220;04.2.1.03.086;    Despesas Médicas
+1221;04.2.1.03.087;    Treinamentos
+1222;04.2.1.03.088;    Copa e Cozinha
+1223;04.2.1.03.089;    Estacionamento
+506;04.2.2;  DESPESAS COM VENDAS
+507;04.2.2.01;   DESPESAS TRABALHISTAS
+508;04.2.2.01.001;    13.Salário
+509;04.2.2.01.002;    Adicional Noturno
+510;04.2.2.01.003;    Aviso Prévio/Indenizacões Trabalhistas
+511;04.2.2.01.004;    Férias
+512;04.2.2.01.005;    Gratificações
+513;04.2.2.01.006;    Horas Extras
+514;04.2.2.01.007;    Salários
+515;04.2.2.01.008;    Vale Transporte
+516;04.2.2.02;   ENCARGOS SOCIAIS
+517;04.2.2.02.001;    Contribuições Sindicais
+518;04.2.2.02.002;    FGTS
+519;04.2.2.02.003;    INSS
+520;04.2.2.02.004;    Multa Rescisória FGTS
+521;04.2.2.02.005;    PIS sobre Folha
+522;04.2.2.03;   DESPESAS GERAIS COM VENDAS
+523;04.2.2.03.001;    Água e Esgoto
+524;04.2.2.03.002;    Aluguel
+525;04.2.2.03.003;    Bens não Imobilizáveis de Pequeno Valor
+526;04.2.2.03.004;    Brindes
+527;04.2.2.03.005;    Combustíveis e Lubrificantes
+528;04.2.2.03.006;    Comissões s/ Cartões de Crédito
+529;04.2.2.03.007;    Condominio
+530;04.2.2.03.008;    Contribuição CDL
+531;04.2.2.03.009;    Depreciações e Amortizações
+532;04.2.2.03.010;    Desp.Viag./Estad./Passag./Aliment./Combus
+533;04.2.2.03.011;    Despesas de Transporte
+534;04.2.2.03.012;    Despesas Médicas
+535;04.2.2.03.013;    Dispêndios com Alimentação
+536;04.2.2.03.014;    Doações e Patrocinios
+537;04.2.2.03.015;    Energia Elétrica
+538;04.2.2.03.016;    Feiras/Congressos/Cursos
+539;04.2.2.03.017;    Fretes e Carretos
+540;04.2.2.03.018;    Internet
+541;04.2.2.03.019;    Jornais/Revistas e Periódicos
+542;04.2.2.03.020;    Limpeza, Conservação e Vigilância
+543;04.2.2.03.021;    Manutenção e Conservação
+544;04.2.2.03.022;    Material de Consumo
+545;04.2.2.03.023;    Material de Expediente
+546;04.2.2.03.024;    Material de higiêne
+547;04.2.2.03.025;    Material de Segurança
+548;04.2.2.03.026;    Pedágios
+549;04.2.2.03.027;    Propaganda e Publicidade
+550;04.2.2.03.028;    Royalties
+551;04.2.2.03.029;    Seguro
+552;04.2.2.03.030;    Serviços de Terceiros - Pessoa Física
+553;04.2.2.03.031;    Serviços de Terceiros - Pessoa Jurídica
+554;04.2.2.03.032;    Suporte de Software
+555;04.2.2.03.033;    Telefone
+556;04.2.2.03.034;    Uniformes
+557;04.2.2.03.035;    Material de Limpeza
+683;04.2.2.03.036;    MULTAS DE CLIENTES
+684;04.2.2.03.037;    Viagens
+1159;04.2.2.03.038;    Comissões Internas
+1160;04.2.2.03.039;    Comissões Externas
+1161;04.2.2.03.040;    Bonificações
+1205;04.2.2.03.041;    Fretes a Pagar s/Venda
+1206;04.2.2.03.042;    Seguro de Transporte a Pagar
+1207;04.2.2.03.043;    Despesa com Seguro de Transporte
+558;04.2.3;  DESPESAS OPERACIONAIS FINANCEIRAS
+559;04.2.3.01;   DESPESAS COM ATUALIZAÇÕES
+560;04.2.3.01.001;    Variacão Monetária Passiva
+561;04.2.3.01.002;    Variacão Cambial Passiva
+689;04.2.3.01.01;    DESP OPER FINANCEIRA
+562;04.2.3.02;   DESPESAS FINANCEIRAS
+563;04.2.3.02.001;    Juros
+564;04.2.3.02.002;    Descontos concedidos
+565;04.2.3.02.003;    Despesas Bancárias
+566;04.2.3.02.004;    Despesas c/ factoring
+567;04.2.3.02.005;    Juros s/ Saldo Devedor C/C
+568;04.2.3.02.006;    Juros, Comissões s/ Financiamentos
+686;04.2.3.02.007;    Multas
+1170;04.2.3.02.008;    Pagamento de Empréstimos
+1171;04.2.3.02.009;    Cartão de Crédito
+1172;04.2.3.02.010;    Renegociação Bancária
+1173;04.2.3.02.011;    Aplicação Financeira
+569;04.2.4;  DESPESAS OPERACIONAIS TRIBUTÁRIAS
+570;04.2.4.01;   IMPOSTOS
+571;04.2.4.01.001;    IOF
+572;04.2.4.01.002;    PIS sobre receitas operacionais diversas
+573;04.2.4.01.003;    Iptu
+574;04.2.4.01.004;    IPVA
+575;04.2.4.01.005;    IRRF (exclusivo Na Fonte)
+576;04.2.4.01.006;    Custas Leilão
+577;04.2.4.01.007;    Alvará de localização
+578;04.2.4.01.008;    ICMS
+579;04.2.4.01.009;    ICMS Diferencial de Aliquota
+580;04.2.4.01.010;    ICMS Substituição Tributária
+581;04.2.4.01.011;    ITR
+582;04.2.4.01.012;    Taxas e Emolumentos
+687;04.2.4.01.013;    CONFEA CREA
+688;04.2.4.01.014;    ISS P/ PROFISSIONAL
+690;04.2.4.01.015;    DPVAT
+691;04.2.4.01.016;    Impostos RFB
+1174;04.2.4.01.017;    IPI
+1175;04.2.4.01.018;    COFINS
+1176;04.2.4.01.019;    IRPJ
+1177;04.2.4.01.020;    Contribuição Social
+1178;04.2.4.01.021;    Simples Nacional (DAS)
+1179;04.2.4.01.022;    IRRF (Aluguel)
+1180;04.2.4.01.023;    Parcelamentos de Impostos
+1181;04.2.4.01.024;    Outros Impostos
+1182;04.2.4.01.025;    Bloqueios Judiciais
+1187;04.2.4.01.026;    IR Retido do Fornecedor
+1188;04.2.4.01.027;    ISS Retido do Fornecedor
+1189;04.2.4.01.028;    PIS Retido do Fornecedor
+1190;04.2.4.01.029;    COFINS Retido do Fornecedor
+1191;04.2.4.01.030;    CSLL Retido do Fornecedor
+1208;04.2.4.01.031;    INSS Retido do Fornecedor
+583;04.2.4.02;   MULTAS
+584;04.2.4.02.001;    Multas Fiscais Compensatórias
+585;04.2.4.02.002;    Multas Fiscais Punitivas
+586;04.2.4.02.003;    Multas Contratuais
+587;04.2.4.02.004;    Indenizações
+588;04.2.4.02.005;    Multas e Juros s/ Tributos
+589;04.2.5;  PROVISÕES PARA PERDAS
+590;04.2.5.01;   Prov. crédito de liquidação duvidosa
+591;04.2.6;  DESPESAS OPERACIONAIS PERDAS C/PART SOC
+592;04.2.6.01;   RESULTADO EQUIVALÊNCIA PATRIOMONIAL
+593;04.2.6.01.001;    Equivalência Patrimonial Negativa
+594;04.2.7;  OUTRAS DESPESAS
+595;04.2.7.01;   PERDAS
+596;04.2.7.01.001;    Perdas Prováveis Na Alienação Investimen
+597;04.2.7.01.002;    Perdas com sinistros, roubo, deterioração
+598;04.2.7.01.003;    Perdas Na Alienação de Imobilizado
+692;04.2.7.01.004;    Perdas no Recebimento de Créditos
+742;04.2.7.02;   DESPESAS NÃO OPERACIONAIS
+599;04.3; CONTAS DE FECHAMENTO DE BALANÇO
+600;04.3.1;  CONTAS DE APURAÇÕES FINAIS
+601;04.3.1.01;   CORREÇÃO MONETÁRIA DO BALANCO
+602;04.3.1.01.001;    Correção Monetária do Ativo
+603;04.3.1.01.002;    Correção Monetária do Passivo
+604;04.3.2;  PROVISÕES P/IMPOSTOS S/LUCRO
+605;04.3.2.01;   PROVISÕES P/IMPOSTOS S/LUCROS
+606;04.3.2.01.001;    Provisão P/ IRPJ
+607;04.3.2.02;   PROVISÕES P/CONTRIBUIÇÕES S/LUCROS
+608;04.3.2.02.001;    Provisão P/ Contribuição Social
+609;05;RESULTADO LÍQUIDO DO EXERCÍCIO
+610;05.1; RESULTADO LIQUIDO DO EXERCICIO
+611;05.1.1;  RESULTADO LIQUIDO DO EXERCICIO
+612;05.1.1.01;   RESULTADO LIQUIDO DO EXERCICIO
+613;05.1.1.01.001;    Resultado Líquido do Exercício
