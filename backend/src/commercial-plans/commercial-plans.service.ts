@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommercialPlanDto } from './dto/create-commercial-plan.dto';
+import { UpdateCommercialPlanDto } from './dto/update-commercial-plan.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceItemDto } from './dto/create-service-item.dto';
 
@@ -12,14 +13,7 @@ import { CreateServiceItemDto } from './dto/create-service-item.dto';
  * =================================================================
  * 🏢 CommercialPlansService — Gestão do Catálogo Enterprise
  * =================================================================
- * Serviço central para gerenciar Categorias, Itens de Serviço e
- * Planos Comerciais. Implementa:
- * 
- * 🛡️ Proteção Multi-Tenant: Todas as queries validam companyId
- * 🔒 Soft Delete: Usa deletedAt em vez de exclusão física
- * ✅ Validação de Integridade: Impede deleção de entidades em uso
- * 🔄 Transações Atômicas: Operações compostas usam $transaction
- * 
+ * 🛡️ Proteção Multi-Tenant | 🔒 Soft Delete | ✅ Validação de Integridade
  * =================================================================
  */
 @Injectable()
@@ -30,10 +24,6 @@ export class CommercialPlansService {
   // 🏢 PLANOS COMERCIAIS
   // =================================================================
 
-  /**
-   * Lista todos os planos ativos de uma empresa
-   * Aberto para qualquer usuário autenticado (usado em propostas/clientes)
-   */
   async getPlans(companyId: string) {
     const plans = await this.prisma.commercialPlan.findMany({
       where: { companyId, deletedAt: null },
@@ -61,9 +51,6 @@ export class CommercialPlansService {
     }));
   }
 
-  /**
-   * Busca um plano específico por ID (com validação de tenant)
-   */
   async getPlanById(id: string, companyId: string) {
     const plan = await this.prisma.commercialPlan.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -82,20 +69,14 @@ export class CommercialPlansService {
     return plan;
   }
 
-  /**
-   * Cria novo plano comercial
-   * Apenas ADMIN (protegido pelo @Roles no controller)
-   */
   async createPlan(companyId: string, dto: CreateCommercialPlanDto) {
     const { itemIds, ...planData } = dto;
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Cria o plano
       const plan = await tx.commercialPlan.create({
         data: { companyId, ...planData },
       });
 
-      // 2. Vincula itens se fornecidos
       if (itemIds && itemIds.length > 0) {
         await tx.planServiceItem.createMany({
           data: itemIds.map((serviceItemId) => ({
@@ -110,32 +91,33 @@ export class CommercialPlansService {
   }
 
   /**
-   * Atualiza plano comercial (com proteção de tenant)
-   * Apenas ADMIN (protegido pelo @Roles no controller)
+   * Atualização parcial (aceita só itemIds, só name, etc.)
    */
   async updatePlan(
     id: string,
     companyId: string,
-    dto: CreateCommercialPlanDto,
+    dto: UpdateCommercialPlanDto,
   ) {
-    // Valida posse do plano
     await this.getPlanById(id, companyId);
 
     const { itemIds, ...planData } = dto;
 
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Atualiza o plano
-      const plan = await tx.commercialPlan.update({
-        where: { id },
-        data: planData,
-      });
+    // Remove campos undefined para não enviar lixo ao Prisma
+    const cleanData = Object.fromEntries(
+      Object.entries(planData).filter(([_, value]) => value !== undefined),
+    );
 
-      // 2. Se itemIds foi fornecido, substitui vinculações
+    return this.prisma.$transaction(async (tx) => {
+      if (Object.keys(cleanData).length > 0) {
+        await tx.commercialPlan.update({
+          where: { id },
+          data: cleanData,
+        });
+      }
+
       if (itemIds !== undefined) {
-        // Remove vínculos antigos
         await tx.planServiceItem.deleteMany({ where: { planId: id } });
 
-        // Cria novos vínculos
         if (itemIds.length > 0) {
           await tx.planServiceItem.createMany({
             data: itemIds.map((serviceItemId) => ({
@@ -150,16 +132,9 @@ export class CommercialPlansService {
     });
   }
 
-  /**
-   * Soft delete de plano (marca como inativo)
-   * Impede exclusão se houver contratos ativos vinculados
-   * Apenas ADMIN (protegido pelo @Roles no controller)
-   */
   async deletePlan(id: string, companyId: string) {
-    // Valida posse
     await this.getPlanById(id, companyId);
 
-    // Verifica se há contratos ativos usando este plano
     const activeContracts = await this.prisma.clientContract.count({
       where: { commercialPlanId: id, status: 'ATIVO' },
     });
@@ -170,7 +145,6 @@ export class CommercialPlansService {
       );
     }
 
-    // Soft delete
     return this.prisma.commercialPlan.update({
       where: { id },
       data: { deletedAt: new Date() },
@@ -181,10 +155,6 @@ export class CommercialPlansService {
   // 📁 CATEGORIAS DE SERVIÇO
   // =================================================================
 
-  /**
-   * Lista todas as categorias ativas de uma empresa
-   * Aberto para qualquer usuário autenticado
-   */
   async getCategories(companyId: string) {
     return this.prisma.serviceCategory.findMany({
       where: { companyId, deletedAt: null },
@@ -199,9 +169,6 @@ export class CommercialPlansService {
     });
   }
 
-  /**
-   * Busca categoria específica (com validação de tenant)
-   */
   async getCategoryById(id: string, companyId: string) {
     const category = await this.prisma.serviceCategory.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -211,20 +178,12 @@ export class CommercialPlansService {
     return category;
   }
 
-  /**
-   * Cria nova categoria de serviço
-   * Apenas ADMIN (protegido pelo @Roles no controller)
-   */
   async createCategory(companyId: string, dto: CreateServiceCategoryDto) {
     return this.prisma.serviceCategory.create({
       data: { companyId, ...dto },
     });
   }
 
-  /**
-   * Atualiza categoria (com proteção de tenant)
-   * Apenas ADMIN (protegido pelo @Roles no controller)
-   */
   async updateCategory(
     id: string,
     companyId: string,
@@ -238,14 +197,9 @@ export class CommercialPlansService {
     });
   }
 
-  /**
-   * Soft delete de categoria (impede se houver itens vinculados)
-   * Apenas ADMIN (protegido pelo @Roles no controller)
-   */
   async deleteCategory(id: string, companyId: string) {
     await this.getCategoryById(id, companyId);
 
-    // Verifica se há itens ativos na categoria
     const activeItems = await this.prisma.serviceItem.count({
       where: { categoryId: id, deletedAt: null },
     });
@@ -266,11 +220,6 @@ export class CommercialPlansService {
   // 📦 ITENS DE SERVIÇO
   // =================================================================
 
-  /**
-   * Lista todos os itens de serviço ativos de uma empresa
-   * Suporta filtro opcional por categoria
-   * Aberto para qualquer usuário autenticado
-   */
   async getServiceItems(companyId: string, categoryId?: string) {
     const where: any = { companyId, deletedAt: null };
     if (categoryId) where.categoryId = categoryId;
@@ -282,9 +231,6 @@ export class CommercialPlansService {
     });
   }
 
-  /**
-   * Busca item específico (com validação de tenant)
-   */
   async getServiceItemById(id: string, companyId: string) {
     const item = await this.prisma.serviceItem.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -295,40 +241,29 @@ export class CommercialPlansService {
     return item;
   }
 
-  /**
-   * Cria novo item de serviço
-   * Construção explícita dos campos para evitar conflito de tipos no Prisma
-   * Apenas ADMIN (protegido pelo @Roles no controller)
-   */
   async createServiceItem(companyId: string, dto: CreateServiceItemDto) {
-    // Valida se a categoria existe e pertence à empresa
     await this.getCategoryById(dto.categoryId, companyId);
 
     return this.prisma.serviceItem.create({
       data: {
-        companyId: companyId,
-        categoryId: dto.categoryId,
+        company: { connect: { id: companyId } },
+        category: { connect: { id: dto.categoryId } },
         name: dto.name,
         description: dto.description,
         scope: dto.scope,
         outOfScope: dto.outOfScope,
         requiredDocs: dto.requiredDocs,
         basePrice: dto.basePrice,
-        estimatedHours: dto.estimatedHours,
+        estimatedHours: dto.estimatedHours ?? 1,
         slaDays: dto.slaDays,
         recurrence: dto.recurrence,
         order: dto.order,
         isActive: dto.isActive ?? true,
-      },
+      } as any,
       include: { category: true },
     });
   }
 
-  /**
-   * Atualiza item de serviço (com proteção de tenant)
-   * Construção explícita dos campos para evitar conflito de tipos no Prisma
-   * Apenas ADMIN (protegido pelo @Roles no controller)
-   */
   async updateServiceItem(
     id: string,
     companyId: string,
@@ -336,23 +271,19 @@ export class CommercialPlansService {
   ) {
     await this.getServiceItemById(id, companyId);
 
-    // Se mudou de categoria, valida a nova
     if (dto.categoryId) {
       await this.getCategoryById(dto.categoryId, companyId);
     }
 
-    // Constrói objeto de update apenas com campos presentes
     const updateData: any = {};
     if (dto.categoryId !== undefined) updateData.categoryId = dto.categoryId;
     if (dto.name !== undefined) updateData.name = dto.name;
     if (dto.description !== undefined) updateData.description = dto.description;
     if (dto.scope !== undefined) updateData.scope = dto.scope;
     if (dto.outOfScope !== undefined) updateData.outOfScope = dto.outOfScope;
-    if (dto.requiredDocs !== undefined)
-      updateData.requiredDocs = dto.requiredDocs;
+    if (dto.requiredDocs !== undefined) updateData.requiredDocs = dto.requiredDocs;
     if (dto.basePrice !== undefined) updateData.basePrice = dto.basePrice;
-    if (dto.estimatedHours !== undefined)
-      updateData.estimatedHours = dto.estimatedHours;
+    if (dto.estimatedHours !== undefined) updateData.estimatedHours = dto.estimatedHours;
     if (dto.slaDays !== undefined) updateData.slaDays = dto.slaDays;
     if (dto.recurrence !== undefined) updateData.recurrence = dto.recurrence;
     if (dto.order !== undefined) updateData.order = dto.order;
@@ -365,14 +296,9 @@ export class CommercialPlansService {
     });
   }
 
-  /**
-   * Soft delete de item (impede se houver contratos ativos)
-   * Apenas ADMIN (protegido pelo @Roles no controller)
-   */
   async deleteServiceItem(id: string, companyId: string) {
     await this.getServiceItemById(id, companyId);
 
-    // Verifica se há contratos usando este item
     const activeContracts = await this.prisma.clientService.count({
       where: { serviceItemId: id, status: 'ATIVO' },
     });
@@ -390,20 +316,14 @@ export class CommercialPlansService {
   }
 
   // =================================================================
-  // 💾 SALVAR CONFIGURAÇÃO COMPLETA (Legacy - mantido para compatibilidade)
+  // 💾 SALVAR CONFIGURAÇÃO COMPLETA (Legacy)
   // =================================================================
 
-  /**
-   * Salva configuração completa de planos + itens em uma única transação
-   * Método legado mantido para compatibilidade com o frontend antigo
-   * Apenas ADMIN (protegido pelo @Roles no controller)
-   */
   async savePlansConfiguration(companyId: string, plansData: any[]) {
     return this.prisma.$transaction(async (tx) => {
       const results = [];
 
       for (const plan of plansData) {
-        // 1. Criar ou atualizar o plano
         let savedPlan;
         if (plan.id) {
           savedPlan = await tx.commercialPlan.update({
@@ -433,12 +353,10 @@ export class CommercialPlansService {
           });
         }
 
-        // 2. Limpar itens antigos do plano
         await tx.planServiceItem.deleteMany({
           where: { planId: savedPlan.id },
         });
 
-        // 3. Adicionar novos itens
         const itemIds = (plan.items || [])
           .map((item: any) => item.id)
           .filter(Boolean);
@@ -451,7 +369,6 @@ export class CommercialPlansService {
           });
         }
 
-        // 4. Recarregar plano com itens
         const updatedPlan = await tx.commercialPlan.findUnique({
           where: { id: savedPlan.id },
           include: {

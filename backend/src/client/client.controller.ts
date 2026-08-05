@@ -1,70 +1,138 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Request, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ClientService } from './client.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // 🔥 CAMINHO CORRIGIDO
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
+/**
+ * Payload tipado do usuário autenticado (via JWT)
+ */
+interface UserPayload {
+  id: string;
+  companyId: string;
+  email: string;
+  role: string;
+}
+
+/**
+ * =================================================================
+ * 🏢 ClientController — Gestão de Clientes (Multi-Tenant)
+ * =================================================================
+ * 🛡️ Todas as rotas exigem JWT + validam companyId do usuário
+ * 📦 Respostas padronizadas: { success, message, data }
+ * =================================================================
+ */
 @Controller('clients')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ClientController {
-  constructor(private clientService: ClientService) {}
+  constructor(private readonly clientService: ClientService) {}
 
   // =================================================================
-  // 📋 CRUD BÁSICO
+  // 📋 CRUD
   // =================================================================
+
   @Get()
-  async findAll(@Request() req) {
-    const clients = await this.clientService.findAll(req.user.companyId);
-    return { success: true, data: clients };
+  async findAll(@CurrentUser() user: UserPayload) {
+    const data = await this.clientService.findAll(user.companyId);
+    return { success: true, data };
   }
 
   @Post()
-  async create(@Request() req, @Body() dto: any) {
-    const client = await this.clientService.create(req.user.companyId, req.user.id, dto);
-    return { success: true, message: 'Cliente criado com sucesso!', data: client };
+  async create(@CurrentUser() user: UserPayload, @Body() dto: any) {
+    const data = await this.clientService.create(
+      user.companyId,
+      user.id,
+      dto,
+    );
+    return {
+      success: true,
+      message: 'Cliente criado com sucesso!',
+      data,
+    };
   }
 
+  /**
+   * ✅ CORRIGIDO: agora passa companyId para proteção multi-tenant
+   */
   @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: any) {
-    const client = await this.clientService.update(id, dto);
-    return { success: true, message: 'Cliente atualizado!', data: client };
+  async update(
+    @Param('id') id: string,
+    @CurrentUser() user: UserPayload,
+    @Body() dto: any,
+  ) {
+    const data = await this.clientService.update(id, user.companyId, dto);
+    return { success: true, message: 'Cliente atualizado!', data };
   }
 
+  /**
+   * ✅ CORRIGIDO: agora passa companyId e usa soft delete
+   */
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    await this.clientService.delete(id);
-    return { success: true, message: 'Cliente removido!' };
+  async remove(@Param('id') id: string, @CurrentUser() user: UserPayload) {
+    await this.clientService.delete(id, user.companyId);
+    return {
+      success: true,
+      message: 'Cliente encerrado (Churn) com sucesso.',
+    };
   }
 
   // =================================================================
-  // 📊 NOVO ENDPOINT: Métricas do Dashboard
+  // 📊 DASHBOARD: Métricas Gerais
   // =================================================================
+
   @Get('dashboard')
-  async getDashboard(@Request() req, @Query('year') year: string) {
-    const companyId = req.user.companyId;
+  async getDashboard(
+    @CurrentUser() user: UserPayload,
+    @Query('year') year: string,
+  ) {
     const yearNum = year ? parseInt(year, 10) : new Date().getFullYear();
-    const data = await this.clientService.getDashboard(companyId, yearNum);
+    const data = await this.clientService.getDashboard(
+      user.companyId,
+      yearNum,
+    );
     return { success: true, data };
   }
 
   // =================================================================
-  // 📅 NOVO ENDPOINT: Buscar Dados Mensais
+  // 📅 DADOS MENSAIS
   // =================================================================
+
   @Get('monthly')
-  async getMonthlyData(@Request() req, @Query('year') year: string) {
-    const companyId = req.user.companyId;
+  async getMonthlyData(
+    @CurrentUser() user: UserPayload,
+    @Query('year') year: string,
+  ) {
     const yearNum = year ? parseInt(year, 10) : new Date().getFullYear();
-    const data = await this.clientService.getMonthlyData(companyId, yearNum);
+    const data = await this.clientService.getMonthlyData(
+      user.companyId,
+      yearNum,
+    );
     return { success: true, data };
   }
 
-  // =================================================================
-  // 💾 NOVO ENDPOINT: Salvar Dados Mensais
-  // =================================================================
   @Post('monthly')
-  async upsertMonthlyData(@Request() req, @Body() body: any) {
-    const { companyId, id: userId } = req.user;
+  async upsertMonthlyData(
+    @CurrentUser() user: UserPayload,
+    @Body() body: any,
+  ) {
     const { year, month, data } = body;
-    
-    const result = await this.clientService.upsertMonthlyData(companyId, userId, year, month, data);
+    const result = await this.clientService.upsertMonthlyData(
+      user.companyId,
+      user.id,
+      year,
+      month,
+      data,
+    );
     return { success: true, data: result };
   }
 }

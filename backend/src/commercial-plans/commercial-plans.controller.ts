@@ -17,6 +17,8 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreateCommercialPlanDto } from './dto/create-commercial-plan.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceItemDto } from './dto/create-service-item.dto';
+import { UpdateCommercialPlanDto } from './dto/update-commercial-plan.dto';
+
 
 /**
  * Payload tipado do usuário autenticado (via JWT)
@@ -84,7 +86,7 @@ export class CommercialPlansController {
   async updatePlan(
     @Param('id') id: string,
     @CurrentUser() user: UserPayload,
-    @Body() dto: CreateCommercialPlanDto,
+    @Body() dto: UpdateCommercialPlanDto, // ✅ Era CreateCommercialPlanDto
   ) {
     return {
       success: true,
