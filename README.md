@@ -759,3 +759,15 @@ O layout do dashboard possui um sistema avançado de controle de acesso:
 *   **Itens Admin-Only**: Funcionalidades sensíveis (Catálogo de Serviços, Logs) são marcadas com `adminOnly: true` e invisíveis para não-admins.
 *   **Expansão Inteligente**: Submenus expandem automaticamente conforme o contexto do usuário.
 *   **Responsividade Total**: Sidebar colapsável em mobile com overlay e transições suaves.
+
+
+### 🛡️ Admin Overview (Dashboard Executivo)
+Painel administrativo com visão estratégica do sistema:
+
+*   **KPIs Principais**: Clientes ativos, receita mensal, propostas e taxa de conversão
+*   **Métricas do Catálogo**: Total de categorias, serviços e planos cadastrados
+*   **Distribuição Visual**: Gráfico de barras mostrando serviços por categoria
+*   **Top 5 Serviços**: Ranking dos serviços mais usados em contratos
+*   **Ações Rápidas**: Links diretos para Clientes, Propostas, Catálogo e BI
+*   **Acesso**: `/dashboard/admin`
+
