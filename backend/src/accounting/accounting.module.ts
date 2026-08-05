@@ -1,46 +1,34 @@
-/**
- * =================================================================
- * 📒 MÓDULO DE CONTABILIDADE
- * =================================================================
- * 
- * Responsável por:
- * - Gestão de contas contábeis (plano de contas)
- * - Gestão de lançamentos contábeis
- * - Importação de extratos bancários
- * - Conciliação bancária automática (NOVO!)
- */
-
+// =================================================================
+// INÍCIO: accounting.module.ts
+// =================================================================
 import { Module } from '@nestjs/common';
 import { AccountingController } from './accounting.controller';
 import { AccountingService } from './accounting.service';
-import { AccountingImportController } from './import.controller';
-import { AccountingImportService } from './import.service';
-import { ReconciliationController } from './reconciliation.controller'; // 🔥 NOVO
-import { ReconciliationService } from './reconciliation.service';       // 🔥 NOVO
+import { ImportController } from './import.controller';
+import { ImportService } from './import.service';
+import { ReconciliationController } from './reconciliation.controller';
+import { ReconciliationService } from './reconciliation.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MulterModule } from '@nestjs/platform-express';
 
 @Module({
   imports: [
     PrismaModule,
-    MulterModule.register({
-      dest: './uploads', // Pasta temporária para uploads
-    }),
+    MulterModule.register({ dest: './uploads' }),
   ],
   controllers: [
-    AccountingController, 
-    AccountingImportController,
-    ReconciliationController // 🔥 NOVO
+    AccountingController,
+    ImportController,
+    ReconciliationController,
   ],
   providers: [
-    AccountingService, 
-    AccountingImportService,
-    ReconciliationService // 🔥 NOVO
+    AccountingService,
+    ImportService,
+    ReconciliationService,
   ],
-  exports: [
-    AccountingService, 
-    AccountingImportService,
-    ReconciliationService // 🔥 NOVO
-  ],
+  exports: [AccountingService, ImportService, ReconciliationService],
 })
 export class AccountingModule {}
+// =================================================================
+// FIM: accounting.module.ts
+// =================================================================
