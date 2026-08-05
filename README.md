@@ -674,3 +674,12 @@ A tela de Precificação evoluiu para um **Construtor de Propostas Comerciais** 
 *   **BI Integrado**: Dashboard com taxa de conversão, receita ganha e motivos de perda
 *   **Link Público**: Cada proposta gera um slug único para visualização externa pelo cliente
 *   **Exportação**: PDF profissional (jsPDF) e CSV com UTF-8 + BOM (acentos corretos no Excel)
+
+### 🛡️ Módulo de Planos Comerciais (Enterprise)
+O módulo de catálogo foi refatorado para atender padrões de segurança e integridade de SaaS B2B:
+
+*   **Proteção Rigorosa de Tenant**: Todas as operações de update/delete validam `companyId`, prevenindo Cross-Tenant Access.
+*   **Soft Delete Enterprise**: Categorias, planos e itens usam `deletedAt` em vez de exclusão física, preservando histórico contábil.
+*   **Validação de Integridade**: Impede exclusão de categorias com itens vinculados ou planos com contratos ativos.
+*   **DTOs Tipados**: Uso de `class-validator` para garantir integridade dos dados na borda da API.
+*   **API Completa**: Endpoints para listar, criar, atualizar e deletar planos, categorias e itens de serviço.
