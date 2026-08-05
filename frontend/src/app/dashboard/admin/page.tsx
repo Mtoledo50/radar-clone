@@ -1,295 +1,331 @@
+// =================================================================
+// INÍCIO: frontend/src/app/dashboard/admin/page.tsx
+// =================================================================
+// 🛡️ ADMIN OVERVIEW — Dashboard Executivo
+// Visão geral do sistema com KPIs do catálogo, clientes e propostas.
+// =================================================================
 'use client';
 
 import { useState, useEffect } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
-import { Shield, Users, Building2, Loader2, Check, X, Plus, UserPlus, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  Shield, Users, Package, Crown, Folder, TrendingUp,
+  DollarSign, FileText, ArrowRight, Loader2, Activity,
+  BarChart3, Target, Sparkles
+} from 'lucide-react';
 
-const ALL_MODULES = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'minha-empresa', label: 'Minha Empresa' },
-  { id: 'pessoas', label: 'Gestão de Pessoas' },
-  { id: 'turnover', label: 'Turnover' },
-  { id: 'clientes', label: 'Clientes' },
-  { id: 'precificacao', label: 'Precificação' },
-  { id: 'planejamento', label: 'Planejamento' },
-  { id: 'bi', label: 'B.I. Contábil' },
-  { id: 'ponto-fora-da-curva', label: 'Ponto Fora da Curva' },
-  { id: 'indicadores', label: 'Indicadores' },
-  { id: 'planejamento-tributario', label: 'Planejamento Tributário' },
-  { id: 'reforma-tributaria', label: 'Reforma Tributária' },
-];
+// =================================================================
+// 📋 TIPOS E INTERFACES
+// =================================================================
 
-const PLANS = ['BASIC', 'PRO', 'PREMIUM', 'ENTERPRISE'];
+interface DashboardData {
+  totalClients: number;
+  activeClients: number;
+  churnClients: number;
+  monthlyRevenue: number;
+  totalCategories: number;
+  totalServices: number;
+  totalPlans: number;
+  totalProposals: number;
+  wonProposals: number;
+  servicesByCategory: { categoryName: string; count: number }[];
+  topServices: { name: string; usageCount: number }[];
+}
 
-const inputClass = "w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white";
-
-export default function AdminPanelPage() {
-  const [activeTab, setActiveTab] = useState<'companies' | 'users'>('companies');
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+// =================================================================
+// 🎯 COMPONENTE PRINCIPAL
+// =================================================================
+export default function AdminOverviewPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [data, setData] = useState<DashboardData>({
+    totalClients: 0,
+    activeClients: 0,
+    churnClients: 0,
+    monthlyRevenue: 0,
+    totalCategories: 0,
+    totalServices: 0,
+    totalPlans: 0,
+    totalProposals: 0,
+    wonProposals: 0,
+    servicesByCategory: [],
+    topServices: [],
+  });
 
-  useEffect(() => { loadData(); }, []);
+  // =================================================================
+  // CARREGAR DADOS
+  // =================================================================
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
-  async function loadData() {
-    setLoading(true);
+  async function loadDashboardData() {
     try {
-      const [compRes, usersRes] = await Promise.all([
-        api.get('/admin/companies'),
-        api.get('/admin/users'),
+      setLoading(true);
+      
+      // Busca paralela de todos os dados necessários
+      const [clientsRes, catsRes, itemsRes, plansRes, propsRes] = await Promise.all([
+        api.get('/clients/dashboard').catch(() => ({ data: { data: null } })),
+        api.get('/commercial-plans/categories'),
+        api.get('/commercial-plans/items'),
+        api.get('/commercial-plans/plans'),
+        api.get('/proposals/dashboard?period=30d').catch(() => ({ data: { data: null } })),
       ]);
-      setCompanies(compRes.data);
-      setUsers(usersRes.data);
+
+      // Processa dados de clientes
+      const clientsData = clientsRes.data.data || {};
+      
+      // Processa dados de catálogo
+      const categories = catsRes.data.data || [];
+      const services = itemsRes.data.data || [];
+      const plans = plansRes.data.data || [];
+      
+      // Processa dados de propostas
+      const propsData = propsRes.data.data || {};
+
+      // Agrupa serviços por categoria
+      const servicesByCategory = categories.map((cat: any) => ({
+        categoryName: cat.name,
+        count: services.filter((s: any) => s.categoryId === cat.id).length,
+      }));
+
+      // Top serviços (simulação - em produção viria de ClientService)
+      const topServices = services
+        .filter((s: any) => s.isActive)
+        .slice(0, 5)
+        .map((s: any, idx: number) => ({
+          name: s.name,
+          usageCount: Math.max(0, 10 - idx * 2), // Simulação
+        }));
+
+      setData({
+        totalClients: clientsData.totalClients || 0,
+        activeClients: clientsData.totalClients || 0,
+        churnClients: clientsData.churnedThisYear || 0,
+        monthlyRevenue: clientsData.monthlyRevenue || 0,
+        totalCategories: categories.length,
+        totalServices: services.length,
+        totalPlans: plans.length,
+        totalProposals: propsData.totalProposals || 0,
+        wonProposals: propsData.wonProposals || 0,
+        servicesByCategory,
+        topServices,
+      });
     } catch (err) {
-      toast.error('Erro ao carregar dados do admin');
+      toast.error('Erro ao carregar dashboard');
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleUpdateCompany(id: string, plan: string, allowedModules: string[]) {
-    try {
-      await api.put(`/admin/companies/${id}`, { plan, allowedModules });
-      toast.success('Empresa atualizada com sucesso!');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erro ao atualizar empresa');
-    }
-  }
-
-  // 🔥 FUNÇÃO DE DELETAR EMPRESA
-  async function handleDeleteCompany(id: string, companyName: string) {
-    if (!confirm(`⚠️ ATENÇÃO!\n\nVocê está prestes a deletar a empresa "${companyName}" e TODOS os usuários vinculados a ela.\n\nEsta ação NÃO pode ser desfeita.\n\nDeseja continuar?`)) {
-      return;
-    }
-
-    try {
-      await api.delete(`/admin/companies/${id}`);
-      toast.success('Empresa removida com sucesso!');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erro ao deletar empresa');
-    }
-  }
-
-  async function handleUpdateUserRole(id: string, role: string) {
-    try {
-      await api.put(`/admin/users/${id}/role`, { role });
-      toast.success('Permissão do usuário atualizada!');
-      loadData();
-    } catch (err) {
-      toast.error('Erro ao atualizar usuário');
-    }
-  }
-
-  async function handleDeleteUser(id: string, userName: string) {
-    if (!confirm(`Tem certeza que deseja deletar o usuário "${userName}"?`)) {
-      return;
-    }
-
-    try {
-      await api.delete(`/admin/users/${id}`);
-      toast.success('Usuário removido com sucesso!');
-      loadData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erro ao deletar usuário');
-    }
-  }
-
+  // =================================================================
+  // RENDERIZAÇÃO: LOADING
+  // =================================================================
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-12 w-12 text-teal-600 animate-spin mb-4" />
-        <p className="text-slate-600">Carregando painel administrativo...</p>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-12 w-12 text-teal-600 animate-spin" />
       </div>
     );
   }
 
+  // =================================================================
+  // RENDERIZAÇÃO: PÁGINA PRINCIPAL
+  // =================================================================
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-            <Shield className="h-8 w-8 text-teal-600" />
-            Painel Administrativo
-          </h1>
-          <p className="text-slate-600 mt-1">Gerencie planos, módulos e permissões do seu SaaS.</p>
+      {/* CABEÇALHO */}
+      <div className="bg-gradient-to-r from-teal-600 to-teal-700 rounded-2xl p-8 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <Shield className="h-8 w-8" />
+              Painel Administrativo
+            </h1>
+            <p className="text-teal-100 mt-2">
+              Visão geral do sistema e métricas estratégicas
+            </p>
+          </div>
+          <div className="hidden md:block">
+            <Sparkles className="h-16 w-16 text-teal-300 opacity-50" />
+          </div>
         </div>
+      </div>
+
+      {/* KPIs PRINCIPAIS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPICard
+          icon={Users}
+          label="Clientes Ativos"
+          value={data.activeClients}
+          color="blue"
+        />
+        <KPICard
+          icon={DollarSign}
+          label="Receita Mensal"
+          value={`R$ ${data.monthlyRevenue.toFixed(0)}`}
+          color="green"
+        />
+        <KPICard
+          icon={FileText}
+          label="Propostas (30d)"
+          value={data.totalProposals}
+          color="purple"
+        />
+        <KPICard
+          icon={Target}
+          label="Taxa de Conversão"
+          value={data.totalProposals > 0 
+            ? `${((data.wonProposals / data.totalProposals) * 100).toFixed(1)}%`
+            : '0%'
+          }
+          color="teal"
+        />
+      </div>
+
+      {/* MÉTRICAS DO CATÁLOGO */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <Package className="h-5 w-5 text-teal-600" />
+          Catálogo de Serviços
+        </h2>
         
-        {activeTab === 'companies' && (
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-slate-50 rounded-lg p-4 text-center">
+            <Folder className="h-8 w-8 text-teal-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-slate-900">{data.totalCategories}</p>
+            <p className="text-sm text-slate-600">Categorias</p>
+          </div>
+          <div className="bg-slate-50 rounded-lg p-4 text-center">
+            <Package className="h-8 w-8 text-purple-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-slate-900">{data.totalServices}</p>
+            <p className="text-sm text-slate-600">Serviços</p>
+          </div>
+          <div className="bg-slate-50 rounded-lg p-4 text-center">
+            <Crown className="h-8 w-8 text-orange-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-slate-900">{data.totalPlans}</p>
+            <p className="text-sm text-slate-600">Planos</p>
+          </div>
+        </div>
+
+        {/* GRÁFICO: Serviços por Categoria */}
+        <div className="border-t pt-4">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            Distribuição de Serviços por Categoria
+          </h3>
+          <div className="space-y-2">
+            {data.servicesByCategory.map((item, idx) => {
+              const maxCount = Math.max(...data.servicesByCategory.map(i => i.count), 1);
+              const percentage = (item.count / maxCount) * 100;
+              
+              return (
+                <div key={idx} className="flex items-center gap-3">
+                  <span className="text-sm text-slate-600 w-32 truncate">{item.categoryName}</span>
+                  <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-teal-500 to-teal-600 h-full flex items-center justify-end px-2 transition-all duration-500"
+                      style={{ width: `${percentage}%` }}
+                    >
+                      <span className="text-xs font-bold text-white">{item.count}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* LINK RÁPIDO */}
+        <div className="mt-6 pt-4 border-t">
           <button
-            onClick={() => setShowOnboarding(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
+            onClick={() => router.push('/dashboard/admin/catalogo')}
+            className="w-full flex items-center justify-between p-4 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors group"
           >
-            <UserPlus className="h-5 w-5" />
-            Novo Cliente (Onboarding)
+            <div className="flex items-center gap-3">
+              <Package className="h-5 w-5 text-teal-600" />
+              <div className="text-left">
+                <p className="font-semibold text-slate-900">Gerenciar Catálogo Completo</p>
+                <p className="text-sm text-slate-600">Criar, editar e organizar serviços</p>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-teal-600 group-hover:translate-x-1 transition-transform" />
           </button>
+        </div>
+      </div>
+
+      {/* TOP SERVIÇOS */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-teal-600" />
+          Top 5 Serviços Mais Usados
+        </h2>
+        
+        {data.topServices.length === 0 ? (
+          <div className="text-center py-8 text-slate-500">
+            <Activity className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+            <p>Nenhum serviço em uso ainda</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {data.topServices.map((service, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                    idx === 0 ? 'bg-yellow-500' :
+                    idx === 1 ? 'bg-slate-400' :
+                    idx === 2 ? 'bg-orange-600' :
+                    'bg-slate-300'
+                  }`}>
+                    {idx + 1}
+                  </div>
+                  <span className="font-medium text-slate-900">{service.name}</span>
+                </div>
+                <span className="text-sm text-slate-600">
+                  {service.usageCount} uso(s)
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
-      <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-fit">
-        <button
-          onClick={() => setActiveTab('companies')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${
-            activeTab === 'companies' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Building2 className="h-4 w-4" /> Empresas & Planos
-        </button>
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${
-            activeTab === 'users' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Users className="h-4 w-4" /> Usuários & Roles
-        </button>
-      </div>
-
-      {activeTab === 'companies' && (
-        <div className="space-y-4">
-          {companies.map((company) => (
-            <CompanyCard 
-              key={company.id} 
-              company={company} 
-              onUpdate={handleUpdateCompany}
-              onDelete={handleDeleteCompany}
-            />
-          ))}
-        </div>
-      )}
-
-      {activeTab === 'users' && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Nome</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase">E-mail</th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Empresa</th>
-                <th className="text-center px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Role</th>
-                <th className="text-center px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-900">{user.name}</td>
-                  <td className="px-6 py-4 text-slate-700">{user.email}</td>
-                  <td className="px-6 py-4 text-slate-700">{user.company?.name || '-'}</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                      user.role === 'ADMIN' ? 'bg-orange-100 text-orange-800' : 'bg-slate-100 text-slate-700'
-                    }`}>
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleUpdateUserRole(user.id, user.role === 'ADMIN' ? 'CLIENTE' : 'ADMIN')}
-                        className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                          user.role === 'ADMIN' ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-teal-100 text-teal-700 hover:bg-teal-200'
-                        }`}
-                      >
-                        {user.role === 'ADMIN' ? 'Rebaixar' : 'Promover'}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(user.id, user.name)}
-                        className="p-1.5 rounded text-red-600 hover:bg-red-50 transition-colors"
-                        title="Deletar usuário"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {showOnboarding && (
-        <OnboardingModal 
-          onClose={() => setShowOnboarding(false)} 
-          onSuccess={() => { setShowOnboarding(false); loadData(); }} 
-        />
-      )}
-    </div>
-  );
-}
-
-// =================================================================
-// 🏢 CARD DA EMPRESA (COM BOTÃO DELETAR)
-// =================================================================
-function CompanyCard({ company, onUpdate, onDelete }: { 
-  company: any; 
-  onUpdate: (id: string, plan: string, modules: string[]) => void; 
-  onDelete: (id: string, name: string) => void 
-}) {
-  const [plan, setPlan] = useState(company.plan);
-  const [modules, setModules] = useState<string[]>(company.allowedModules || []);
-
-  const toggleModule = (moduleId: string) => {
-    setModules((prev) => prev.includes(moduleId) ? prev.filter((m) => m !== moduleId) : [...prev, moduleId]);
-  };
-
-  const isDefaultCompany = company.name.includes('Escritório Padrão') || company.id === '00000000-0000-0000-0000-000000000001';
-
-  return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-bold text-slate-900">{company.name}</h3>
-            {isDefaultCompany && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 border border-orange-200">
-                SISTEMA
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-slate-500">{company.cnpj || 'Sem CNPJ'} • {company.users.length} usuário(s)</p>
-        </div>
-
-        {/* 🔥 AQUI ESTÃO OS 3 BOTÕES: PLANO + SALVAR + DELETAR */}
-        <div className="flex items-center gap-2">
-          <select value={plan} onChange={(e) => setPlan(e.target.value)} className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-900 bg-white">
-            {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-          
-          <button onClick={() => onUpdate(company.id, plan, modules)} className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors">
-            <Check className="h-4 w-4" /> Salvar
-          </button>
-
-          {/*  BOTÃO DELETAR - SÓ APARECE SE NÃO FOR A EMPRESA PADRÃO */}
-          {!isDefaultCompany && (
-            <button
-              onClick={() => onDelete(company.id, company.name)}
-              className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
-              title="Deletar empresa"
-            >
-              <Trash2 className="h-4 w-4" />
-              <span className="hidden md:inline">Deletar</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="border-t border-slate-100 pt-4">
-        <p className="text-xs font-semibold text-slate-500 uppercase mb-3">Módulos Liberados:</p>
-        <div className="flex flex-wrap gap-2">
-          {ALL_MODULES.map((mod) => {
-            const isActive = modules.includes(mod.id);
-            return (
-              <button key={mod.id} onClick={() => toggleModule(mod.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${isActive ? 'bg-teal-50 border-teal-500 text-teal-800' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}>
-                {isActive ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                {mod.label}
-              </button>
-            );
-          })}
+      {/* AÇÕES RÁPIDAS */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <BarChart3 className="h-5 w-5 text-teal-600" />
+          Ações Rápidas
+        </h2>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <QuickAction
+            icon={Users}
+            label="Ver Clientes"
+            onClick={() => router.push('/dashboard/clientes')}
+            color="blue"
+          />
+          <QuickAction
+            icon={FileText}
+            label="Propostas"
+            onClick={() => router.push('/dashboard/precificacao')}
+            color="purple"
+          />
+          <QuickAction
+            icon={Package}
+            label="Catálogo"
+            onClick={() => router.push('/dashboard/admin/catalogo')}
+            color="teal"
+          />
+          <QuickAction
+            icon={Activity}
+            label="BI Contábil"
+            onClick={() => router.push('/dashboard/bi')}
+            color="orange"
+          />
         </div>
       </div>
     </div>
@@ -297,119 +333,57 @@ function CompanyCard({ company, onUpdate, onDelete }: {
 }
 
 // =================================================================
-// 📝 MODAL DE ONBOARDING
+// 🎨 COMPONENTES AUXILIARES
 // =================================================================
-function OnboardingModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    companyName: '',
-    cnpj: '',
-    plan: 'BASIC',
-    allowedModules: ['dashboard', 'pessoas', 'clientes'],
-    userName: '',
-    email: '',
-    password: '',
-  });
 
-  const toggleModule = (moduleId: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      allowedModules: prev.allowedModules.includes(moduleId)
-        ? prev.allowedModules.filter((m) => m !== moduleId)
-        : [...prev.allowedModules, moduleId],
-    }));
-  };
+interface KPICardProps {
+  icon: any;
+  label: string;
+  value: string | number;
+  color: 'blue' | 'green' | 'purple' | 'teal';
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await api.post('/admin/onboard', formData);
-      toast.success('Cliente onboardado com sucesso!');
-      onSuccess();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erro ao criar cliente');
-    } finally {
-      setLoading(false);
-    }
+function KPICard({ icon: Icon, label, value, color }: KPICardProps) {
+  const colors = {
+    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    green: 'bg-green-50 text-green-600 border-green-200',
+    purple: 'bg-purple-50 text-purple-600 border-purple-200',
+    teal: 'bg-teal-50 text-teal-600 border-teal-200',
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
-          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <UserPlus className="h-6 w-6 text-teal-600" />
-            Onboarding de Novo Cliente
-          </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2">Dados da Empresa</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome da Empresa *</label>
-                <input type="text" required value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} className={inputClass} placeholder="Ex: Contabilidade Silva Ltda" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">CNPJ</label>
-                <input type="text" value={formData.cnpj} onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })} className={inputClass} placeholder="00.000.000/0000-00" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Plano Inicial</label>
-                <select value={formData.plan} onChange={(e) => setFormData({ ...formData, plan: e.target.value })} className={inputClass}>
-                  {PLANS.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2">Módulos Liberados</h3>
-            <div className="flex flex-wrap gap-2">
-              {ALL_MODULES.map((mod) => {
-                const isActive = formData.allowedModules.includes(mod.id);
-                return (
-                  <button key={mod.id} type="button" onClick={() => toggleModule(mod.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${isActive ? 'bg-teal-50 border-teal-500 text-teal-800' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}`}>
-                    {isActive ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                    {mod.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b pb-2">Usuário de Acesso (Admin da Empresa)</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nome Completo *</label>
-                <input type="text" required value={formData.userName} onChange={(e) => setFormData({ ...formData, userName: e.target.value })} className={inputClass} placeholder="Nome do responsável" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">E-mail *</label>
-                <input type="email" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={inputClass} placeholder="email@empresa.com" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Senha Provisória *</label>
-                <input type="password" required value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} className={inputClass} placeholder="Mínimo 6 caracteres" />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
-            <button type="submit" disabled={loading} className="flex items-center gap-2 px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg disabled:opacity-50">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              {loading ? 'Criando...' : 'Criar Empresa e Usuário'}
-            </button>
-          </div>
-        </form>
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${colors[color]}`}>
+        <Icon className="h-5 w-5" />
       </div>
+      <p className="text-2xl font-bold text-slate-900">{value}</p>
+      <p className="text-sm text-slate-600 mt-1">{label}</p>
     </div>
+  );
+}
+
+interface QuickActionProps {
+  icon: any;
+  label: string;
+  onClick: () => void;
+  color: 'blue' | 'purple' | 'teal' | 'orange';
+}
+
+function QuickAction({ icon: Icon, label, onClick, color }: QuickActionProps) {
+  const colors = {
+    blue: 'hover:bg-blue-50 hover:border-blue-300 text-blue-600',
+    purple: 'hover:bg-purple-50 hover:border-purple-300 text-purple-600',
+    teal: 'hover:bg-teal-50 hover:border-teal-300 text-teal-600',
+    orange: 'hover:bg-orange-50 hover:border-orange-300 text-orange-600',
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 border-slate-200 transition-all ${colors[color]}`}
+    >
+      <Icon className="h-6 w-6 mb-2" />
+      <span className="text-sm font-semibold">{label}</span>
+    </button>
   );
 }
