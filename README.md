@@ -664,6 +664,7 @@ O módulo de propostas foi refatorado para suportar análises avançadas de vend
 *   **Links Públicos**: Clientes visualizam propostas via slug único, com tracking de engajamento (views, WhatsApp clicks).
 *   **Status Enterprise**: Enums `DRAFT`, `SENT`, `VIEWED`, `CLOSED_WON`, `CLOSED_LOST` garantem integridade.
 
+
 ### 🚀 Motor de Propostas Comerciais (Enterprise)
 A tela de Precificação evoluiu para um **Construtor de Propostas Comerciais** completo:
 
@@ -674,6 +675,50 @@ A tela de Precificação evoluiu para um **Construtor de Propostas Comerciais** 
 *   **BI Integrado**: Dashboard com taxa de conversão, receita ganha e motivos de perda
 *   **Link Público**: Cada proposta gera um slug único para visualização externa pelo cliente
 *   **Exportação**: PDF profissional (jsPDF) e CSV com UTF-8 + BOM (acentos corretos no Excel)
+┌─────────────────────────────────────────────────┐
+│           ADMIN DE CATÁLOGO (Frontend)          │
+│  ┌──────────┬──────────┬──────────────────┐    │
+│  │ Aba 1    │ Aba 2    │ Aba 3            │    │
+│  │Categorias│ Serviços │ Planos + Matriz  │    │
+│  └──────────┴──────────┴──────────────────┘    │
+└────────────────────┬────────────────────────────┘
+                     │ HTTP/REST
+                     ▼
+┌─────────────────────────────────────────────────┐
+│              BACKEND (NestJS)                   │
+│  ┌────────────────┐  ┌─────────────────┐       │
+│  │service-categories│ │ service-items   │       │
+│  │  controller     │  │  controller     │       │
+│  │  service        │  │  service        │       │
+│  │  dto            │  │  dto            │       │
+│  └────────────────┘  └─────────────────┘       │
+│  ┌────────────────┐  ┌─────────────────┐       │
+│  │commercial-plans │  │plan-service-items│      │
+│  │  controller     │  │  controller     │       │
+│  │  service        │  │  service        │       │
+│  └────────────────┘  └─────────────────┘       │
+└────────────────────┬────────────────────────────┘
+                     │ Prisma
+                     ▼
+┌─────────────────────────────────────────────────┐
+│              POSTGRESQL                         │
+│  service_categories | service_items             │
+│  commercial_plans   | plan_service_items        │
+└─────────────────────────────────────────────────┘
+
+backend/src/service-categories/
+├── dto/create-service-category.dto.ts
+├── dto/update-service-category.dto.ts
+├── service-categories.controller.ts
+├── service-categories.service.ts
+└── service-categories.module.ts
+
+backend/src/service-items/
+├── dto/create-service-item.dto.ts
+├── dto/update-service-item.dto.ts
+├── service-items.controller.ts
+├── service-items.service.ts
+└── service-items.module.ts
 
 ### 🛡️ Módulo de Planos Comerciais (Enterprise)
 O módulo de catálogo foi refatorado para atender padrões de segurança e integridade de SaaS B2B:
@@ -683,3 +728,34 @@ O módulo de catálogo foi refatorado para atender padrões de segurança e inte
 *   **Validação de Integridade**: Impede exclusão de categorias com itens vinculados ou planos com contratos ativos.
 *   **DTOs Tipados**: Uso de `class-validator` para garantir integridade dos dados na borda da API.
 *   **API Completa**: Endpoints para listar, criar, atualizar e deletar planos, categorias e itens de serviço.
+
+
+┌──────────────────────────────────────────────────────┐
+│  🛠️ ADMIN: CATÁLOGO DE SERVIÇOS                      │
+├──────────────────────────────────────────────────────┤
+│  [📁 Categorias]  [📦 Serviços]  [👑 Planos]         │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│  ABA 1 — CATEGORIAS                                  │
+│  • Tabela: Nome | Ícone | Ordem | # Serviços | Ações │
+│  • Modal CRUD (nome, ícone, ordem, descrição)        │
+│                                                      │
+│  ABA 2 — SERVIÇOS                                    │
+│  • Filtro por categoria                              │
+│  • Tabela: Nome | Categoria | Preço | Recorrência    │
+│  • Modal rico (escopo, documentos, SLA, preço)       │
+│                                                      │
+│  ABA 3 — PLANOS COMERCIAIS                           │
+│  • Cards visuais (START, PRIME, BLACK)               │
+│  • Modal de edição com multiplicador                 │
+│  • Modal de vinculação plano × serviços              │
+│                                                      │
+└──────────────────────────────────────────────────────┘
+### 🛡️ Sistema de Permissões e Menu Dinâmico
+O layout do dashboard possui um sistema avançado de controle de acesso:
+
+*   **Menu Dinâmico por Role**: Usuários ADMIN veem todos os itens; demais usuários veem apenas os módulos em `allowedModules`.
+*   **Grupos com Submenu**: Módulos complexos (Gestão de Pessoas, Lançamentos, Administração) agrupam funcionalidades relacionadas.
+*   **Itens Admin-Only**: Funcionalidades sensíveis (Catálogo de Serviços, Logs) são marcadas com `adminOnly: true` e invisíveis para não-admins.
+*   **Expansão Inteligente**: Submenus expandem automaticamente conforme o contexto do usuário.
+*   **Responsividade Total**: Sidebar colapsável em mobile com overlay e transições suaves.

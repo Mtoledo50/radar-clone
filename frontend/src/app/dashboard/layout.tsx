@@ -66,7 +66,6 @@ const allMenuItems: MenuItem[] = [
   
   { id: 'clientes', title: 'Clientes', href: '/dashboard/clientes', icon: UsersRound },
   
-  // 🔥 NOVO: Módulo de Lançamentos Contábeis com submenu
   { 
     id: 'lancamentos', 
     title: 'Lançamentos Contábeis', 
@@ -85,8 +84,23 @@ const allMenuItems: MenuItem[] = [
   { id: 'indicadores', title: 'Indicadores', href: '/dashboard/indicadores', icon: Activity },
   { id: 'planejamento-tributario', title: 'Planejamento Tributário', href: '/dashboard/planejamento-tributario', icon: Scale },
   { id: 'reforma-tributaria', title: 'Reforma Tributária', href: '/dashboard/reforma-tributaria', icon: Scale },
-  { id: 'admin', title: 'Administração', href: '/dashboard/admin', icon: Shield, adminOnly: true },
+  
+  // 🛡️ GRUPO DE ADMINISTRAÇÃO (Admin-only com submenu)
+  { 
+    id: 'admin', 
+    title: 'Administração', 
+    href: '/dashboard/admin', 
+    icon: Shield, 
+    adminOnly: true,
+    children: [
+      { id: 'admin-overview', title: 'Visão Geral', href: '/dashboard/admin' },
+      { id: 'admin-catalogo', title: 'Catálogo de Serviços', href: '/dashboard/admin/catalogo' },
+    ]
+  },
 ];
+// =================================================================
+// FIM: Configuração dos Itens do Menu (allMenuItems)
+// =================================================================
 // =================================================================
 // FIM: Configuração dos Itens do Menu (allMenuItems)
 // =================================================================
@@ -109,30 +123,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // INÍCIO: Lógica do Menu Dinâmico (useMemo)
   // =================================================================
   const menuItems = useMemo(() => {
-    // Se for ADMIN, libera todos os itens
-    if (user?.role === 'ADMIN') {
-      return allMenuItems;
-    }
+  return allMenuItems
+    .map((item) => {
+      // 🛡️ Bloqueia itens exclusivos de admin para não-admins
+      if (item.adminOnly && user?.role !== 'ADMIN') return null;
 
-    // Se for CLIENTE, filtra baseado no allowedModules do token
-    return allMenuItems
-      .map((item) => {
-        // Bloqueia itens exclusivos de admin
-        if (item.adminOnly) return null;
+      // ADMIN vê tudo
+      if (user?.role === 'ADMIN') return item;
 
-        if (item.children) {
-          // Filtra os filhos e mantém o pai apenas se houver pelo menos um filho visível
-          const visibleChildren = item.children.filter((child) => 
-            user?.allowedModules?.includes(child.id)
-          );
-          return visibleChildren.length > 0 ? { ...item, children: visibleChildren } : null;
-        }
-        
-        // Retorna o item se o módulo estiver na lista permitida
-        return user?.allowedModules?.includes(item.id) ? item : null;
-      })
-      .filter(Boolean) as MenuItem[]; // Remove os nulos do array
-  }, [user?.role, user?.allowedModules]);
+      // Para usuários não-admin, filtra por allowedModules
+      if (item.children) {
+        const visibleChildren = item.children.filter((child) => 
+          user?.allowedModules?.includes(child.id)
+        );
+        return visibleChildren.length > 0 ? { ...item, children: visibleChildren } : null;
+      }
+      
+      return user?.allowedModules?.includes(item.id) ? item : null;
+    })
+    .filter(Boolean) as MenuItem[];
+}, [user?.role, user?.allowedModules]);
   // =================================================================
   // FIM: Lógica do Menu Dinâmico (useMemo)
   // =================================================================
