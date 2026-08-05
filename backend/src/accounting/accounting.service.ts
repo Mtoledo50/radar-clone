@@ -1,7 +1,7 @@
 // =================================================================
 // INÍCIO: accounting.service.ts
 // =================================================================
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -106,6 +106,31 @@ async updateEntry(id: string, companyId: string, data: any) {
     },
   });
 }
+  // =================================================================
+  // INÍCIO: Método conciliateEntry
+  // =================================================================
+  async conciliateEntry(id: string, companyId: string, data: any) {
+    const entry = await this.prisma.accountingEntry.findFirst({ 
+      where: { id, companyId } 
+    });
+    if (!entry) throw new NotFoundException('Lançamento não encontrado');
+
+    return this.prisma.accountingEntry.update({
+      where: { id },
+      data: {
+        debitAccountId: data.debitAccountId || entry.debitAccountId,
+        creditAccountId: data.creditAccountId || entry.creditAccountId,
+        status: 'CONCILIADO',
+      },
+      include: {
+        debitAccount: { select: { code: true, name: true } },
+        creditAccount: { select: { code: true, name: true } },
+      },
+    });
+  }
+  // =================================================================
+  // FIM: Método conciliateEntry
+  // =================================================================
 // =================================================================
 // FIM: Método updateEntry
 // =================================================================
