@@ -12,7 +12,16 @@ import {
   Users, Plus, Search, Edit2, Trash2, Eye, Download,
   Loader2, X, Save, FileText, Briefcase, Mail, Phone
 } from 'lucide-react';
-
+// =================================================================
+// TIPOS DE SERVIÇO DISPONÍVEIS
+// =================================================================
+const SERVICE_TYPES = [
+  { value: 'CONTABIL', label: 'Contábil', icon: '📊', color: 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200' },
+  { value: 'FISCAL', label: 'Fiscal', icon: '📋', color: 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' },
+  { value: 'DP', label: 'Dept. Pessoal', icon: '', color: 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200' },
+  { value: 'CONSULTORIA', label: 'Consultoria', icon: '💡', color: 'bg-orange-100 text-orange-700 border-orange-300 hover:bg-orange-200' },
+  { value: 'COMPLETO', label: 'Completo', icon: '⭐', color: 'bg-teal-100 text-teal-700 border-teal-300 hover:bg-teal-200' },
+];
 // =================================================================
 // TIPOS E INTERFACES
 // =================================================================
@@ -418,11 +427,11 @@ export default function ClientesPage() {
                     onChange={(e) => setForm({ ...form, serviceType: e.target.value })}
                     className={inputClass}
                   >
-                    <option value="CONTABIL">Contábil</option>
-                    <option value="FISCAL">Fiscal</option>
-                    <option value="DP">Departamento Pessoal</option>
-                    <option value="CONSULTORIA">Consultoria</option>
-                    <option value="COMPLETO">Completo</option>
+                  <option value="CONTABIL">Contábil</option>
+                  <option value="FISCAL">Fiscal</option>
+                  <option value="DP">Departamento Pessoal</option>
+                  <option value="CONSULTORIA">Consultoria</option>
+                  <option value="COMPLETO">Completo</option>
                   </select>
                 </div>
                 <div>
