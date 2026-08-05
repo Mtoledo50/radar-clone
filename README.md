@@ -771,3 +771,15 @@ Painel administrativo com visão estratégica do sistema:
 *   **Ações Rápidas**: Links diretos para Clientes, Propostas, Catálogo e BI
 *   **Acesso**: `/dashboard/admin`
 
+### 🎲 Seed de Dados Demo (Demonstração Comercial)
+Script que popula o sistema com 12 meses de dados realistas para demonstrações:
+
+*   **Idempotente**: Limpa e recria os dados a cada execução (determinístico)
+*   **28 clientes fictícios**: Distribuídos entre MEI, Simples, Lucro Presumido e Lucro Real
+*   **Evolução de carteira**: MRR crescente de R$ 23,8 mil para R$ 38,2 mil
+*   **Funil de vendas**: 15 propostas com 33% de taxa de conversão
+*   **DRE completo**: Receitas e despesas mensais com outlier para o BI detectar
+*   **Planejamento estratégico**: 3 objetivos com metas e planos de ação
+*   **Execução**: `npm run seed:demo` ou `npx ts-node src/seed-demo.ts`
+*   **Login demo**: admin@demo.com / 123456
+
