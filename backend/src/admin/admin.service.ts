@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OnboardClientDto } from './dto/onboard-client.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { catalogData } from '../seed-full-catalog-data';
 import * as bcrypt from 'bcrypt';
 
 /**
@@ -44,8 +45,6 @@ export class AdminService {
         _count: {
           select: {
             users: true,
-            // Removido 'clients' pois não existe como relação no schema
-            // Se precisar contar clientes, usar aggregate separadamente
           },
         },
       },
@@ -263,6 +262,81 @@ export class AdminService {
           role: user.role,
           companyId: user.companyId,
         },
+      };
+    });
+  }
+
+  // =================================================================
+  // 📦 IMPORTAÇÃO DE CATÁLOGO COMPLETO
+  // =================================================================
+
+  /**
+   * 📦 IMPORTAÇÃO DE CATÁLOGO COMPLETO
+   * 
+   * Popula o catálogo da empresa com 17 departamentos e ~200 serviços
+   * pré-configurados (MEI, IRPF, Fiscal, Contábil, BPO, etc.).
+   * 
+   * Garantias:
+   * - Transação atômica: se falhar, nada é salvo
+   * - Idempotente: limpa catálogo anterior antes de importar
+   * - Dados ricos: escopo, fora-do-escopo, SLA, documentos, preço
+   * 
+   * @param companyId - ID da empresa que receberá o catálogo
+   */
+  async importFullCatalog(companyId: string) {
+    // Valida se a empresa existe
+    const company = await this.prisma.company.findFirst({
+      where: { id: companyId, deletedAt: null },
+    });
+
+    if (!company) {
+      throw new NotFoundException('Empresa não encontrada.');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Limpar catálogo existente (ordem correta: filhos antes dos pais)
+      await tx.planServiceItem.deleteMany({
+        where: { plan: { companyId } },
+      });
+      await tx.serviceItem.deleteMany({ where: { companyId } });
+      await tx.serviceCategory.deleteMany({ where: { companyId } });
+
+      // 2. Criar categorias e itens
+      let totalItems = 0;
+      for (const category of catalogData) {
+        const dbCategory = await tx.serviceCategory.create({
+          data: {
+            companyId,
+            name: category.name,
+            icon: category.icon,
+            order: category.order,
+            description: category.description,
+          },
+        });
+
+               for (const item of category.items) {
+          await tx.serviceItem.create({
+            data: {
+              companyId: companyId,
+              categoryId: dbCategory.id,
+              name: item.name,
+              basePrice: item.basePrice,
+              recurrence: item.recurrence as any,
+              slaDays: item.slaDays,
+              scope: item.scope,
+              outOfScope: item.outOfScope,
+              requiredDocs: item.requiredDocs,
+              isActive: true,
+            } as any, // ✅ Cast para contornar conflito de tipos do Prisma
+          });
+          totalItems++;
+        }
+      }
+
+      return {
+        message: 'Catálogo importado com sucesso!',
+        categories: catalogData.length,
+        services: totalItems,
       };
     });
   }

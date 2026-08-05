@@ -121,4 +121,13 @@ export class AdminController {
       data,
     };
   }
+  @Post('import-catalog')
+@Roles('ADMIN')
+async importCatalog(@CurrentUser() user: UserPayload) {
+  await this.adminService.importFullCatalog(user.companyId);
+  return { success: true, message: 'Catálogo importado com sucesso!' };
+}
+  // =================================================================
+  // 📦 IMPORTAÇÃO DE CATÁLOGO
+  // =================================================================
 }

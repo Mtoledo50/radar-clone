@@ -424,3 +424,32 @@ CHANGELOG.md # Histórico de versões (padrão Keep a Changelog)
         └── 📂 store/
             └── authStore.ts                   ← 🔧 + cookies
 
+### 🌐 Página Pública da Proposta
+O cliente do escritório visualiza a proposta comercial por um link compartilhado:
+
+*   **Acesso Público**: Sem necessidade de login (rota `/proposta/[slug]`)
+*   **Design Premium**: Identidade visual Conta Certa com gradiente teal/laranja
+*   **Itens Detalhados**: Plano comercial + serviços avulsos com escopo
+*   **Seções Ricas**: Sobre o escritório, diferenciais, onboarding, termos
+*   **CTA WhatsApp**: Botão com mensagem pré-definida e tracking de cliques
+*   **Tracking de Engajamento**: Contadores de views e cliques alimentam o BI
+*   **Segurança**: Slug não-sequencial, sem exposição de IDs internos
+*   **Estados Completos**: Loading, erro (não encontrada) e sucesso
+
+### 📦 Catálogo Completo de Serviços
+O sistema inclui um catálogo profissional com **17 departamentos** e **~200 serviços** pré-configurados:
+
+*   **Departamentos**: Contábil, Fiscal, Pessoal, Legalização, Consultoria, BPO, Controladoria, Auditoria, LGPD, Tecnologia, Premium
+*   **Dados Ricos**: Cada serviço possui escopo, fora-do-escopo, SLA, documentos necessários e preço base
+*   **Importação em Massa**: Botão "Importar Catálogo Padrão" na tela Admin popula todos os dados automaticamente
+*   **Execução via Seed**: `npx ts-node src/seed-full-catalog.ts` para importar via terminal
+*   **Prevenção de Scope Creep**: Definição clara do que está incluso e o que é cobrado à parte
+
+### 🔐 Sistema de Autenticação com Sincronização de Cookies
+O sistema implementa autenticação JWT com sincronização automática de cookies para proteção de rotas:
+
+*   **AuthStore (Zustand)**: Gerencia estado de autenticação + persistência em localStorage
+*   **Sincronização de Cookies**: Cookies `radar_auth_token` e `radar_auth_role` criados automaticamente no login
+*   **Middleware Next.js**: Proteção de rotas `/dashboard/admin/*` com verificação de role ADMIN
+*   **Redirect Inteligente**: Após login, redireciona para o destino original (ex: `/dashboard/admin/catalogo`)
+*   **Logout Limpo**: Remove cookies + localStorage ao sair
