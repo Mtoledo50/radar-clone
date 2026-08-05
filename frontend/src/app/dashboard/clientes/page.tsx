@@ -116,20 +116,21 @@ export default function ClientesPage() {
   // =================================================================
   // CARREGAR DADOS (Clientes + Catálogo)
   // =================================================================
-  useEffect(() => {
-    loadInitialData();
+    useEffect(() => {
+    loadInitialData(); // ✅ Função que já existe no seu arquivo
+    //loadPlans();       // ✅ Carregamento isolado dos planos
   }, []);
 
-  async function loadInitialData() {
+    async function loadInitialData() {
     try {
       setLoading(true);
-      // Busca paralela para performance
+      // ✅ URLs CORRETAS do catálogo
       const [clientsRes, plansRes, itemsRes] = await Promise.all([
         api.get('/clients'),
-        api.get('/commercial-plans').catch(() => ({ data: { data: [] } })), // Fallback se rota não existir
-        api.get('/service-items').catch(() => ({ data: { data: [] } })),
+        api.get('/commercial-plans/plans').catch(() => ({ data: { data: [] } })),  // era '/commercial-plans'
+        api.get('/commercial-plans/items').catch(() => ({ data: { data: [] } })),  // era '/service-items'
       ]);
-      
+
       setClients(clientsRes.data.data || []);
       setPlans(plansRes.data.data || []);
       setServiceItems(itemsRes.data.data || []);
@@ -139,7 +140,6 @@ export default function ClientesPage() {
       setLoading(false);
     }
   }
-
   // =================================================================
   // LÓGICA DE NEGÓCIO: CALCULADORA DE HONORÁRIOS
   // =================================================================
@@ -301,7 +301,16 @@ export default function ClientesPage() {
       setSubmitting(false);
     }
   }
-
+ // ✅ Carregamento isolado de planos (não depende de outras chamadas)
+  async function loadPlans() {
+    try {
+      const res = await api.get('/commercial-plans/plans');
+      setPlans(res.data.data || []);
+    } catch (err) {
+      console.error('Erro ao carregar planos:', err);
+      setPlans([]);
+    }
+  }
   // =================================================================
   // EXPORTAR PDF
   // =================================================================
@@ -751,10 +760,15 @@ export default function ClientesPage() {
                       Próximo <ChevronRight className="h-4 w-4" />
                     </button>
                   ) : (
-                    <button type="submit" onClick={handleSubmit} disabled={submitting} className={btnPrimary}>
-                      {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      {selectedClient ? 'Atualizar Contrato' : 'Criar Contrato'}
-                    </button>
+                     <button
+    type="button"
+    onClick={handleSubmit}
+    disabled={submitting}
+    className={btnPrimary}
+  >
+    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+    {selectedClient ? 'Atualizar Contrato' : 'Criar Contrato'}
+  </button>
                   )}
                 </div>
               </div>

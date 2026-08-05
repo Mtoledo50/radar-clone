@@ -451,7 +451,7 @@ model ClientService {
   clientId        String
   serviceItemId   String
   
-  customPrice     Decimal?   @db.Decimal(10, 2)
+  //customPrice     Decimal?   @db.Decimal(10, 2)
   recurrence      Recurrence
   status          String     @default("ATIVO")
   

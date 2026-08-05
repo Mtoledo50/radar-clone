@@ -200,14 +200,15 @@ export default function PrecificacaoPage() {
     loadInitialData();
   }, [filterPeriod]);
 
-  async function loadInitialData() {
+    async function loadInitialData() {
     try {
       setLoading(true);
+      // ✅ Cada requisição com .catch próprio: uma falha não derruba as demais
       const [propRes, dashRes, plansRes, itemsRes] = await Promise.all([
-        api.get('/proposals'),
+        api.get('/proposals').catch(() => ({ data: { data: [] } })),
         api.get(`/proposals/dashboard?period=${filterPeriod}`).catch(() => ({ data: { data: null } })),
-        api.get('/commercial-plans').catch(() => ({ data: { data: [] } })),
-        api.get('/service-items').catch(() => ({ data: { data: [] } })),
+        api.get('/commercial-plans/plans').catch(() => ({ data: { data: [] } })),
+        api.get('/commercial-plans/items').catch(() => ({ data: { data: [] } })),
       ]);
 
       setProposals(propRes.data.data || []);
@@ -215,7 +216,7 @@ export default function PrecificacaoPage() {
       setPlans(plansRes.data.data || []);
       setServiceItems(itemsRes.data.data || []);
     } catch (err) {
-      toast.error('Erro ao carregar propostas');
+      toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
