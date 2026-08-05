@@ -423,6 +423,16 @@ Auto-dismiss após 4 segundos
 Cores semânticas (verde=success, vermelho=error)
 
 📊 Módulos do Sistema
+
+### 📦 Catálogo de Serviços e Contratos (Enterprise)
+O sistema possui um motor robusto de produtos e contratos, permitindo a criação de planos comerciais complexos e controle rigoroso de escopo.
+
+*   **Service Catalog (`ServiceCategory`, `ServiceItem`)**: Permite cadastrar serviços (ex: IRPF, MEI, Folha) com definição clara de escopo, *out-of-scope*, SLA (prazos) e documentos necessários. Evita o "escopo aberto" que gera prejuízo contábil.
+*   **Commercial Plans (`CommercialPlan`, `PlanServiceItem`)**: Agrupamento de serviços em pacotes (Ex: Plano Essencial, Plano Premium) com multiplicadores de margem.
+*   **Client Contracts (`ClientContract`)**: Histórico de vigência, honorários e planos contratados por cliente. Essencial para cálculo de MRR, LTV e Churn.
+*   **Client Services (`ClientService`)**: Gestão de serviços avulsos (one-off) ou recorrentes contratados fora do plano principal (Ex: Venda de IRPF para cliente do plano mensal).
+*   **Relational Proposals (`Proposal`, `ProposalItem`)**: Propostas comerciais 100% relacionais, permitindo BI avançado sobre quais serviços e planos estão sendo mais vendidos e convertidos.
+
 Módulo de Autenticação
 Responsável por: Login, cadastro, refresh token, proteção de rotas
 Tecnologias: JWT, bcrypt, Zustand
@@ -462,6 +472,14 @@ Módulo Admin
 Responsável por: Gestão global do sistema
 Features: Empresas, usuários, métricas globais
 Endpoints: /admin/companies, /admin/users
+
+### 🛒 Motor de Catálogo e Contratos (SaaS Contábil)
+O Radar Conta Certa evoluiu de um simples CRM para um **Motor de Vendas e Contratos** para escritórios contábeis.
+
+*   **Catálogo Rico (Rich Catalog)**: Serviços não são apenas "nomes". Cada item (ex: *IRPF Completo*, *Abertura de MEI*) possui escopo detalhado, lista de documentos necessários, SLA (prazo de entrega) e definição rigorosa do que *não* está incluso (evitando *Scope Creep*).
+*   **Venda de Add-ons Sazonais**: Suporte nativo para venda de serviços avulsos (MEI, IRPF, Legalização) para clientes que já possuem planos recorrentes, através do módulo `ClientService`.
+*   **Seed Idempotente**: O banco é populado automaticamente com um portfólio completo de 7 categorias e dezenas de serviços pré-configurados com preços base e horas estimadas, acelerando o *Time-to-Value* para novos escritórios que adotam a plataforma.
+*   **Geração de Propostas Relacionais**: As propostas comerciais puxam o escopo direto do banco de dados, garantindo que o cliente assine exatamente o que o escritório se propôs a entregar.
 
 🧪 Testes
 Testes Manuais
@@ -615,4 +633,13 @@ Frontend:
   * Modal de cadastro/edição com validação de campos obrigatórios.
   * Função de exportação CSV com formatação brasileira (valores com vírgula).
 
-  
+  Novas Alterações e Funcionalidades - 05/08/2026
+
+  ### 🚀 Motor de Onboarding (Wizard de 3 Etapas)
+A tela de clientes evoluiu de um formulário simples para um **Construtor de Contratos SaaS**:
+
+*   **Aba 1 - Empresa**: Dados cadastrais, sócios e contatos.
+*   **Aba 2 - Plano Mensal (MRR)**: Seleção visual de Planos Comerciais (START, PRIME, BLACK) que gera automaticamente um `ClientContract` no banco.
+*   **Aba 3 - Add-ons (Serviços Avulsos)**: Venda cruzada de serviços sazonais (IRPF, MEI, Legalização) ou recorrentes extras.
+*   **Calculadora em Tempo Real**: O honorário final é calculado dinamicamente (Plano + Add-ons) antes mesmo de salvar.
+*   **Soft Delete Compliance**: A "exclusão" de um cliente na verdade o marca como `CHURN`, preservando o histórico contábil exigido pela legislação brasileira.
