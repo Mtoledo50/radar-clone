@@ -700,7 +700,8 @@ model AccountingAccount {
   children    AccountingAccount[] @relation("AccountHierarchy")
   debitEntries  AccountingEntry[] @relation("DebitEntries")
   creditEntries AccountingEntry[] @relation("CreditEntries")
-  
+   
+  @@unique([companyId, code])  // 🔥 NOVA CONSTRAINT: Garante unicidade por empresa
   @@index([companyId])
   @@index([code])
   @@map("accounting_accounts")

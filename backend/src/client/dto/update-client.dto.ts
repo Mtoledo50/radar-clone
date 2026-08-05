@@ -1,34 +1,71 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { IsOptional, IsEnum, IsDateString } from 'class-validator';
-import { ClientStatus } from '@prisma/client';
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { CreateClientDto } from './create-client.dto';
+import { IsOptional, IsEnum, IsDateString, IsString, IsNumber, IsArray, IsEmail, MinLength, MaxLength } from 'class-validator';
+import { ClientStatus, ServiceType } from '@prisma/client';
 
 /**
  * =================================================================
  * 📦 DTO: UpdateClientDto (Enterprise Edition)
  * =================================================================
- * Herda todas as validações do CreateClientDto, mas torna todos 
- * os campos opcionais. Adiciona validações específicas para updates.
+ * DTO específico para updates parciais. Todos os campos são 
+ * OPCIONAIS, permitindo atualizar apenas o que mudou.
+ * 
+ * ⚠️ NOTA: Não estende CreateClientDto porque TypeScript não permite
+ * "des-obrigar" campos via herança. Mantemos validação independente.
  * =================================================================
  */
-export class UpdateClientDto extends PartialType(CreateClientDto) {
-  
-  @ApiPropertyOptional({ 
-    description: 'Novo status do cliente (Ex: para marcar como CHURN)', 
-    enum: ClientStatus 
-  })
-  @IsEnum(ClientStatus)
+export class UpdateClientDto {
   @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(150)
+  companyName?: string;
+
+  @IsOptional()
+  @IsString()
+  cnpj?: string;
+
+  @IsOptional()
+  @IsEnum(ServiceType)
+  serviceType?: ServiceType;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  monthlyFee?: number;
+
+  @IsOptional()
+  @IsEnum(ClientStatus)
   status?: ClientStatus;
 
-  @ApiPropertyOptional({ description: 'Nova data de início' })
-  @IsDateString()
   @IsOptional()
+  @IsDateString()
   startDate?: string;
 
-  @ApiPropertyOptional({ description: 'Nova data de fim' })
-  @IsDateString()
   @IsOptional()
+  @IsDateString()
   endDate?: string;
+
+  @IsOptional()
+  @IsString()
+  contactName?: string;
+
+  @IsOptional()
+  @IsEmail()
+  contactEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  contactPhone?: string;
+
+  @IsOptional()
+  @IsString()
+  observations?: string;
+
+  // 🚀 INTEGRAÇÃO COM CATÁLOGO
+  @IsOptional()
+  @IsString()
+  commercialPlanId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  avulsoServiceIds?: string[];
 }
