@@ -1,12 +1,30 @@
-import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCommercialPlanDto } from './dto/create-commercial-plan.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceItemDto } from './dto/create-service-item.dto';
 
+/**
+ * =================================================================
+ * 🏢 CommercialPlansService — Gestão do Catálogo Enterprise
+ * =================================================================
+ * Serviço central para gerenciar Categorias, Itens de Serviço e
+ * Planos Comerciais. Implementa:
+ * 
+ * 🛡️ Proteção Multi-Tenant: Todas as queries validam companyId
+ * 🔒 Soft Delete: Usa deletedAt em vez de exclusão física
+ * ✅ Validação de Integridade: Impede deleção de entidades em uso
+ * 🔄 Transações Atômicas: Operações compostas usam $transaction
+ * 
+ * =================================================================
+ */
 @Injectable()
 export class CommercialPlansService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   // =================================================================
   // 🏢 PLANOS COMERCIAIS
@@ -14,6 +32,7 @@ export class CommercialPlansService {
 
   /**
    * Lista todos os planos ativos de uma empresa
+   * Aberto para qualquer usuário autenticado (usado em propostas/clientes)
    */
   async getPlans(companyId: string) {
     const plans = await this.prisma.commercialPlan.findMany({
@@ -65,6 +84,7 @@ export class CommercialPlansService {
 
   /**
    * Cria novo plano comercial
+   * Apenas ADMIN (protegido pelo @Roles no controller)
    */
   async createPlan(companyId: string, dto: CreateCommercialPlanDto) {
     const { itemIds, ...planData } = dto;
@@ -91,8 +111,13 @@ export class CommercialPlansService {
 
   /**
    * Atualiza plano comercial (com proteção de tenant)
+   * Apenas ADMIN (protegido pelo @Roles no controller)
    */
-  async updatePlan(id: string, companyId: string, dto: CreateCommercialPlanDto) {
+  async updatePlan(
+    id: string,
+    companyId: string,
+    dto: CreateCommercialPlanDto,
+  ) {
     // Valida posse do plano
     await this.getPlanById(id, companyId);
 
@@ -127,6 +152,8 @@ export class CommercialPlansService {
 
   /**
    * Soft delete de plano (marca como inativo)
+   * Impede exclusão se houver contratos ativos vinculados
+   * Apenas ADMIN (protegido pelo @Roles no controller)
    */
   async deletePlan(id: string, companyId: string) {
     // Valida posse
@@ -139,7 +166,7 @@ export class CommercialPlansService {
 
     if (activeContracts > 0) {
       throw new BadRequestException(
-        `Não é possível excluir o plano. Existem ${activeContracts} contrato(s) ativo(s) vinculados.`
+        `Não é possível excluir o plano. Existem ${activeContracts} contrato(s) ativo(s) vinculados.`,
       );
     }
 
@@ -156,6 +183,7 @@ export class CommercialPlansService {
 
   /**
    * Lista todas as categorias ativas de uma empresa
+   * Aberto para qualquer usuário autenticado
    */
   async getCategories(companyId: string) {
     return this.prisma.serviceCategory.findMany({
@@ -185,6 +213,7 @@ export class CommercialPlansService {
 
   /**
    * Cria nova categoria de serviço
+   * Apenas ADMIN (protegido pelo @Roles no controller)
    */
   async createCategory(companyId: string, dto: CreateServiceCategoryDto) {
     return this.prisma.serviceCategory.create({
@@ -194,8 +223,13 @@ export class CommercialPlansService {
 
   /**
    * Atualiza categoria (com proteção de tenant)
+   * Apenas ADMIN (protegido pelo @Roles no controller)
    */
-  async updateCategory(id: string, companyId: string, dto: CreateServiceCategoryDto) {
+  async updateCategory(
+    id: string,
+    companyId: string,
+    dto: CreateServiceCategoryDto,
+  ) {
     await this.getCategoryById(id, companyId);
 
     return this.prisma.serviceCategory.update({
@@ -206,6 +240,7 @@ export class CommercialPlansService {
 
   /**
    * Soft delete de categoria (impede se houver itens vinculados)
+   * Apenas ADMIN (protegido pelo @Roles no controller)
    */
   async deleteCategory(id: string, companyId: string) {
     await this.getCategoryById(id, companyId);
@@ -217,7 +252,7 @@ export class CommercialPlansService {
 
     if (activeItems > 0) {
       throw new BadRequestException(
-        `Não é possível excluir a categoria. Existem ${activeItems} item(ns) ativo(s) vinculados.`
+        `Não é possível excluir a categoria. Existem ${activeItems} item(ns) ativo(s) vinculados.`,
       );
     }
 
@@ -233,6 +268,8 @@ export class CommercialPlansService {
 
   /**
    * Lista todos os itens de serviço ativos de uma empresa
+   * Suporta filtro opcional por categoria
+   * Aberto para qualquer usuário autenticado
    */
   async getServiceItems(companyId: string, categoryId?: string) {
     const where: any = { companyId, deletedAt: null };
@@ -258,9 +295,10 @@ export class CommercialPlansService {
     return item;
   }
 
-    /**
+  /**
    * Cria novo item de serviço
    * Construção explícita dos campos para evitar conflito de tipos no Prisma
+   * Apenas ADMIN (protegido pelo @Roles no controller)
    */
   async createServiceItem(companyId: string, dto: CreateServiceItemDto) {
     // Valida se a categoria existe e pertence à empresa
@@ -286,11 +324,16 @@ export class CommercialPlansService {
     });
   }
 
-    /**
+  /**
    * Atualiza item de serviço (com proteção de tenant)
    * Construção explícita dos campos para evitar conflito de tipos no Prisma
+   * Apenas ADMIN (protegido pelo @Roles no controller)
    */
-  async updateServiceItem(id: string, companyId: string, dto: CreateServiceItemDto) {
+  async updateServiceItem(
+    id: string,
+    companyId: string,
+    dto: CreateServiceItemDto,
+  ) {
     await this.getServiceItemById(id, companyId);
 
     // Se mudou de categoria, valida a nova
@@ -305,9 +348,11 @@ export class CommercialPlansService {
     if (dto.description !== undefined) updateData.description = dto.description;
     if (dto.scope !== undefined) updateData.scope = dto.scope;
     if (dto.outOfScope !== undefined) updateData.outOfScope = dto.outOfScope;
-    if (dto.requiredDocs !== undefined) updateData.requiredDocs = dto.requiredDocs;
+    if (dto.requiredDocs !== undefined)
+      updateData.requiredDocs = dto.requiredDocs;
     if (dto.basePrice !== undefined) updateData.basePrice = dto.basePrice;
-    if (dto.estimatedHours !== undefined) updateData.estimatedHours = dto.estimatedHours;
+    if (dto.estimatedHours !== undefined)
+      updateData.estimatedHours = dto.estimatedHours;
     if (dto.slaDays !== undefined) updateData.slaDays = dto.slaDays;
     if (dto.recurrence !== undefined) updateData.recurrence = dto.recurrence;
     if (dto.order !== undefined) updateData.order = dto.order;
@@ -322,6 +367,7 @@ export class CommercialPlansService {
 
   /**
    * Soft delete de item (impede se houver contratos ativos)
+   * Apenas ADMIN (protegido pelo @Roles no controller)
    */
   async deleteServiceItem(id: string, companyId: string) {
     await this.getServiceItemById(id, companyId);
@@ -333,7 +379,7 @@ export class CommercialPlansService {
 
     if (activeContracts > 0) {
       throw new BadRequestException(
-        `Não é possível excluir o item. Existem ${activeContracts} contrato(s) ativo(s) vinculados.`
+        `Não é possível excluir o item. Existem ${activeContracts} contrato(s) ativo(s) vinculados.`,
       );
     }
 
@@ -346,6 +392,12 @@ export class CommercialPlansService {
   // =================================================================
   // 💾 SALVAR CONFIGURAÇÃO COMPLETA (Legacy - mantido para compatibilidade)
   // =================================================================
+
+  /**
+   * Salva configuração completa de planos + itens em uma única transação
+   * Método legado mantido para compatibilidade com o frontend antigo
+   * Apenas ADMIN (protegido pelo @Roles no controller)
+   */
   async savePlansConfiguration(companyId: string, plansData: any[]) {
     return this.prisma.$transaction(async (tx) => {
       const results = [];
@@ -387,7 +439,9 @@ export class CommercialPlansService {
         });
 
         // 3. Adicionar novos itens
-        const itemIds = (plan.items || []).map((item: any) => item.id).filter(Boolean);
+        const itemIds = (plan.items || [])
+          .map((item: any) => item.id)
+          .filter(Boolean);
         if (itemIds.length > 0) {
           await tx.planServiceItem.createMany({
             data: itemIds.map((serviceItemId: string) => ({
