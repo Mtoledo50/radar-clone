@@ -1,127 +1,147 @@
+// =================================================================
+// INÍCIO: reconciliation.controller.ts
+// =================================================================
 /**
+ * 🎯 CONTROLLER DE CONCILIAÇÃO E REVISÃO CONTÁBIL
  * =================================================================
- * 🎯 CONTROLLER DE CONCILIAÇÃO BANCÁRIA
- * =================================================================
- * 
- * ENDPOINTS:
- * - POST /accounting/reconcile
- *   Recebe 2 arquivos (Excel + CSV) via multipart/form-data
- *   Retorna JSON com lançamentos conciliados e sugestões de contas
+ * Endpoints para:
+ * - Processar conciliação automática
+ * - Salvar sugestões de conciliação
+ * - Verificar e remover duplicidades de arquivos e lançamentos
  */
 
 import { 
-  Controller, 
-  Post, 
-  UseInterceptors, 
-  UploadedFiles, 
-  UseGuards, 
-  Request 
+  Controller, Post, Get, UseInterceptors, UploadedFile, 
+  UseGuards, Request, Body 
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ReconciliationService } from './reconciliation.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 
-@Controller('accounting')
-@UseGuards(JwtAuthGuard) // Protege a rota com autenticação JWT
+@Controller('accounting/reconciliation')
+@UseGuards(JwtAuthGuard)
 export class ReconciliationController {
   constructor(private readonly reconciliationService: ReconciliationService) {}
 
-  /**
-   * =================================================================
-   * 📤 ENDPOINT: PROCESSAR CONCILIAÇÃO
-   * =================================================================
-   * 
-   * Recebe 2 arquivos via multipart/form-data:
-   * - files[0]: Excel com controle de caixa
-   * - files[1]: CSV com base contábil
-   * 
-   * Retorna: Lista de lançamentos conciliados com sugestões de contas
-   */
-  @Post('reconcile')
+  // =================================================================
+  // INÍCIO: ENDPOINTS DE CONCILIAÇÃO AUTOMÁTICA (SEU CÓDIGO ORIGINAL)
+  // =================================================================
+
+  @Post('process')
   @UseInterceptors(
-    FilesInterceptor('files', 2, {
-      // Configuração de armazenamento temporário em disco
+    FileInterceptor('file', {
       storage: diskStorage({
-        destination: './uploads', // Pasta temporária (precisa existir!)
+        destination: './uploads',
         filename: (req, file, cb) => {
-          // Gerar nome único para evitar conflitos
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
           const ext = extname(file.originalname);
-          cb(null, `reconcile-${uniqueSuffix}${ext}`);
+          cb(null, `reconciliation-${uniqueSuffix}${ext}`);
         },
       }),
-      // Filtro de tipos de arquivo aceitos
       fileFilter: (req, file, cb) => {
-        const allowedExtensions = /csv|xlsx|xls/;
+        const allowed = /csv/;
         const ext = extname(file.originalname).toLowerCase();
-        
-        if (allowedExtensions.test(ext)) {
-          cb(null, true); // Aceita o arquivo
+        if (allowed.test(ext)) {
+          cb(null, true);
         } else {
-          cb(new Error('Apenas arquivos CSV e Excel são permitidos'), false);
+          cb(new Error('Apenas arquivos CSV são permitidos'), false);
         }
-      },
-      // Limite de tamanho: 10MB por arquivo
-      limits: {
-        fileSize: 10 * 1024 * 1024,
       },
     })
   )
-  async reconcile(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Request() req
-  ) {
-    // Validação: precisa receber exatamente 2 arquivos
-    if (!files || files.length !== 2) {
-      return { 
-        success: false, 
-        message: 'Envie exatamente 2 arquivos: Excel (controle de caixa) e CSV (base contábil)' 
-      };
+  async processReconciliation(@UploadedFile() file: Express.Multer.File, @Request() req) {
+    if (!file) {
+      return { success: false, message: 'Nenhum arquivo enviado' };
     }
-    
-    // Identificar qual arquivo é qual baseado no nome ou extensão
-    const cashControlFile = files.find(f => 
-      f.originalname.toLowerCase().includes('controle') || 
-      f.originalname.toLowerCase().includes('caixa') ||
-      f.originalname.endsWith('.xlsx') ||
-      f.originalname.endsWith('.xls')
-    );
-    
-    const accountingFile = files.find(f => 
-      f.originalname.toLowerCase().includes('consulta') || 
-      f.originalname.toLowerCase().includes('contabil') ||
-      f.originalname.toLowerCase().includes('contábil') ||
-      f.originalname.endsWith('.csv')
-    );
-    
-    // Validação: precisa identificar ambos os arquivos
-    if (!cashControlFile || !accountingFile) {
-      return { 
-        success: false, 
-        message: 'Não foi possível identificar os arquivos. Certifique-se de enviar um Excel (controle) e um CSV (contábil).' 
-      };
-    }
-    
+
     try {
-      // Chamar o service para processar a conciliação
-      const result = await this.reconciliationService.processReconciliation(
-        cashControlFile,
-        accountingFile,
+      const result = await this.reconciliationService.reconcileEntries(file, req.user.companyId);
+      return { success: true, data: result };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Post('save')
+  async saveSuggestions(@Request() req, @Body() body: any) {
+    try {
+      const result = await this.reconciliationService.saveReconciliationSuggestions(
+        body.suggestions,
         req.user.companyId
       );
-      
       return { 
         success: true, 
         data: result,
-        message: `Conciliação processada com sucesso! ${result.length} lançamentos analisados.`
+        message: `${result.length} lançamentos conciliados com sucesso!`
       };
     } catch (error: any) {
-      return { 
-        success: false, 
-        message: error.message 
-      };
+      return { success: false, message: error.message };
     }
   }
+
+  // =================================================================
+  // FIM: ENDPOINTS DE CONCILIAÇÃO AUTOMÁTICA
+  // =================================================================
+
+
+  // =================================================================
+  // INÍCIO: NOVOS ENDPOINTS (DUPLICIDADE)
+  // =================================================================
+
+  /**
+   * Verifica se o arquivo já foi importado.
+   */
+  @Post('check-duplicate')
+  @UseInterceptors(FileInterceptor('file'))
+  async checkFileDuplicate(@Request() req, @UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      return { success: false, message: 'Nenhum arquivo enviado' };
+    }
+    
+    const result = await this.reconciliationService.checkFileDuplicate(
+      req.user.companyId,
+      file.originalname,
+      file.buffer
+    );
+    
+    return { success: true, data: result };
+  }
+
+  /**
+   * Lista todos os lançamentos duplicados da empresa.
+   */
+  @Get('duplicates')
+  async findDuplicateEntries(@Request() req) {
+    const duplicates = await this.reconciliationService.findDuplicateEntries(req.user.companyId);
+    
+    return { 
+      success: true, 
+      data: duplicates,
+      totalGroups: duplicates.length,
+      totalDuplicates: duplicates.reduce((sum: number, g: any) => sum + (g.group - 1), 0)
+    };
+  }
+
+  /**
+   * Remove lançamentos duplicados, mantendo apenas o primeiro de cada grupo.
+   */
+  @Post('remove-duplicates')
+  async removeDuplicateEntries(@Request() req, @Body() body: any) {
+    const result = await this.reconciliationService.removeDuplicateEntries(body.duplicateGroups);
+    
+    return {
+      success: true,
+      message: `${result.deletedCount} lançamentos duplicados removidos com sucesso!`,
+      data: result,
+    };
+  }
+
+  // =================================================================
+  // FIM: NOVOS ENDPOINTS (DUPLICIDADE)
+  // =================================================================
 }
+// =================================================================
+// FIM: reconciliation.controller.ts
+// =================================================================

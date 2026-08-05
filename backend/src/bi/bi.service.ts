@@ -1,78 +1,61 @@
+// =================================================================
+// INÍCIO: bi.service.ts (CORRIGIDO)
+// =================================================================
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-/**
- * =================================================================
- * 📊 BI SERVICE - Business Intelligence Conta Certa
- * =================================================================
- * 
- * RESPONSABILIDADES:
- * 1. DRE Gerencial (Receitas vs Despesas vs Lucro por mês)
- * 2. Ponto Fora da Curva (Detecção de despesas anômalas)
- * 3. Indicadores de Eficiência (MRR, Ticket Médio, Margem)
- * 4. Simulador de Regimes Tributários (Simples vs Presumido vs Real)
- * 5. Simulador de Reforma Tributária (CBS + IBS - EC 132/2023)
- * 
- * OBSERVAÇÃO IMPORTANTE:
- * Todos os métodos recebem `companyId` (não userId) para garantir
- * que os dados sejam filtrados corretamente por empresa (tenant).
- */
 @Injectable()
 export class BiService {
   constructor(private prisma: PrismaService) {}
 
   // =================================================================
-  // 1️⃣ DRE GERENCIAL (Agrupado por Mês)
+  // 1️⃣ DRE GERENCIAL (Agrupado por Mês) - CORRIGIDO
   // =================================================================
-  /**
-   * Retorna a Demonstração do Resultado do Exercício (DRE)
-   * agrupada por mês, com receitas, despesas e lucro.
-   * 
-   * @param companyId - ID da empresa (tenant)
-   * @param months - Quantidade de meses para trás (padrão: 6)
-   * @param clientId - Filtro opcional por cliente específico
-   */
   async getDre(companyId: string, months: number = 6, clientId?: string) {
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - months);
 
     const whereClause: any = {
-      companyId, // 🔥 CORRIGIDO: era userId
-      date: { gte: startDate },
+      companyId,
+      status: 'CONCILIADO', // 🔥 Busca apenas lançamentos conciliados
+      entryDate: { gte: startDate },
     };
 
     if (clientId && clientId !== 'all') {
       whereClause.clientId = clientId;
     }
 
-    const transactions = await this.prisma.financialTransaction.findMany({
+    // 🔥 CORRIGIDO: Busca em AccountingEntry (não FinancialTransaction)
+    const entries = await this.prisma.accountingEntry.findMany({
       where: whereClause,
-      select: {
-        type: true,
-        category: true,
-        amount: true,
-        date: true,
+      include: {
+        debitAccount: true,
+        creditAccount: true,
       },
-      orderBy: { date: 'asc' },
+      orderBy: { entryDate: 'asc' },
     });
 
-    // Agrupar por mês (formato: "YYYY-MM")
     const monthlyData: Record<string, { receitas: number; despesas: number; lucro: number }> = {};
     const categoryTotals: Record<string, number> = {};
 
-    transactions.forEach((t) => {
-      const monthKey = `${t.date.getFullYear()}-${String(t.date.getMonth() + 1).padStart(2, '0')}`;
-      const amount = Number(t.amount);
+    entries.forEach((e) => {
+      const monthKey = `${e.entryDate.getFullYear()}-${String(e.entryDate.getMonth() + 1).padStart(2, '0')}`;
+      
+      // 🔥 CORRIGIDO: Usa debitValue e creditValue (não amount/type)
+      const creditValue = Number(e.creditValue) || 0;
+      const debitValue = Number(e.debitValue) || 0;
 
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { receitas: 0, despesas: 0, lucro: 0 };
       }
 
-      if (t.type === 'RECEITA') {
-        monthlyData[monthKey].receitas += amount;
-      } else {
-        monthlyData[monthKey].despesas += amount;
-        categoryTotals[t.category] = (categoryTotals[t.category] || 0) + amount;
+      monthlyData[monthKey].receitas += creditValue;
+      monthlyData[monthKey].despesas += debitValue;
+
+      // Agrupa despesas pelo nome da conta contábil
+      if (debitValue > 0 && e.debitAccount) {
+        const categoryName = e.debitAccount.name || 'Outros';
+        categoryTotals[categoryName] = (categoryTotals[categoryName] || 0) + debitValue;
       }
     });
 
@@ -82,14 +65,8 @@ export class BiService {
     });
 
     // Totais gerais
-    const totalReceitas = transactions
-      .filter((t) => t.type === 'RECEITA')
-      .reduce((acc, t) => acc + Number(t.amount), 0);
-      
-    const totalDespesas = transactions
-      .filter((t) => t.type === 'DESPESA')
-      .reduce((acc, t) => acc + Number(t.amount), 0);
-      
+    const totalReceitas = entries.reduce((acc, e) => acc + (Number(e.creditValue) || 0), 0);
+    const totalDespesas = entries.reduce((acc, e) => acc + (Number(e.debitValue) || 0), 0);
     const lucroLiquido = totalReceitas - totalDespesas;
     const margemLucro = totalReceitas > 0 ? (lucroLiquido / totalReceitas) * 100 : 0;
 
@@ -112,50 +89,49 @@ export class BiService {
   }
 
   // =================================================================
-  // 2️⃣ LISTA DE CLIENTES (Para filtro do DRE)
+  // 2️⃣ LISTA DE CLIENTES
   // =================================================================
   async getClients(companyId: string) {
     return this.prisma.client.findMany({
-      where: { companyId }, // 🔥 CORRIGIDO: era userId
+      where: { companyId },
       select: { id: true, companyName: true },
       orderBy: { companyName: 'asc' },
     });
   }
 
   // =================================================================
-  // 3️⃣ PONTO FORA DA CURVA (Detecção de Outliers)
+  // 3️⃣ PONTO FORA DA CURVA - CORRIGIDO
   // =================================================================
-  /**
-   * Analisa as despesas dos últimos 6 meses e identifica transações
-   * que estão MUITO acima da média da sua categoria.
-   * 
-   * ALGORITMO:
-   * 1. Calcula a média de cada categoria de despesa
-   * 2. Marca como "outlier" qualquer transação > 150% da média
-   * 3. Retorna o impacto financeiro total das anomalias
-   */
   async getOutliers(companyId: string) {
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    const transactions = await this.prisma.financialTransaction.findMany({
+    const entries = await this.prisma.accountingEntry.findMany({
       where: {
-        companyId, // 🔥 CORRIGIDO: era userId
-        type: 'DESPESA',
-        date: { gte: sixMonthsAgo },
+        companyId,
+        status: 'CONCILIADO',
+        entryDate: { gte: sixMonthsAgo },
       },
-      orderBy: { date: 'desc' },
+      include: {
+        debitAccount: true,
+      },
+      orderBy: { entryDate: 'desc' },
     });
 
-    // Calcular média por categoria
+    // Filtrar apenas despesas (débito > 0)
+    const despesas = entries.filter(e => Number(e.debitValue) > 0);
+
+    // Calcular média por categoria (nome da conta)
     const categoryStats: Record<string, { total: number; count: number; avg: number }> = {};
     
-    transactions.forEach((t) => {
-      if (!categoryStats[t.category]) {
-        categoryStats[t.category] = { total: 0, count: 0, avg: 0 };
+    despesas.forEach((e) => {
+      const category = e.debitAccount?.name || 'Outros';
+      if (!categoryStats[category]) {
+        categoryStats[category] = { total: 0, count: 0, avg: 0 };
       }
-      categoryStats[t.category].total += Number(t.amount);
-      categoryStats[t.category].count += 1;
+      const value = Number(e.debitValue);
+      categoryStats[category].total += value;
+      categoryStats[category].count += 1;
     });
 
     Object.keys(categoryStats).forEach((cat) => {
@@ -163,21 +139,24 @@ export class BiService {
     });
 
     // Identificar outliers (> 150% da média)
-    const outliers = transactions
-      .filter((t) => {
-        const avg = categoryStats[t.category].avg;
-        return Number(t.amount) > avg * 1.5; 
+    const outliers = despesas
+      .filter((e) => {
+        const category = e.debitAccount?.name || 'Outros';
+        const avg = categoryStats[category].avg;
+        return Number(e.debitValue) > avg * 1.5;
       })
-      .map((t) => {
-        const avg = categoryStats[t.category].avg;
-        const deviation = ((Number(t.amount) - avg) / avg) * 100;
+      .map((e) => {
+        const category = e.debitAccount?.name || 'Outros';
+        const avg = categoryStats[category].avg;
+        const value = Number(e.debitValue);
+        const deviation = ((value - avg) / avg) * 100;
         
         return {
-          id: t.id,
-          description: t.description,
-          category: t.category,
-          amount: Number(t.amount),
-          date: t.date,
+          id: e.id,
+          description: e.description,
+          category: category,
+          amount: value,
+          date: e.entryDate,
           average: Number(avg.toFixed(2)),
           deviation: Number(deviation.toFixed(1)),
         };
@@ -194,56 +173,53 @@ export class BiService {
   }
 
   // =================================================================
-  // 4️⃣ INDICADORES DE EFICIÊNCIA (KPIs do Escritório)
+  // 4️ INDICADORES DE EFICIÊNCIA (Mantém FinancialTransaction para KPIs do escritório)
   // =================================================================
-  /**
-   * Calcula os principais KPIs de performance do escritório:
-   * - MRR (Monthly Recurring Revenue)
-   * - Ticket Médio por cliente
-   * - Receita por colaborador
-   * - Margem líquida do mês atual
-   */
   async getIndicators(companyId: string) {
-    // 1. Clientes Ativos e MRR
+    // Clientes Ativos e MRR
     const activeClientsCount = await this.prisma.client.count({ 
-      where: { companyId, status: 'ATIVO' } // 🔥 CORRIGIDO: era userId
+      where: { companyId, status: 'ATIVO' }
     });
     
     const activeClients = await this.prisma.client.findMany({
-      where: { companyId, status: 'ATIVO' }, // 🔥 CORRIGIDO: era userId
+      where: { companyId, status: 'ATIVO' },
       select: { monthlyFee: true }
     });
     
     const mrr = activeClients.reduce((acc, curr) => acc + curr.monthlyFee, 0);
     const ticketMedio = activeClientsCount > 0 ? mrr / activeClientsCount : 0;
 
-    // 2. Colaboradores e Folha
+    // Colaboradores e Folha
     const activeEmployeesCount = await this.prisma.employee.count({ 
-      where: { companyId, status: 'ACTIVE' } // 🔥 CORRIGIDO: era userId
+      where: { companyId, status: 'ACTIVE' }
     });
 
     const activeEmployees = await this.prisma.employee.findMany({
-      where: { companyId, status: 'ACTIVE' }, // 🔥 CORRIGIDO: era userId
+      where: { companyId, status: 'ACTIVE' },
       select: { salary: true }
     });
 
     const folhaTotal = activeEmployees.reduce((acc, curr) => acc + (curr.salary || 0), 0);
     const receitaPorColaborador = activeEmployeesCount > 0 ? mrr / activeEmployeesCount : 0;
 
-    // 3. Margem Líquida do Mês Atual
+    // Margem Líquida do Mês Atual (usando AccountingEntry conciliados)
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    const transactionsThisMonth = await this.prisma.financialTransaction.findMany({
-      where: { companyId, date: { gte: startOfMonth } } // 🔥 CORRIGIDO: era userId
+    const entriesThisMonth = await this.prisma.accountingEntry.findMany({
+      where: { 
+        companyId, 
+        status: 'CONCILIADO',
+        entryDate: { gte: startOfMonth } 
+      }
     });
     
     let receitaMes = 0;
     let despesaMes = 0;
     
-    transactionsThisMonth.forEach(t => {
-      if (t.type === 'RECEITA') receitaMes += Number(t.amount);
-      else despesaMes += Number(t.amount);
+    entriesThisMonth.forEach(e => {
+      receitaMes += Number(e.creditValue) || 0;
+      despesaMes += Number(e.debitValue) || 0;
     });
     
     const margemMes = receitaMes > 0 ? ((receitaMes - despesaMes) / receitaMes) * 100 : 0;
@@ -262,17 +238,8 @@ export class BiService {
   }
 
   // =================================================================
-  // 5️⃣ SIMULADOR DE REGIMES TRIBUTÁRIOS
+  // 5️⃣ SIMULADOR DE REGIMES TRIBUTÁRIOS (Mantido igual)
   // =================================================================
-  /**
-   * Compara Simples Nacional vs Lucro Presumido vs Lucro Real
-   * e recomenda o regime mais vantajoso com base no faturamento.
-   * 
-   * BASE LEGAL:
-   * - Simples: Tabelas oficiais 2026 (Anexo I e III)
-   * - Presumido: Presunção de 8% (comércio) ou 32% (serviços)
-   * - Real: Sobre o lucro contábil efetivo
-   */
   async simulateTaxRegimes(companyId: string, data: {
     faturamentoAnual: number;
     despesasAnual: number;
@@ -282,7 +249,6 @@ export class BiService {
     const { faturamentoAnual, despesasAnual, folhaAnual, atividade } = data;
     const lucroReal = faturamentoAnual - despesasAnual;
 
-    // --- SIMPLES NACIONAL ---
     const anexoI = [
       { limite: 180000, aliquota: 4.00, deducao: 0 },
       { limite: 360000, aliquota: 7.30, deducao: 5940 },
@@ -321,7 +287,6 @@ export class BiService {
 
     const impostoSimples = (faturamentoAnual * (aliquotaSimples / 100)) - deducaoSimples;
 
-    // --- LUCRO PRESUMIDO ---
     const percentualPresuncao = atividade === 'SERVICOS' ? 0.32 : 0.08;
     const basePresumida = faturamentoAnual * percentualPresuncao;
 
@@ -336,7 +301,6 @@ export class BiService {
 
     const impostoPresumido = irpjTotal + csll + pis + cofins + iss;
 
-    // --- LUCRO REAL ---
     const irpjRealBase = Math.max(0, lucroReal) * 0.15;
     const irpjRealAdicional = lucroReal > 240000 ? (lucroReal - 240000) * 0.10 : 0;
     const irpjReal = irpjRealBase + irpjRealAdicional;
@@ -348,7 +312,6 @@ export class BiService {
 
     const impostoReal = irpjReal + csllReal + pisReal + cofinsReal + issReal;
 
-    // --- COMPARAÇÃO ---
     const regimes = [
       {
         nome: 'Simples Nacional',
@@ -392,17 +355,8 @@ export class BiService {
   }
 
   // =================================================================
-  // 6️⃣ SIMULADOR DE REFORMA TRIBUTÁRIA (EC 132/2023)
+  // 6️⃣ SIMULADOR DE REFORMA TRIBUTÁRIA (Mantido igual)
   // =================================================================
-  /**
-   * Compara o sistema tributário atual (PIS/COFINS/ICMS/ISS)
-   * com o novo sistema da Reforma (CBS + IBS - IVA Dual).
-   * 
-   * BASE LEGAL:
-   * - CBS: 26,5% (federal)
-   * - IBS: varia por UF (média 19%)
-   * - Transição gradual: 2026-2033
-   */
   async simulateTaxReform(companyId: string, data: {
     faturamentoAnual: number;
     despesasComInsumos: number;
@@ -412,7 +366,6 @@ export class BiService {
   }) {
     const { faturamentoAnual, despesasComInsumos, folhaAnual, setor, estado } = data;
 
-    // --- CENÁRIO ATUAL ---
     const pisCofinsAtual = faturamentoAnual * 0.0925;
     const creditoPisCofins = despesasComInsumos * 0.0925;
     const pisCofinsLiquido = pisCofinsAtual - creditoPisCofins;
@@ -429,7 +382,6 @@ export class BiService {
     const impostoAtualTotal = pisCofinsLiquido + icmsIssAtual + ipiAtual;
     const aliquotaEfetivaAtual = faturamentoAnual > 0 ? (impostoAtualTotal / faturamentoAnual) * 100 : 0;
 
-    // --- CENÁRIO PÓS-REFORMA ---
     const aliquotaCBS = 0.265;
     const cbsBruto = faturamentoAnual * aliquotaCBS;
     const creditoCBS = despesasComInsumos * aliquotaCBS;
@@ -452,7 +404,6 @@ export class BiService {
     const impostoReformaTotal = cbsLiquido + ibsLiquido;
     const aliquotaEfetivaReforma = faturamentoAnual > 0 ? (impostoReformaTotal / faturamentoAnual) * 100 : 0;
 
-    // --- COMPARAÇÃO ---
     const diferencaAnual = impostoReformaTotal - impostoAtualTotal;
     const diferencaMensal = diferencaAnual / 12;
     const impactoPercentual = impostoAtualTotal > 0 ? ((diferencaAnual / impostoAtualTotal) * 100) : 0;
@@ -465,7 +416,6 @@ export class BiService {
 
     const impactoColor = diferencaAnual > 0 ? 'vermelho' : diferencaAnual < 0 ? 'verde' : 'neutro';
 
-    // --- CRONOGRAMA DE TRANSIÇÃO (2026-2033) ---
     const anoInicioTransicao = 2026;
     const anoFimTransicao = 2033;
     
@@ -516,3 +466,6 @@ export class BiService {
     };
   }
 }
+// =================================================================
+// FIM: bi.service.ts
+// =================================================================

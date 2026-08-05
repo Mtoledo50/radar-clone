@@ -1,3 +1,6 @@
+// =================================================================
+// INÍCIO: schema.prisma
+// =================================================================
 generator client {
   provider = "prisma-client-js"
 }
@@ -42,17 +45,17 @@ model Company {
   proposals           Proposal[]
   clientMonthlyData   ClientMonthlyData[]
   
-  // 🔥 NOVAS RELAÇÕES: Planejamento Estratégico
-  planningCycles    PlanningCycle[]
-  planningAreas     PlanningArea[]
-  planningObjectives PlanningObjective[]
-  planningGoals     PlanningGoal[]
-  planningKpis      PlanningKPI[]
-  actionPlans       ActionPlan[]
+  // Planejamento Estratégico
+  planningCycles      PlanningCycle[]
+  planningAreas       PlanningArea[]
+  planningObjectives  PlanningObjective[]
+  planningGoals       PlanningGoal[]
+  planningKpis        PlanningKPI[]
+  actionPlans         ActionPlan[]
 
-  // 🔥 NOVAS RELAÇÕES: Lançamentos Contábeis
-  accountingAccounts AccountingAccount[]
-  accountingEntries  AccountingEntry[]
+  // Lançamentos Contábeis
+  accountingAccounts  AccountingAccount[]
+  accountingEntries   AccountingEntry[]
   
   @@map("companies")
 }
@@ -177,7 +180,8 @@ model Client {
   updatedAt             DateTime              @updatedAt
   
   financialTransactions FinancialTransaction[]
-
+  accountingEntries     AccountingEntry[]     // 🔥 CORREÇÃO: Relação inversa adicionada
+  
   @@index([userId])
   @@index([companyId])
   @@map("clients")
@@ -215,7 +219,7 @@ model Pricing {
 }
 
 // =================================================================
-// 📋 PLANEJAMENTO (Legado - pode ser removido no futuro)
+// 📋 PLANEJAMENTO (Legado)
 // =================================================================
 model Planning {
   id              String   @id @default(uuid())
@@ -700,9 +704,8 @@ model ClientMonthlyData {
 }
 
 // =================================================================
-// 🎯 PLANEJAMENTO ESTRATÉGICO (NOVOS MODELOS)
+// 🎯 PLANEJAMENTO ESTRATÉGICO
 // =================================================================
-
 model PlanningCycle {
   id          String   @id @default(uuid())
   companyId   String
@@ -819,59 +822,56 @@ model ActionPlan {
 }
 
 // =================================================================
-// 📊 LANÇAMENTOS CONTÁBEIS
+// 📒 LANÇAMENTOS CONTÁBEIS
 // =================================================================
 model AccountingEntry {
-  id              String   @id @default(uuid())
-  companyId       String
-  entryDate       DateTime // Data do lançamento
-  description     String   @db.Text
-  documentNumber  String?  // Nº do documento (NF, recibo, etc)
+  id                  String   @id @default(uuid())
+  companyId           String
+  company             Company  @relation(fields: [companyId], references: [id], onDelete: Cascade) // 🔥 CORREÇÃO: Relação inversa adicionada
   
-  // Identificação da contraparte (cliente/fornecedor)
-  counterpartyName String?
+  entryDate           DateTime
+  description         String
+  documentNumber      String?
+  counterpartyName    String?
   counterpartyCpfCnpj String?
-  counterpartyType String? // "CLIENTE" ou "FORNECEDOR"
+  counterpartyType    String?
   
-  // Débito
-  debitAccountId  String?
-  debitAccount    AccountingAccount? @relation("DebitEntries", fields: [debitAccountId], references: [id])
-  debitValue      Decimal  @db.Decimal(15, 2) @default(0)
+  clientId            String?
+  client              Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   
-  // Crédito
-  creditAccountId String?
-  creditAccount   AccountingAccount? @relation("CreditEntries", fields: [creditAccountId], references: [id])
-  creditValue     Decimal  @db.Decimal(15, 2) @default(0)
+  debitAccountId      String?
+  debitAccount        AccountingAccount? @relation("DebitEntries", fields: [debitAccountId], references: [id])
+  debitValue          Decimal  @default(0)
   
-  // Metadados
-  source          String   @default("MANUAL") // "MANUAL", "PDF", "EXCEL", "CSV"
-  status          String   @default("PENDENTE") // "PENDENTE", "CONCILIADO", "CANCELADO"
+  creditAccountId     String?
+  creditAccount       AccountingAccount? @relation("CreditEntries", fields: [creditAccountId], references: [id])
+  creditValue         Decimal  @default(0)
   
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  source              String   @default("MANUAL")
+  status              String   @default("PENDENTE")
   
-  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
   @@index([companyId])
+  @@index([status])
   @@index([entryDate])
-  @@index([counterpartyCpfCnpj])
-  @@map("accounting_entries")
 }
 
 // =================================================================
-// 📒 CONTAS CONTÁBEIS (Plano de Contas Padrão)
+// 📒 CONTAS CONTÁBEIS (Plano de Contas)
 // =================================================================
 model AccountingAccount {
   id          String   @id @default(uuid())
-  companyId   String?  // NULL = conta global/padrão (nº 90113 SCI)
-  code        String   // Ex: "1.1.01.001"
-  name        String   // Ex: "Caixa e Equivalentes"
-  type        String   // "ATIVO", "PASSIVO", "PATRIMONIO_LIQUIDO", "RECEITA", "DESPESA"
-  nature      String   // "DEBITORA" ou "CREDORA"
+  companyId   String?  // NULL = conta global/padrão
+  code        String   
+  name        String   
+  type        String   
+  nature      String   
   level       Int      @default(1)
   parentId    String?
   isActive    Boolean  @default(true)
-  sciCode     String?  // Código no sistema SCI (ex: "90113")
+  sciCode     String?  
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -886,3 +886,6 @@ model AccountingAccount {
   @@index([code])
   @@map("accounting_accounts")
 }
+// =================================================================
+// FIM: schema.prisma
+// =================================================================

@@ -660,3 +660,80 @@ Sistema inteligente de conciliação bancária que realiza matching automático 
 3. Enviar 2 arquivos: `files[0]` (Excel) e `files[1]` (CSV)
 4. Receber JSON com lançamentos conciliados
 
+---
+
+## 🤖 Módulo de Conciliação Bancária Automática
+
+### Visão Geral
+Sistema inteligente de conciliação bancária que realiza matching automático entre o controle de caixa (Excel) e a base contábil (CSV), sugerindo as contas de Débito e Crédito corretas com base no plano de contas padrão (SCI 90113).
+
+### Funcionalidades
+- **Upload de 2 arquivos**: Excel (controle de caixa) + CSV (base contábil)
+- **Matching automático** em 2 etapas:
+  1. Por **VALOR EXATO** (tolerância de R$ 0,01)
+  2. Por **SIMILARIDADE DE TEXTO** (Jaccard similarity > 60%)
+- **Sugestão de contas contábeis** do plano padrão
+- **Revisão manual** no frontend antes de salvar
+- **Salvamento em lote** dos lançamentos confirmados
+
+### Status
+✅ **Passo 1 Concluído**: Service e Controller de Conciliação
+- ✅ Parser de Excel (controle de caixa)
+- ✅ Parser de CSV (base contábil)
+- ✅ Lógica de matching por valor
+- ✅ Lógica de matching por similaridade de texto
+- ✅ Integração com plano de contas global
+- ✅ Endpoint POST `/accounting/reconcile`
+
+✅ **Passo 2 Concluído**: Interface React para Revisão
+- ✅ Componente de upload de arquivos
+- ✅ Tabela de resultados com edição inline
+- ✅ Dropdowns para seleção de contas
+- ✅ Botão de salvar lançamentos
+- ✅ Integração com endpoint de salvamento
+
+### Como Usar
+1. Acesse `/dashboard/lancamentos/conciliacao`
+2. Faça upload do Excel (controle de caixa) e CSV (base contábil)
+3. Clique em "Processar Conciliação"
+4. Revise os lançamentos e ajuste as contas quando necessário
+5. Clique em "Salvar Lançamentos"
+
+### Próximos Passos
+⏳ **Passo 3**: Adicionar filtros e relatórios de conciliação
+⏳ **Passo 4**: Implementar exportação de resultados em PDF/Excel
+
+---
+
+## 🤖 Módulo de Conciliação Bancária Automática (v2.0)
+
+### Melhorias da Versão 2.0
+✅ **Detecção automática de formato** - Aceita tanto "Controle de Caixa" quanto "Conciliação Bancária"
+✅ **Normalização de colunas** - Aceita Data/DATA/data, Valor/VALOR/valor, etc.
+✅ **Suporte a múltiplos formatos** - Excel com ENTRADA/SAÍDA/VALOR ou DÉBITO/CRÉDITO separados
+✅ **Logs de debug** - Facilita diagnóstico de problemas
+✅ **Tratamento de erros** - Mensagens claras quando arquivos estão vazios ou em formato inválido
+
+### Formatos Suportados
+
+#### Formato 1: Controle de Caixa
+| DATA | HISTÓRICO | CPF/CNPJ | ENTRADA | SAÍDA | VALOR |
+|------|-----------|----------|---------|-------|-------|
+| 01/08/2025 | Recebimento cliente | 12.345.678/0001-90 | SIM | NÃO | R$ 1.000,00 |
+
+#### Formato 2: Conciliação Bancária
+| DATA | HISTÓRICO | DÉBITO | CRÉDITO |
+|------|-----------|--------|---------|
+| 01/08/2025 | Recebimento cliente | | R$ 1.000,00 |
+| 02/08/2025 | Pagamento fornecedor | R$ 500,00 | |
+
+### Como Usar
+1. Acesse `/dashboard/lancamentos/conciliacao`
+2. Faça upload do Excel (controle de caixa ou conciliação bancária)
+3. Faça upload do CSV (base contábil do SCI)
+4. Clique em "Processar Conciliação"
+5. Revise os lançamentos e ajuste as contas quando necessário
+6. Clique em "Salvar Lançamentos"
+
+### Logs de Debug
+O backend agora exibe logs detalhados no terminal:

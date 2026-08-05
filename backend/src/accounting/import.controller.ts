@@ -1,132 +1,98 @@
+// =================================================================
+// INÍCIO: import.controller.ts
+// =================================================================
 import { 
-  Controller, Post, UseInterceptors, UploadedFiles, 
-  UseGuards, Request, Body 
+  Controller, 
+  Post, 
+  UseInterceptors, 
+  UploadedFile, 
+  UseGuards, 
+  Request, 
+  Body 
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
-import { AccountingImportService } from './import.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ImportService } from './import.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 
-/**
- * =================================================================
- * 🎯 CONTROLLER DE IMPORTAÇÃO INTELIGENTE
- * =================================================================
- * 
- * ENDPOINTS:
- * - POST /accounting/import/process-with-matching
- *   Recebe 2 arquivos (Excel + CSV) e retorna lançamentos com sugestões
- * 
- * - POST /accounting/import/save-confirmed
- *   Salva os lançamentos confirmados pelo usuário
- */
 @Controller('accounting/import')
 @UseGuards(JwtAuthGuard)
-export class AccountingImportController {
-  constructor(private readonly importService: AccountingImportService) {}
+export class ImportController {
+  constructor(private readonly importService: ImportService) {}
 
-  /**
-   * =================================================================
-   * 📤 PROCESSAR IMPORTAÇÃO COM MATCHING AUTOMÁTICO
-   * =================================================================
-   * 
-   * Recebe 2 arquivos:
-   * 1. cashControl - Excel com controle de caixa
-   * 2. accountingHistory - CSV com lançamentos contábeis
-   * 
-   * Retorna lista de lançamentos com:
-   * - Sugestões de contas de Débito e Crédito
-   * - Status do match (VALOR_ENCONTRADO, DESCRICAO_ENCONTRADA, NAO_VINCULADO)
-   */
-  @Post('process-with-matching')
+  // =================================================================
+  // INÍCIO: Endpoint POST /accounting/import/parse
+  // =================================================================
+  @Post('parse')
   @UseInterceptors(
-    FilesInterceptor('files', 2, {
+    FileInterceptor('file', {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, cb) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
           const ext = extname(file.originalname);
-          cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+          cb(null, `import-${uniqueSuffix}${ext}`);
         },
       }),
       fileFilter: (req, file, cb) => {
-        const allowedExtensions = /csv|xlsx|xls/;
+        const allowed = /csv|txt/;
         const ext = extname(file.originalname).toLowerCase();
-        if (allowedExtensions.test(ext)) {
+        if (allowed.test(ext)) {
           cb(null, true);
         } else {
-          cb(new Error('Apenas arquivos CSV e Excel são permitidos'), false);
+          cb(new Error('Apenas arquivos .csv ou .txt são permitidos'), false);
         }
       },
     })
   )
-  async processWithMatching(
-    @UploadedFiles() files: Express.Multer.File[],
-    @Request() req
-  ) {
-    if (!files || files.length !== 2) {
-      return { 
-        success: false, 
-        message: 'Envie exatamente 2 arquivos: Excel (controle de caixa) e CSV (lançamentos contábeis)' 
-      };
+  async parseStatement(@UploadedFile() file: Express.Multer.File, @Request() req) {
+    if (!file) {
+      return { success: false, message: 'Nenhum arquivo enviado' };
     }
-    
-    // Identificar qual arquivo é qual
-    const cashControlFile = files.find(f => 
-      f.originalname.toLowerCase().includes('controle') || 
-      f.originalname.toLowerCase().includes('caixa') ||
-      f.originalname.endsWith('.xlsx')
-    );
-    
-    const accountingFile = files.find(f => 
-      f.originalname.toLowerCase().includes('consulta') || 
-      f.originalname.toLowerCase().includes('contabil') ||
-      f.originalname.endsWith('.csv')
-    );
-    
-    if (!cashControlFile || !accountingFile) {
-      return { 
-        success: false, 
-        message: 'Não foi possível identificar os arquivos. Certifique-se de enviar um Excel (controle) e um CSV (contábil).' 
-      };
-    }
-    
+
     try {
-      const result = await this.importService.processCashControlWithMatching(
-        cashControlFile,
-        accountingFile,
+      console.log(`\n Recebido arquivo para parse: ${file.originalname}`);
+      const result = await this.importService.parseBankStatement(
+        file.path, 
+        file.originalname, 
         req.user.companyId
       );
-      
       return { success: true, data: result };
     } catch (error: any) {
+      console.error('❌ Erro no parse:', error);
       return { success: false, message: error.message };
     }
   }
+  // =================================================================
+  // FIM: Endpoint POST /accounting/import/parse
+  // =================================================================
 
-  /**
-   * =================================================================
-   * 💾 SALVAR LANÇAMENTOS CONFIRMADOS
-   * =================================================================
-   * 
-   * Recebe lista de lançamentos com contas de Débito e Crédito definidas
-   * e salva no banco de dados
-   */
-  @Post('save-confirmed')
-  async saveConfirmed(@Request() req, @Body() body: any) {
+  // =================================================================
+  // INÍCIO: Endpoint POST /accounting/import/save
+  // =================================================================
+  @Post('save')
+  async saveStatement(@Request() req, @Body() body: any) {
     try {
-      const result = await this.importService.saveConfirmedEntries(
-        body.entries,
-        req.user.companyId
+      const result = await this.importService.saveImportedEntries(
+        body.entries, 
+        req.user.companyId, 
+        req.user.id,
+        body.clientId // 🔥 Passando o clientId do frontend
       );
-      
       return { 
         success: true, 
-        data: result,
-        message: `${result.length} lançamentos salvos com sucesso!`
+        message: `${result.length} lançamentos salvos com sucesso!`, 
+        data: result 
       };
     } catch (error: any) {
       return { success: false, message: error.message };
     }
   }
+  // =================================================================
+  // FIM: Endpoint POST /accounting/import/save
+  // =================================================================
 }
+// =================================================================
+// FIM: import.controller.ts
+// =================================================================

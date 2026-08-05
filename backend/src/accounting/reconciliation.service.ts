@@ -1,262 +1,140 @@
+// =================================================================
+// INÍCIO: reconciliation.service.ts
+// =================================================================
 /**
+ * 🤖 SERVIÇO DE CONCILIAÇÃO E REVISÃO CONTÁBIL
  * =================================================================
- * 🤖 SERVIÇO DE CONCILIAÇÃO BANCÁRIA AUTOMÁTICA
- * =================================================================
- * 
- * RESPONSABILIDADE:
- * Realizar o matching automático entre lançamentos do controle de caixa
- * (Excel) e a base contábil (CSV), sugerindo as contas de Débito e Crédito
- * corretas com base no plano de contas padrão (SCI 90113).
- * 
- * ESTRATÉGIA DE MATCHING (em ordem de prioridade):
- * 1. Match por VALOR EXATO (tolerância de R$ 0,01)
- * 2. Match por SIMILARIDADE DE TEXTO (Jaccard similarity > 60%)
- * 3. Se não encontrar, marca como "NAO_VINCULADO" para revisão manual
- * 
- * FLUXO:
- * 1. Recebe 2 arquivos (Excel + CSV)
- * 2. Faz parsing e normalização de ambos
- * 3. Busca o plano de contas global (companyId: null)
- * 4. Para cada lançamento do controle de caixa, tenta vincular com a base contábil
- * 5. Retorna lista com sugestões de contas para o frontend revisar
+ * Responsável por:
+ * 1. Cruzar lançamentos PENDENTES com a base do SCI (Conciliação Automática)
+ * 2. Detectar arquivos duplicados antes do upload
+ * 3. Identificar e remover lançamentos duplicados no banco
+ * 4. Salvar a revisão manual de contas de débito/crédito
  */
 
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
 import * as csv from 'csv-parser';
-import * as xlsx from 'xlsx';
-
-/**
- * Interface que representa um lançamento do controle de caixa (Excel)
- */
-interface CashControlEntry {
-  date: Date;
-  description: string;
-  counterpartyName: string;
-  counterpartyCpfCnpj: string;
-  amount: number;
-  type: 'ENTRADA' | 'SAIDA';
-}
-
-/**
- * Interface que representa um lançamento da base contábil (CSV)
- */
-interface AccountingBaseEntry {
-  date: Date;
-  debitCode: string;
-  creditCode: string;
-  value: number;
-  description: string;
-  complement: string;
-}
-
-/**
- * Interface que representa o resultado final da conciliação
- * (o que será enviado para o frontend revisar)
- */
-export interface ReconciledEntry {
-  id: string; // ID temporário para o frontend
-  date: Date;
-  description: string;
-  counterpartyName: string;
-  counterpartyCpfCnpj: string;
-  amount: number;
-  type: 'ENTRADA' | 'SAIDA';
-  matchStatus: 'VALOR_ENCONTRADO' | 'DESCRICAO_ENCONTRADA' | 'NAO_VINCULADO';
-  debitAccountId: string | null;
-  creditAccountId: string | null;
-  matchedFrom?: {
-    debitCode: string;
-    creditCode: string;
-    description: string;
-    value: number;
-  };
-}
+import * as crypto from 'crypto';
 
 @Injectable()
 export class ReconciliationService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * =================================================================
-   * 🎯 MÉTODO PRINCIPAL: PROCESSAR CONCILIAÇÃO
-   * =================================================================
-   * 
-   * Recebe os caminhos dos 2 arquivos e o companyId do usuário.
-   * Retorna uma lista de lançamentos com sugestões de contas contábeis.
-   */
-  async processReconciliation(
-    cashControlFile: Express.Multer.File,
-    accountingFile: Express.Multer.File,
-    companyId: string
-  ): Promise<ReconciledEntry[]> {
+  // =================================================================
+  // INÍCIO: MÉTODOS DE CONCILIAÇÃO AUTOMÁTICA (SEU CÓDIGO ORIGINAL)
+  // =================================================================
+
+  async reconcileEntries(accountingFile: Express.Multer.File, companyId: string) {
     try {
-      // 1. Parse do arquivo Excel (controle de caixa)
-      console.log('📊 Lendo controle de caixa...');
-      const cashEntries = await this.parseCashControlExcel(cashControlFile.path);
-      console.log(`✅ ${cashEntries.length} lançamentos encontrados no controle de caixa`);
+      console.log('\n' + '='.repeat(70));
+      console.log('🔗 INICIANDO CONCILIAÇÃO AUTOMÁTICA');
+      console.log('='.repeat(70));
 
-      // 2. Parse do arquivo CSV (base contábil)
-      console.log('📄 Lendo base contábil...');
-      const accountingEntries = await this.parseAccountingCSV(accountingFile.path);
-      console.log(`✅ ${accountingEntries.length} lançamentos encontrados na base contábil`);
-
-      // 3. Buscar plano de contas global (companyId: null = padrão SCI 90113)
-      console.log('🔍 Buscando plano de contas global...');
-      const accounts = await this.prisma.accountingAccount.findMany({
-        where: { 
-          OR: [
-            { companyId: null }, // Contas globais/padrão
-            { companyId: companyId } // Contas específicas da empresa
-          ],
-          isActive: true 
-        }
+      const pendingEntries = await this.prisma.accountingEntry.findMany({
+        where: { companyId, status: 'PENDENTE' }
       });
-      console.log(`✅ ${accounts.length} contas contábeis carregadas`);
 
-      // 4. Para cada lançamento do controle de caixa, tentar vincular
-      console.log('🔗 Iniciando matching automático...');
-      const reconciledEntries: ReconciledEntry[] = [];
-      
-      for (const cashEntry of cashEntries) {
-        const match = this.findMatchingAccountingEntry(
-          cashEntry, 
-          accountingEntries, 
-          accounts
-        );
-        
-        reconciledEntries.push({
-          id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          date: cashEntry.date,
-          description: cashEntry.description,
-          counterpartyName: cashEntry.counterpartyName,
-          counterpartyCpfCnpj: cashEntry.counterpartyCpfCnpj,
-          amount: cashEntry.amount,
-          type: cashEntry.type,
+      console.log(`📊 Lançamentos pendentes encontrados: ${pendingEntries.length}`);
+
+      if (pendingEntries.length === 0) {
+        throw new BadRequestException('Nenhum lançamento pendente encontrado para conciliar');
+      }
+
+      const sciEntries = await this.parseAccountingCSV(accountingFile.path);
+      console.log(`📄 Lançamentos do SCI carregados: ${sciEntries.length}`);
+
+      const accounts = await this.prisma.accountingAccount.findMany({
+        where: { OR: [{ companyId: null }, { companyId }], isActive: true }
+      });
+      console.log(`🔍 Contas contábeis disponíveis: ${accounts.length}`);
+
+      const results = [];
+      let vinculadosPorValor = 0;
+      let vinculadosPorDescricao = 0;
+      let naoVinculados = 0;
+
+      for (const entry of pendingEntries) {
+        const debitValue = Number(entry.debitValue);
+        const creditValue = Number(entry.creditValue);
+        const amount = debitValue > 0 ? debitValue : creditValue;
+        const description = entry.description;
+
+        const match = this.findMatchingSCIEntry(amount, description, sciEntries, accounts);
+
+        if (match.status === 'VALOR_ENCONTRADO') {
+          vinculadosPorValor++;
+        } else if (match.status === 'DESCRICAO_ENCONTRADA') {
+          vinculadosPorDescricao++;
+        } else {
+          naoVinculados++;
+        }
+
+        results.push({
+          entryId: entry.id,
+          date: entry.entryDate,
+          description: entry.description,
+          amount: amount,
           matchStatus: match.status,
-          debitAccountId: match.debitAccount?.id || null,
-          creditAccountId: match.creditAccount?.id || null,
+          suggestedDebitAccountId: match.debitAccount?.id || null,
+          suggestedCreditAccountId: match.creditAccount?.id || null,
           matchedFrom: match.source ? {
             debitCode: match.source.debitCode,
             creditCode: match.source.creditCode,
             description: match.source.description,
             value: match.source.value
-          } : undefined
+          } : null
         });
       }
 
-      // 5. Limpar arquivos temporários do disco
-      this.cleanupTempFiles([cashControlFile.path, accountingFile.path]);
+      if (fs.existsSync(accountingFile.path)) {
+        fs.unlinkSync(accountingFile.path);
+      }
 
-      // 6. Log de estatísticas
-      const stats = {
-        total: reconciledEntries.length,
-        valorEncontrado: reconciledEntries.filter(e => e.matchStatus === 'VALOR_ENCONTRADO').length,
-        descricaoEncontrada: reconciledEntries.filter(e => e.matchStatus === 'DESCRICAO_ENCONTRADA').length,
-        naoVinculado: reconciledEntries.filter(e => e.matchStatus === 'NAO_VINCULADO').length,
+      console.log('\n' + '='.repeat(70));
+      console.log('📊 RESULTADO DA CONCILIAÇÃO:');
+      console.log('='.repeat(70));
+      console.log(`✅ Vinculados por VALOR: ${vinculadosPorValor}`);
+      console.log(`✅ Vinculados por DESCRIÇÃO: ${vinculadosPorDescricao}`);
+      console.log(`⚠️  Não vinculados: ${naoVinculados}`);
+      console.log(`📈 Total processado: ${results.length}`);
+      console.log('='.repeat(70) + '\n');
+
+      return {
+        results,
+        total: pendingEntries.length,
+        vinculadosPorValor,
+        vinculadosPorDescricao,
+        naoVinculados
       };
-      console.log('📈 Estatísticas da conciliação:', stats);
 
-      return reconciledEntries;
-      
     } catch (error: any) {
       console.error('❌ ERRO NA CONCILIAÇÃO:', error);
-      // Limpar arquivos em caso de erro
-      this.cleanupTempFiles([cashControlFile.path, accountingFile.path]);
-      throw new BadRequestException(`Erro ao processar conciliação: ${error.message}`);
+      if (fs.existsSync(accountingFile.path)) {
+        fs.unlinkSync(accountingFile.path);
+      }
+      throw new BadRequestException(`Erro ao conciliar: ${error.message}`);
     }
   }
 
-  /**
-   * =================================================================
-   * 📊 PARSE DO EXCEL (CONTROLE DE CAIXA)
-   * =================================================================
-   * 
-   * Lê o arquivo Excel e extrai os lançamentos no formato padronizado.
-   * Espera colunas: DATA, HISTÓRICO, CPF/CNPJ, ENTRADA, SAÍDA, VALOR
-   */
-  private async parseCashControlExcel(filePath: string): Promise<CashControlEntry[]> {
-    const workbook = xlsx.readFile(filePath);
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    
-    // Converter planilha para JSON (array de objetos)
-    const jsonData = xlsx.utils.sheet_to_json(sheet);
-    const entries: CashControlEntry[] = [];
-    
-    for (const row of jsonData) {
-      // Ignorar linhas vazias ou sem dados essenciais
-      if (!row['DATA'] || !row['VALOR']) continue;
-      
-      // Parse da data (aceita múltiplos formatos)
-      const date = this.parseBrazilianDate(row['DATA']);
-      
-      // Parse do valor monetário (formato brasileiro: R$ 1.234,56)
-      const amount = this.parseBrazilianCurrency(row['VALOR']);
-      if (amount === 0) continue;
-      
-      // Determinar se é ENTRADA ou SAÍDA
-      const isEntrada = row['ENTRADA']?.toString().toUpperCase() === 'SIM';
-      const isSaida = row['SAÍDA']?.toString().toUpperCase() === 'SIM' || 
-                      row['SAIDA']?.toString().toUpperCase() === 'SIM';
-      
-      const type = isEntrada ? 'ENTRADA' : 'SAIDA';
-      
-      // Extrair descrição e nome da contraparte
-      const description = row['HISTÓRICO']?.toString() || 
-                         row['HISTORICO']?.toString() || 
-                         '';
-      
-      const counterpartyName = this.extractCounterpartyName(description);
-      const counterpartyCpfCnpj = row['CPF/CNPJ']?.toString() || '';
-      
-      entries.push({
-        date,
-        description,
-        counterpartyName,
-        counterpartyCpfCnpj,
-        amount,
-        type
-      });
-    }
-    
-    return entries;
-  }
-
-  /**
-   * =================================================================
-   * 📄 PARSE DO CSV (BASE CONTÁBIL)
-   * =================================================================
-   * 
-   * Lê o arquivo CSV e extrai os lançamentos no formato padronizado.
-   * Espera colunas: Data, Débito, Crédito, Valor, Histórico, Complemento
-   */
-  private async parseAccountingCSV(filePath: string): Promise<AccountingBaseEntry[]> {
+  private async parseAccountingCSV(filePath: string): Promise<any[]> {
     return new Promise((resolve, reject) => {
-      const results: AccountingBaseEntry[] = [];
-      
-      // csv-parser lê o arquivo linha por linha
+      const results: any[] = [];
       fs.createReadStream(filePath)
-        .pipe(csv({ separator: ';' })) // Separador padrão de CSVs brasileiros
+        .pipe(csv({ separator: ';' }))
         .on('data', (data) => {
-          // Ignorar linhas sem dados essenciais
-          if (!data['Data'] || !data['Valor']) return;
-          
-          const date = this.parseBrazilianDate(data['Data']);
-          const value = this.parseBrazilianCurrency(data['Valor']);
-          if (value === 0) return;
-          
+          if (!data['Valor'] || !data['Data']) return;
+          const valueStr = data['Valor'].toString().replace(/\./g, '').replace(',', '.');
+          const value = parseFloat(valueStr);
+          if (isNaN(value) || value === 0) return;
+
           results.push({
-            date,
-            debitCode: data['Débito']?.toString().trim() || 
-                      data['Debito']?.toString().trim() || '',
-            creditCode: data['Crédito']?.toString().trim() || 
-                       data['Credito']?.toString().trim() || '',
-            value,
-            description: data['Histórico']?.toString().trim() || 
-                        data['Historico']?.toString().trim() || '',
-            complement: data['Complemento']?.toString().trim() || ''
+            date: data['Data'],
+            debitCode: data['Débito']?.toString().trim() || '',
+            creditCode: data['Crédito']?.toString().trim() || '',
+            value: value,
+            description: data['Complemento']?.toString().trim() || '',
+            complement: data['Nº Doc.']?.toString().trim() || ''
           });
         })
         .on('end', () => resolve(results))
@@ -264,200 +142,172 @@ export class ReconciliationService {
     });
   }
 
-  /**
-   * =================================================================
-   * 🔍 ENCONTRAR MATCH ENTRE CONTROLE DE CAIXA E BASE CONTÁBIL
-   * =================================================================
-   * 
-   * Estratégia em 2 etapas:
-   * 1. Tentar match por VALOR EXATO (tolerância de R$ 0,01)
-   * 2. Se falhar, tentar match por SIMILARIDADE DE TEXTO (Jaccard > 60%)
-   */
-  private findMatchingAccountingEntry(
-    cashEntry: CashControlEntry,
-    accountingEntries: AccountingBaseEntry[],
-    accounts: any[]
-  ) {
-    // ===== TENTATIVA 1: Match por VALOR EXATO =====
-    const valueMatch = accountingEntries.find(acc => 
-      Math.abs(acc.value - cashEntry.amount) < 0.01 // Tolerância de 1 centavo
-    );
+  private findMatchingSCIEntry(amount: number, description: string, sciEntries: any[], accounts: any[]) {
+    const valueMatch = sciEntries.find(acc => Math.abs(acc.value - amount) < 0.01);
     
     if (valueMatch) {
-      // Encontrou match por valor! Buscar as contas contábeis correspondentes
       const debitAccount = accounts.find(acc => acc.code === valueMatch.debitCode);
       const creditAccount = accounts.find(acc => acc.code === valueMatch.creditCode);
-      
-      return {
-        status: 'VALOR_ENCONTRADO' as const,
-        debitAccount,
-        creditAccount,
-        source: valueMatch
-      };
+      return { status: 'VALOR_ENCONTRADO' as const, debitAccount, creditAccount, source: valueMatch };
     }
-    
-    // ===== TENTATIVA 2: Match por SIMILARIDADE DE TEXTO =====
-    const descMatch = accountingEntries.find(acc => {
-      // Calcular similaridade entre a descrição do caixa e da base contábil
-      const similarity = this.calculateTextSimilarity(
-        acc.description, 
-        cashEntry.description
-      );
-      return similarity > 0.6; // 60% de similaridade mínima
+
+    const descMatch = sciEntries.find(acc => {
+      const similarity = this.calculateTextSimilarity(acc.description, description);
+      return similarity > 0.6;
     });
-    
+
     if (descMatch) {
-      // Encontrou match por descrição! Buscar as contas contábeis
       const debitAccount = accounts.find(acc => acc.code === descMatch.debitCode);
       const creditAccount = accounts.find(acc => acc.code === descMatch.creditCode);
-      
-      return {
-        status: 'DESCRICAO_ENCONTRADA' as const,
-        debitAccount,
-        creditAccount,
-        source: descMatch
-      };
+      return { status: 'DESCRICAO_ENCONTRADA' as const, debitAccount, creditAccount, source: descMatch };
     }
-    
-    // ===== NÃO ENCONTROU MATCH =====
-    return {
-      status: 'NAO_VINCULADO' as const,
-      debitAccount: null,
-      creditAccount: null,
-      source: null
-    };
+
+    return { status: 'NAO_VINCULADO' as const, debitAccount: null, creditAccount: null, source: null };
   }
 
-  /**
-   * =================================================================
-   * 🔧 FUNÇÕES AUXILIARES DE PARSE E NORMALIZAÇÃO
-   * =================================================================
-   */
-
-  /**
-   * Parse de data no formato brasileiro (DD/MM/YY ou DD/MM/YYYY)
-   * Também lida com datas serializadas do Excel (números)
-   */
-  private parseBrazilianDate(dateVal: any): Date {
-    if (!dateVal) return new Date();
-    
-    // Se for número (data serial do Excel), converte para Date
-    if (typeof dateVal === 'number') {
-      return new Date(Math.round((dateVal - 25569) * 86400 * 1000));
-    }
-    
-    const dateStr = dateVal.toString().trim();
-    const parts = dateStr.split('/');
-    if (parts.length !== 3) return new Date();
-    
-    const day = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1; // JavaScript months são 0-indexed
-    let year = parseInt(parts[2], 10);
-    
-    // Se o ano tem 2 dígitos, assumir 2000+
-    if (year < 100) year += 2000;
-    
-    const parsedDate = new Date(year, month, day);
-    
-    // Validação básica para garantir que a data é válida
-    if (parsedDate.getFullYear() === year && 
-        parsedDate.getMonth() === month && 
-        parsedDate.getDate() === day) {
-      return parsedDate;
-    }
-    
-    return new Date(); // Fallback
-  }
-
-  /**
-   * Parse de valor monetário no formato brasileiro (R$ 1.234,56)
-   */
-  private parseBrazilianCurrency(valueVal: any): number {
-    if (!valueVal) return 0;
-    const valueStr = valueVal.toString().trim();
-    
-    // Remover "R$", espaços e pontos de milhar, trocar vírgula por ponto
-    const cleanStr = valueStr
-      .replace(/R\$/gi, '')
-      .replace(/\s/g, '')
-      .replace(/\./g, '')
-      .replace(',', '.');
-    
-    const value = parseFloat(cleanStr);
-    return isNaN(value) ? 0 : value;
-  }
-
-  /**
-   * Extrair nome da contraparte do histórico
-   * Remove prefixos como "HONOR.:" e sufixos como "- CONSULTA ONLINE"
-   */
-  private extractCounterpartyName(description: string): string {
-    const cleanDesc = description
-      // Remove prefixos comuns
-      .replace(/^(HONOR\.?:?\s*|HONORÁRIOS\s+(?:DE\s+)?(?:CONTADORA|ADVOCATÍCIOS)?\s*:?\s*)/i, '')
-      // Remove sufixos comuns
-      .replace(/\s*-\s*(?:CONSULTA\s+(?:ONLINE|PRESENCIAL|VIRTUAL)|ANUIDADE|PROC\.|NF\s+EMITIDA|EM\s+ESPÉCIE|SEM\s+RECIBO).*$/i, '')
-      // Remove textos entre parênteses
-      .replace(/\s*\([^)]*\)/g, '')
-      .trim();
-    
-    // Se após a limpeza ficar muito curto, retorna o original truncado
-    return cleanDesc.length > 3 ? cleanDesc : description.substring(0, 60).trim();
-  }
-
-  /**
-   * =================================================================
-   * 📊 CALCULAR SIMILARIDADE ENTRE DOIS TEXTOS (Jaccard Similarity)
-   * =================================================================
-   * 
-   * Retorna um valor entre 0 e 1, onde:
-   * - 0 = completamente diferentes
-   * - 1 = idênticos
-   * 
-   * Estratégia:
-   * 1. Normaliza os textos (lowercase, remove pontuação)
-   * 2. Divide em palavras (tokens)
-   * 3. Ignora palavras muito curtas (< 4 caracteres)
-   * 4. Calcula interseção / união dos conjuntos de palavras
-   */
   private calculateTextSimilarity(text1: string, text2: string): number {
-    // Função auxiliar para normalizar e tokenizar
     const normalize = (text: string) => 
-      text.toLowerCase()
-          .replace(/[^\w\s]/g, '') // Remove pontuação
-          .split(/\s+/)
-          .filter(w => w.length > 3); // Ignora palavras curtas (de, da, do, etc.)
+      text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 3);
 
     const words1 = new Set(normalize(text1));
     const words2 = new Set(normalize(text2));
     
-    // Se algum texto ficou vazio após normalização, retorna 0
     if (words1.size === 0 || words2.size === 0) return 0;
     
-    // Calcular interseção (palavras em comum)
     const intersection = new Set([...words1].filter(x => words2.has(x)));
-    
-    // Calcular união (todas as palavras únicas)
     const union = new Set([...words1, ...words2]);
     
-    // Jaccard Similarity = |interseção| / |união|
     return intersection.size / union.size;
   }
 
-  /**
-   * =================================================================
-   * 🧹 LIMPAR ARQUIVOS TEMPORÁRIOS DO DISCO
-   * =================================================================
-   */
-  private cleanupTempFiles(filePaths: string[]): void {
-    for (const path of filePaths) {
-      try {
-        if (fs.existsSync(path)) {
-          fs.unlinkSync(path);
-        }
-      } catch (error) {
-        console.warn(`⚠️ Não foi possível deletar arquivo temporário: ${path}`);
+  async saveReconciliationSuggestions(suggestions: any[], companyId: string) {
+    const updatedEntries = [];
+    for (const suggestion of suggestions) {
+      if (suggestion.suggestedDebitAccountId && suggestion.suggestedCreditAccountId) {
+        const updated = await this.prisma.accountingEntry.update({
+          where: { id: suggestion.entryId, companyId },
+          data: {
+            debitAccountId: suggestion.suggestedDebitAccountId,
+            creditAccountId: suggestion.suggestedCreditAccountId,
+            status: 'CONCILIADO'
+          }
+        });
+        updatedEntries.push(updated);
       }
     }
+    return updatedEntries;
   }
+
+  // =================================================================
+  // FIM: MÉTODOS DE CONCILIAÇÃO AUTOMÁTICA
+  // =================================================================
+
+
+  // =================================================================
+  // INÍCIO: NOVOS MÉTODOS (DUPLICIDADE E REVISÃO MANUAL)
+  // =================================================================
+
+  /**
+   * Verifica se o arquivo já foi importado anteriormente usando hash MD5.
+   */
+  async checkFileDuplicate(companyId: string, fileName: string, fileContent: Buffer) {
+    const fileHash = crypto.createHash('md5').update(fileContent).digest('hex');
+
+    // Nota: Se você ainda não tem a tabela accounting_imports no Prisma, 
+    // podemos adaptar essa lógica para verificar por data + nome do arquivo nos próprios lançamentos.
+    // Por enquanto, retornamos a estrutura pronta para quando a tabela for adicionada.
+    return {
+      isDuplicate: false, // Altere para true se implementar a tabela de imports
+      fileHash,
+      message: 'Hash do arquivo gerado com sucesso.'
+    };
+  }
+
+  /**
+   * Identifica lançamentos duplicados na mesma empresa.
+   * Critério: mesmo valor + mesma data + descrição idêntica.
+   */
+  async findDuplicateEntries(companyId: string) {
+    const entries = await this.prisma.accountingEntry.findMany({
+      where: { companyId },
+      orderBy: { entryDate: 'desc' },
+    });
+
+    const duplicates = [];
+    const processed = new Set<string>();
+
+    for (let i = 0; i < entries.length; i++) {
+      if (processed.has(entries[i].id)) continue;
+
+      const similarEntries = [entries[i]];
+
+      for (let j = i + 1; j < entries.length; j++) {
+        if (processed.has(entries[j].id)) continue;
+
+        if (this.isDuplicateEntry(entries[i], entries[j])) {
+          similarEntries.push(entries[j]);
+          processed.add(entries[j].id);
+        }
+      }
+
+      if (similarEntries.length > 1) {
+        processed.add(entries[i].id);
+        duplicates.push({
+          group: similarEntries.length,
+          entries: similarEntries,
+        });
+      }
+    }
+
+    return duplicates;
+  }
+
+  /**
+   * Verifica se dois lançamentos são duplicados.
+   */
+  private isDuplicateEntry(entry1: any, entry2: any): boolean {
+    const val1 = Number(entry1.debitValue) > 0 ? Number(entry1.debitValue) : Number(entry1.creditValue);
+    const val2 = Number(entry2.debitValue) > 0 ? Number(entry2.debitValue) : Number(entry2.creditValue);
+
+    const sameValue = Math.abs(val1 - val2) < 0.01;
+    
+    const date1 = new Date(entry1.entryDate).toDateString();
+    const date2 = new Date(entry2.entryDate).toDateString();
+    const sameDate = date1 === date2;
+
+    const sameDescription = entry1.description?.toLowerCase().trim() === entry2.description?.toLowerCase().trim();
+
+    return sameValue && sameDate && sameDescription;
+  }
+
+  /**
+   * Remove lançamentos duplicados, mantendo apenas o primeiro de cada grupo.
+   */
+  async removeDuplicateEntries(duplicateGroups: any[]) {
+    const deletedIds = [];
+
+    for (const group of duplicateGroups) {
+      // Mantém o primeiro (índice 0), remove os demais
+      const toDelete = group.entries.slice(1);
+
+      for (const entry of toDelete) {
+        await this.prisma.accountingEntry.delete({
+          where: { id: entry.id },
+        });
+        deletedIds.push(entry.id);
+      }
+    }
+
+    return {
+      deletedCount: deletedIds.length,
+      deletedIds,
+    };
+  }
+
+  // =================================================================
+  // FIM: NOVOS MÉTODOS (DUPLICIDADE E REVISÃO MANUAL)
+  // =================================================================
 }
+// =================================================================
+// FIM: reconciliation.service.ts
+// =================================================================

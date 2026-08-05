@@ -1,3 +1,6 @@
+// =================================================================
+// INÍCIO: imports
+// =================================================================
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -19,22 +22,37 @@ import {
   Scale,
   ChevronDown,
   ChevronRight,
-  Shield, // 🔥 NOVO: Ícone do Painel Admin
+  Shield,
+  FileText, // 🔥 Ícone para Lançamentos Contábeis
 } from 'lucide-react';
+// =================================================================
+// FIM: imports
+// =================================================================
 
-// 🎨 Definição centralizada dos itens do menu com IDs de módulos
+
+// =================================================================
+// INÍCIO: Definição de Tipos (Interfaces)
+// =================================================================
 interface MenuItem {
   id: string;
   title: string;
   href: string;
   icon?: any;
-  adminOnly?: boolean; // 🔥 NOVO: Marca itens exclusivos de ADMIN
+  adminOnly?: boolean; // Marca itens exclusivos de ADMIN
   children?: { id: string; title: string; href: string }[];
 }
+// =================================================================
+// FIM: Definição de Tipos (Interfaces)
+// =================================================================
 
+
+// =================================================================
+// INÍCIO: Configuração dos Itens do Menu (allMenuItems)
+// =================================================================
 const allMenuItems: MenuItem[] = [
   { id: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { id: 'minha-empresa', title: 'Minha Empresa', href: '/dashboard/minha-empresa', icon: Building2 },
+  
   { 
     id: 'pessoas', 
     title: 'Gestão de Pessoas', 
@@ -45,7 +63,21 @@ const allMenuItems: MenuItem[] = [
       { id: 'turnover', title: 'Turnover', href: '/dashboard/turnover' },
     ]
   },
+  
   { id: 'clientes', title: 'Clientes', href: '/dashboard/clientes', icon: UsersRound },
+  
+  // 🔥 NOVO: Módulo de Lançamentos Contábeis com submenu
+  { 
+    id: 'lancamentos', 
+    title: 'Lançamentos Contábeis', 
+    href: '/dashboard/lancamentos', 
+    icon: FileText,
+    children: [
+      { id: 'lancamentos', title: 'Todos os Lançamentos', href: '/dashboard/lancamentos' },
+      { id: 'revisao-manual', title: 'Revisão Manual', href: '/dashboard/lancamentos/revisao' },
+    ]
+  },
+
   { id: 'precificacao', title: 'Precificação', href: '/dashboard/precificacao', icon: Calculator },
   { id: 'planejamento', title: 'Planejamento', href: '/dashboard/planejamento', icon: CalendarDays },
   { id: 'bi', title: 'B.I. Contábil', href: '/dashboard/bi', icon: BarChart3 },
@@ -53,19 +85,31 @@ const allMenuItems: MenuItem[] = [
   { id: 'indicadores', title: 'Indicadores', href: '/dashboard/indicadores', icon: Activity },
   { id: 'planejamento-tributario', title: 'Planejamento Tributário', href: '/dashboard/planejamento-tributario', icon: Scale },
   { id: 'reforma-tributaria', title: 'Reforma Tributária', href: '/dashboard/reforma-tributaria', icon: Scale },
-  { id: 'admin', title: 'Administração', href: '/dashboard/admin', icon: Shield, adminOnly: true }, // 🔥 NOVO: Exclusivo ADMIN
+  { id: 'admin', title: 'Administração', href: '/dashboard/admin', icon: Shield, adminOnly: true },
 ];
+// =================================================================
+// FIM: Configuração dos Itens do Menu (allMenuItems)
+// =================================================================
 
+
+// =================================================================
+// INÍCIO: Componente Principal (DashboardLayout)
+// =================================================================
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  
+  // --- Estados ---
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Gestão de Pessoas']);
+  // Expande por padrão os menus que têm submenu
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Gestão de Pessoas', 'Lançamentos Contábeis']);
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
 
-  // 🔥 LÓGICA DO MENU DINÂMICO
+  // =================================================================
+  // INÍCIO: Lógica do Menu Dinâmico (useMemo)
+  // =================================================================
   const menuItems = useMemo(() => {
-    // Se for ADMIN, libera tudo
+    // Se for ADMIN, libera todos os itens
     if (user?.role === 'ADMIN') {
       return allMenuItems;
     }
@@ -73,7 +117,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Se for CLIENTE, filtra baseado no allowedModules do token
     return allMenuItems
       .map((item) => {
-        // 🔥 NOVO: Bloqueia itens exclusivos de admin
+        // Bloqueia itens exclusivos de admin
         if (item.adminOnly) return null;
 
         if (item.children) {
@@ -83,12 +127,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           );
           return visibleChildren.length > 0 ? { ...item, children: visibleChildren } : null;
         }
+        
         // Retorna o item se o módulo estiver na lista permitida
         return user?.allowedModules?.includes(item.id) ? item : null;
       })
-      .filter(Boolean) as MenuItem[]; // Remove os nulos
+      .filter(Boolean) as MenuItem[]; // Remove os nulos do array
   }, [user?.role, user?.allowedModules]);
+  // =================================================================
+  // FIM: Lógica do Menu Dinâmico (useMemo)
+  // =================================================================
 
+  // =================================================================
+  // INÍCIO: Funções Auxiliares
+  // =================================================================
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';
     return pathname.startsWith(href);
@@ -106,10 +157,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     logout();
     router.push('/login');
   };
+  // =================================================================
+  // FIM: Funções Auxiliares
+  // =================================================================
 
+  // =================================================================
+  // INÍCIO: Renderização do Layout
+  // =================================================================
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* Botão Menu Mobile */}
+      
+      {/* ================================================================= */}
+      {/* INÍCIO: Botão Menu Mobile */}
+      {/* ================================================================= */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-teal-700 text-white shadow-lg transition-colors hover:bg-teal-600"
@@ -117,8 +177,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
+      {/* ================================================================= */}
+      {/* FIM: Botão Menu Mobile */}
+      {/* ================================================================= */}
 
-      {/* Sidebar (Menu Lateral) */}
+      {/* ================================================================= */}
+      {/* INÍCIO: Sidebar (Menu Lateral) */}
+      {/* ================================================================= */}
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-40 w-64 
@@ -174,6 +239,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   )}
                 </button>
                 
+                {/* Submenu (Children) */}
                 {hasChildren && isExpanded && (
                   <div className="ml-6 mt-1 space-y-1 border-l-2 border-teal-700 pl-2">
                     {item.children.map((child) => {
@@ -229,8 +295,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
       </aside>
+      {/* ================================================================= */}
+      {/* FIM: Sidebar (Menu Lateral) */}
+      {/* ================================================================= */}
 
-      {/* Overlay Mobile */}
+      {/* ================================================================= */}
+      {/* INÍCIO: Overlay Mobile (Fundo escuro ao abrir menu) */}
+      {/* ================================================================= */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"
@@ -238,12 +309,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           aria-hidden="true"
         />
       )}
+      {/* ================================================================= */}
+      {/* FIM: Overlay Mobile */}
+      {/* ================================================================= */}
 
-      {/* Área Principal */}
+      {/* ================================================================= */}
+      {/* INÍCIO: Área Principal de Conteúdo */}
+      {/* ================================================================= */}
       <main className="flex-1 p-4 lg:p-8 overflow-x-hidden transition-all duration-300">
-        <div className="lg:hidden h-12" />
+        <div className="lg:hidden h-12" /> {/* Espaçador para mobile */}
         {children}
       </main>
+      {/* ================================================================= */}
+      {/* FIM: Área Principal de Conteúdo */}
+      {/* ================================================================= */}
+
     </div>
   );
+  // =================================================================
+  // FIM: Renderização do Layout
+  // =================================================================
 }
+// =================================================================
+// FIM: Componente Principal (DashboardLayout)
+// =================================================================
