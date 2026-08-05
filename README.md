@@ -664,3 +664,13 @@ O módulo de propostas foi refatorado para suportar análises avançadas de vend
 *   **Links Públicos**: Clientes visualizam propostas via slug único, com tracking de engajamento (views, WhatsApp clicks).
 *   **Status Enterprise**: Enums `DRAFT`, `SENT`, `VIEWED`, `CLOSED_WON`, `CLOSED_LOST` garantem integridade.
 
+### 🚀 Motor de Propostas Comerciais (Enterprise)
+A tela de Precificação evoluiu para um **Construtor de Propostas Comerciais** completo:
+
+*   **Wizard de 5 Passos**: Prospect → Plano Comercial → Add-ons → Textos → Revisão
+*   **Calculadora em Tempo Real**: Valor total calculado dinamicamente (Valor Base × Multiplicador do Plano + Add-ons)
+*   **Propostas Relacionais**: Itens salvos na tabela `ProposalItem`, permitindo BI de vendas avançado
+*   **Funil de Vendas**: Status `DRAFT → SENT → VIEWED → CLOSED_WON / CLOSED_LOST` com tracking de métricas
+*   **BI Integrado**: Dashboard com taxa de conversão, receita ganha e motivos de perda
+*   **Link Público**: Cada proposta gera um slug único para visualização externa pelo cliente
+*   **Exportação**: PDF profissional (jsPDF) e CSV com UTF-8 + BOM (acentos corretos no Excel)

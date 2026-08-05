@@ -1,568 +1,643 @@
-/**
- * Página: Precificação e CRM de Propostas
- * Abas: Calculadora | Configurações | Regras de Horas | Meus Planos | Categorias | Propostas
- */
+// =================================================================
+// INÍCIO: frontend/src/app/dashboard/precificacao/page.tsx
+// =================================================================
+// 🚀 MOTOR DE PROPOSTAS COMERCIAIS (Enterprise Edition)
+// Construtor de propostas relacionais integrado ao Catálogo de
+// Serviços, Planos Comerciais e BI de Vendas.
+// =================================================================
 'use client';
 
-// =================================================================
-// INÍCIO: IMPORTS DE DEPENDÊNCIAS E BIBLIOTECAS
-// =================================================================
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
-import {
-  Package, Plus, Trash2, Edit2, Save, X, Check,
-  ChevronDown, ChevronRight, Loader2, Tag, FolderOpen, FileText,
-  Calculator, Settings, Clock, AlertTriangle, Download, TrendingUp, 
-  FileCheck, FileX, DollarSign, Users
-} from 'lucide-react';
-
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  AreaChart, Area, ResponsiveContainer, PieChart, Pie, Cell,
-  LineChart, Line // 🔥 Adicionado para o gráfico de conversão
-} from 'recharts';
-// =================================================================
-// FIM: IMPORTS DE DEPENDÊNCIAS E BIBLIOTECAS
-// =================================================================
-
-
-// =================================================================
-// INÍCIO: CONSTANTES DE ESTILO E CONFIGURAÇÃO
-// =================================================================
-const inputClass = 'w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white';
-const btnPrimary = 'flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50';
-const btnSecondary = 'flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-colors';
-
-// Cores para o gráfico de motivos de perda
-const LOSS_COLORS = ['#ef4444', '#f97316', '#eab308', '#84cc16', '#06b6d4', '#8b5cf6'];
-// =================================================================
-// FIM: CONSTANTES DE ESTILO E CONFIGURAÇÃO
-// =================================================================
-
-
-// =================================================================
-// INÍCIO: COMPONENTE PRINCIPAL (PrecificacaoPage)
-// =================================================================
-export default function PrecificacaoPage() {
-  const [activeTab, setActiveTab] = useState<'calculator' | 'config' | 'rules' | 'plans' | 'categories' | 'propostas'>('calculator');
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-          <Calculator className="h-8 w-8 text-teal-600" />
-          Precificação & Propostas
-        </h1>
-        <p className="text-slate-600 mt-1">Configure custos, calcule preços e acompanhe o fechamento de propostas.</p>
-      </div>
-
-      <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
-        {[
-          { key: 'calculator', label: 'Calcular Preço', icon: Calculator },
-          { key: 'config', label: 'Configurações', icon: Settings },
-          { key: 'rules', label: 'Regras de Horas', icon: Clock },
-          { key: 'plans', label: 'Meus Planos', icon: Tag },
-          { key: 'categories', label: 'Categorias', icon: FolderOpen },
-          { key: 'propostas', label: 'Propostas (CRM)', icon: TrendingUp },
-        ].map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors whitespace-nowrap ${
-              activeTab === tab.key ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <tab.icon className="h-4 w-4" /> {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'calculator' && <CalculatorTab />}
-      {activeTab === 'config' && <ConfigTab />}
-      {activeTab === 'rules' && <RulesTab />}
-      {activeTab === 'plans' && <PlansTab />}
-      {activeTab === 'categories' && <CategoriesTab />}
-      {activeTab === 'propostas' && <PropostasTab />}
-    </div>
-  );
-}
-// =================================================================
-// FIM: COMPONENTE PRINCIPAL (PrecificacaoPage)
-// =================================================================
-
-// =================================================================
-// INÍCIO: IMPORTS ADICIONAIS PARA EXPORTAÇÃO
-// =================================================================
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import {
+  FileText, Plus, Search, Eye, Loader2, X, Save, Send,
+  Trophy, XCircle, Download, Link2, DollarSign, TrendingUp,
+  Users, Building2, Package, ChevronRight, ChevronLeft,
+  Crown, Sparkles, AlertTriangle, Copy, CheckCircle2, Target
+} from 'lucide-react';
+
 // =================================================================
-// FIM: IMPORTS ADICIONAIS PARA EXPORTAÇÃO
+// 📋 TIPOS E INTERFACES (Alinhados ao Backend)
 // =================================================================
 
-
-// =================================================================
-// INÍCIO: COMPONENTE REUTILIZÁVEL InfoTooltip
-// =================================================================
-function InfoTooltip({ description }: { description: string }) {
-  return (
-    <div className="group relative inline-block ml-2 align-middle">
-      <div className="w-5 h-5 flex items-center justify-center text-amber-500 hover:text-amber-600 cursor-help transition-colors">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-          <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-        </svg>
-      </div>
-      <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200 absolute z-50 left-1/2 -translate-x-1/2 top-full mt-2 w-64 p-3 bg-slate-900 text-white text-xs font-medium rounded-lg shadow-xl pointer-events-none">
-        {description}
-        <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-2 h-2 bg-slate-900 rotate-45"></div>
-      </div>
-    </div>
-  );
+interface CommercialPlan {
+  id: string;
+  name: string;
+  multiplier: number;
+  badge?: string;
+  color?: string;
+  description?: string;
 }
+
+interface ServiceItem {
+  id: string;
+  name: string;
+  description?: string;
+  basePrice: number;
+  recurrence: string;
+  category?: { name: string };
+}
+
+interface ProposalItem {
+  id: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  commercialPlan?: CommercialPlan | null;
+  serviceItem?: ServiceItem | null;
+}
+
+interface Proposal {
+  id: string;
+  proposalNumber: string;
+  slug: string;
+  clientName: string;
+  clientCnpj?: string;
+  taxRegime: string;
+  activity: string;
+  monthlyRevenue: number;
+  employeeCount: number;
+  basePrice: number;
+  status: string;
+  aboutOffice?: string;
+  differentials?: string;
+  onboarding?: string;
+  commercialTerms?: string;
+  specificNote?: string;
+  closedPrice?: number;
+  lossReason?: string;
+  createdAt: string;
+  items?: ProposalItem[];
+}
+
+interface DashboardMetrics {
+  totalProposals: number;
+  wonProposals: number;
+  lostProposals: number;
+  sentProposals: number;
+  conversionRate: number;
+  wonRevenue: number;
+}
+
 // =================================================================
-// FIM: COMPONENTE REUTILIZÁVEL InfoTooltip
+// 🎨 CONFIGURAÇÃO DE STATUS (Badges visuais)
+// =================================================================
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
+  DRAFT:       { label: 'Rascunho',   color: 'bg-slate-100 text-slate-700',   icon: FileText },
+  SENT:        { label: 'Enviada',    color: 'bg-blue-100 text-blue-700',     icon: Send },
+  VIEWED:      { label: 'Visualizada', color: 'bg-amber-100 text-amber-700', icon: Eye },
+  CLOSED_WON:  { label: 'Ganha',      color: 'bg-green-100 text-green-700',   icon: Trophy },
+  CLOSED_LOST: { label: 'Perdida',    color: 'bg-red-100 text-red-700',       icon: XCircle },
+};
+
+const REGIMES = [
+  { value: 'MEI', label: 'MEI' },
+  { value: 'SIMPLES_NACIONAL', label: 'Simples Nacional' },
+  { value: 'LUCRO_PRESUMIDO', label: 'Lucro Presumido' },
+  { value: 'LUCRO_REAL', label: 'Lucro Real' },
+];
+
+// =================================================================
+// 🔧 HELPERS
 // =================================================================
 
+/** Formata valor monetário no padrão brasileiro */
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+    .format(value || 0);
+}
+
+/** Formata data ISO para pt-BR */
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR');
+}
+
+/** Gera slug único para link público da proposta */
+function generateSlug(clientName: string): string {
+  const clean = clientName
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `${clean}-${Date.now().toString(36)}`;
+}
+
+/** Gera número sequencial legível da proposta */
+function generateProposalNumber(): string {
+  const year = new Date().getFullYear();
+  const seq = Math.floor(Math.random() * 9000) + 1000;
+  return `PROP-${year}-${seq}`;
+}
 
 // =================================================================
-// INÍCIO: COMPONENTE DA ABA PROPOSTAS (CRM) COM EXPORTAÇÃO
+// 🎯 COMPONENTE PRINCIPAL
 // =================================================================
-function PropostasTab() {
-  // --- Estados ---
+export default function PrecificacaoPage() {
+  // =================================================================
+  // ESTADOS GLOBAIS
+  // =================================================================
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [plans, setPlans] = useState<CommercialPlan[]>([]);
+  const [serviceItems, setServiceItems] = useState<ServiceItem[]>([]);
+  const [metrics, setMetrics] = useState<DashboardMetrics>({
+    totalProposals: 0, wonProposals: 0, lostProposals: 0,
+    sentProposals: 0, conversionRate: 0, wonRevenue: 0,
+  });
+
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
-  const [proposals, setProposals] = useState<any[]>([]);
-  const [trendData, setTrendData] = useState<any[]>([]);
-  const [lossReasonsData, setLossReasonsData] = useState<any[]>([]);
-  const [conversionData, setConversionData] = useState<any[]>([]);
-  const [period, setPeriod] = useState<'3' | '6' | '12' | 'all'>('6');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPeriod, setFilterPeriod] = useState('30d');
+
+  // Modais
+  const [showWizard, setShowWizard] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [showLostModal, setShowLostModal] = useState(false);
-  const [selectedProposal, setSelectedProposal] = useState<any>(null);
-  
-  const [closeForm, setCloseForm] = useState({ planId: '', price: 0, discount: 0 });
-  const [lostReason, setLostReason] = useState('Preço alto');
+  const [showLoseModal, setShowLoseModal] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  // --- Efeitos ---
-  useEffect(() => { loadData(); }, [period]);
+  // Wizard
+  const [wizardStep, setWizardStep] = useState(1);
 
-  // --- Funções de Manipulação de Dados ---
-  async function loadData() {
-    setLoading(true);
+  // Formulário da proposta (alinhado ao CreateProposal do backend)
+  const [form, setForm] = useState({
+    clientName: '',
+    clientCnpj: '',
+    taxRegime: 'SIMPLES_NACIONAL',
+    activity: '',
+    monthlyRevenue: 0,
+    employeeCount: 0,
+    basePrice: 0, // Valor base calculado (honorário)
+    selectedPlanId: '',
+    selectedAvulsoIds: [] as string[],
+    aboutOffice: '',
+    differentials: '',
+    onboarding: '',
+    commercialTerms: '',
+    specificNote: '',
+  });
+
+  // Motivo de perda / valor de fechamento
+  const [lossReason, setLossReason] = useState('');
+  const [closedPrice, setClosedPrice] = useState(0);
+
+  // =================================================================
+  // ESTILOS (Design System Conta Certa)
+  // =================================================================
+  const inputClass = 'w-full px-3 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-white';
+  const btnPrimary = 'flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-50';
+  const btnSecondary = 'flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-lg transition-colors';
+
+  // =================================================================
+  // CARREGAR DADOS (Paralelo para performance)
+  // =================================================================
+  useEffect(() => {
+    loadInitialData();
+  }, [filterPeriod]);
+
+  async function loadInitialData() {
     try {
-      const [statsRes, proposalsRes, trendRes, lossRes, conversionRes] = await Promise.all([
-        api.get('/proposals/dashboard/stats'),
+      setLoading(true);
+      const [propRes, dashRes, plansRes, itemsRes] = await Promise.all([
         api.get('/proposals'),
-        api.get(`/proposals/trend-data?period=${period}`),
-        api.get(`/proposals/loss-reasons?period=${period}`),
-        api.get(`/proposals/conversion-trend?period=${period}`),
+        api.get(`/proposals/dashboard?period=${filterPeriod}`).catch(() => ({ data: { data: null } })),
+        api.get('/commercial-plans').catch(() => ({ data: { data: [] } })),
+        api.get('/service-items').catch(() => ({ data: { data: [] } })),
       ]);
-      setStats(statsRes.data.data);
-      setProposals(proposalsRes.data.data);
-      setTrendData(trendRes.data.data);
-      setLossReasonsData(lossRes.data.data);
-      setConversionData(conversionRes.data.data);
+
+      setProposals(propRes.data.data || []);
+      if (dashRes.data.data) setMetrics(dashRes.data.data);
+      setPlans(plansRes.data.data || []);
+      setServiceItems(itemsRes.data.data || []);
     } catch (err) {
-      toast.error('Erro ao carregar dados do CRM');
+      toast.error('Erro ao carregar propostas');
     } finally {
       setLoading(false);
     }
   }
 
+  // =================================================================
+  // 💰 CALCULADORA DE VALOR (Tempo real)
+  // =================================================================
+  const totalProposalValue = useMemo(() => {
+    let total = 0;
+    // Plano: basePrice × multiplicador
+    if (form.selectedPlanId && form.basePrice > 0) {
+      const plan = plans.find(p => p.id === form.selectedPlanId);
+      if (plan) total += form.basePrice * plan.multiplier;
+    }
+    // Add-ons: soma dos preços dos serviços avulsos
+    form.selectedAvulsoIds.forEach(id => {
+      const item = serviceItems.find(s => s.id === id);
+      if (item) total += Number(item.basePrice);
+    });
+    return total;
+  }, [form.selectedPlanId, form.selectedAvulsoIds, form.basePrice, plans, serviceItems]);
+
+  // =================================================================
+  // 🔍 FILTRAGEM
+  // =================================================================
+  const filteredProposals = proposals.filter(p => {
+    const matchesSearch =
+      p.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.proposalNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
+    return matchesSearch && matchesStatus;
+  });
+
+  // =================================================================
+  // FUNÇÕES: ABRIR MODAIS
+  // =================================================================
+  function openWizard() {
+    setForm({
+      clientName: '', clientCnpj: '', taxRegime: 'SIMPLES_NACIONAL',
+      activity: '', monthlyRevenue: 0, employeeCount: 0, basePrice: 0,
+      selectedPlanId: plans[0]?.id || '', selectedAvulsoIds: [],
+      aboutOffice: '', differentials: '', onboarding: '',
+      commercialTerms: '', specificNote: '',
+    });
+    setWizardStep(1);
+    setShowWizard(true);
+  }
+
+  function openViewModal(proposal: Proposal) {
+    setSelectedProposal(proposal);
+    setShowViewModal(true);
+  }
+
+  function openCloseModal(proposal: Proposal) {
+    setSelectedProposal(proposal);
+    setClosedPrice(proposal.basePrice);
+    setShowCloseModal(true);
+  }
+
+  function openLoseModal(proposal: Proposal) {
+    setSelectedProposal(proposal);
+    setLossReason('');
+    setShowLoseModal(true);
+  }
+
+  // =================================================================
+  // 💾 SALVAR PROPOSTA (Transacional no backend)
+  // =================================================================
+  async function handleSubmitProposal() {
+    if (!form.clientName.trim()) {
+      toast.error('Preencha o nome do cliente no Passo 1');
+      setWizardStep(1);
+      return;
+    }
+    if (!form.selectedPlanId) {
+      toast.error('Selecione um plano comercial no Passo 2');
+      setWizardStep(2);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Monta itens relacionais (ProposalItem)
+      const items: any[] = [];
+
+      // Item do plano
+      const plan = plans.find(p => p.id === form.selectedPlanId);
+      if (plan) {
+        const planPrice = form.basePrice * plan.multiplier;
+        items.push({
+          commercialPlanId: plan.id,
+          quantity: 1,
+          unitPrice: planPrice,
+          totalPrice: planPrice,
+        });
+      }
+
+      // Itens avulsos
+      form.selectedAvulsoIds.forEach(id => {
+        const svc = serviceItems.find(s => s.id === id);
+        if (svc) {
+          items.push({
+            serviceItemId: svc.id,
+            quantity: 1,
+            unitPrice: Number(svc.basePrice),
+            totalPrice: Number(svc.basePrice),
+          });
+        }
+      });
+
+      await api.post('/proposals', {
+        proposalNumber: generateProposalNumber(),
+        slug: generateSlug(form.clientName),
+        clientName: form.clientName,
+        clientCnpj: form.clientCnpj,
+        taxRegime: form.taxRegime,
+        activity: form.activity,
+        monthlyRevenue: form.monthlyRevenue,
+        employeeCount: form.employeeCount,
+        basePrice: form.basePrice,
+        aboutOffice: form.aboutOffice,
+        differentials: form.differentials,
+        onboarding: form.onboarding,
+        commercialTerms: form.commercialTerms,
+        specificNote: form.specificNote,
+        items,
+      });
+
+      toast.success('Proposta criada com sucesso!');
+      setShowWizard(false);
+      loadInitialData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao criar proposta');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // =================================================================
+  // 🔄 MUDANÇAS DE STATUS
+  // =================================================================
+  async function handleSend(proposal: Proposal) {
+    try {
+      await api.post(`/proposals/${proposal.id}/send`);
+      toast.success('Proposta marcada como enviada!');
+      loadInitialData();
+    } catch {
+      toast.error('Erro ao atualizar status');
+    }
+  }
+
   async function handleCloseProposal() {
+    if (!selectedProposal) return;
+    setSubmitting(true);
     try {
-      await api.post(`/proposals/${selectedProposal.id}/close`, closeForm);
-      toast.success('Proposta marcada como fechada!');
+      await api.post(`/proposals/${selectedProposal.id}/close`, {
+        planId: form.selectedPlanId || '',
+        price: closedPrice,
+      });
+      toast.success('🎉 Negócio fechado com sucesso!');
       setShowCloseModal(false);
-      loadData();
-    } catch (err) {
+      loadInitialData();
+    } catch {
       toast.error('Erro ao fechar proposta');
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  async function handleMarkAsLost() {
+  async function handleLoseProposal() {
+    if (!selectedProposal) return;
+    if (!lossReason.trim()) {
+      toast.error('Informe o motivo da perda');
+      return;
+    }
+    setSubmitting(true);
     try {
-      await api.post(`/proposals/${selectedProposal.id}/lost`, { reason: lostReason });
-      toast.success('Proposta marcada como perdida.');
-      setShowLostModal(false);
-      loadData();
-    } catch (err) {
-      toast.error('Erro ao marcar como perdida');
+      await api.post(`/proposals/${selectedProposal.id}/lose`, { reason: lossReason });
+      toast.success('Proposta marcada como perdida');
+      setShowLoseModal(false);
+      loadInitialData();
+    } catch {
+      toast.error('Erro ao atualizar proposta');
+    } finally {
+      setSubmitting(false);
     }
   }
 
   // =================================================================
-  // INÍCIO: FUNÇÃO exportToPDF
+  // 🗑️ EXCLUIR PROPOSTA
   // =================================================================
-  /**
-   * Gera e baixa um relatório PDF completo do CRM
-   * Inclui: KPIs, resumo dos gráficos e tabela de propostas
-   */
+  async function handleDelete(proposal: Proposal) {
+    if (!window.confirm(`Excluir a proposta ${proposal.proposalNumber}?`)) return;
+    try {
+      await api.delete(`/proposals/${proposal.id}`);
+      toast.success('Proposta removida');
+      loadInitialData();
+    } catch {
+      toast.error('Erro ao excluir proposta');
+    }
+  }
+
+  // =================================================================
+  // 🔗 COPIAR LINK PÚBLICO
+  // =================================================================
+  function copyPublicLink(proposal: Proposal) {
+    const url = `${window.location.origin}/proposta/${proposal.slug}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Link público copiado!');
+  }
+
+  // =================================================================
+  // 📄 EXPORTAR PDF (Padrão Conta Certa)
+  // =================================================================
   function exportToPDF() {
     const doc = new jsPDF();
-    const periodLabels: any = { '3': '3 Meses', '6': '6 Meses', '12': '1 Ano', 'all': 'Todo Período' };
 
     // Cabeçalho
-    doc.setFontSize(18);
-    doc.setTextColor(20, 184, 166); // teal-600
-    doc.text('Relatório de Propostas - CRM', 14, 20);
-    
-    doc.setFontSize(11);
-    doc.setTextColor(100, 116, 139); // slate-500
-    doc.text(`Período: ${periodLabels[period]}`, 14, 28);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 33);
+    doc.setFontSize(20);
+    doc.setTextColor(13, 148, 136);
+    doc.text('Conta Certa - Propostas Comerciais', 14, 20);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Relatório gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 28);
+    doc.text(`Período: ${filterPeriod} | Total: ${filteredProposals.length}`, 14, 34);
 
-    // KPIs
-    if (stats) {
-      doc.setFontSize(14);
-      doc.setTextColor(15, 23, 42); // slate-900
-      doc.text('Resumo Executivo', 14, 45);
-
-      const kpiData = [
-        ['Total de Propostas', stats.totalProposals.toString()],
-        ['Enviadas', stats.sent.toString()],
-        ['Fechadas', stats.closed.toString()],
-        ['Perdidas', stats.lost.toString()],
-        ['Taxa de Conversão', `${stats.conversion}%`],
-        ['Ganho Mensal Total', `R$ ${stats.totalGain.toFixed(2)}`],
-      ];
-
-      autoTable(doc, {
-        startY: 50,
-        head: [['Métrica', 'Valor']],
-        body: kpiData,
-        theme: 'striped',
-        headStyles: { fillColor: [20, 184, 166] },
-      });
-    }
-
-    // Tabela de Propostas
-    doc.setFontSize(14);
-    doc.setTextColor(15, 23, 42);
-    doc.text('Detalhamento das Propostas', 14, (doc as any).lastAutoTable.finalY + 15);
-
-    const proposalsData = proposals.map((prop) => [
-      prop.proposalNumber,
-      prop.clientName,
-      {
-        'SENT': 'Enviada',
-        'CLOSED': 'Fechada',
-        'LOST': 'Perdida',
-        'DRAFT': 'Rascunho'
-      }[prop.status] || prop.status,
-      `R$ ${prop.basePrice.toFixed(2)}`,
-      prop.status === 'CLOSED' ? (prop.closedPlanName || 'N/A') : '-',
+    // Tabela
+    const tableData = filteredProposals.map(p => [
+      p.proposalNumber,
+      p.clientName,
+      REGIMES.find(r => r.value === p.taxRegime)?.label || p.taxRegime,
+      STATUS_CONFIG[p.status]?.label || p.status,
+      formatCurrency(p.basePrice),
+      formatDate(p.createdAt),
     ]);
 
     autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 20,
-      head: [['Nº Proposta', 'Cliente', 'Status', 'Valor Base', 'Plano Fechado']],
-      body: proposalsData,
-      theme: 'grid',
-      headStyles: { fillColor: [20, 184, 166] },
+      startY: 40,
+      head: [['Número', 'Cliente', 'Regime', 'Status', 'Valor', 'Data']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [13, 148, 136] },
       styles: { fontSize: 9 },
     });
 
-    // Rodapé
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(`Página ${i} de ${pageCount}`, 14, 285);
-    }
-
-    // Salvar PDF
-    doc.save(`relatorio-propostas-${new Date().toISOString().split('T')[0]}.pdf`);
-    toast.success('Relatório PDF baixado com sucesso!');
+    doc.save(`propostas_${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success('PDF exportado com sucesso!');
   }
-  // =================================================================
-  // FIM: FUNÇÃO exportToPDF
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: FUNÇÃO exportToCSV
+  // 📊 EXPORTAR CSV (UTF-8 + BOM para Excel)
   // =================================================================
-  /**
-   * Gera e baixa um relatório CSV/Excel das propostas
-   * Formato compatível com Excel e Google Sheets
-   */
   function exportToCSV() {
-    // Cabeçalho CSV
-    const headers = ['Nº Proposta', 'Cliente', 'CNPJ', 'Status', 'Valor Base', 'Plano Fechado', 'Data Criação', 'Motivo de Perda'];
-    
-    // Dados
-    const rows = proposals.map((prop) => [
-      prop.proposalNumber,
-      prop.clientName,
-      prop.clientCnpj || '',
-      {
-        'SENT': 'Enviada',
-        'CLOSED': 'Fechada',
-        'LOST': 'Perdida',
-        'DRAFT': 'Rascunho'
-      }[prop.status] || prop.status,
-      prop.basePrice.toFixed(2).replace('.', ','),
-      prop.status === 'CLOSED' ? (prop.closedPlanName || 'N/A') : '',
-      new Date(prop.createdAt).toLocaleDateString('pt-BR'),
-      prop.lossReason || '',
-    ]);
+    const BOM = '\uFEFF'; // Garante acentos no Excel
+    const header = 'Numero;Cliente;CNPJ;Regime;Status;Valor;Data\n';
+    const rows = filteredProposals.map(p =>
+      `${p.proposalNumber};${p.clientName};${p.clientCnpj || '-'};${p.taxRegime};${STATUS_CONFIG[p.status]?.label};${p.basePrice.toFixed(2).replace('.', ',')};${formatDate(p.createdAt)}`
+    ).join('\n');
 
-    // Criar conteúdo CSV
-    const csvContent = [
-      headers.join(';'),
-      ...rows.map((row) => row.join(';'))
-    ].join('\n');
-
-    // Criar blob e download
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const blob = new Blob([BOM + header + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `propostas-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    toast.success('Relatório CSV baixado com sucesso!');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `propostas_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exportado com sucesso!');
   }
-  // =================================================================
-  // FIM: FUNÇÃO exportToCSV
-  // =================================================================
 
-  // --- Renderização ---
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
+  // =================================================================
+  // RENDERIZAÇÃO: LOADING
+  // =================================================================
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-12 w-12 text-teal-600 animate-spin" />
+      </div>
+    );
+  }
 
+  // =================================================================
+  // RENDERIZAÇÃO: PÁGINA PRINCIPAL
+  // =================================================================
   return (
     <div className="space-y-6">
-      {/* 1. KPIs */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <FileCheck className="h-5 w-5 text-teal-600" />
-              <span className="text-sm font-semibold text-slate-600">Enviadas</span>
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{stats.sent}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <Check className="h-5 w-5 text-green-600" />
-              <span className="text-sm font-semibold text-slate-600">Fechadas</span>
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{stats.closed}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <FileX className="h-5 w-5 text-red-600" />
-              <span className="text-sm font-semibold text-slate-600">Perdidas</span>
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{stats.lost}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-5 w-5 text-blue-600" />
-              <span className="text-sm font-semibold text-slate-600">Conversão</span>
-            </div>
-            <p className="text-2xl font-bold text-slate-900">{stats.conversion}%</p>
-          </div>
-          <div className="bg-teal-50 p-4 rounded-xl border-2 border-teal-200 shadow-sm md:col-span-2">
-            <div className="flex items-center gap-2 mb-2">
-              <DollarSign className="h-5 w-5 text-teal-700" />
-              <span className="text-sm font-bold text-teal-800">Ganho Mensal Total</span>
-            </div>
-            <p className="text-3xl font-bold text-teal-700">R$ {stats.totalGain.toFixed(2)}</p>
-          </div>
-          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm md:col-span-2">
-            <div className="flex items-center gap-2 mb-2">
-              <Users className="h-5 w-5 text-slate-600" />
-              <span className="text-sm font-bold text-slate-700">Total de Propostas</span>
-            </div>
-            <p className="text-3xl font-bold text-slate-900">{stats.totalProposals}</p>
-          </div>
+      {/* CABEÇALHO */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <FileText className="h-8 w-8 text-teal-600" />
+            Propostas Comerciais
+          </h1>
+          <p className="text-slate-600 mt-1">Crie propostas profissionais e acompanhe sua taxa de conversão</p>
         </div>
-      )}
-
-      {/* 2. Filtro de Período e Botões de Exportação */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-bold text-slate-900">Análise de Desempenho</h3>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Botões de Exportação */}
-          <button
-            onClick={exportToPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
-            title="Exportar relatório em PDF"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-            PDF
+        <div className="flex gap-3">
+          <button onClick={exportToCSV} className={btnSecondary}>
+            <Download className="h-5 w-5" /> CSV
           </button>
-          <button
-            onClick={exportToCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
-            title="Exportar relatório em Excel/CSV"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Excel
+          <button onClick={exportToPDF} className={btnSecondary}>
+            <FileText className="h-5 w-5" /> PDF
           </button>
-          
-          {/* Filtro de Período */}
-          <div className="flex gap-1 bg-slate-100 p-1 rounded-lg ml-2">
-            {[
-              { value: '3', label: '3M' },
-              { value: '6', label: '6M' },
-              { value: '12', label: '1A' },
-              { value: 'all', label: 'Todo' },
-            ].map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPeriod(p.value as any)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  period === p.value
-                    ? 'bg-white text-teal-700 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+          <button onClick={openWizard} className={btnPrimary}>
+            <Plus className="h-5 w-5" /> Nova Proposta
+          </button>
         </div>
       </div>
 
-      {/* 3. Gráficos (mantidos iguais - com tooltips) */}
-      {trendData.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Gráfico de Barras */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-2">
-            <div className="flex items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Propostas por Mês</h3>
-              <InfoTooltip description="Mostra o volume de propostas enviadas, fechadas e perdidas em cada mês do período selecionado." />
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {[
+          { label: 'Total', value: metrics.totalProposals, icon: FileText, color: 'text-slate-600' },
+          { label: 'Ganhas', value: metrics.wonProposals, icon: Trophy, color: 'text-green-600' },
+          { label: 'Perdidas', value: metrics.lostProposals, icon: XCircle, color: 'text-red-600' },
+          { label: 'Conversão', value: `${metrics.conversionRate}%`, icon: Target, color: 'text-teal-600' },
+          { label: 'Receita Ganha', value: formatCurrency(metrics.wonRevenue), icon: DollarSign, color: 'text-green-600' },
+        ].map((kpi, i) => (
+          <div key={i} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase">{kpi.label}</span>
+              <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
             </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
-                <Tooltip contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }} />
-                <Legend />
-                <Bar dataKey="sent" name="Enviadas" fill="#14b8a6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="closed" name="Fechadas" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="lost" name="Perdidas" fill="#ef4444" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <p className={`text-2xl font-bold mt-2 ${kpi.color}`}>{kpi.value}</p>
           </div>
+        ))}
+      </div>
 
-          {/* Gráfico de Pizza */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Motivos de Perda</h3>
-              <InfoTooltip description="Distribuição percentual dos motivos pelos quais as propostas foram perdidas." />
-            </div>
-            {lossReasonsData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie data={lossReasonsData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {lossReasonsData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-slate-400 text-sm">Nenhuma proposta perdida no período.</div>
-            )}
+      {/* FILTROS */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por cliente ou número..."
+              className={`pl-10 ${inputClass}`}
+            />
           </div>
-
-          {/* Gráfico de Linha - Conversão */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-3">
-            <div className="flex items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Taxa de Conversão (%)</h3>
-              <InfoTooltip description="Percentual de propostas enviadas que resultaram em fechamento." />
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={conversionData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#64748b" style={{ fontSize: '12px' }} unit="%" />
-                <Tooltip contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value: number) => [`${value.toFixed(2)}%`, 'Conversão']} />
-                <Line type="monotone" dataKey="conversionRate" stroke="#3b82f6" strokeWidth={3} dot={{ r: 5, fill: '#3b82f6' }} activeDot={{ r: 7 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Gráfico de Área - Receita */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 lg:col-span-3">
-            <div className="flex items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Receita Gerada por Mês (R$)</h3>
-              <InfoTooltip description="Soma total da receita mensal proveniente das propostas fechadas." />
-            </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" stroke="#64748b" style={{ fontSize: '12px' }} />
-                <YAxis stroke="#64748b" style={{ fontSize: '12px' }} />
-                <Tooltip contentStyle={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Receita']} />
-                <Area type="monotone" dataKey="revenue" stroke="#14b8a6" fill="#14b8a6" fillOpacity={0.2} strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={inputClass}>
+            <option value="all">Todos os status</option>
+            {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
+              <option key={key} value={key}>{cfg.label}</option>
+            ))}
+          </select>
+          <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)} className={inputClass}>
+            <option value="7d">Últimos 7 dias</option>
+            <option value="30d">Últimos 30 dias</option>
+            <option value="90d">Últimos 90 dias</option>
+            <option value="12m">Últimos 12 meses</option>
+            <option value="ytd">Este ano</option>
+          </select>
         </div>
-      )}
+      </div>
 
-      {/* 4. Tabela de Propostas */}
+      {/* TABELA */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200">
-          <h3 className="text-lg font-bold text-slate-900">Histórico de Propostas</h3>
-        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase">Nº</th>
-                <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase">Cliente</th>
-                <th className="text-center px-4 py-3 text-xs font-bold text-slate-600 uppercase">Status</th>
-                <th className="text-right px-4 py-3 text-xs font-bold text-slate-600 uppercase">Valor Base</th>
-                <th className="text-left px-4 py-3 text-xs font-bold text-slate-600 uppercase">Plano Fechado</th>
-                <th className="text-right px-4 py-3 text-xs font-bold text-slate-600 uppercase">Ações</th>
+                <th className="text-left px-6 py-4 text-xs font-bold text-slate-600 uppercase">Número</th>
+                <th className="text-left px-6 py-4 text-xs font-bold text-slate-600 uppercase">Cliente</th>
+                <th className="text-left px-6 py-4 text-xs font-bold text-slate-600 uppercase">Regime</th>
+                <th className="text-right px-6 py-4 text-xs font-bold text-slate-600 uppercase">Valor</th>
+                <th className="text-center px-6 py-4 text-xs font-bold text-slate-600 uppercase">Status</th>
+                <th className="text-right px-6 py-4 text-xs font-bold text-slate-600 uppercase">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {proposals.map((prop) => {
-                const statusColors: any = { DRAFT: 'bg-slate-100 text-slate-700', SENT: 'bg-blue-100 text-blue-700', CLOSED: 'bg-green-100 text-green-700', LOST: 'bg-red-100 text-red-700' };
-                const statusLabels: any = { DRAFT: 'Rascunho', SENT: 'Enviada', CLOSED: 'Fechada', LOST: 'Perdida' };
-
+              {filteredProposals.map((p) => {
+                const statusCfg = STATUS_CONFIG[p.status] || STATUS_CONFIG.DRAFT;
+                const StatusIcon = statusCfg.icon;
                 return (
-                  <tr key={prop.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 text-sm font-medium text-slate-900">{prop.proposalNumber}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{prop.clientName}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${statusColors[prop.status]}`}>{statusLabels[prop.status]}</span>
+                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-mono text-sm font-semibold text-slate-900">{p.proposalNumber}</div>
+                      <div className="text-xs text-slate-500">{formatDate(p.createdAt)}</div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 text-right font-medium">R$ {prop.basePrice.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{prop.status === 'CLOSED' ? prop.closedPlanName || 'N/A' : '-'}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-slate-900">{p.clientName}</div>
+                      <div className="text-xs text-slate-500">{p.clientCnpj || 'Sem CNPJ'}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-700">
+                      {REGIMES.find(r => r.value === p.taxRegime)?.label || p.taxRegime}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-900 text-right">
+                      {formatCurrency(p.closedPrice || p.basePrice)}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${statusCfg.color}`}>
+                        <StatusIcon className="h-3 w-3" />
+                        {statusCfg.label}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <a href={`/proposta/${prop.slug}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded" title="Ver Proposta">
-                          <FileText className="h-4 w-4" />
-                        </a>
-                        {prop.status === 'SENT' && (
+                        <button onClick={() => openViewModal(p)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Visualizar">
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => copyPublicLink(p)} className="p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg" title="Copiar link público">
+                          <Link2 className="h-4 w-4" />
+                        </button>
+                        {p.status === 'DRAFT' && (
+                          <button onClick={() => handleSend(p)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Marcar como enviada">
+                            <Send className="h-4 w-4" />
+                          </button>
+                        )}
+                        {(p.status === 'SENT' || p.status === 'VIEWED') && (
                           <>
-                            <button onClick={() => { setSelectedProposal(prop); setShowCloseModal(true); }} className="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Marcar como Fechada">
-                              <Check className="h-4 w-4" />
+                            <button onClick={() => openCloseModal(p)} className="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg" title="Fechar negócio">
+                              <Trophy className="h-4 w-4" />
                             </button>
-                            <button onClick={() => { setSelectedProposal(prop); setShowLostModal(true); }} className="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Marcar como Perdida">
-                              <FileX className="h-4 w-4" />
+                            <button onClick={() => openLoseModal(p)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Marcar como perdida">
+                              <XCircle className="h-4 w-4" />
                             </button>
                           </>
                         )}
+                        <button onClick={() => handleDelete(p)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir">
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -570,780 +645,430 @@ function PropostasTab() {
               })}
             </tbody>
           </table>
-          {proposals.length === 0 && (
+          {filteredProposals.length === 0 && (
             <div className="text-center py-12 text-slate-500">
-              <TrendingUp className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-              <p>Nenhuma proposta registrada ainda.</p>
+              <FileText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+              <p className="text-lg font-medium">Nenhuma proposta encontrada</p>
+              <p className="text-sm mt-1">Clique em "Nova Proposta" para começar</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Modais (mantidos iguais) */}
+      {/* ============================================================= */}
+      {/* 🧙 WIZARD DE NOVA PROPOSTA (5 PASSOS) */}
+      {/* ============================================================= */}
+      {showWizard && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50 rounded-t-2xl">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Sparkles className="h-6 w-6 text-teal-600" />
+                Nova Proposta Comercial
+              </h2>
+              <button onClick={() => setShowWizard(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Steps indicator */}
+            <div className="flex border-b border-slate-200 px-6 bg-white overflow-x-auto">
+              {[
+                { n: 1, label: 'Prospect', icon: Building2 },
+                { n: 2, label: 'Plano', icon: Crown },
+                { n: 3, label: 'Add-ons', icon: Package },
+                { n: 4, label: 'Textos', icon: FileText },
+                { n: 5, label: 'Revisão', icon: CheckCircle2 },
+              ].map(step => (
+                <button
+                  key={step.n}
+                  onClick={() => setWizardStep(step.n)}
+                  className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+                    wizardStep === step.n ? 'border-teal-600 text-teal-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  <step.icon className="h-4 w-4" /> {step.n}. {step.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Conteúdo dos passos */}
+            <div className="flex-1 overflow-y-auto p-6">
+
+              {/* PASSO 1: PROSPECT */}
+              {wizardStep === 1 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-300">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Cliente *</label>
+                    <input type="text" value={form.clientName} onChange={(e) => setForm({ ...form, clientName: e.target.value })} className={inputClass} placeholder="Ex: Tech Solutions LTDA" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">CNPJ</label>
+                    <input type="text" value={form.clientCnpj} onChange={(e) => setForm({ ...form, clientCnpj: e.target.value })} className={inputClass} placeholder="00.000.000/0000-00" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Regime Tributário *</label>
+                    <select value={form.taxRegime} onChange={(e) => setForm({ ...form, taxRegime: e.target.value })} className={inputClass}>
+                      {REGIMES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Atividade (CNAE/Ramo)</label>
+                    <input type="text" value={form.activity} onChange={(e) => setForm({ ...form, activity: e.target.value })} className={inputClass} placeholder="Ex: Comércio varejista" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Faturamento Mensal (R$)</label>
+                    <input type="number" step="0.01" value={form.monthlyRevenue} onChange={(e) => setForm({ ...form, monthlyRevenue: parseFloat(e.target.value) || 0 })} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Nº de Funcionários</label>
+                    <input type="number" value={form.employeeCount} onChange={(e) => setForm({ ...form, employeeCount: parseInt(e.target.value) || 0 })} className={inputClass} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">
+                      Valor Base Calculado (R$) *
+                    </label>
+                    <input type="number" step="0.01" value={form.basePrice} onChange={(e) => setForm({ ...form, basePrice: parseFloat(e.target.value) || 0 })} className={inputClass} placeholder="Ex: 450.00" />
+                    <p className="text-xs text-slate-500 mt-1">
+                      💡 Use a calculadora de precificação para obter este valor. Ele será multiplicado pelo fator do plano escolhido.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* PASSO 2: PLANO COMERCIAL */}
+              {wizardStep === 2 && (
+                <div className="animate-in fade-in duration-300">
+                  <p className="text-sm text-slate-600 mb-4">
+                    Selecione o plano comercial. O valor final = <strong>Valor Base × Multiplicador</strong>.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {plans.length === 0 && (
+                      <div className="col-span-3 text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                        <p className="text-slate-500">Nenhum plano cadastrado. Execute o seed de planos comerciais.</p>
+                      </div>
+                    )}
+                    {plans.map(plan => {
+                      const isSelected = form.selectedPlanId === plan.id;
+                      const finalPrice = form.basePrice * plan.multiplier;
+                      return (
+                        <button
+                          key={plan.id}
+                          type="button"
+                          onClick={() => setForm({ ...form, selectedPlanId: plan.id })}
+                          className={`p-4 rounded-xl border-2 text-left transition-all relative ${
+                            isSelected ? 'border-teal-600 bg-teal-50 shadow-md scale-[1.02]' : 'border-slate-200 hover:border-slate-300 bg-white'
+                          }`}
+                        >
+                          {isSelected && (
+                            <div className="absolute top-2 right-2 bg-teal-600 rounded-full p-1">
+                              <CheckCircle2 className="h-4 w-4 text-white" />
+                            </div>
+                          )}
+                          {plan.badge && (
+                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase mb-2 text-white" style={{ backgroundColor: plan.color || '#64748b' }}>
+                              {plan.badge}
+                            </span>
+                          )}
+                          <h3 className="font-bold text-lg text-slate-900">{plan.name}</h3>
+                          <p className="text-xs text-slate-500 mt-1 mb-3 min-h-[30px]">{plan.description}</p>
+                          <div className="text-xs text-slate-500">Multiplicador: <strong>{plan.multiplier}x</strong></div>
+                          {form.basePrice > 0 && (
+                            <div className="text-lg font-bold text-teal-600 mt-1">{formatCurrency(finalPrice)}</div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* PASSO 3: ADD-ONS (SERVIÇOS AVULSOS) */}
+              {wizardStep === 3 && (
+                <div className="space-y-2 animate-in fade-in duration-300">
+                  <p className="text-sm text-slate-600 mb-4">
+                    Adicione serviços extras à proposta (ex: IRPF, Abertura de Empresa). Opcional.
+                  </p>
+                  {serviceItems.length === 0 && (
+                    <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                      <p className="text-slate-500">Nenhum serviço cadastrado no catálogo.</p>
+                    </div>
+                  )}
+                  {serviceItems.map(item => {
+                    const isSelected = form.selectedAvulsoIds.includes(item.id);
+                    return (
+                      <label
+                        key={item.id}
+                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                          isSelected ? 'border-purple-500 bg-purple-50' : 'border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setForm({ ...form, selectedAvulsoIds: [...form.selectedAvulsoIds, item.id] });
+                            } else {
+                              setForm({ ...form, selectedAvulsoIds: form.selectedAvulsoIds.filter(id => id !== item.id) });
+                            }
+                          }}
+                          className="mt-1 h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold text-slate-900 text-sm">{item.name}</div>
+                          {item.description && <p className="text-xs text-slate-500 mt-0.5">{item.description}</p>}
+                          <p className="text-sm font-semibold text-teal-600 mt-1">{formatCurrency(Number(item.basePrice))}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* PASSO 4: TEXTOS DA PROPOSTA */}
+              {wizardStep === 4 && (
+                <div className="space-y-4 animate-in fade-in duration-300">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Sobre o Escritório</label>
+                    <textarea value={form.aboutOffice} onChange={(e) => setForm({ ...form, aboutOffice: e.target.value })} rows={3} className={inputClass} placeholder="Apresentação profissional do escritório..." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Diferenciais</label>
+                    <textarea value={form.differentials} onChange={(e) => setForm({ ...form, differentials: e.target.value })} rows={3} className={inputClass} placeholder="Por que escolher a Conta Certa?" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Processo de Onboarding</label>
+                    <textarea value={form.onboarding} onChange={(e) => setForm({ ...form, onboarding: e.target.value })} rows={3} className={inputClass} placeholder="Como funciona a migração e início dos trabalhos..." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Condições Comerciais</label>
+                    <textarea value={form.commercialTerms} onChange={(e) => setForm({ ...form, commercialTerms: e.target.value })} rows={3} className={inputClass} placeholder="Formas de pagamento, reajuste, vigência..." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Observações Específicas</label>
+                    <textarea value={form.specificNote} onChange={(e) => setForm({ ...form, specificNote: e.target.value })} rows={2} className={inputClass} placeholder="Notas específicas para este cliente..." />
+                  </div>
+                </div>
+              )}
+
+              {/* PASSO 5: REVISÃO */}
+              {wizardStep === 5 && (
+                <div className="space-y-4 animate-in fade-in duration-300">
+                  <div className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+                    <h3 className="font-bold text-teal-900 mb-3">📋 Resumo da Proposta</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div><span className="text-slate-500">Cliente:</span> <strong>{form.clientName || '-'}</strong></div>
+                      <div><span className="text-slate-500">CNPJ:</span> <strong>{form.clientCnpj || '-'}</strong></div>
+                      <div><span className="text-slate-500">Regime:</span> <strong>{REGIMES.find(r => r.value === form.taxRegime)?.label}</strong></div>
+                      <div><span className="text-slate-500">Funcionários:</span> <strong>{form.employeeCount}</strong></div>
+                      <div><span className="text-slate-500">Faturamento:</span> <strong>{formatCurrency(form.monthlyRevenue)}</strong></div>
+                      <div><span className="text-slate-500">Plano:</span> <strong>{plans.find(p => p.id === form.selectedPlanId)?.name || '-'}</strong></div>
+                      <div><span className="text-slate-500">Add-ons:</span> <strong>{form.selectedAvulsoIds.length} serviço(s)</strong></div>
+                    </div>
+                  </div>
+                  <div className="bg-white border-2 border-teal-600 rounded-xl p-4 text-center">
+                    <p className="text-sm text-slate-500 mb-1">Valor Total da Proposta</p>
+                    <p className="text-3xl font-bold text-teal-600">{formatCurrency(totalProposalValue)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer: navegação + total */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+              <div className="flex items-center justify-between mb-3 px-2">
+                <span className="text-sm text-slate-600 flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-teal-600" /> Total atual:
+                </span>
+                <span className="text-xl font-bold text-teal-600">{formatCurrency(totalProposalValue)}</span>
+              </div>
+              <div className="flex justify-between">
+                <button
+                  type="button"
+                  onClick={() => setWizardStep(Math.max(1, wizardStep - 1))}
+                  disabled={wizardStep === 1}
+                  className={btnSecondary + ' disabled:opacity-50'}
+                >
+                  <ChevronLeft className="h-4 w-4" /> Anterior
+                </button>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowWizard(false)} className={btnSecondary}>Cancelar</button>
+                  {wizardStep < 5 ? (
+                    <button type="button" onClick={() => setWizardStep(wizardStep + 1)} className={btnPrimary}>
+                      Próximo <ChevronRight className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button type="button" onClick={handleSubmitProposal} disabled={submitting} className={btnPrimary}>
+                      {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {submitting ? 'Salvando...' : 'Criar Proposta'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================= */}
+      {/* 👁️ MODAL: VISUALIZAR PROPOSTA */}
+      {/* ============================================================= */}
+      {showViewModal && selectedProposal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">{selectedProposal.clientName}</h2>
+                <p className="text-sm text-slate-500 font-mono">{selectedProposal.proposalNumber}</p>
+              </div>
+              <button onClick={() => setShowViewModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* Dados do prospect */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Regime</label>
+                  <p className="text-slate-900">{REGIMES.find(r => r.value === selectedProposal.taxRegime)?.label}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Atividade</label>
+                  <p className="text-slate-900">{selectedProposal.activity || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Faturamento Mensal</label>
+                  <p className="text-slate-900">{formatCurrency(selectedProposal.monthlyRevenue)}</p>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Funcionários</label>
+                  <p className="text-slate-900">{selectedProposal.employeeCount}</p>
+                </div>
+              </div>
+
+              {/* Itens da proposta */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+                  <Package className="h-4 w-4 text-teal-600" /> Itens da Proposta
+                </h3>
+                {selectedProposal.items && selectedProposal.items.length > 0 ? (
+                  <ul className="space-y-2">
+                    {selectedProposal.items.map(item => (
+                      <li key={item.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                        <div>
+                          <p className="font-medium text-slate-900 text-sm">
+                            {item.commercialPlan?.name || item.serviceItem?.name || 'Item'}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {item.commercialPlan ? 'Plano Comercial' : 'Serviço Avulso'}
+                          </p>
+                        </div>
+                        <span className="font-semibold text-teal-600">{formatCurrency(item.totalPrice)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-slate-500 italic">Nenhum item registrado.</p>
+                )}
+              </div>
+
+              {/* Textos */}
+              {selectedProposal.aboutOffice && (
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-bold text-slate-700 mb-2">Sobre o Escritório</h3>
+                  <p className="text-sm text-slate-600 whitespace-pre-wrap">{selectedProposal.aboutOffice}</p>
+                </div>
+              )}
+              {selectedProposal.commercialTerms && (
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-bold text-slate-700 mb-2">Condições Comerciais</h3>
+                  <p className="text-sm text-slate-600 whitespace-pre-wrap">{selectedProposal.commercialTerms}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button onClick={() => copyPublicLink(selectedProposal)} className={btnSecondary}>
+                  <Link2 className="h-4 w-4" /> Copiar Link
+                </button>
+                <button onClick={() => setShowViewModal(false)} className={btnPrimary}>Fechar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================= */}
+      {/* 🏆 MODAL: FECHAR NEGÓCIO (Substitui confirm() nativo) */}
+      {/* ============================================================= */}
       {showCloseModal && selectedProposal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-xl font-bold text-slate-900 mb-4">Registrar Fechamento</h3>
-            <p className="text-sm text-slate-600 mb-4">Cliente: <strong>{selectedProposal.clientName}</strong></p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Plano Escolhido</label>
-                <select value={closeForm.planId} onChange={(e) => setCloseForm({...closeForm, planId: e.target.value})} className={inputClass}>
-                  <option value="">Selecione o plano...</option>
-                  {selectedProposal.includedPlans?.map((p: any) => (<option key={p.planId} value={p.planId}>{p.planName} (R$ {p.finalPrice.toFixed(2)})</option>))}
-                </select>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-green-100 rounded-full">
+                <Trophy className="h-6 w-6 text-green-600" />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Preço Final Negociado (R$)</label>
-                <input type="number" value={closeForm.price || ''} onChange={(e) => setCloseForm({...closeForm, price: parseFloat(e.target.value) || 0})} className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Desconto Aplicado (R$)</label>
-                <input type="number" value={closeForm.discount || ''} onChange={(e) => setCloseForm({...closeForm, discount: parseFloat(e.target.value) || 0})} className={inputClass} />
-              </div>
+              <h3 className="text-lg font-bold text-slate-900">Fechar Negócio!</h3>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowCloseModal(false)} className="flex-1 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
-              <button onClick={handleCloseProposal} className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg">Confirmar Fechamento</button>
+            <p className="text-slate-600 mb-4">
+              Confirme o fechamento da proposta <strong>{selectedProposal.proposalNumber}</strong> para o cliente <strong>{selectedProposal.clientName}</strong>.
+            </p>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Valor Final Fechado (R$)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={closedPrice}
+              onChange={(e) => setClosedPrice(parseFloat(e.target.value) || 0)}
+              className={inputClass}
+            />
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowCloseModal(false)} className={btnSecondary}>Cancelar</button>
+              <button onClick={handleCloseProposal} disabled={submitting} className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg">
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trophy className="h-4 w-4" />}
+                Confirmar Vitória
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {showLostModal && selectedProposal && (
+      {/* ============================================================= */}
+      {/* 📉 MODAL: MARCAR COMO PERDIDA */}
+      {/* ============================================================= */}
+      {showLoseModal && selectedProposal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <h3 className="text-xl font-bold text-slate-900 mb-4">Motivo da Perda</h3>
-            <p className="text-sm text-slate-600 mb-4">Cliente: <strong>{selectedProposal.clientName}</strong></p>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Motivo Principal</label>
-                <select value={lostReason} onChange={(e) => setLostReason(e.target.value)} className={inputClass}>
-                  <option value="Preço alto">Preço alto</option>
-                  <option value="Concorrência">Concorrência</option>
-                  <option value="Sem resposta">Sem resposta do cliente</option>
-                  <option value="Não atende necessidades">Não atende às necessidades</option>
-                  <option value="Outro">Outro</option>
-                </select>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
               </div>
+              <h3 className="text-lg font-bold text-slate-900">Marcar como Perdida</h3>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowLostModal(false)} className="flex-1 px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
-              <button onClick={handleMarkAsLost} className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg">Confirmar Perda</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-// =================================================================
-// FIM: COMPONENTE DA ABA PROPOSTAS (CRM) COM EXPORTAÇÃO
-// =================================================================
-// =================================================================
-// INÍCIO: COMPONENTE DA ABA CALCULADORA DE PREÇO
-// =================================================================
-function CalculatorTab() {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const [showProposalModal, setShowProposalModal] = useState(false);
-  
-  const [form, setForm] = useState({
-    clientName: '', taxRegime: 'Simples Nacional', annex: '', activity: 'Serviço',
-    monthlyRevenue: 0, employeeCount: 0, dpMethod: 'PER_EMPLOYEE', dpValue: 60,
-    hasBranches: false, hasErp: false, currentCharge: 0,
-  });
-
-  const updateForm = (field: string, value: any) => setForm((prev) => ({ ...prev, [field]: value }));
-
-  async function handleCalculate() {
-    setLoading(true);
-    try {
-      const res = await api.post('/pricing-calculator/calculate', form);
-      setResult(res.data.data);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erro ao calcular');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Perfil do Cliente</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Cliente</label>
-            <input type="text" value={form.clientName} onChange={(e) => updateForm('clientName', e.target.value)} className={inputClass} placeholder="Ex: Restaurante Sabor & Arte" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Regime Tributário</label>
-            <select value={form.taxRegime} onChange={(e) => updateForm('taxRegime', e.target.value)} className={inputClass}>
-              <option value="Simples Nacional">Simples Nacional</option>
-              <option value="Lucro Presumido">Lucro Presumido</option>
-              <option value="Lucro Real">Lucro Real</option>
-              <option value="MEI">MEI</option>
-              <option value="Imune/Isenta">Imune/Isenta</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Atividade</label>
-            <select value={form.activity} onChange={(e) => updateForm('activity', e.target.value)} className={inputClass}>
-              <option value="Comércio">Comércio</option>
-              <option value="Indústria">Indústria</option>
-              <option value="Serviço">Serviço</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Faturamento Médio (R$)</label>
-            <input type="number" value={form.monthlyRevenue || ''} onChange={(e) => updateForm('monthlyRevenue', parseFloat(e.target.value) || 0)} className={inputClass} placeholder="Ex: 50000" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Nº Funcionários</label>
-            <input type="number" value={form.employeeCount || ''} onChange={(e) => updateForm('employeeCount', parseInt(e.target.value) || 0)} className={inputClass} placeholder="Ex: 5" />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Cálculo do DP</label>
-            <div className="flex gap-2 items-center">
-              <select value={form.dpMethod} onChange={(e) => updateForm('dpMethod', e.target.value)} className={inputClass + ' flex-1'}>
-                <option value="MARGIN">Margem (%)</option>
-                <option value="PER_EMPLOYEE">Valor / func.</option>
-              </select>
-              <input type="number" value={form.dpValue || ''} onChange={(e) => updateForm('dpValue', parseFloat(e.target.value) || 0)} className={inputClass + ' w-24'} placeholder="Valor" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Quanto cobra hoje? (R$)</label>
-            <input type="number" value={form.currentCharge || ''} onChange={(e) => updateForm('currentCharge', parseFloat(e.target.value) || 0)} className={inputClass} placeholder="Opcional" />
-          </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" checked={form.hasBranches} onChange={(e) => updateForm('hasBranches', e.target.checked)} className="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
-              <span>Filiais?</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm font-medium">
-              <input type="checkbox" checked={form.hasErp} onChange={(e) => updateForm('hasErp', e.target.checked)} className="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
-              <span>ERP?</span>
-            </label>
-          </div>
-        </div>
-        <div className="mt-6">
-          <button onClick={handleCalculate} disabled={loading} className={btnPrimary}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
-            {loading ? 'Calculando...' : 'Calcular Preço'}
-          </button>
-        </div>
-      </div>
-
-      {result && (
-        <div className="space-y-6">
-          {result.leavingOnTable > 0 && (
-            <div className="bg-orange-50 border-2 border-orange-200 rounded-xl p-4 flex items-center gap-3">
-              <AlertTriangle className="h-6 w-6 text-orange-500 flex-shrink-0" />
-              <div>
-                <p className="font-bold text-orange-800">Você está deixando R$ {result.leavingOnTable.toFixed(2)} por mês na mesa!</p>
-                <p className="text-sm text-orange-600">Ideal: R$ {result.basePrice.toFixed(2)} | Hoje: R$ {(form.currentCharge || 0).toFixed(2)}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-2">PREÇO SUGERIDO: <span className="text-teal-600">R$ {result.basePrice.toFixed(2)}</span></h2>
-            <p className="text-sm text-slate-500 mb-4">{form.taxRegime} • {form.activity} • {form.employeeCount} funcionário(s)</p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <p className="text-xs font-semibold text-slate-500 mb-1">Fiscal / Contábil</p>
-                <p className="text-lg font-bold text-slate-900">R$ {(result.costFC || 0).toFixed(2)}</p>
-                <p className="text-xs text-slate-500">{result.totalHours || 0}h estimadas</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <p className="text-xs font-semibold text-slate-500 mb-1">Departamento Pessoal</p>
-                <p className="text-lg font-bold text-slate-900">R$ {(result.costDP || 0).toFixed(2)}</p>
-                <p className="text-xs text-slate-500">{form.employeeCount} funcionário(s)</p>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <p className="text-xs font-semibold text-slate-500 mb-1">Total Sugerido</p>
-                <p className="text-lg font-bold text-teal-600">R$ {(result.basePrice || 0).toFixed(2)}</p>
-              </div>
-            </div>
-            <h3 className="text-lg font-bold text-slate-900 mb-3">Enquadramento em Planos</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {result.planPrices.map((plan: any, idx: number) => (
-                <div key={plan.planId} className={`border-2 rounded-xl p-4 text-center ${idx === 1 ? 'border-teal-500 bg-teal-50' : 'border-slate-200'}`}>
-                  {plan.badge && <span className="inline-block px-2 py-1 rounded text-xs font-bold bg-orange-500 text-white mb-2">{plan.badge}</span>}
-                  <h4 className="font-bold text-slate-900">{plan.planName}</h4>
-                  <p className="text-3xl font-bold text-teal-600 mt-2">R$ {plan.finalPrice.toFixed(2)}</p>
-                  <p className="text-xs text-slate-500 mt-1">×{plan.multiplier.toFixed(2)} /mês</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 text-center">
-            <h3 className="text-lg font-bold text-slate-900 mb-2">Pronto para enviar ao cliente?</h3>
-            <p className="text-sm text-slate-500 mb-4">Gere um link público profissional com os planos e preços calculados.</p>
-            <button onClick={() => setShowProposalModal(true)} className="px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-bold rounded-lg shadow-lg transition-all">
-              📄 Gerar Proposta Comercial
-            </button>
-          </div>
-        </div>
-      )}
-
-      <GenerateProposalModal
-        isOpen={showProposalModal}
-        onClose={() => setShowProposalModal(false)}
-        calculationResult={result}
-        clientForm={form}
-      />
-    </div>
-  );
-}
-// =================================================================
-// FIM: COMPONENTE DA ABA CALCULADORA DE PREÇO
-// =================================================================
-
-
-// =================================================================
-// INÍCIO: COMPONENTE DA ABA CONFIGURAÇÕES
-// =================================================================
-function ConfigTab() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [config, setConfig] = useState<any>(null);
-
-  useEffect(() => { loadConfig(); }, []);
-
-  async function loadConfig() {
-    try {
-      const res = await api.get('/pricing-calculator/config');
-      setConfig(res.data.data);
-    } catch (err) {
-      toast.error('Erro ao carregar configuração');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      await api.put('/pricing-calculator/config', config);
-      toast.success('Configuração salva!');
-      loadConfig();
-    } catch (err) {
-      toast.error('Erro ao salvar');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const updateConfig = (field: string, value: any) => setConfig((prev: any) => ({ ...prev, [field]: value }));
-
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
-  if (!config) return null;
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900">Configurações de Custo</h2>
-        <button onClick={handleSave} disabled={saving} className={btnPrimary}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar
-        </button>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-700 uppercase border-b-2 border-slate-200 pb-2">Custo do Colaborador</h3>
-          <div><label className="block text-sm font-semibold text-slate-600 mb-1">Salário Médio (R$)</label><input type="number" value={config.salaryAverage} onChange={(e) => updateConfig('salaryAverage', parseFloat(e.target.value) || 0)} className={inputClass} /></div>
-          <div><label className="block text-sm font-semibold text-slate-600 mb-1">Encargos (%)</label><input type="number" value={config.chargesPercent} onChange={(e) => updateConfig('chargesPercent', parseFloat(e.target.value) || 0)} className={inputClass} /></div>
-          <div><label className="block text-sm font-semibold text-slate-600 mb-1">Horas/Mês</label><input type="number" value={config.hoursPerMonth} onChange={(e) => updateConfig('hoursPerMonth', parseFloat(e.target.value) || 0)} className={inputClass} /></div>
-          <div><label className="block text-sm font-semibold text-slate-600 mb-1">Vidas por Colaborador (DP)</label><input type="number" value={config.livesPerEmployee} onChange={(e) => updateConfig('livesPerEmployee', parseFloat(e.target.value) || 0)} className={inputClass} /></div>
-        </div>
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-700 uppercase border-b-2 border-slate-200 pb-2">Deduções / Markup</h3>
-          <div><label className="block text-sm font-semibold text-slate-600 mb-1">Impostos (%)</label><input type="number" value={config.taxesPercent} onChange={(e) => updateConfig('taxesPercent', parseFloat(e.target.value) || 0)} className={inputClass} /></div>
-          <div><label className="block text-sm font-semibold text-slate-600 mb-1">Back Office (%)</label><input type="number" value={config.backOfficePercent} onChange={(e) => updateConfig('backOfficePercent', parseFloat(e.target.value) || 0)} className={inputClass} /></div>
-          <div><label className="block text-sm font-semibold text-slate-600 mb-1">Administrativo (%)</label><input type="number" value={config.adminPercent} onChange={(e) => updateConfig('adminPercent', parseFloat(e.target.value) || 0)} className={inputClass} /></div>
-          <div><label className="block text-sm font-semibold text-slate-600 mb-1">Margem Fiscal/Contábil (%)</label><input type="number" value={config.marginFC} onChange={(e) => updateConfig('marginFC', parseFloat(e.target.value) || 0)} className={inputClass} /></div>
-          <div><label className="block text-sm font-semibold text-slate-600 mb-1">Margem DP (%)</label><input type="number" value={config.marginDP} onChange={(e) => updateConfig('marginDP', parseFloat(e.target.value) || 0)} className={inputClass} /></div>
-        </div>
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-slate-700 uppercase border-b-2 border-slate-200 pb-2">Prévia do Cálculo</h3>
-          {config.derived && (
-            <div className="bg-slate-50 rounded-lg p-4 space-y-2 text-sm border border-slate-200">
-              <div className="flex justify-between"><span className="text-slate-600 font-medium">Custo Colaborador:</span><span className="font-bold text-slate-900">R$ {config.derived.employeeCost.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span className="text-slate-600 font-medium">Custo/Hora:</span><span className="font-bold text-slate-900">R$ {config.derived.costPerHour.toFixed(2)}</span></div>
-              {/* 🔥 CORREÇÃO AQUI: factorMarkupFC e factorMarkupDP */}
-              <div className="flex justify-between"><span className="text-slate-600 font-medium">Fator Markup FC:</span><span className="font-bold text-slate-900">{config.derived.factorMarkupFC.toFixed(4)}</span></div>
-              <div className="flex justify-between"><span className="text-slate-600 font-medium">Fator Markup DP:</span><span className="font-bold text-slate-900">{config.derived.factorMarkupDP.toFixed(4)}</span></div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-// =================================================================
-// FIM: COMPONENTE DA ABA CONFIGURAÇÕES
-// =================================================================
-
-
-// =================================================================
-// INÍCIO: COMPONENTE DA ABA REGRAS DE HORAS
-// =================================================================
-function RulesTab() {
-  const [rules, setRules] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ regime: 'Simples Nacional', activity: 'Serviço', annex: '', revenueMin: 0, revenueMax: 0, hoursFiscal: 0, hoursAccounting: 0 });
-
-  useEffect(() => { loadRules(); }, []);
-
-  async function loadRules() {
-    try {
-      const res = await api.get('/pricing-calculator/hour-rules');
-      setRules(res.data.data || []);
-    } catch (err) { toast.error('Erro ao carregar regras'); } finally { setLoading(false); }
-  }
-
-  async function handleAdd() {
-    try {
-      await api.post('/pricing-calculator/hour-rules', form);
-      toast.success('Regra adicionada!');
-      setShowForm(false);
-      setForm({ regime: 'Simples Nacional', activity: 'Serviço', annex: '', revenueMin: 0, revenueMax: 0, hoursFiscal: 0, hoursAccounting: 0 });
-      loadRules();
-    } catch (err) { toast.error('Erro ao adicionar regra'); }
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm('Remover esta regra?')) return;
-    try { await api.delete(`/pricing-calculator/hour-rules/${id}`); toast.success('Regra removida'); loadRules(); } catch (err) { toast.error('Erro ao remover'); }
-  }
-
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
-
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-slate-900">Regras de Horas</h2>
-        <button onClick={() => setShowForm(!showForm)} className={btnSecondary}><Plus className="h-4 w-4" /> Nova Regra</button>
-      </div>
-      {showForm && (
-        <div className="bg-slate-50 rounded-lg p-4 mb-6 space-y-4 border-2 border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">Regime</label><select value={form.regime} onChange={(e) => setForm({ ...form, regime: e.target.value })} className={inputClass}><option value="Qualquer">Qualquer</option><option value="Simples Nacional">Simples Nacional</option><option value="Lucro Presumido">Lucro Presumido</option><option value="Lucro Real">Lucro Real</option><option value="MEI">MEI</option></select></div>
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">Atividade</label><select value={form.activity} onChange={(e) => setForm({ ...form, activity: e.target.value })} className={inputClass}><option value="Qualquer">Qualquer</option><option value="Comércio">Comércio</option><option value="Indústria">Indústria</option><option value="Serviço">Serviço</option></select></div>
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">Fat. Mínimo (R$)</label><input type="number" value={form.revenueMin || ''} onChange={(e) => setForm({ ...form, revenueMin: parseFloat(e.target.value) || 0 })} className={inputClass} placeholder="0 = sem mínimo" /></div>
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">Fat. Máximo (R$)</label><input type="number" value={form.revenueMax || ''} onChange={(e) => setForm({ ...form, revenueMax: parseFloat(e.target.value) || 0 })} className={inputClass} placeholder="0 = ilimitado" /></div>
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">H. Fiscal</label><input type="number" step="0.5" value={form.hoursFiscal || ''} onChange={(e) => setForm({ ...form, hoursFiscal: parseFloat(e.target.value) || 0 })} className={inputClass} /></div>
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">H. Contábil</label><input type="number" step="0.5" value={form.hoursAccounting || ''} onChange={(e) => setForm({ ...form, hoursAccounting: parseFloat(e.target.value) || 0 })} className={inputClass} /></div>
-          </div>
-          <button onClick={handleAdd} className={btnPrimary}><Plus className="h-4 w-4" /> Adicionar Regra</button>
-        </div>
-      )}
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-slate-100 border-b-2 border-slate-300">
-            <tr>
-              <th className="text-left px-4 py-3 text-sm font-bold text-slate-700 uppercase">Regime</th>
-              <th className="text-left px-4 py-3 text-sm font-bold text-slate-700 uppercase">Atividade</th>
-              <th className="text-left px-4 py-3 text-sm font-bold text-slate-700 uppercase">Fat. Mín</th>
-              <th className="text-left px-4 py-3 text-sm font-bold text-slate-700 uppercase">Fat. Máx</th>
-              <th className="text-center px-4 py-3 text-sm font-bold text-slate-700 uppercase">H. Fiscal</th>
-              <th className="text-center px-4 py-3 text-sm font-bold text-slate-700 uppercase">H. Contábil</th>
-              <th className="text-center px-4 py-3 text-sm font-bold text-slate-700 uppercase">Total</th>
-              <th className="text-right px-4 py-3 text-sm font-bold text-slate-700 uppercase">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200">
-            {rules.map((rule) => (
-              <tr key={rule.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-4 py-3 text-sm font-semibold text-slate-900">{rule.regime}</td>
-                <td className="px-4 py-3 text-sm font-semibold text-slate-900">{rule.activity}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{rule.revenueMin === 0 ? <span className="text-slate-400">-</span> : `R$ ${rule.revenueMin.toLocaleString()}`}</td>
-                <td className="px-4 py-3 text-sm text-slate-700">{rule.revenueMax === 0 ? <span className="text-slate-400">Ilimitado</span> : `R$ ${rule.revenueMax.toLocaleString()}`}</td>
-                <td className="px-4 py-3 text-sm font-bold text-teal-700 text-center">{rule.hoursFiscal}h</td>
-                <td className="px-4 py-3 text-sm font-bold text-teal-700 text-center">{rule.hoursAccounting}h</td>
-                <td className="px-4 py-3 text-sm font-bold text-slate-900 text-center">{(rule.hoursFiscal + rule.hoursAccounting).toFixed(1)}h</td>
-                <td className="px-4 py-3 text-right"><button onClick={() => handleDelete(rule.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Excluir regra"><Trash2 className="h-4 w-4" /></button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {rules.length === 0 && (
-        <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-300">
-          <Clock className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">Nenhuma regra cadastrada</p>
-          <p className="text-sm text-slate-400 mt-1">Clique em "Nova Regra" para começar</p>
-        </div>
-      )}
-    </div>
-  );
-}
-// =================================================================
-// FIM: COMPONENTE DA ABA REGRAS DE HORAS
-// =================================================================
-
-
-// =================================================================
-// INÍCIO: COMPONENTE DA ABA MEUS PLANOS
-// =================================================================
-function PlansTab() {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [plans, setPlans] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
-
-  useEffect(() => { loadData(); }, []);
-  
-  async function loadData() {
-    try {
-      const [plansRes, catsRes] = await Promise.all([api.get('/commercial-plans/plans'), api.get('/commercial-plans/categories')]);
-      setPlans(plansRes.data.data || []);
-      setCategories(catsRes.data.data || []);
-    } catch (err) { toast.error('Erro ao carregar planos'); } finally { setLoading(false); }
-  }
-  
-  async function handleSaveAll() {
-    setSaving(true);
-    try {
-      await api.post('/commercial-plans/save-configuration', { plans });
-      toast.success('Planos salvos!');
-      setEditingPlanId(null);
-      await loadData();
-    } catch (err: any) { toast.error(err.response?.data?.message || 'Erro ao salvar'); } finally { setSaving(false); }
-  }
-  
-  function handleAddPlan() {
-    setPlans([...plans, { id: '', name: 'Novo Plano', multiplier: 1.0, order: plans.length, isIndependent: false, itemCount: 0, items: [] }]);
-    setEditingPlanId('new');
-  }
-  
-  function handleUpdatePlan(id: string, field: string, value: any) {
-    setPlans(plans.map((p) => (p.id === id || (id === 'new' && !p.id) ? { ...p, [field]: value } : p)));
-  }
-  
-  async function handleDeletePlan(id: string) {
-    if (!confirm('Remover este plano?')) return;
-    try {
-      if (id) await api.delete(`/commercial-plans/plans/${id}`);
-      setPlans(plans.filter((p) => p.id !== id));
-      toast.success('Plano removido');
-    } catch { toast.error('Erro ao remover'); }
-  }
-  
-  function handleToggleItem(planIndex: number, itemId: string) {
-    const plan = plans[planIndex];
-    const hasItem = plan.items.some((i: any) => i.id === itemId);
-    const newItems = hasItem ? plan.items.filter((i: any) => i.id !== itemId) : [...plan.items, { id: itemId, name: '', categoryId: '', categoryName: '' }];
-    const newPlans = [...plans];
-    newPlans[planIndex] = { ...plan, items: newItems, itemCount: newItems.length };
-    setPlans(newPlans);
-  }
-  
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
-  
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-slate-900">Planos Comerciais</h2>
-        <div className="flex gap-2">
-          <button onClick={handleAddPlan} className={btnSecondary}><Plus className="h-4 w-4" /> Adicionar</button>
-          <button onClick={handleSaveAll} disabled={saving} className={btnPrimary}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Salvar</button>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {plans.map((plan, idx) => (
-          <div key={plan.id || `new-${idx}`} className="border-2 border-slate-300 rounded-lg p-4 hover:shadow-md hover:border-teal-400 transition-all">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex-1">
-                {editingPlanId === plan.id || (editingPlanId === 'new' && !plan.id) ? (
-                  <input type="text" value={plan.name} onChange={(e) => handleUpdatePlan(plan.id || 'new', 'name', e.target.value)} className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 font-bold text-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
-                ) : (<h3 className="font-bold text-lg text-slate-900">{plan.name}</h3>)}
-              </div>
-              <div className="flex gap-1">
-                {editingPlanId === plan.id || (editingPlanId === 'new' && !plan.id) ? (
-                  <button onClick={() => setEditingPlanId(null)} className="p-1.5 text-slate-500 hover:text-slate-700"><X className="h-4 w-4" /></button>
-                ) : (
-                  <button onClick={() => setEditingPlanId(plan.id || 'new')} className="p-1.5 text-slate-500 hover:text-teal-600"><Edit2 className="h-4 w-4" /></button>
-                )}
-                <button onClick={() => handleDeletePlan(plan.id)} className="p-1.5 text-slate-500 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
-              </div>
-            </div>
-            {editingPlanId === plan.id || (editingPlanId === 'new' && !plan.id) ? (
-              <div className="space-y-3 mb-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Multiplicador</label>
-                  <input type="number" step="0.01" value={plan.multiplier} onChange={(e) => handleUpdatePlan(plan.id || 'new', 'multiplier', parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Badge</label>
-                  <input type="text" value={plan.badge || ''} onChange={(e) => handleUpdatePlan(plan.id || 'new', 'badge', e.target.value)} className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-500 focus:border-transparent" placeholder="Ex: MAIS POPULAR" />
-                </div>
-                <div className="border-t-2 border-slate-200 pt-3">
-                  <p className="text-xs font-bold text-slate-700 mb-2">Itens inclusos:</p>
-                  <div className="space-y-1 max-h-48 overflow-y-auto pr-2">
-                    {categories.map((cat: any) => (
-                      <div key={cat.id}>
-                        <p className="text-xs font-bold text-slate-600 mb-1 mt-2">{cat.name}</p>
-                        {cat.items.map((item: any) => {
-                          const isChecked = plan.items.some((i: any) => i.id === item.id);
-                          return (<label key={item.id} className="flex items-center gap-2 text-sm hover:bg-slate-100 p-1.5 rounded cursor-pointer"><input type="checkbox" checked={isChecked} onChange={() => handleToggleItem(idx, item.id)} className="rounded border-slate-400 text-teal-600 focus:ring-teal-500" /><span className="text-slate-800 font-medium">{item.name}</span></label>);
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="mb-4">
-                <div className="text-3xl font-bold text-teal-600">×{plan.multiplier.toFixed(2)}</div>
-                <div className="text-sm font-semibold text-slate-600">{plan.itemCount} itens</div>
-                {plan.badge && (
-                  <span className="inline-block mt-2 px-2 py-1 rounded text-xs font-bold bg-orange-500 text-white">
-                    {plan.badge}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-// =================================================================
-// FIM: COMPONENTE DA ABA MEUS PLANOS
-// =================================================================
-
-
-// =================================================================
-// INÍCIO: COMPONENTE DA ABA CATEGORIAS E ITENS
-// =================================================================
-function CategoriesTab() {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => { loadCategories(); }, []);
-  
-  async function loadCategories() {
-    try { const res = await api.get('/commercial-plans/categories'); setCategories(res.data.data || []); } catch (err) { toast.error('Erro ao carregar categorias'); } finally { setLoading(false); }
-  }
-  
-  async function handleAddCategory() {
-    const name = prompt('Nome da nova categoria:');
-    if (!name) return;
-    try { await api.post('/commercial-plans/categories', { name, order: categories.length }); toast.success('Categoria criada'); loadCategories(); } catch { toast.error('Erro ao criar'); }
-  }
-  
-  async function handleDeleteCategory(id: string) {
-    if (!confirm('Remover esta categoria e todos os seus itens?')) return;
-    try { await api.delete(`/commercial-plans/categories/${id}`); toast.success('Categoria removida'); loadCategories(); } catch { toast.error('Erro ao remover'); }
-  }
-  
-  async function handleAddItem(categoryId: string) {
-    const name = prompt('Nome do novo item:');
-    if (!name) return;
-    try { await api.post('/commercial-plans/items', { categoryId, name }); toast.success('Item criado'); loadCategories(); } catch { toast.error('Erro ao criar item'); }
-  }
-  
-  async function handleDeleteItem(itemId: string) {
-    if (!confirm('Remover este item?')) return;
-    try { await api.delete(`/commercial-plans/items/${itemId}`); toast.success('Item removido'); loadCategories(); } catch { toast.error('Erro ao remover'); }
-  }
-  
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 text-teal-600 animate-spin" /></div>;
-  
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-slate-900">Categorias e Itens de Serviço</h2>
-        <button onClick={handleAddCategory} className={btnSecondary}><Plus className="h-4 w-4" /> Nova Categoria</button>
-      </div>
-      <div className="space-y-4">
-        {categories.map((cat: any) => (<CategoryCard key={cat.id} category={cat} onAddItem={handleAddItem} onDeleteItem={handleDeleteItem} onDeleteCategory={handleDeleteCategory} />))}
-      </div>
-      {categories.length === 0 && (<p className="text-center text-slate-500 py-8">Nenhuma categoria criada.</p>)}
-    </div>
-  );
-}
-
-function CategoryCard({ category, onAddItem, onDeleteItem, onDeleteCategory }: any) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <div className="border-2 border-slate-300 rounded-lg overflow-hidden hover:border-teal-400 transition-colors">
-      <div className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 cursor-pointer" onClick={() => setExpanded(!expanded)}>
-        <div className="flex items-center gap-3 flex-1">
-          {expanded ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
-          <FolderOpen className="h-5 w-5 text-teal-600" />
-          <div>
-            <h3 className="font-bold text-slate-900">{category.name}</h3>
-            <p className="text-xs text-slate-500 font-medium">{category._count.items} itens</p>
-          </div>
-        </div>
-        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => onAddItem(category.id)} className="p-1.5 text-slate-500 hover:text-teal-600"><Plus className="h-4 w-4" /></button>
-          <button onClick={onDeleteCategory} className="p-1.5 text-slate-500 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
-        </div>
-      </div>
-      {expanded && (
-        <div className="border-t-2 border-slate-200">
-          {category.items.length === 0 ? (<p className="p-4 text-sm text-slate-500 text-center">Nenhum item nesta categoria</p>) : (
-            <ul className="divide-y divide-slate-100">
-              {category.items.map((item: any) => (
-                <li key={item.id} className="flex items-center justify-between p-3 hover:bg-slate-50">
-                  <div className="flex items-center gap-2"><FileText className="h-4 w-4 text-slate-400" /><span className="text-sm font-medium text-slate-700">{item.name}</span></div>
-                  <button onClick={() => onDeleteItem(item.id)} className="text-slate-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-// =================================================================
-// FIM: COMPONENTE DA ABA CATEGORIAS E ITENS
-// =================================================================
-
-
-// =================================================================
-// INÍCIO: COMPONENTE MODAL GERAR PROPOSTA
-// =================================================================
-function GenerateProposalModal({ isOpen, onClose, calculationResult, clientForm }: { isOpen: boolean; onClose: () => void; calculationResult: any; clientForm: any }) {
-  const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1);
-  const [proposal, setProposal] = useState<any>(null);
-  const [formData, setFormData] = useState({
-    clientName: clientForm?.clientName || '',
-    clientCnpj: '',
-    aboutOffice: '',
-    differentials: '',
-    onboarding: '',
-    commercialTerms: '',
-    specificNote: '',
-    includedPlanIds: [] as string[],
-  });
-
-  useEffect(() => {
-    if (isOpen && calculationResult) {
-      const allPlanIds = calculationResult.planPrices?.map((p: any) => p.planId) || [];
-      setFormData(prev => ({ ...prev, includedPlanIds: allPlanIds }));
-    }
-  }, [isOpen, calculationResult]);
-
-  async function handleGenerate() {
-    setLoading(true);
-    try {
-      const includedPlans = calculationResult.planPrices.filter((p: any) => formData.includedPlanIds.includes(p.planId));
-      const res = await api.post('/proposals', {
-        ...formData,
-        taxRegime: clientForm.taxRegime,
-        activity: clientForm.activity,
-        monthlyRevenue: clientForm.monthlyRevenue,
-        employeeCount: clientForm.employeeCount,
-        basePrice: calculationResult.basePrice,
-        includedPlans,
-      });
-      setProposal(res.data.data);
-      setStep(2);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erro ao gerar proposta');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function togglePlan(planId: string) {
-    setFormData(prev => ({
-      ...prev,
-      includedPlanIds: prev.includedPlanIds.includes(planId) ? prev.includedPlanIds.filter((id) => id !== planId) : [...prev.includedPlanIds, planId],
-    }));
-  }
-
-  function copyLink() {
-    const link = `${window.location.origin}/proposta/${proposal.slug}`;
-    navigator.clipboard.writeText(link);
-    toast.success('Link copiado!');
-  }
-
-  function openProposal() {
-    window.open(`/proposta/${proposal.slug}`, '_blank');
-  }
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b-2 border-slate-200 sticky top-0 bg-white z-10">
-          <h2 className="text-xl font-bold text-slate-900">{step === 1 ? 'Gerar Proposta' : 'Proposta Gerada!'}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-6 w-6" /></button>
-        </div>
-        {step === 1 && (
-          <div className="p-6 space-y-4">
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">Nome do Cliente *</label><input type="text" value={formData.clientName} onChange={(e) => setFormData({ ...formData, clientName: e.target.value })} className={inputClass} /></div>
-            <div><label className="block text-sm font-semibold text-slate-700 mb-1">CNPJ (opcional)</label><input type="text" value={formData.clientCnpj} onChange={(e) => setFormData({ ...formData, clientCnpj: e.target.value })} className={inputClass} placeholder="00.000.000/0000-00" /></div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Planos a incluir</label>
-              <div className="space-y-2">
-                {calculationResult?.planPrices?.map((plan: any) => (
-                  <label key={plan.planId} className="flex items-center gap-3 p-3 border-2 border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
-                    <input type="checkbox" checked={formData.includedPlanIds.includes(plan.planId)} onChange={() => togglePlan(plan.planId)} className="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
-                    <div className="flex-1"><p className="font-semibold text-slate-900">{plan.planName}</p><p className="text-sm text-slate-500">R$ {plan.finalPrice.toFixed(2)}/mês</p></div>
-                  </label>
-                ))}
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 pt-4 border-t-2 border-slate-200">
-              <button onClick={onClose} className="px-4 py-2 text-slate-700 hover:bg-slate-100 rounded-lg font-medium">Cancelar</button>
-              <button onClick={handleGenerate} disabled={loading || !formData.clientName || formData.includedPlanIds.length === 0} className={btnPrimary}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null} {loading ? 'Gerando...' : 'Gerar Proposta'}
+            <p className="text-slate-600 mb-4">
+              Informe o motivo da perda. Esses dados alimentam o BI de vendas e ajudam a melhorar sua taxa de conversão.
+            </p>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Motivo da Perda *</label>
+            <textarea
+              value={lossReason}
+              onChange={(e) => setLossReason(e.target.value)}
+              rows={3}
+              className={inputClass}
+              placeholder="Ex: Preço acima do orçamento, fechou com concorrente..."
+            />
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowLoseModal(false)} className={btnSecondary}>Cancelar</button>
+              <button onClick={handleLoseProposal} disabled={submitting} className="flex items-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg">
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                Confirmar Perda
               </button>
             </div>
           </div>
-        )}
-        {step === 2 && proposal && (
-          <div className="p-6 space-y-4">
-            <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-              <p className="font-bold text-green-800 mb-1">✅ Proposta gerada com sucesso!</p>
-              <p className="text-sm text-green-700">Nº {proposal.proposalNumber}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Link Público</label>
-              <div className="flex gap-2">
-                <input type="text" readOnly value={`${window.location.origin}/proposta/${proposal.slug}`} className={inputClass + ' flex-1'} />
-                <button onClick={copyLink} className={btnSecondary}>Copiar</button>
-              </div>
-            </div>
-            <div className="flex gap-3 flex-wrap">
-              <button onClick={openProposal} className={btnPrimary + ' flex-1 min-w-[140px]'}>
-                Abrir Proposta
-              </button>
-              <button 
-                onClick={() => {
-                  window.open(`/proposta/${proposal.slug}`, '_blank');
-                  toast.success('A proposta foi aberta. Clique no botão "Baixar PDF" dentro dela.');
-                }} 
-                className={btnSecondary + ' flex-1 min-w-[140px]'}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Baixar PDF
-              </button>
-              <button onClick={onClose} className={btnSecondary}>
-                Fechar
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 // =================================================================
-// FIM: COMPONENTE MODAL GERAR PROPOSTA
+// FIM: frontend/src/app/dashboard/precificacao/page.tsx
 // =================================================================
