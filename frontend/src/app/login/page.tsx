@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
@@ -9,7 +9,9 @@ import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuthStore();
+  
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -26,11 +28,14 @@ export default function LoginPage() {
       const response = await api.post('/auth/login', formData);
       const { user, token } = response.data;
 
-      // 🔥 Salva o usuário (com role, companyId, allowedModules) e o token no Zustand
-      login(user, token);
+      // 🔥 Salva o usuário + token no Zustand (com sincronização de cookies)
+      login({ user, token });
 
       toast.success('Login realizado com sucesso!');
-      router.push('/dashboard');
+
+      // 🎯 Redireciona para o destino original ou dashboard
+      const redirect = searchParams.get('redirect');
+      router.push(redirect || '/dashboard');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao autenticar. Verifique seus dados.');
     } finally {

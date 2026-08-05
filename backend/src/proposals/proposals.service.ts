@@ -46,6 +46,10 @@ export class ProposalsService {
     return proposal;
   }
 
+  // =================================================================
+  // 🌐 MÉTODOS PÚBLICOS (Página Pública da Proposta)
+  // =================================================================
+
   /**
    * 🌐 BUSCA PÚBLICA POR SLUG (Para visualização do cliente)
    * Não exige companyId (acesso público via link compartilhado)
@@ -57,7 +61,9 @@ export class ProposalsService {
         items: {
           include: {
             commercialPlan: true,
-            serviceItem: true,
+            serviceItem: {
+              include: { category: true },
+            },
           },
         },
         company: {
@@ -70,12 +76,29 @@ export class ProposalsService {
         },
       },
     });
-    if (!proposal) throw new NotFoundException('Proposta não encontrada.');
+
+    if (!proposal) {
+      throw new NotFoundException('Proposta não encontrada.');
+    }
+
     return proposal;
   }
 
   /**
-   * 📊 TRACK DE CLIQUE NO WHATSAPP (Métrica de engajamento)
+   * 👁️ TRACK DE VISUALIZAÇÃO (Métrica de engajamento)
+   * Incrementa o contador de views da proposta
+   */
+  async trackView(slug: string) {
+    return this.prisma.proposal.update({
+      where: { slug },
+      data: {
+        views: { increment: 1 },
+      },
+    });
+  }
+
+  /**
+   * 💬 TRACK DE CLIQUE NO WHATSAPP (Métrica de conversão)
    */
   async trackWhatsAppClick(slug: string) {
     return this.prisma.proposal.update({
@@ -196,9 +219,6 @@ export class ProposalsService {
     });
   }
 
-  /**
-   * 📉 MARCAR COMO PERDIDA (Compatibilidade com controller antigo)
-   */
   async markAsLost(id: string, companyId: string, reason: string) {
     await this.findOne(id, companyId);
     return this.prisma.proposal.update({
@@ -215,12 +235,9 @@ export class ProposalsService {
   }
 
   // =================================================================
-  // 📊 MÉTRICAS E DASHBOARDS (Compatibilidade total com controller)
+  // 📊 MÉTRICAS E DASHBOARDS
   // =================================================================
   
-  /**
-   * Helper: Calcula filtro de datas baseado no período
-   */
   private getDateFilter(period?: string): { createdAt?: any; closedAt?: any } {
     const now = new Date();
     let startDate: Date;
@@ -242,15 +259,12 @@ export class ProposalsService {
         startDate = new Date(now.getFullYear(), 0, 1);
         break;
       default:
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); // Default 30d
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     }
 
     return { createdAt: { gte: startDate, lte: now } };
   }
 
-  /**
-   * 📊 DASHBOARD PRINCIPAL (Stats gerais)
-   */
   async getDashboardStats(companyId: string, period?: string) {
     const dateFilter = this.getDateFilter(period);
 
@@ -286,9 +300,6 @@ export class ProposalsService {
     };
   }
 
-  /**
-   * 📈 TENDÊNCIA DE PROPOSTAS (Dados para gráfico de linha)
-   */
   async getTrendData(companyId: string, period?: string) {
     const dateFilter = this.getDateFilter(period);
     
@@ -302,7 +313,6 @@ export class ProposalsService {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Agrupa por dia
     const groupedByDay: Record<string, { created: number; won: number; lost: number; revenue: number }> = {};
     
     proposals.forEach(p => {
@@ -326,9 +336,6 @@ export class ProposalsService {
     }));
   }
 
-  /**
-   * 📉 MOTIVOS DE PERDA (Dados para gráfico de pizza)
-   */
   async getLossReasonsData(companyId: string, period?: string) {
     const dateFilter = this.getDateFilter(period);
     
@@ -353,14 +360,10 @@ export class ProposalsService {
     }));
   }
 
-  /**
-   * 📊 TAXA DE CONVERSÃO POR PERÍODO (Mensal)
-   */
   async getConversionTrend(companyId: string, period?: string) {
     const now = new Date();
     const months: { month: string; total: number; won: number; rate: number }[] = [];
 
-    // Últimos 6 meses
     for (let i = 5; i >= 0; i--) {
       const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
@@ -389,9 +392,6 @@ export class ProposalsService {
     return months;
   }
 
-  /**
-   * 📅 DADOS MENSAIS (Legado - mantido para compatibilidade)
-   */
   async getMonthlyData(companyId: string, year: number) {
     const months = Array.from({ length: 12 }, (_, i) => {
       const month = i + 1;
