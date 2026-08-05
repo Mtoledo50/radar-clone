@@ -10,10 +10,11 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
+   // 🛡️ Habilita validação global de DTOs
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true, // Remove campos não definidos no DTO (Segurança)
+    forbidNonWhitelisted: true, // Rejeita requests com campos extras
+    transform: true, // Transforma strings em
     }),
   );
 
