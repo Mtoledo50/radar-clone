@@ -1,11 +1,11 @@
-import { Controller, Get, Post, Param } from '@nestjs/common';
+import { Controller, Get, Param, Post } from '@nestjs/common';
 import { ProposalsService } from './proposals.service';
 
 /**
- * Controller PÚBLICO para visualização de propostas
- * NÃO requer autenticação JWT
+ * 🌐 Controller PÚBLICO (sem autenticação)
+ * Permite que clientes visualizem propostas via link compartilhado
  */
-@Controller('proposals/public')
+@Controller('public/proposals')
 export class PublicProposalsController {
   constructor(private readonly service: ProposalsService) {}
 
@@ -17,6 +17,6 @@ export class PublicProposalsController {
   @Post(':slug/whatsapp-click')
   async trackWhatsAppClick(@Param('slug') slug: string) {
     await this.service.trackWhatsAppClick(slug);
-    return { success: true };
+    return { success: true, message: 'Clique registrado' };
   }
 }

@@ -1,101 +1,144 @@
-import { PrismaClient } from '@prisma/client';
-import * as fs from 'fs';
-import * as path from 'path';
+/**
+ * =================================================================
+ * 🌍 SEED: CONTAS CONTÁBEIS GLOBAIS (Enterprise)
+ * =================================================================
+ * Cria contas contábeis padrão do sistema (companyId: null)
+ * que servem como template para novos escritórios.
+ * =================================================================
+ */
+
+import { PrismaClient, AccountType, AccountNature } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-function getAccountType(code: string): string {
-  const firstDigit = code.split('.')[0];
-  if (firstDigit === '01') return 'ATIVO';
-  if (firstDigit === '02') return code.startsWith('02.3') ? 'PATRIMONIO_LIQUIDO' : 'PASSIVO';
-  if (firstDigit === '03') return 'RECEITA';
-  if (firstDigit === '04') return 'DESPESA';
-  if (firstDigit === '05') return 'RECEITA';
-  return 'ATIVO';
-}
-
-function getAccountNature(type: string): string {
-  if (type === 'ATIVO' || type === 'DESPESA') return 'DEBITORA';
-  return 'CREDORA';
-}
-
-function getAccountLevel(code: string): number {
-  return code.split('.').length;
-}
-
-async function importGlobalAccounts() {
-  console.log('🚀 Iniciando importação do Plano de Contas PADRÃO...\n');
-
-  const csvPath = path.join(__dirname, '../Impressão de campos da consulta2.csv');
-  const csvContent = fs.readFileSync(csvPath, 'utf-8');
-  const lines = csvContent.split('\n');
-  const dataLines = lines.slice(1);
+// =================================================================
+// 📋 DEFINIÇÃO DAS CONTAS GLOBAIS
+// =================================================================
+const globalAccounts = [
+  // ATIVO
+  { code: '1', name: 'ATIVO', type: AccountType.ATIVO, nature: AccountNature.DEVEDORA, level: 1 },
+  { code: '1.1', name: 'ATIVO CIRCULANTE', type: AccountType.ATIVO, nature: AccountNature.DEVEDORA, level: 2, parentCode: '1' },
+  { code: '1.1.01', name: 'CAIXA GERAL', type: AccountType.ATIVO, nature: AccountNature.DEVEDORA, level: 3, parentCode: '1.1' },
+  { code: '1.1.02', name: 'BANCOS CONTA MOVIMENTO', type: AccountType.ATIVO, nature: AccountNature.DEVEDORA, level: 3, parentCode: '1.1' },
+  { code: '1.1.03', name: 'APLICAÇÕES FINANCEIRAS', type: AccountType.ATIVO, nature: AccountNature.DEVEDORA, level: 3, parentCode: '1.1' },
+  { code: '1.1.04', name: 'CLIENTES (CONTAS A RECEBER)', type: AccountType.ATIVO, nature: AccountNature.DEVEDORA, level: 3, parentCode: '1.1' },
+  { code: '1.2', name: 'ATIVO NÃO CIRCULANTE', type: AccountType.ATIVO, nature: AccountNature.DEVEDORA, level: 2, parentCode: '1' },
+  { code: '1.2.01', name: 'IMOBILIZADO', type: AccountType.ATIVO, nature: AccountNature.DEVEDORA, level: 3, parentCode: '1.2' },
   
-  console.log(`📊 Total de linhas no CSV: ${dataLines.length}\n`);
+  // PASSIVO
+  { code: '2', name: 'PASSIVO', type: AccountType.PASSIVO, nature: AccountNature.CREDORA, level: 1 },
+  { code: '2.1', name: 'PASSIVO CIRCULANTE', type: AccountType.PASSIVO, nature: AccountNature.CREDORA, level: 2, parentCode: '2' },
+  { code: '2.1.01', name: 'FORNECEDORES', type: AccountType.PASSIVO, nature: AccountNature.CREDORA, level: 3, parentCode: '2.1' },
+  { code: '2.1.02', name: 'IMPOSTOS A RECOLHER', type: AccountType.PASSIVO, nature: AccountNature.CREDORA, level: 3, parentCode: '2.1' },
+  { code: '2.1.03', name: 'SALÁRIOS A PAGAR', type: AccountType.PASSIVO, nature: AccountNature.CREDORA, level: 3, parentCode: '2.1' },
+  { code: '2.2', name: 'PASSIVO NÃO CIRCULANTE', type: AccountType.PASSIVO, nature: AccountNature.CREDORA, level: 2, parentCode: '2' },
+  
+  // PATRIMÔNIO LÍQUIDO
+  { code: '3', name: 'PATRIMÔNIO LÍQUIDO', type: AccountType.PATRIMONIO_LIQUIDO, nature: AccountNature.CREDORA, level: 1 },
+  { code: '3.1', name: 'CAPITAL SOCIAL', type: AccountType.PATRIMONIO_LIQUIDO, nature: AccountNature.CREDORA, level: 2, parentCode: '3' },
+  { code: '3.2', name: 'LUCROS ACUMULADOS', type: AccountType.PATRIMONIO_LIQUIDO, nature: AccountNature.CREDORA, level: 2, parentCode: '3' },
+  
+  // RECEITAS
+  { code: '4', name: 'RECEITAS', type: AccountType.RECEITA, nature: AccountNature.CREDORA, level: 1 },
+  { code: '4.1', name: 'RECEITA DE SERVIÇOS', type: AccountType.RECEITA, nature: AccountNature.CREDORA, level: 2, parentCode: '4' },
+  { code: '4.1.01', name: 'HONORÁRIOS CONTÁBEIS', type: AccountType.RECEITA, nature: AccountNature.CREDORA, level: 3, parentCode: '4.1' },
+  { code: '4.1.02', name: 'RECEITA DE CONSULTORIA', type: AccountType.RECEITA, nature: AccountNature.CREDORA, level: 3, parentCode: '4.1' },
+  { code: '4.2', name: 'OUTRAS RECEITAS', type: AccountType.RECEITA, nature: AccountNature.CREDORA, level: 2, parentCode: '4' },
+  
+  // DESPESAS
+  { code: '5', name: 'DESPESAS', type: AccountType.DESPESA, nature: AccountNature.DEVEDORA, level: 1 },
+  { code: '5.1', name: 'DESPESAS OPERACIONAIS', type: AccountType.DESPESA, nature: AccountNature.DEVEDORA, level: 2, parentCode: '5' },
+  { code: '5.1.01', name: 'SALÁRIOS E ORDENADOS', type: AccountType.DESPESA, nature: AccountNature.DEVEDORA, level: 3, parentCode: '5.1' },
+  { code: '5.1.02', name: 'ALUGUEL', type: AccountType.DESPESA, nature: AccountNature.DEVEDORA, level: 3, parentCode: '5.1' },
+  { code: '5.1.03', name: 'ENERGIA E ÁGUA', type: AccountType.DESPESA, nature: AccountNature.DEVEDORA, level: 3, parentCode: '5.1' },
+  { code: '5.1.04', name: 'INTERNET E TELEFONIA', type: AccountType.DESPESA, nature: AccountNature.DEVEDORA, level: 3, parentCode: '5.1' },
+  { code: '5.1.05', name: 'MATERIAL DE ESCRITÓRIO', type: AccountType.DESPESA, nature: AccountNature.DEVEDORA, level: 3, parentCode: '5.1' },
+  { code: '5.2', name: 'DESPESAS TRIBUTÁRIAS', type: AccountType.DESPESA, nature: AccountNature.DEVEDORA, level: 2, parentCode: '5' },
+  { code: '5.2.01', name: 'IMPOSTOS SOBRE SERVIÇOS', type: AccountType.DESPESA, nature: AccountNature.DEVEDORA, level: 3, parentCode: '5.2' },
+];
 
-  let importedCount = 0;
-  let skippedCount = 0;
+// =================================================================
+// 🚀 FUNÇÃO PRINCIPAL
+// =================================================================
+async function main() {
+  console.log('═'.repeat(70));
+  console.log('🌍 SEED: CONTAS CONTÁBEIS GLOBAIS');
+  console.log('═'.repeat(70));
+  console.log();
+  console.log(`📊 Total de contas a criar: ${globalAccounts.length}\n`);
 
-  for (const line of dataLines) {
-    if (!line.trim()) continue;
+  let created = 0;
+  let skipped = 0;
 
-    const [codigo, classificacao, nome] = line.split(';');
-    if (!codigo || !nome) {
-      skippedCount++;
+  // PASSO 1: Criar todas as contas (sem parentId)
+  console.log('🔄 [PASSO 1/2] Criando contas globais...\n');
+  
+  for (const account of globalAccounts) {
+    // Usa findFirst para verificar existência (companyId: null = global)
+    const existing = await prisma.accountingAccount.findFirst({
+      where: { 
+        companyId: null,
+        code: account.code 
+      },
+    });
+
+    if (existing) {
+      skipped++;
       continue;
     }
 
-    const cleanName = nome.trim();
-    const cleanCode = codigo.trim();
-    const type = getAccountType(cleanCode);
-    const nature = getAccountNature(type);
-    const level = getAccountLevel(cleanCode);
+    await prisma.accountingAccount.create({
+      data: {
+        companyId: null, // Conta global
+        code: account.code,
+        name: account.name,
+        type: account.type,        // ✅ Enum
+        nature: account.nature,    // ✅ Enum
+        level: account.level,
+        isActive: true,
+      },
+    });
+    
+    created++;
+    console.log(`✅ [NOVA] ${account.code} - ${account.name}`);
+  }
 
-    try {
-      // Verifica se JÁ EXISTE alguma conta com este código (ignora companyId para evitar o bug)
-      const existing = await prisma.accountingAccount.findFirst({
-        where: { code: cleanCode }
+  // PASSO 2: Vincular hierarquia
+  console.log(`\n🔄 [PASSO 2/2] Vinculando hierarquia...\n`);
+  
+  for (const account of globalAccounts) {
+    if (!account.parentCode) continue;
+
+    const parent = await prisma.accountingAccount.findFirst({
+      where: { companyId: null, code: account.parentCode },
+    });
+
+    if (!parent) {
+      console.warn(`⚠️  Pai não encontrado: ${account.parentCode} para ${account.code}`);
+      continue;
+    }
+
+    const current = await prisma.accountingAccount.findFirst({
+      where: { companyId: null, code: account.code },
+    });
+
+    if (current && !current.parentId) {
+      await prisma.accountingAccount.update({
+        where: { id: current.id },
+        data: { parentId: parent.id },
       });
-
-      if (existing) {
-        skippedCount++;
-        continue;
-      }
-
-      // Cria a conta global
-      await prisma.accountingAccount.create({
-        data: {
-          companyId: null, // Global
-          code: cleanCode,
-          name: cleanName,
-          type: type,
-          nature: nature,
-          level: level,
-          isActive: true,
-        }
-      });
-
-      importedCount++;
-      // Mostra progresso a cada 100 contas para não poluir o terminal
-      if (importedCount % 100 === 0) {
-        console.log(`⏳ Importadas: ${importedCount}...`);
-      }
-
-    } catch (error: any) {
-      console.error(`❌ Erro ao importar ${cleanCode}:`, error.message);
-      skippedCount++;
     }
   }
 
-  console.log('\n' + '='.repeat(60));
-  console.log('✅ SUCESSO NA IMPORTAÇÃO!');
-  console.log('='.repeat(60));
-  console.log(`Contas importadas: ${importedCount}`);
-  console.log(`Contas ignoradas (já existentes): ${skippedCount}`);
-  console.log('='.repeat(60));
+  console.log('\n' + '═'.repeat(70));
+  console.log('📈 RESUMO FINAL');
+  console.log('═'.repeat(70));
+  console.log(`✅ Contas criadas: ${created}`);
+  console.log(`⏭️  Contas ignoradas (já existiam): ${skipped}`);
+  console.log('═'.repeat(70));
 }
 
-importGlobalAccounts()
+main()
   .catch((e) => {
     console.error('❌ Erro fatal:', e);
     process.exit(1);

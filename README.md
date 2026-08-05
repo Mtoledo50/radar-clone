@@ -643,3 +643,24 @@ A tela de clientes evoluiu de um formulário simples para um **Construtor de Con
 *   **Aba 3 - Add-ons (Serviços Avulsos)**: Venda cruzada de serviços sazonais (IRPF, MEI, Legalização) ou recorrentes extras.
 *   **Calculadora em Tempo Real**: O honorário final é calculado dinamicamente (Plano + Add-ons) antes mesmo de salvar.
 *   **Soft Delete Compliance**: A "exclusão" de um cliente na verdade o marca como `CHURN`, preservando o histórico contábil exigido pela legislação brasileira.
+
+### 🔧 Decisões de Arquitetura (ADRs)
+
+*   **ADR-11: Zero dependências opcionais em DTOs**: Os DTOs não utilizam `@nestjs/swagger` ou `@nestjs/mapped-types` para reduzir a superfície de dependências e acelerar o build. A documentação Swagger pode ser adicionada posteriormente via pacote separado.
+*   **ADR-12: Enums como fonte da verdade**: Todos os campos de status (`ProposalStatus`, `ClientStatus`, `AccountType`, etc.) utilizam Enums do Prisma. Isso garante:
+    *   Tipagem forte no TypeScript
+    *   Validação automática no banco de dados
+    *   Prevenção de strings inválidas em produção
+*   **ADR-13: Propostas Relacionais**: O antigo campo JSON `includedPlans` foi substituído pela tabela `ProposalItem`, permitindo:
+    *   BI avançado (quais serviços mais vendem)
+    *   Integridade referencial com o catálogo
+    *   Escopo automático em PDFs
+
+### 🎯 Motor de Propostas Comerciais (Enterprise)
+O módulo de propostas foi refatorado para suportar análises avançadas de vendas:
+
+*   **Propostas Relacionais**: Itens vinculados a `CommercialPlan` e `ServiceItem` (fim do JSON solto).
+*   **BI de Vendas**: Endpoints para taxa de conversão, motivos de perda e tendências mensais.
+*   **Links Públicos**: Clientes visualizam propostas via slug único, com tracking de engajamento (views, WhatsApp clicks).
+*   **Status Enterprise**: Enums `DRAFT`, `SENT`, `VIEWED`, `CLOSED_WON`, `CLOSED_LOST` garantem integridade.
+
