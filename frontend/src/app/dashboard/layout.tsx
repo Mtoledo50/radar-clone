@@ -1,58 +1,93 @@
 // =================================================================
-// INÍCIO: imports
+// INÍCIO: IMPORTS E DIRETIVAS
 // =================================================================
+// 'use client' = Diretiva do Next.js App Router que marca este componente
+// como Client Component (executado no navegador, não no servidor).
+// Obrigatório quando usamos useState, useEffect, hooks do React, etc.
 'use client';
 
+// React hooks
 import { useState, useMemo } from 'react';
+// Hooks de navegação do Next.js
 import { useRouter, usePathname } from 'next/navigation';
+// Store global Zustand para autenticação
 import { useAuthStore } from '@/store/authStore';
+// Biblioteca de ícones Lucide React (padrão do Conta Certa)
 import {
-  LayoutDashboard,
-  Building2,
-  Users,
-  UsersRound,
-  Calculator,
-  CalendarDays,
-  LogOut,
-  Menu,
-  X,
-  AlertTriangle,
-  BarChart3,
-  Activity,
-  Scale,
-  ChevronDown,
-  ChevronRight,
-  Shield,
-  FileText, // 🔥 Ícone para Lançamentos Contábeis
+  LayoutDashboard,  // Dashboard principal
+  Building2,        // Empresa
+  Users,            // Pessoas/Colaboradores
+  UsersRound,       // Clientes
+  Calculator,       // Precificação/Contábil
+  CalendarDays,     // Planejamento
+  LogOut,           // Sair
+  Menu,             // Menu hamburguer (mobile)
+  X,                // Fechar (mobile)
+  AlertTriangle,    // Ponto Fora da Curva
+  BarChart3,        // B.I.
+  Activity,         // Indicadores
+  Scale,            // Tributário
+  ChevronDown,      // Seta para baixo (submenu expandido)
+  ChevronRight,     // Seta para direita (submenu colapsado)
+  Shield,           // Administração
+  FileText,         // Lançamentos Contábeis
+  FolderKanban,     // Projetos (módulo novo)
+  CheckSquare,      // Tarefas (módulo novo - reservado)
 } from 'lucide-react';
 // =================================================================
-// FIM: imports
+// FIM: IMPORTS E DIRETIVAS
 // =================================================================
 
 
 // =================================================================
-// INÍCIO: Definição de Tipos (Interfaces)
+// INÍCIO: DEFINIÇÃO DE TIPOS (INTERFACES)
 // =================================================================
+// Interface que define a estrutura de cada item do menu
 interface MenuItem {
-  id: string;
-  title: string;
-  href: string;
-  icon?: any;
-  adminOnly?: boolean; // Marca itens exclusivos de ADMIN
-  children?: { id: string; title: string; href: string }[];
+  id: string;           // Identificador único (usado no allowedModules)
+  title: string;        // Texto exibido na sidebar
+  href: string;         // Rota do Next.js (ex: /dashboard/projetos)
+  icon?: any;           // Ícone Lucide (opcional)
+  adminOnly?: boolean;  // Se true, só ADMIN vê (ignora allowedModules)
+  children?: {          // Submenu (itens aninhados)
+    id: string;         // ID do filho (o que é filtrado pelo allowedModules!)
+    title: string;      // Texto do submenu
+    href: string;       // Rota do submenu
+  }[];
 }
 // =================================================================
-// FIM: Definição de Tipos (Interfaces)
+// FIM: DEFINIÇÃO DE TIPOS (INTERFACES)
 // =================================================================
 
 
 // =================================================================
-// INÍCIO: Configuração dos Itens do Menu (allMenuItems)
+// INÍCIO: CONFIGURAÇÃO DOS ITENS DO MENU (allMenuItems)
 // =================================================================
+// Array estático com TODOS os itens possíveis do menu.
+// O filtro dinâmico por allowedModules acontece no useMemo abaixo.
+//
+// REGRA IMPORTANTE: 
+// - O 'id' do pai (ex: 'operacional') NÃO é filtrado diretamente
+// - O que é filtrado são os 'id' dos CHILDREN (ex: 'projetos', 'tarefas')
+// - Se pelo menos 1 child passar no filtro, o pai aparece
+// - Se 0 children passarem, o pai é ocultado completamente
 const allMenuItems: MenuItem[] = [
-  { id: 'dashboard', title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { id: 'minha-empresa', title: 'Minha Empresa', href: '/dashboard/minha-empresa', icon: Building2 },
   
+  // --- MÓDULOS PRINCIPAIS (sem submenu) ---
+  { 
+    id: 'dashboard', 
+    title: 'Dashboard', 
+    href: '/dashboard', 
+    icon: LayoutDashboard 
+  },
+  { 
+    id: 'minha-empresa', 
+    title: 'Minha Empresa', 
+    href: '/dashboard/minha-empresa', 
+    icon: Building2 
+  },
+  
+  // --- GESTÃO DE PESSOAS (com submenu) ---
   { 
     id: 'pessoas', 
     title: 'Gestão de Pessoas', 
@@ -64,8 +99,15 @@ const allMenuItems: MenuItem[] = [
     ]
   },
   
-  { id: 'clientes', title: 'Clientes', href: '/dashboard/clientes', icon: UsersRound },
+  // --- CLIENTES ---
+  { 
+    id: 'clientes', 
+    title: 'Clientes', 
+    href: '/dashboard/clientes', 
+    icon: UsersRound 
+  },
   
+  // --- LANÇAMENTOS CONTÁBEIS ---
   { 
     id: 'lancamentos', 
     title: 'Lançamentos Contábeis', 
@@ -77,15 +119,78 @@ const allMenuItems: MenuItem[] = [
     ]
   },
 
-  { id: 'precificacao', title: 'Precificação', href: '/dashboard/precificacao', icon: Calculator },
-  { id: 'planejamento', title: 'Planejamento', href: '/dashboard/planejamento', icon: CalendarDays },
-  { id: 'bi', title: 'B.I. Contábil', href: '/dashboard/bi', icon: BarChart3 },
-  { id: 'ponto-fora-da-curva', title: 'Ponto Fora da Curva', href: '/dashboard/ponto-fora-da-curva', icon: AlertTriangle },
-  { id: 'indicadores', title: 'Indicadores', href: '/dashboard/indicadores', icon: Activity },
-  { id: 'planejamento-tributario', title: 'Planejamento Tributário', href: '/dashboard/planejamento-tributario', icon: Scale },
-  { id: 'reforma-tributaria', title: 'Reforma Tributária', href: '/dashboard/reforma-tributaria', icon: Scale },
+  // --- PRECIFICAÇÃO E PLANEJAMENTO ---
+  { 
+    id: 'precificacao', 
+    title: 'Precificação', 
+    href: '/dashboard/precificacao', 
+    icon: Calculator 
+  },
+  { 
+    id: 'planejamento', 
+    title: 'Planejamento', 
+    href: '/dashboard/planejamento', 
+    icon: CalendarDays 
+  },
   
-  // 🛡️ GRUPO DE ADMINISTRAÇÃO (Admin-only com submenu)
+  // 🆕 MÓDULO OPERACIONAL — PROJETOS E TAREFAS
+  // Este é o novo grupo que criamos. 
+  // Para aparecer, o allowedModules deve conter 'projetos' E/OU 'tarefas'
+  { 
+    id: 'operacional',           // ID do pai (não é filtrado)
+    title: 'Operacional', 
+    href: '/dashboard/projetos',  // Rota padrão ao clicar no pai
+    icon: FolderKanban,
+    children: [
+      // ⚠️ Estes são os IDs que vão no allowedModules!
+      { id: 'projetos', title: 'Projetos', href: '/dashboard/projetos' },
+      { id: 'tarefas', title: 'Tarefas', href: '/dashboard/tarefas' },
+    ]
+  },
+
+  // --- B.I. E INDICADORES ---
+  { id: 'bi', title: 'B.I. Contábil', href: '/dashboard/bi', icon: BarChart3 },
+  { 
+    id: 'ponto-fora-da-curva', 
+    title: 'Ponto Fora da Curva', 
+    href: '/dashboard/ponto-fora-da-curva', 
+    icon: AlertTriangle 
+  },
+  { 
+    id: 'indicadores', 
+    title: 'Indicadores', 
+    href: '/dashboard/indicadores', 
+    icon: Activity 
+  },
+  { 
+    id: 'planejamento-tributario', 
+    title: 'Planejamento Tributário', 
+    href: '/dashboard/planejamento-tributario', 
+    icon: Scale 
+  },
+  { 
+    id: 'reforma-tributaria', 
+    title: 'Reforma Tributária', 
+    href: '/dashboard/reforma-tributaria', 
+    icon: Scale 
+  },
+  
+  // --- CONTÁBIL ---
+  {
+    id: 'contabil',
+    title: 'Contábil',
+    href: '/dashboard/contabil',
+    icon: Calculator,
+    children: [
+      { id: 'contabil-sci', title: 'Importar / Exportar SCI', href: '/dashboard/contabil' },
+      { id: 'contabil-revisao', title: 'Revisão de Lançamentos', href: '/dashboard/contabil/revisao' },
+      { id: 'contabil-plano', title: 'Plano de Contas', href: '/dashboard/contabil/plano-contas' },
+    ],
+  },
+  
+  // --- ADMINISTRAÇÃO (exclusivo para ADMIN) ---
+  // adminOnly: true = só aparece para user.role === 'ADMIN'
+  // Independente do allowedModules
   { 
     id: 'admin', 
     title: 'Administração', 
@@ -97,73 +202,108 @@ const allMenuItems: MenuItem[] = [
       { id: 'admin-catalogo', title: 'Catálogo de Serviços', href: '/dashboard/admin/catalogo' },
     ]
   },
-  {
-  label: 'Contábil',
-  icon: Calculator, // importe do lucide-react
-  children: [
-    { label: 'Importar / Exportar SCI', href: '/dashboard/contabil' },
-    { label: 'Revisão de Lançamentos', href: '/dashboard/contabil/revisao' },
-    { label: 'Plano de Contas', href: '/dashboard/contabil/plano-contas' },
-  ],
-},
 ];
 // =================================================================
-// FIM: Configuração dos Itens do Menu (allMenuItems)
-// =================================================================
-// =================================================================
-// FIM: Configuração dos Itens do Menu (allMenuItems)
+// FIM: CONFIGURAÇÃO DOS ITENS DO MENU (allMenuItems)
 // =================================================================
 
 
 // =================================================================
-// INÍCIO: Componente Principal (DashboardLayout)
+// INÍCIO: COMPONENTE PRINCIPAL (DashboardLayout)
 // =================================================================
+// Este é o layout que envolve TODAS as páginas dentro de /dashboard/*
+// Recebe 'children' = o conteúdo da página atual (via Next.js)
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   
-  // --- Estados ---
+  // -----------------------------------------------------------------
+  // ESTADOS LOCAIS DO COMPONENTE
+  // -----------------------------------------------------------------
+  // Controla se a sidebar está aberta (mobile)
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // Expande por padrão os menus que têm submenu
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['Gestão de Pessoas', 'Lançamentos Contábeis']);
+  
+  // Controla quais submenus estão expandidos (pelo TITLE, não ID)
+  // Inicializa com alguns já expandidos para melhor UX
+  const [expandedMenus, setExpandedMenus] = useState<string[]>([
+    'Gestão de Pessoas', 
+    'Lançamentos Contábeis',
+    'Operacional',  // 🆕 Novo módulo começa expandido
+  ]);
+  
+  // -----------------------------------------------------------------
+  // HOOKS DO ZUSTAND E NEXT.JS
+  // -----------------------------------------------------------------
+  // Pega o usuário logado e a função de logout do store global
   const { user, logout } = useAuthStore();
+  // Para navegar programaticamente (router.push)
   const router = useRouter();
+  // Para saber a URL atual e marcar o item ativo
   const pathname = usePathname();
 
   // =================================================================
-  // INÍCIO: Lógica do Menu Dinâmico (useMemo)
+  // INÍCIO: LÓGICA DO MENU DINÂMICO (useMemo)
   // =================================================================
+  // useMemo = Hook do React que memoiza o resultado.
+  // Só recalcula quando 'user?.role' ou 'user?.allowedModules' mudam.
+  // Isso evita reprocessar o array em toda renderização.
+  //
+  // FLUXO DE DECISÃO PARA CADA ITEM:
+  // 1. Se é adminOnly E usuário NÃO é ADMIN → retorna null (oculta)
+  // 2. Se usuário É ADMIN → retorna o item completo (sem filtro)
+  // 3. Se tem children → filtra children por allowedModules
+  //    - Se sobrar pelo menos 1 child → retorna pai com children filtrados
+  //    - Se não sobrar nenhum → retorna null (oculta o pai também)
+  // 4. Se NÃO tem children → verifica se item.id está em allowedModules
   const menuItems = useMemo(() => {
-  return allMenuItems
-    .map((item) => {
-      // 🛡️ Bloqueia itens exclusivos de admin para não-admins
-      if (item.adminOnly && user?.role !== 'ADMIN') return null;
+    return allMenuItems
+      .map((item) => {
+        // 🛡️ REGRA 1: Bloqueia itens exclusivos de admin para não-admins
+        if (item.adminOnly && user?.role !== 'ADMIN') return null;
 
-      // ADMIN vê tudo
-      if (user?.role === 'ADMIN') return item;
+        // 👑 REGRA 2: ADMIN vê TUDO (ignora allowedModules)
+        if (user?.role === 'ADMIN') return item;
 
-      // Para usuários não-admin, filtra por allowedModules
-      if (item.children) {
-        const visibleChildren = item.children.filter((child) => 
-          user?.allowedModules?.includes(child.id)
-        );
-        return visibleChildren.length > 0 ? { ...item, children: visibleChildren } : null;
-      }
-      
-      return user?.allowedModules?.includes(item.id) ? item : null;
-    })
-    .filter(Boolean) as MenuItem[];
-}, [user?.role, user?.allowedModules]);
+        // 📂 REGRA 3: Itens COM submenu (children)
+        if (item.children) {
+          // Filtra apenas os children cujo ID está no allowedModules
+          const visibleChildren = item.children.filter((child) => 
+            user?.allowedModules?.includes(child.id)
+          );
+          // Se sobrou pelo menos 1 filho, mostra o pai com filhos filtrados
+          // Se não sobrou nenhum, retorna null (oculta completamente)
+          return visibleChildren.length > 0 
+            ? { ...item, children: visibleChildren } 
+            : null;
+        }
+        
+        // 📄 REGRA 4: Itens SEM submenu
+        // Mostra só se o ID do item estiver no allowedModules
+        return user?.allowedModules?.includes(item.id) ? item : null;
+      })
+      // Remove todos os nulls do array
+      .filter(Boolean) as MenuItem[];
+  }, [user?.role, user?.allowedModules]);
   // =================================================================
-  // FIM: Lógica do Menu Dinâmico (useMemo)
+  // FIM: LÓGICA DO MENU DINÂMICO (useMemo)
   // =================================================================
 
   // =================================================================
-  // INÍCIO: Funções Auxiliares
+  // INÍCIO: FUNÇÕES AUXILIARES
   // =================================================================
+  
+  /**
+   * Verifica se uma rota está "ativa" (página atual)
+   * Caso especial: '/dashboard' só é ativo se pathname for exatamente '/dashboard'
+   * Outros casos: usa startsWith (ex: '/dashboard/clientes' ativa '/dashboard/clientes/123')
+   */
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';
     return pathname.startsWith(href);
   };
 
+  /**
+   * Alterna a expansão de um submenu
+   * Se já está expandido, remove; se não está, adiciona
+   */
   const toggleMenu = (title: string) => {
     setExpandedMenus((prev) =>
       prev.includes(title)
@@ -172,22 +312,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   };
 
+  /**
+   * Faz logout: limpa o store Zustand e redireciona para /login
+   */
   const handleLogout = () => {
     logout();
     router.push('/login');
   };
   // =================================================================
-  // FIM: Funções Auxiliares
+  // FIM: FUNÇÕES AUXILIARES
   // =================================================================
 
   // =================================================================
-  // INÍCIO: Renderização do Layout
+  // INÍCIO: RENDERIZAÇÃO DO LAYOUT (JSX)
   // =================================================================
   return (
+    // Container raiz: tela cheia, fundo cinza claro, layout flexbox
     <div className="min-h-screen bg-slate-50 flex">
       
       {/* ================================================================= */}
-      {/* INÍCIO: Botão Menu Mobile */}
+      {/* BOTÃO MENU MOBILE (hamburguer)                                      */}
+      {/* Aparece apenas em telas pequenas (lg:hidden)                        */}
+      {/* Fixo no topo esquerdo, com z-50 para ficar acima de tudo            */}
       {/* ================================================================= */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -196,12 +342,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
-      {/* ================================================================= */}
-      {/* FIM: Botão Menu Mobile */}
-      {/* ================================================================= */}
 
       {/* ================================================================= */}
-      {/* INÍCIO: Sidebar (Menu Lateral) */}
+      {/* SIDEBAR (Menu Lateral)                                              */}
+      {/* - Fixa no desktop (lg:static), absoluta no mobile (fixed)           */}
+      {/* - Largura fixa de 256px (w-64)                                      */}
+      {/* - Fundo teal-900 (azul escuro da marca Conta Certa)                 */}
+      {/* - No mobile: desliza da esquerda via translate-x                    */}
       {/* ================================================================= */}
       <aside
         className={`
@@ -212,9 +359,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           flex flex-col shadow-xl
         `}
       >
-        {/* Logo */}
+        {/* --- LOGO E IDENTIDADE VISUAL --- */}
         <div className="p-6 border-b border-teal-800">
           <div className="flex items-center gap-3">
+            {/* Logo circular com gradiente teal→orange (cores da marca) */}
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-orange-500 flex items-center justify-center font-bold text-white text-lg shadow-md">
               C
             </div>
@@ -227,17 +375,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        {/* Itens de Navegação Dinâmicos */}
+        {/* --- NAVEGAÇÃO PRINCIPAL (itens dinâmicos filtrados) --- */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             const hasChildren = item.children && item.children.length > 0;
+            // Verifica se este submenu está expandido (pelo TITLE)
             const isExpanded = expandedMenus.includes(item.title);
 
             return (
               <div key={item.href}>
+                {/* BOTÃO DO ITEM PRINCIPAL */}
                 <button
+                  // Se tem filhos, expande/colapsa; se não, navega
                   onClick={() => hasChildren ? toggleMenu(item.title) : router.push(item.href)}
                   className={`
                     w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg 
@@ -250,15 +401,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   `}
                 >
                   <div className="flex items-center gap-3">
-                    {Icon && <Icon size={20} className={active && !hasChildren ? 'text-orange-400' : 'text-teal-300'} />}
+                    {Icon && (
+                      <Icon 
+                        size={20} 
+                        className={active && !hasChildren ? 'text-orange-400' : 'text-teal-300'} 
+                      />
+                    )}
                     <span>{item.title}</span>
                   </div>
+                  {/* Seta indicadora de submenu (só aparece se tem children) */}
                   {hasChildren && (
                     isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />
                   )}
                 </button>
                 
-                {/* Submenu (Children) */}
+                {/* SUBMENU (CHILDREN) — aparece apenas quando expandido */}
                 {hasChildren && isExpanded && (
                   <div className="ml-6 mt-1 space-y-1 border-l-2 border-teal-700 pl-2">
                     {item.children.map((child) => {
@@ -287,7 +444,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        {/* Rodapé da Sidebar */}
+        {/* --- RODAPÉ DA SIDEBAR (info do usuário + logout) --- */}
         <div className="p-4 border-t border-teal-800 bg-teal-950">
           <div className="mb-4 px-2">
             <p className="text-sm font-semibold text-white truncate">
@@ -296,6 +453,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <p className="text-xs text-teal-300 truncate">
               {user?.email || 'email@exemplo.com'}
             </p>
+            {/* Badge de plano só aparece para não-admins */}
             {user?.role !== 'ADMIN' && (
                <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500 text-white">
                  PLANO ATIVO
@@ -303,6 +461,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
           </div>
           
+          {/* Botão de Logout (vermelho = ação destrutiva, padrão UX) */}
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 
@@ -314,12 +473,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
       </aside>
-      {/* ================================================================= */}
-      {/* FIM: Sidebar (Menu Lateral) */}
-      {/* ================================================================= */}
 
       {/* ================================================================= */}
-      {/* INÍCIO: Overlay Mobile (Fundo escuro ao abrir menu) */}
+      {/* OVERLAY MOBILE (fundo escuro ao abrir menu)                         */}
+      {/* Só aparece quando sidebarOpen = true E em telas pequenas            */}
+      {/* Ao clicar nele, fecha a sidebar                                       */}
+      {/* backdrop-blur-sm dá um efeito de desfoque moderno                     */}
       {/* ================================================================= */}
       {sidebarOpen && (
         <div
@@ -328,27 +487,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           aria-hidden="true"
         />
       )}
-      {/* ================================================================= */}
-      {/* FIM: Overlay Mobile */}
-      {/* ================================================================= */}
 
       {/* ================================================================= */}
-      {/* INÍCIO: Área Principal de Conteúdo */}
+      {/* ÁREA PRINCIPAL DE CONTEÚDO                                          */}
+      {/* - flex-1: ocupa todo o espaço restante                              */}
+      {/* - p-4 no mobile, p-8 no desktop (mais respiro em telas grandes)     */}
+      {/* - overflow-x-hidden: previne scroll horizontal indesejado           */}
+      {/* - 'children' é injetado pelo Next.js (conteúdo da página atual)     */}
       {/* ================================================================= */}
       <main className="flex-1 p-4 lg:p-8 overflow-x-hidden transition-all duration-300">
-        <div className="lg:hidden h-12" /> {/* Espaçador para mobile */}
+        {/* Espaçador no topo para o botão hamburguer não sobrepor conteúdo */}
+        <div className="lg:hidden h-12" />
         {children}
       </main>
-      {/* ================================================================= */}
-      {/* FIM: Área Principal de Conteúdo */}
-      {/* ================================================================= */}
 
     </div>
   );
   // =================================================================
-  // FIM: Renderização do Layout
+  // FIM: RENDERIZAÇÃO DO LAYOUT (JSX)
   // =================================================================
 }
 // =================================================================
-// FIM: Componente Principal (DashboardLayout)
+// FIM: COMPONENTE PRINCIPAL (DashboardLayout)
 // =================================================================
