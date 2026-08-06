@@ -4,6 +4,75 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ServiceType, ClientStatus } from '@prisma/client';
+
+// =================================================================
+// 📦 TIPOS E INTERFACES (Type Safety)
+// =================================================================
+
+/**
+ * Interface para CRIAÇÃO de cliente.
+ * companyName e startDate são OBRIGATÓRIOS (conforme schema Prisma).
+ */
+export interface CreateClientData {
+  companyName: string; // ✅ OBRIGATÓRIO
+  cnpj?: string;
+  serviceType?: ServiceType;
+  monthlyFee?: number;
+  status?: ClientStatus;
+  startDate: string | Date; // ✅ OBRIGATÓRIO
+  endDate?: string | Date | null;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  observations?: string;
+  commercialPlanId?: string;
+  avulsoServiceIds?: string[];
+}
+
+/**
+ * Interface para ATUALIZAÇÃO de cliente.
+ * Todos os campos são opcionais (atualização parcial).
+ */
+export interface UpdateClientData {
+  companyName?: string;
+  cnpj?: string;
+  serviceType?: ServiceType;
+  monthlyFee?: number;
+  status?: ClientStatus;
+  startDate?: string | Date;
+  endDate?: string | Date | null;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  observations?: string;
+  commercialPlanId?: string;
+  avulsoServiceIds?: string[];
+}
+
+/**
+ * Interface para dados mensais (upsert)
+ */
+export interface MonthlyDataPayload {
+  initialClients?: number | string;
+  newClients?: number | string;
+  churnedClients?: number | string;
+  newRevenue?: number | string;
+  lostRevenue?: number | string;
+  finalRevenue?: number | string;
+}
+
+/**
+ * Interface para métricas resumidas
+ */
+export interface ClientMetrics {
+  totalClients: number;
+  activeClients: number;
+  prospectClients: number;
+  churnedClients: number;
+  totalMonthlyRevenue: number;
+  churnRate: number;
+}
 
 /**
  * =================================================================
@@ -11,8 +80,8 @@ import { PrismaService } from '../prisma/prisma.service';
  * =================================================================
  * Serviço central para CRUD de clientes com arquitetura multi-tenant,
  * transações atômicas e compliance contábil (soft delete / histórico).
- * 
- * Princípios:
+ *
+ * 🎯 Princípios Arquiteturais:
  * - 🛡️ Multi-tenant rigoroso (companyId em todas as queries)
  * - 🔄 Transações atômicas em operações compostas
  * - 📜 Soft delete para preservar histórico contábil
@@ -30,10 +99,8 @@ export class ClientService {
 
   /**
    * Lista todos os clientes de uma empresa, incluindo:
-   * - Contratos ativos (com plano comercial)
+   * - Contrato ativo mais recente (com plano comercial)
    * - Serviços avulsos ativos (com item de serviço e categoria)
-   * 
-   * Essencial para a tabela do frontend exibir plano e add-ons.
    */
   async findAll(companyId: string) {
     return this.prisma.client.findMany({
@@ -48,7 +115,9 @@ export class ClientService {
         },
         services: {
           where: { status: 'ATIVO' },
-          include: { serviceItem: { include: { category: true } } },
+          include: {
+            serviceItem: { include: { category: true } },
+          },
         },
       },
     });
@@ -60,18 +129,23 @@ export class ClientService {
 
   /**
    * Cria cliente com contrato e serviços avulsos em transação atômica.
-   * 
-   * Fluxo:
-   * 1. Cria o registro do cliente
-   * 2. Se houver commercialPlanId → cria ClientContract ATIVO
-   * 3. Se houver avulsoServiceIds → cria ClientService ATIVO
-   *    (herdando recurrence + basePrice + startDate)
-   * 
-   * Garantias:
-   * - Atomicidade: se qualquer passo falhar, nada é salvo
-   * - Multi-tenant: companyId é injetado automaticamente
+   *
+   * 🔄 Fluxo:
+   * 1. Valida dados obrigatórios
+   * 2. Cria o registro do cliente
+   * 3. Se houver commercialPlanId → cria ClientContract ATIVO
+   * 4. Se houver avulsoServiceIds → cria ClientService ATIVO
+   * 5. Retorna cliente com relações populadas
    */
-  async create(companyId: string, userId: string, data: any) {
+  async create(companyId: string, userId: string, data: CreateClientData) {
+    // Validação de dados obrigatórios
+    if (!data.companyName) {
+      throw new BadRequestException('Nome da empresa do cliente é obrigatório.');
+    }
+    if (!data.startDate) {
+      throw new BadRequestException('Data de início é obrigatória.');
+    }
+
     // Extrai campos relacionais do payload
     const { commercialPlanId, avulsoServiceIds, ...clientData } = data;
 
@@ -80,9 +154,12 @@ export class ClientService {
       const newClient = await tx.client.create({
         data: {
           ...clientData,
+          monthlyFee: clientData.monthlyFee ?? 0, // ✅ LINHA NOVA — garante obrigatório
           companyId,
-          userId,
-          startDate: clientData.startDate ? new Date(clientData.startDate) : new Date(),
+          user: { connect: { id: userId } },
+          startDate: clientData.startDate
+            ? new Date(clientData.startDate)
+            : new Date(),
           endDate: clientData.endDate ? new Date(clientData.endDate) : null,
         },
       });
@@ -101,23 +178,34 @@ export class ClientService {
         });
       }
 
-      // ✅ 3. Cria serviços avulsos (CORRIGIDO - sem updateMany, com herança do catálogo)
+      // 3. Cria serviços avulsos (com herança do catálogo)
       if (avulsoServiceIds && avulsoServiceIds.length > 0) {
-        // Busca os ServiceItems do catálogo para herdar recurrence + basePrice
         const serviceItems = await tx.serviceItem.findMany({
-          where: { id: { in: avulsoServiceIds }, deletedAt: null },
-          select: { id: true, recurrence: true, basePrice: true },
+          where: {
+            id: { in: avulsoServiceIds },
+            deletedAt: null,
+          },
+          select: {
+            id: true,
+            recurrence: true,
+            basePrice: true,
+          },
         });
+
+        if (serviceItems.length !== avulsoServiceIds.length) {
+          throw new BadRequestException(
+            'Um ou mais serviços avulsos não foram encontrados no catálogo.',
+          );
+        }
 
         await tx.clientService.createMany({
           data: serviceItems.map((item) => ({
             companyId,
-            clientId: newClient.id,              // ✅ CORRIGIDO: era 'id'
+            clientId: newClient.id,
             serviceItemId: item.id,
-            recurrence: item.recurrence,          // ✅ Herda do catálogo
-            customPrice: item.basePrice,          // ✅ Preço do catálogo
+            recurrence: item.recurrence,
             status: 'ATIVO',
-            startDate: newClient.startDate,       // ✅ OBRIGATÓRIO no schema
+            startDate: newClient.startDate,
           })),
         });
       }
@@ -132,7 +220,9 @@ export class ClientService {
           },
           services: {
             where: { status: 'ATIVO' },
-            include: { serviceItem: { include: { category: true } } },
+            include: {
+              serviceItem: { include: { category: true } },
+            },
           },
         },
       });
@@ -145,22 +235,20 @@ export class ClientService {
 
   /**
    * Atualiza cliente e sincroniza contrato e serviços avulsos.
-   * 
-   * Estratégia de histórico (compliance contábil):
+   *
+   * 📜 Estratégia de Histórico (Compliance Contábil):
    * - Contratos antigos são marcados como INATIVO (não deletados)
    * - Serviços antigos são marcados como INATIVO (não deletados)
    * - Novos contratos/serviços são criados como ATIVO
-   * 
-   * Isso preserva o histórico completo para auditoria e BI.
    */
-  async update(id: string, companyId: string, data: any) {
+  async update(id: string, companyId: string, data: UpdateClientData) {
     // Valida posse do cliente (multi-tenant)
     const existing = await this.prisma.client.findFirst({
       where: { id, companyId, deletedAt: null },
     });
 
     if (!existing) {
-      throw new NotFoundException('Cliente não encontrado.');
+      throw new NotFoundException('Cliente não encontrado ou não pertence a esta empresa.');
     }
 
     // Extrai campos relacionais do payload
@@ -187,13 +275,11 @@ export class ClientService {
 
       // 2. Sincroniza contrato com plano comercial
       if (commercialPlanId !== undefined) {
-        // Desativa contratos antigos (preserva histórico)
         await tx.clientContract.updateMany({
           where: { clientId: id, status: 'ATIVO' },
           data: { status: 'INATIVO', endDate: new Date() },
         });
 
-        // Cria novo contrato ativo se houver plano
         if (commercialPlanId) {
           await tx.clientContract.create({
             data: {
@@ -208,31 +294,40 @@ export class ClientService {
         }
       }
 
-      // ✅ 3. Sincroniza serviços avulsos (CORRIGIDO - com herança do catálogo)
+      // 3. Sincroniza serviços avulsos
       if (avulsoServiceIds !== undefined) {
-        // Desativa serviços avulsos antigos (preserva histórico)
         await tx.clientService.updateMany({
           where: { clientId: id, status: 'ATIVO' },
           data: { status: 'INATIVO' },
         });
 
-        // Cria novos serviços avulsos com campos obrigatórios
         if (avulsoServiceIds.length > 0) {
-          // Busca os ServiceItems do catálogo para herdar recurrence + basePrice
           const serviceItems = await tx.serviceItem.findMany({
-            where: { id: { in: avulsoServiceIds }, deletedAt: null },
-            select: { id: true, recurrence: true, basePrice: true },
+            where: {
+              id: { in: avulsoServiceIds },
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              recurrence: true,
+              basePrice: true,
+            },
           });
+
+          if (serviceItems.length !== avulsoServiceIds.length) {
+            throw new BadRequestException(
+              'Um ou mais serviços avulsos não foram encontrados no catálogo.',
+            );
+          }
 
           await tx.clientService.createMany({
             data: serviceItems.map((item) => ({
               companyId,
               clientId: id,
               serviceItemId: item.id,
-              recurrence: item.recurrence,          // ✅ Herda do catálogo
-              customPrice: item.basePrice,          // ✅ Preço do catálogo
+              recurrence: item.recurrence,
               status: 'ATIVO',
-              startDate: updatedClient.startDate,   // ✅ OBRIGATÓRIO no schema
+              startDate: updatedClient.startDate,
             })),
           });
         }
@@ -248,7 +343,9 @@ export class ClientService {
           },
           services: {
             where: { status: 'ATIVO' },
-            include: { serviceItem: { include: { category: true } } },
+            include: {
+              serviceItem: { include: { category: true } },
+            },
           },
         },
       });
@@ -261,40 +358,29 @@ export class ClientService {
 
   /**
    * SOFT DELETE: marca cliente como CHURN (não apaga fisicamente).
-   * 
-   * Motivo: Compliance contábil exige preservar histórico de clientes
-   * por pelo menos 5 anos (legislação brasileira).
-   * 
-   * Proteções:
-   * - Validação multi-tenant (impede deleção cruzada)
-   * - Desativa contrato e serviços vinculados
    */
   async delete(id: string, companyId: string) {
-    // Valida posse do cliente
     const existing = await this.prisma.client.findFirst({
       where: { id, companyId, deletedAt: null },
     });
 
     if (!existing) {
-      throw new NotFoundException('Cliente não encontrado.');
+      throw new NotFoundException('Cliente não encontrado ou não pertence a esta empresa.');
     }
 
     return this.prisma.$transaction(async (tx) => {
       const now = new Date();
 
-      // 1. Desativa contratos ativos
       await tx.clientContract.updateMany({
         where: { clientId: id, status: 'ATIVO' },
         data: { status: 'INATIVO', endDate: now },
       });
 
-      // 2. Desativa serviços avulsos ativos
       await tx.clientService.updateMany({
         where: { clientId: id, status: 'ATIVO' },
         data: { status: 'INATIVO' },
       });
 
-      // 3. Soft delete do cliente (marca como CHURN)
       return tx.client.update({
         where: { id },
         data: {
@@ -310,8 +396,9 @@ export class ClientService {
   // 📊 DASHBOARD: Métricas Gerais (Churn, MRR, Ticket Médio)
   // =================================================================
 
-  async getDashboard(companyId: string, year: number) {
-    // 1. Buscar clientes ativos para MRR e Ticket Médio
+  async getDashboard(companyId: string, year?: number) {
+    const targetYear = year || new Date().getFullYear();
+
     const activeClients = await this.prisma.client.findMany({
       where: { companyId, status: 'ATIVO', deletedAt: null },
       select: { monthlyFee: true, startDate: true },
@@ -324,9 +411,8 @@ export class ClientService {
     );
     const averageTicket = totalClients > 0 ? monthlyRevenue / totalClients : 0;
 
-    // 2. Calcular Churn do Ano
-    const yearStart = new Date(year, 0, 1);
-    const yearEnd = new Date(year, 11, 31);
+    const yearStart = new Date(targetYear, 0, 1);
+    const yearEnd = new Date(targetYear, 11, 31, 23, 59, 59);
 
     const churnedThisYear = await this.prisma.client.count({
       where: {
@@ -342,9 +428,53 @@ export class ClientService {
     return {
       totalClients,
       monthlyRevenue,
-      averageTicket,
+      averageTicket: Number(averageTicket.toFixed(2)),
       churnRate: Number(churnRate.toFixed(2)),
       churnedThisYear,
+    };
+  }
+
+  // =================================================================
+  // 📊 MÉTRICAS RESUMIDAS (KPIs do Dashboard Principal)
+  // =================================================================
+
+  async getMetrics(companyId: string): Promise<ClientMetrics> {
+    const [
+      totalClients,
+      activeClients,
+      prospectClients,
+      churnedClients,
+      totalMonthlyRevenue,
+    ] = await Promise.all([
+      this.prisma.client.count({
+        where: { companyId, deletedAt: null },
+      }),
+      this.prisma.client.count({
+        where: { companyId, deletedAt: null, status: 'ATIVO' },
+      }),
+      this.prisma.client.count({
+        where: { companyId, deletedAt: null, status: 'PROSPECT' },
+      }),
+      this.prisma.client.count({
+        where: { companyId, deletedAt: null, status: 'CHURN' },
+      }),
+      this.prisma.client.aggregate({
+        where: { companyId, deletedAt: null, status: 'ATIVO' },
+        _sum: { monthlyFee: true },
+      }),
+    ]);
+
+    const churnRate = totalClients > 0
+      ? (churnedClients / totalClients) * 100
+      : 0;
+
+    return {
+      totalClients,
+      activeClients,
+      prospectClients,
+      churnedClients,
+      totalMonthlyRevenue: totalMonthlyRevenue._sum.monthlyFee || 0,
+      churnRate: Math.round(churnRate * 10) / 10,
     };
   }
 
@@ -358,7 +488,6 @@ export class ClientService {
       orderBy: { month: 'asc' },
     });
 
-    // Se não existir dados, retorna array de 12 meses com zeros
     if (data.length === 0) {
       return Array.from({ length: 12 }, (_, i) => ({
         month: i + 1,
@@ -386,8 +515,12 @@ export class ClientService {
     userId: string,
     year: number,
     month: number,
-    data: any,
+    data: MonthlyDataPayload,
   ) {
+    if (month < 1 || month > 12) {
+      throw new BadRequestException('Mês deve estar entre 1 e 12.');
+    }
+
     const initial = Number(data.initialClients) || 0;
     const newClients = Number(data.newClients) || 0;
     const churned = Number(data.churnedClients) || 0;
