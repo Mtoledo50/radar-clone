@@ -453,3 +453,34 @@ O sistema implementa autenticação JWT com sincronização automática de cooki
 *   **Middleware Next.js**: Proteção de rotas `/dashboard/admin/*` com verificação de role ADMIN
 *   **Redirect Inteligente**: Após login, redireciona para o destino original (ex: `/dashboard/admin/catalogo`)
 *   **Logout Limpo**: Remove cookies + localStorage ao sair
+
+📊 Resultado Visual na Sidebar
+Após aplicar as alterações, o menu ficará assim:
+📊 Dashboard
+🏢 Minha Empresa
+👥 Gestão de Pessoas ▼
+   ├─ Colaboradores
+   └─ Turnover
+👥 Clientes
+📒 Lançamentos Contábeis ▼
+   ├─ Todos os Lançamentos
+   └─ Revisão Manual
+🧮 Precificação
+📅 Planejamento
+📁 Operacional ▼           ← 🆕 NOVO
+   ├─ Projetos              ← 🆕 NOVO
+   └─ Tarefas               ← 🆕 NOVO
+📊 B.I. Contábil
+⚠️ Ponto Fora da Curva
+📈 Indicadores
+⚖️ Planejamento Tributário
+⚖️ Reforma Tributária
+🧮 Contábil ▼
+   ├─ Importar / Exportar SCI
+   ├─ Revisão de Lançamentos
+   └─ Plano de Contas
+🛡️ Administração ▼ (Admin only)
+   ├─ Visão Geral
+   └─ Catálogo de Serviços
+
+   
