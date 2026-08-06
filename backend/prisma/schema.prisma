@@ -691,7 +691,8 @@ model AccountingAccount {
   parentId    String?
   isActive    Boolean         @default(true)
   sciCode     String?  
-  
+  reducedCode Int?   // ✅ código reduzido SCI p/ match + exportação
+
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   
@@ -1019,4 +1020,47 @@ model ActionPlan {
   @@index([companyId])
   @@index([goalId])
   @@map("planning_action_plans")
+}
+// =================================================================
+//  PLANO DE CONTAS PADRÃO (Template Global - SCI 90113)
+// =================================================================
+model AccountTemplate {
+  id          String   @id @default(uuid())
+  reducedCode Int      @unique // código da 1ª coluna (usado nos lançamentos)
+  code        String   // código hierárquico (04.2.1.03.008)
+  parentCode  String?  // código do pai (04.2.1.03)
+  name        String
+  nickname    String?
+  accountType String   // ATIVO | PASSIVO | RECEITA | DESPESA
+  report      String   // BALANCO | DRE
+  isSynthetic Boolean  @default(false) // true = conta "T" (totalizadora)
+  level       Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  @@index([code])
+  @@index([accountType])
+  @@map("account_templates")
+}
+// ===============================================================
+//  BASE HISTÓRICA POR CLIENTE (memória do ano anterior)
+// ===============================================================
+model HistoricalEntry {
+  id          String   @id @default(uuid())
+  companyId   String
+  clientId    String?
+  year        Int
+  date        DateTime
+  debitCode   String?
+  creditCode  String?
+  amount      Decimal  @db.Decimal(12, 2)
+  historyCode String?
+  description String
+  docNumber   String?
+  reducedCode Int?
+  entryType   String?
+  createdAt   DateTime @default(now())
+
+  @@index([companyId, clientId, year])
+  @@index([companyId, amount])
+  @@map("historical_entries")
 }

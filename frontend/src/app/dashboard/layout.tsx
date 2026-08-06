@@ -97,6 +97,15 @@ const allMenuItems: MenuItem[] = [
       { id: 'admin-catalogo', title: 'Catálogo de Serviços', href: '/dashboard/admin/catalogo' },
     ]
   },
+  {
+  label: 'Contábil',
+  icon: Calculator, // importe do lucide-react
+  children: [
+    { label: 'Importar / Exportar SCI', href: '/dashboard/contabil' },
+    { label: 'Revisão de Lançamentos', href: '/dashboard/contabil/revisao' },
+    { label: 'Plano de Contas', href: '/dashboard/contabil/plano-contas' },
+  ],
+},
 ];
 // =================================================================
 // FIM: Configuração dos Itens do Menu (allMenuItems)
