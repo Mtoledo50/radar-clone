@@ -114,19 +114,21 @@ export default function DashboardPage() {
       setError(null);
 
       // Faz 5 requisições ao mesmo tempo (paralelo)
-      const [empRes, cliRes, priRes, plaRes, clientsRes] = await Promise.all([
-        api.get('/employees/metrics'),
-        api.get('/clients/metrics'),
-        api.get('/pricings/metrics'),
-        api.get('/plannings/metrics'),
-        api.get('/clients'), // Lista completa para o gráfico de pizza
-      ]);
+// ✅ VERSÃO RESILIENTE — Uma falha não derruba o dashboard
+const [empRes, cliRes, priRes, plaRes, clientsRes] = await Promise.all([
+  api.get('/employees/metrics').catch(() => null),
+  api.get('/clients/metrics').catch(() => null),
+  api.get('/pricings/metrics').catch(() => null),
+  api.get('/plannings/metrics').catch(() => null),
+  api.get('/clients').catch(() => null),
+]);
 
-      setEmployeeMetrics(empRes.data.data || null);
-      setClientMetrics(cliRes.data.data || null);
-      setPricingMetrics(priRes.data.data || null);
-      setPlanningMetrics(plaRes.data.data || null);
-      setClients(clientsRes.data.data || []);
+// Extrai dados com fallback seguro
+const employeeMetrics = empRes?.data || {};
+const clientMetrics = cliRes?.data || {};
+const pricingMetrics = priRes?.data || {};
+const planningMetrics = plaRes?.data || {};
+const clients = clientsRes?.data || [];
     } catch (err: any) {
       console.error('Erro ao carregar dashboard:', err);
       if (err.response?.status !== 401) {

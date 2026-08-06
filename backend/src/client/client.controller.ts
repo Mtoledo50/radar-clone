@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { ClientService } from './client.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -38,15 +39,23 @@ export class ClientController {
   constructor(private readonly clientService: ClientService) {}
 
   // =================================================================
-  // 📋 CRUD
+  // 📋 CRUD BÁSICO
   // =================================================================
 
+  /**
+   * Lista todos os clientes da empresa (tenant)
+   * @route GET /clients
+   */
   @Get()
   async findAll(@CurrentUser() user: UserPayload) {
     const data = await this.clientService.findAll(user.companyId);
     return { success: true, data };
   }
 
+  /**
+   * Cria novo cliente
+   * @route POST /clients
+   */
   @Post()
   async create(@CurrentUser() user: UserPayload, @Body() dto: any) {
     const data = await this.clientService.create(
@@ -62,7 +71,9 @@ export class ClientController {
   }
 
   /**
-   * ✅ CORRIGIDO: agora passa companyId para proteção multi-tenant
+   * Atualiza cliente existente
+   * @route PUT /clients/:id
+   * ✅ Proteção multi-tenant: valida companyId
    */
   @Put(':id')
   async update(
@@ -75,7 +86,9 @@ export class ClientController {
   }
 
   /**
-   * ✅ CORRIGIDO: agora passa companyId e usa soft delete
+   * Remove cliente (soft delete - marca como Churn)
+   * @route DELETE /clients/:id
+   * ✅ Proteção multi-tenant: valida companyId
    */
   @Delete(':id')
   async remove(@Param('id') id: string, @CurrentUser() user: UserPayload) {
@@ -87,9 +100,13 @@ export class ClientController {
   }
 
   // =================================================================
-  // 📊 DASHBOARD: Métricas Gerais
+  // 📊 DASHBOARD E MÉTRICAS
   // =================================================================
 
+  /**
+   * Retorna métricas do dashboard de clientes
+   * @route GET /clients/dashboard?year=2026
+   */
   @Get('dashboard')
   async getDashboard(
     @CurrentUser() user: UserPayload,
@@ -103,10 +120,25 @@ export class ClientController {
     return { success: true, data };
   }
 
+  /**
+   * Retorna métricas resumidas de clientes
+   * @route GET /clients/metrics
+   * ✅ CORRIGIDO: usa @CurrentUser() e formato padronizado
+   */
+  @Get('metrics')
+  async getMetrics(@CurrentUser() user: UserPayload) {
+    const data = await this.clientService.getMetrics(user.companyId);
+    return { success: true, data };
+  }
+
   // =================================================================
-  // 📅 DADOS MENSAIS
+  // 📅 DADOS MENSAIS (Histórico)
   // =================================================================
 
+  /**
+   * Retorna dados mensais de um ano específico
+   * @route GET /clients/monthly?year=2026
+   */
   @Get('monthly')
   async getMonthlyData(
     @CurrentUser() user: UserPayload,
@@ -120,6 +152,10 @@ export class ClientController {
     return { success: true, data };
   }
 
+  /**
+   * Cria ou atualiza dados mensais
+   * @route POST /clients/monthly
+   */
   @Post('monthly')
   async upsertMonthlyData(
     @CurrentUser() user: UserPayload,
