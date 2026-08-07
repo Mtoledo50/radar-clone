@@ -33,6 +33,8 @@ import {
   FileText,         // Lançamentos Contábeis
   FolderKanban,     // Projetos (módulo novo)
   CheckSquare,      // Tarefas (módulo novo - reservado)
+  Receipt,  // ← ADICIONE ESTA LINHA
+
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
@@ -147,7 +149,16 @@ const allMenuItems: MenuItem[] = [
       { id: 'tarefas', title: 'Tarefas', href: '/dashboard/tarefas' },
     ]
   },
-
+// 🧾 MÓDULO FISCAL — Estoque e ICMS
+{
+  id: 'fiscal',
+  title: 'Fiscal',
+  href: '/dashboard/fiscal',
+  icon: Receipt, // ← adicionar Receipt aos imports do lucide-react
+  children: [
+    { id: 'fiscal-import', title: 'Importar NF-e', href: '/dashboard/fiscal' },
+  ],
+},
   // --- B.I. E INDICADORES ---
   { id: 'bi', title: 'B.I. Contábil', href: '/dashboard/bi', icon: BarChart3 },
   { 
