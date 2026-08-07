@@ -9,10 +9,11 @@ import {
 
 /**
  * =================================================================
- * 📦 CreateProductDto — Validação de entrada de produtos
+ * 📦 CreateProductDto — Validação de entrada de produtos fiscais
  * =================================================================
- * NCM e EAN aceitam pontuação ("0301.99.00") — a normalização
- * (somente dígitos) acontece no Service, mantendo o DTO limpo.
+ * Sprint 8: Adicionado clientId opcional para vincular o produto 
+ * a um cliente específico do escritório. Se omitido, o produto 
+ * fica como "genérico" (clientId = null).
  * =================================================================
  */
 export class CreateProductDto {
@@ -50,4 +51,9 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   currentStock?: number;
+
+  // 🆕 Sprint 8: Vínculo opcional com o cliente
+  @IsOptional()
+  @IsString()
+  clientId?: string;
 }

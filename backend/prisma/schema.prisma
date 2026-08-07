@@ -3,6 +3,8 @@
 // =================================================================
 // Autor: Arquitetura de Software Sênior
 // Descrição: Modelagem de dados robusta para SaaS Contábil
+// Sprint 8: Adicionado clientId nos modelos fiscais para vínculo
+//           do estoque por cliente (multi-cliente por escritório)
 // =================================================================
 
 generator client {
@@ -311,9 +313,16 @@ model Client {
   // Relações Contratuais
   contracts             ClientContract[]
   services              ClientService[]
-   // 🔥 ADICIONE ESTAS 2 LINHAS
+  
+  // Projetos e Tarefas
   projects              Project[]
   tasks                 Task[]
+
+  // 📦 Sprint 8: Vínculo do Estoque Fiscal ao Cliente
+  fiscalProducts        FiscalProduct[]
+  fiscalInvoices        FiscalInvoice[]
+  fiscalMovements       FiscalInventoryMovement[]
+  fiscalApurations      FiscalIcmsApuration[]
   
   @@index([userId])
   @@index([companyId])
@@ -889,10 +898,6 @@ model Planning {
   @@map("plannings")
 }
 
-// (Demais tabelas de RH, Turnover, Setores, Planejamento Estratégico 
-// mantidas exatamente como no seu original, pois já estão bem modeladas.
-// Apenas adicionei onDelete: Cascade nas relações de User para integridade).
-
 model TurnoverMonthly {
   id          String   @id @default(uuid())
   userId      String
@@ -1200,6 +1205,7 @@ model HistoricalEntry {
 // =================================================================
 // Fase 1: Upload de XMLs, Catálogo de Produtos, Kardex de Entradas
 // Multi-tenant: todos os modelos possuem companyId
+// Sprint 8: Vínculo por cliente (companyId + clientId)
 // =================================================================
 
 // -----------------------------------------------------------------
@@ -1275,10 +1281,15 @@ model FiscalSupplier {
 /// Produto cadastrado no catálogo da empresa
 /// Pode ser criado manualmente ou via parser de XML
 /// ncm é obrigatório para apuração de ICMS
+/// Sprint 8: vínculo opcional a um cliente específico (clientId)
 model FiscalProduct {
   id                String   @id @default(cuid())
   companyId         String
   company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// 🆕 Sprint 8: cliente dono do produto (pode ser null = genérico)
+  clientId          String?
+  client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   code              String              /// Código interno do produto
   ean               String?             /// Código de barras (EAN-13)
@@ -1297,7 +1308,8 @@ model FiscalProduct {
   movements         FiscalInventoryMovement[]
   balances          FiscalInventoryBalance[]
 
-  @@unique([companyId, code])
+  @@unique([companyId, clientId, code])   // 🆕 unique inclui clientId
+  @@index([companyId, clientId])          // 🆕 índice para filtro por cliente
   @@index([companyId, ncm])
   @@index([companyId, description])
   @@map("fiscal_products")
@@ -1309,10 +1321,15 @@ model FiscalProduct {
 /// Representa uma NF-e de entrada processada
 /// accessKey é a chave de 44 dígitos (única por empresa)
 /// Guarda os totais da nota e o caminho do XML original
+/// Sprint 8: vínculo opcional a um cliente específico (clientId)
 model FiscalInvoice {
   id                String   @id @default(cuid())
   companyId         String
   company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// 🆕 Sprint 8: cliente dono da nota (pode ser null = geral)
+  clientId          String?
+  client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   supplierId        String
   supplier          FiscalSupplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
@@ -1349,10 +1366,11 @@ model FiscalInvoice {
   updatedAt         DateTime @updatedAt
 
   items             FiscalInvoiceItem[]
-  // ✅ LINHA NOVA - Relação oposta com movimentos de estoque
+  // ✅ Relação oposta com movimentos de estoque
   movements         FiscalInventoryMovement[]
 
   @@unique([companyId, accessKey])
+  @@index([companyId, clientId])          // 🆕 índice para filtro por cliente
   @@index([companyId, supplierId])
   @@index([companyId, emissionDate])
   @@index([companyId, status])
@@ -1418,10 +1436,15 @@ model FiscalInvoiceItem {
 /// Cada entrada/saída de produto no estoque
 /// Registra o custo unitário e o custo médio APÓS a movimentação
 /// Essencial para apuração de ICMS e Bloco H do SPED
+/// Sprint 8: vínculo opcional a um cliente específico (clientId)
 model FiscalInventoryMovement {
   id                String   @id @default(cuid())
   companyId         String
   company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// 🆕 Sprint 8: cliente dono da movimentação
+  clientId          String?
+  client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   productId         String
   product           FiscalProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -1441,6 +1464,7 @@ model FiscalInventoryMovement {
 
   createdAt         DateTime @default(now())
 
+  @@index([companyId, clientId])          // 🆕 índice para filtro por cliente
   @@index([companyId, productId, date])
   @@index([companyId, date])
   @@index([invoiceId])
@@ -1486,10 +1510,15 @@ model FiscalInventoryBalance {
 /// Fechamento mensal do ICMS por empresa (tenant)
 /// Créditos são recalculados automaticamente das NF-e de entrada;
 /// débitos são informados manualmente (vendas × alíquota)
+/// Sprint 8: vínculo opcional a um cliente específico (clientId)
 model FiscalIcmsApuration {
   id          String   @id @default(cuid())
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// 🆕 Sprint 8: cliente dono da apuração
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   year        Int
   month       Int                          /// 1-12
@@ -1515,7 +1544,8 @@ model FiscalIcmsApuration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([companyId, year, month])
+  @@unique([companyId, clientId, year, month])  // 🆕 unique inclui clientId
+  @@index([companyId, clientId, year])          // 🆕 índice
   @@index([companyId, year])
   @@map("fiscal_icms_apurations")
 }
