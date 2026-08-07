@@ -1,36 +1,25 @@
 import { Module } from '@nestjs/common';
+
+// Controllers
 import { SupplierController } from './controllers/supplier.controller';
+import { ProductController } from './controllers/product.controller';
+
+// Services
 import { SupplierService } from './services/supplier.service';
+import { ProductService } from './services/product.service';
 
 /**
  * =================================================================
  * 📦 FiscalModule — Módulo de Estoque Fiscal
  * =================================================================
- * Responsável pela gestão fiscal: fornecedores, produtos, notas
- * fiscais, kardex e apuração de ICMS.
- *
- * 🎯 Princípios:
- * - Multi-tenant (companyId em todas as queries)
- * - Modular (cada domínio com seu controller/service)
- * - Testável (cada service pode ser testado isoladamente)
+ * Etapa 2A: Fornecedores ✅
+ * Etapa 2B: Produtos ✅ (esta entrega)
+ * Etapa 2C: Parser XML (próxima)
  * =================================================================
  */
 @Module({
-  controllers: [
-    SupplierController,
-    // ProductController,   // Será adicionado na Etapa 2B
-    // InvoiceController,   // Será adicionado na Etapa 2C
-    // InventoryController, // Será adicionado na Etapa 2C
-  ],
-  providers: [
-    SupplierService,
-    // ProductService,
-    // XmlParserService,
-    // InvoiceService,
-    // InventoryService,
-  ],
-  exports: [
-    SupplierService,
-  ],
+  controllers: [SupplierController, ProductController],
+  providers: [SupplierService, ProductService],
+  exports: [SupplierService, ProductService],
 })
 export class FiscalModule {}
