@@ -10,6 +10,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "fast-xml-parser": "^5.10.1"
+  }
 }
