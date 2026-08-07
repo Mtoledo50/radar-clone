@@ -30,6 +30,10 @@ import { PlanningModule } from './planning/planning.module';
 import { TasksModule } from './tasks/tasks.module';
 import { ProjectsModule } from './projects/projects.module';
 
+// Operational Fiscal (NOVO)
+import { FiscalModule } from './fiscal/fiscal.module'; // ← NOVO
+
+
 @Module({
   imports: [
     // Core
@@ -61,6 +65,9 @@ import { ProjectsModule } from './projects/projects.module';
     // Operational Management
     TasksModule,
     ProjectsModule,
+    
+    FiscalModule, // ← fiscal NOVO
+
   ],
 })
 export class AppModule {}
