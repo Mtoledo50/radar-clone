@@ -9,6 +9,7 @@ import { ProductController } from './controllers/product.controller';
 import { InvoiceController } from './controllers/invoice.controller';
 import { InventoryController } from './controllers/inventory.controller';
 import { IcmsController } from './controllers/icms.controller';
+import { SpedController } from './controllers/sped.controller';
 
 // =================================================================
 // Services
@@ -19,6 +20,7 @@ import { InvoiceService } from './services/invoice.service';
 import { XmlParserService } from './services/xml-parser.service';
 import { InventoryService } from './services/inventory.service';
 import { IcmsService } from './services/icms.service';
+import { SpedService } from './services/sped.service';
 
 /**
  * =================================================================
@@ -29,7 +31,12 @@ import { IcmsService } from './services/icms.service';
  * Etapa 2C: Parser XML + Upload ✅
  * Etapa 2D: Notas Fiscais (consulta) ✅
  * Etapa 2E: Estoque/Kardex ✅
- * Etapa 2F: Apuração de ICMS Mensal 🔄 (esta entrega)
+ * Etapa 2F: Apuração de ICMS Mensal ✅
+ * Etapa 2G: Exportação SPED (Bloco H) 🔄 (esta entrega)
+ *
+ * 🛡️ Regra de ouro NestJS:
+ *   - controllers → classes com @Controller()
+ *   - providers   → classes com @Injectable()
  * =================================================================
  */
 @Module({
@@ -39,7 +46,8 @@ import { IcmsService } from './services/icms.service';
     ProductController,
     InvoiceController,
     InventoryController,
-    IcmsController, // ← NOVO
+    IcmsController,
+    SpedController, // ✅ Controller no array de controllers
   ],
   providers: [
     SupplierService,
@@ -47,7 +55,8 @@ import { IcmsService } from './services/icms.service';
     InvoiceService,
     XmlParserService,
     InventoryService,
-    IcmsService, // ← NOVO
+    IcmsService,
+    SpedService, // ✅ Service no array de providers
   ],
   exports: [
     SupplierService,
@@ -55,7 +64,8 @@ import { IcmsService } from './services/icms.service';
     InvoiceService,
     XmlParserService,
     InventoryService,
-    IcmsService, // ← NOVO
+    IcmsService,
+    SpedService,
   ],
 })
 export class FiscalModule {}
