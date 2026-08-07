@@ -173,6 +173,8 @@ model Company {
   fiscalInvoices        FiscalInvoice[]
   fiscalMovements       FiscalInventoryMovement[]
   fiscalBalances        FiscalInventoryBalance[]
+
+
   
   @@map("companies")
 }
@@ -1478,3 +1480,4 @@ model FiscalInventoryBalance {
   @@index([companyId, year, month])
   @@map("fiscal_inventory_balances")
 }
+
