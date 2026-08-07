@@ -483,4 +483,83 @@ Após aplicar as alterações, o menu ficará assim:
    ├─ Visão Geral
    └─ Catálogo de Serviços
 
-   
+---
+Atualização: Módulo de Gestão Operacional (Projetos e Tarefas)
+Descrição:
+* Implementação do módulo operacional para organizar entregas, obrigações e demandas
+  internas do escritório contábil, com visão de progresso, prazos e prioridades.
+Funcionalidades Adicionadas:
+* Projetos: CRUD com status (Planejamento, Ativo, Pausado, Concluído, Cancelado),
+  prioridade, cor de identificação, vínculo opcional com cliente e progresso
+  calculado automaticamente pelas tarefas concluídas.
+* Tarefas: CRUD com fluxo Kanban (Backlog, A Fazer, Em Andamento, Revisão,
+  Bloqueada, Concluída), prioridade, categoria (Fiscal, Contábil, DP, Societário,
+  Financeiro, Comercial, Interno), responsável, prazo e horas estimadas/realizadas.
+* Indicadores: KPIs de projetos (ativos, atrasados, concluídos, progresso geral)
+  e de tarefas (atrasadas, para hoje, em andamento, bloqueadas, concluídas na semana).
+* Frontend: página /dashboard/projetos com cards de KPI, filtros, tabela com barra
+  de progresso, modal de criação/edição e confirmação de exclusão.
+* Navegação: grupo "Operacional" na sidebar com atalhos para Projetos e Tarefas.
+Arquivos Criados/Alterados:
+* backend/src/projects/ (module, controller, service, DTOs)
+* backend/src/tasks/ (module, controller, service, DTOs)
+* backend/prisma/schema.prisma (models Project e Task + enums de status/prioridade)
+* backend/src/app.module.ts (registro dos módulos)
+* frontend/src/app/dashboard/projetos/page.tsx
+* frontend/src/components/projects/ (ProjectModal, ProjectStatusBadge, ProjectPriorityBadge)
+* frontend/src/types/projects.ts
+* frontend/src/app/dashboard/layout.tsx (menu Operacional)
+Endpoints:
+* GET/POST /projects • GET/PATCH/DELETE /projects/:id • GET /projects/metrics
+* GET/POST /tasks • PATCH/DELETE /tasks/:id • PATCH /tasks/:id/status
+* GET /tasks/kanban • GET /tasks/metrics
+Detalhes das Alterações Técnicas:
+* Multi-tenant: todas as queries filtradas por companyId do usuário autenticado.
+* Soft delete (deletedAt) para preservação de histórico operacional.
+* Integridade: projeto com tarefas pendentes não pode ser excluído (Restrict + validação).
+* completedAt preenchido automaticamente ao concluir tarefa ou projeto.
+* Índices compostos (companyId + status/prazo/responsável) para performance.
+
+---
+Atualização: Módulo Fiscal — Estoque e Apuração de ICMS (Fase 1 — Backend Homologado)
+Descrição:
+* Primeira fase do módulo fiscal para clientes do Lucro Presumido e Simples Nacional:
+  base para upload de NF-e de entrada, catálogo de produtos com NCM, controle de
+  fornecedores, kardex de estoque e futura apuração de ICMS / Bloco H do SPED.
+Funcionalidades Adicionadas:
+* Fornecedores Fiscais: CRUD com CNPJ único por empresa e criação automática
+  (findOrCreateByCnpj) para uso pelo parser de XML.
+* Produtos Fiscais: CRUD com validação de NCM (8 dígitos), EAN, unidade de medida,
+  custo médio e saldo de estoque; busca por descrição, código, NCM ou EAN.
+* Modelagem completa para as próximas fases: NF-e de entrada, itens com impostos
+  (ICMS, ICMS-ST, IPI, PIS, COFINS, CST/CSOSN), movimentações de kardex e
+  saldo mensal de estoque.
+Arquivos Criados/Alterados:
+* backend/src/fiscal/fiscal.module.ts
+* backend/src/fiscal/controllers/supplier.controller.ts e product.controller.ts
+* backend/src/fiscal/services/supplier.service.ts e product.service.ts
+* backend/src/fiscal/dto/ (create/update-product.dto.ts)
+* backend/prisma/schema.prisma (6 models fiscais + 4 enums)
+* backend/src/app.module.ts (registro do FiscalModule)
+Endpoints Homologados (Postman — todos 200/201):
+* GET/POST /fiscal/suppliers • GET/PUT/DELETE /fiscal/suppliers/:id
+* GET/POST /fiscal/products • GET/PUT/DELETE /fiscal/products/:id
+Detalhes das Alterações Técnicas:
+* Multi-tenant rigoroso (companyId em todas as queries).
+* Soft delete com bloqueio de exclusão quando há movimentações/itens vinculados.
+* Normalização de CNPJ/NCM/EAN (somente dígitos) com validação de formato.
+* Precisão fiscal: Decimal(12,4) para quantidades/custos e Decimal(12,2) para valores.
+* accessKey única por empresa para impedir NF-e duplicada (upload em massa na Fase 2).
+Status: Backend da Fase 1 homologado. Parser de XML, estoque antigo (CSV),
+relatórios personalizados e frontend do módulo nas próximas sprints.
+
+Módulo Operacional (Projetos e Tarefas)
+Responsável por: organizar entregas e demandas do escritório
+Features: Kanban, prioridades, categorias, prazos, progresso automático
+Endpoints: /projects, /tasks
+
+Módulo Fiscal (em evolução)
+Responsável por: estoque fiscal e apuração de ICMS
+Features (Fase 1): fornecedores, catálogo de produtos com NCM
+Endpoints: /fiscal/suppliers, /fiscal/products
+
