@@ -1,18 +1,24 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 
+// =================================================================
 // Controllers
+// =================================================================
 import { SupplierController } from './controllers/supplier.controller';
 import { ProductController } from './controllers/product.controller';
 import { InvoiceController } from './controllers/invoice.controller';
 import { InventoryController } from './controllers/inventory.controller';
+import { IcmsController } from './controllers/icms.controller';
 
+// =================================================================
 // Services
+// =================================================================
 import { SupplierService } from './services/supplier.service';
 import { ProductService } from './services/product.service';
 import { InvoiceService } from './services/invoice.service';
 import { XmlParserService } from './services/xml-parser.service';
 import { InventoryService } from './services/inventory.service';
+import { IcmsService } from './services/icms.service';
 
 /**
  * =================================================================
@@ -22,7 +28,8 @@ import { InventoryService } from './services/inventory.service';
  * Etapa 2B: Produtos ✅
  * Etapa 2C: Parser XML + Upload ✅
  * Etapa 2D: Notas Fiscais (consulta) ✅
- * Etapa 2E: Estoque/Kardex 🔄 (esta entrega)
+ * Etapa 2E: Estoque/Kardex ✅
+ * Etapa 2F: Apuração de ICMS Mensal 🔄 (esta entrega)
  * =================================================================
  */
 @Module({
@@ -32,6 +39,7 @@ import { InventoryService } from './services/inventory.service';
     ProductController,
     InvoiceController,
     InventoryController,
+    IcmsController, // ← NOVO
   ],
   providers: [
     SupplierService,
@@ -39,6 +47,7 @@ import { InventoryService } from './services/inventory.service';
     InvoiceService,
     XmlParserService,
     InventoryService,
+    IcmsService, // ← NOVO
   ],
   exports: [
     SupplierService,
@@ -46,6 +55,7 @@ import { InventoryService } from './services/inventory.service';
     InvoiceService,
     XmlParserService,
     InventoryService,
+    IcmsService, // ← NOVO
   ],
 })
 export class FiscalModule {}

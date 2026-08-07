@@ -173,7 +173,7 @@ model Company {
   fiscalInvoices        FiscalInvoice[]
   fiscalMovements       FiscalInventoryMovement[]
   fiscalBalances        FiscalInventoryBalance[]
-
+  fiscalApurations    FiscalIcmsApuration[]
 
   
   @@map("companies")
@@ -1480,4 +1480,42 @@ model FiscalInventoryBalance {
   @@index([companyId, year, month])
   @@map("fiscal_inventory_balances")
 }
+// =================================================================
+// 🧮 APURAÇÃO DE ICMS MENSAL
+// =================================================================
+/// Fechamento mensal do ICMS por empresa (tenant)
+/// Créditos são recalculados automaticamente das NF-e de entrada;
+/// débitos são informados manualmente (vendas × alíquota)
+model FiscalIcmsApuration {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  year        Int
+  month       Int                          /// 1-12
+
+  /// Créditos (automáticos das NF-e de entrada)
+  creditsIcms   Decimal @default(0) @db.Decimal(12, 2)
+  creditsIcmsSt Decimal @default(0) @db.Decimal(12, 2)
+  purchasesValue Decimal @default(0) @db.Decimal(12, 2)
+  invoicesCount  Int     @default(0)
+
+  /// Débitos (manuais: vendas × alíquota)
+  salesValue  Decimal @default(0) @db.Decimal(12, 2)
+  debitRate   Decimal @default(0) @db.Decimal(5, 2)
+  debitsIcms  Decimal @default(0) @db.Decimal(12, 2)
+
+  /// Resultado: positivo = a pagar | negativo = crédito acumulado
+  balance     Decimal @default(0) @db.Decimal(12, 2)
+
+  status      String   @default("ABERTA")  /// ABERTA | FECHADA
+  closedAt    DateTime?
+  observations String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, year, month])
+  @@index([companyId, year])
+  @@map("fiscal_icms_apurations")
+}
