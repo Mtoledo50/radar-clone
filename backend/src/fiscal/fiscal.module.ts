@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { PrismaModule } from '../prisma/prisma.module';
 
 // Controllers
 import { SupplierController } from './controllers/supplier.controller';
@@ -10,14 +11,14 @@ import { ProductService } from './services/product.service';
 
 /**
  * =================================================================
- * 📦 FiscalModule — Módulo de Estoque Fiscal
+ * 📦 FiscalModule — Estoque Fiscal e Apuração de ICMS
  * =================================================================
- * Etapa 2A: Fornecedores ✅
- * Etapa 2B: Produtos ✅ (esta entrega)
- * Etapa 2C: Parser XML (próxima)
+ * Etapa atual: CRUD de Fornecedores e Produtos (catálogo).
+ * Próximas etapas: upload de XML, kardex, apuração.
  * =================================================================
  */
 @Module({
+  imports: [PrismaModule],
   controllers: [SupplierController, ProductController],
   providers: [SupplierService, ProductService],
   exports: [SupplierService, ProductService],
