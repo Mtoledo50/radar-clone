@@ -154,11 +154,14 @@ const allMenuItems: MenuItem[] = [
   id: 'fiscal',
   title: 'Fiscal',
   href: '/dashboard/fiscal',
-  icon: Receipt, // ← adicionar Receipt aos imports do lucide-react
+  icon: Receipt,
   children: [
     { id: 'fiscal-import', title: 'Importar NF-e', href: '/dashboard/fiscal' },
+    { id: 'fiscal-notas', title: 'Notas Fiscais', href: '/dashboard/fiscal/notas' },
+    { id: 'fiscal-estoque', title: 'Estoque', href: '/dashboard/fiscal/estoque' }, // ← NOVO
   ],
 },
+
   // --- B.I. E INDICADORES ---
   { id: 'bi', title: 'B.I. Contábil', href: '/dashboard/bi', icon: BarChart3 },
   { 
