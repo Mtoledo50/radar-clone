@@ -3,7 +3,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { XmlParserService, ParsedInvoice } from './xml-parser.service';
 
@@ -11,14 +11,20 @@ import { XmlParserService, ParsedInvoice } from './xml-parser.service';
  * =================================================================
  * 📄 InvoiceService — Processamento de NF-e de Entrada
  * =================================================================
- * Fluxo de uma nota uploadada:
- * 1. Parser extrai dados do XML
- * 2. Bloqueia NF-e duplicada (accessKey única por empresa)
- * 3. Cria/vincula fornecedor (findOrCreate por CNPJ)
- * 4. Casa itens com o catálogo (ou cria produto novo = status NEW)
- * 5. Grava nota + itens em transação
- * 6. Gera movimentos de ENTRADA no Kardex
- * 7. Atualiza saldo + custo médio ponderado do produto
+ * Responsabilidades centrais do módulo fiscal:
+ * - Receber o XML parseado pelo XmlParserService
+ * - Persistir nota + itens + fornecedor em transação atômica
+ * - Atualizar estoque (Kardex) e custo médio ponderado
+ * - Fornecer consultas paginadas e KPIs para o frontend
+ *
+ * 🆕 Sprint 8: Suporte completo a `clientId`:
+ *   - Nota, produtos auto-criados e movimentos são vinculados ao cliente
+ *   - Consultas e métricas podem ser filtradas por clientId
+ *   - Dados legados (clientId = null) continuam funcionando
+ *
+ * 🛡️ Integridade:
+ *   - NF-e duplicada é bloqueada pela accessKey (44 dígitos)
+ *   - $transaction garante "tudo ou nada" (nota + itens + kardex)
  * =================================================================
  */
 @Injectable()
@@ -35,10 +41,18 @@ export class InvoiceService {
   /**
    * Processa um lote de arquivos XML.
    * Retorna resumo por arquivo (sucesso/erro) — nunca aborta o lote.
+   *
+   * @param companyId - Tenant autenticado (do token JWT)
+   * @param userId    - Usuário que executou o upload (auditoria)
+   * @param clientId  - 🆕 Sprint 8: cliente dono do estoque (opcional)
+   * @param files     - Arquivos recebidos via multipart
+   *
+   * @returns { total, processed, errors, results[] }
    */
   async processUpload(
     companyId: string,
     userId: string,
+    clientId: string | undefined,
     files: Express.Multer.File[],
   ) {
     const results: any[] = [];
@@ -46,7 +60,12 @@ export class InvoiceService {
     for (const file of files) {
       try {
         const parsed = this.xmlParser.parse(file.buffer.toString('utf-8'));
-        const invoice = await this.persistInvoice(companyId, userId, parsed);
+        const invoice = await this.persistInvoice(
+          companyId,
+          userId,
+          clientId,
+          parsed,
+        );
         results.push({
           fileName: file.originalname,
           status: 'PROCESSED',
@@ -72,13 +91,26 @@ export class InvoiceService {
     };
   }
 
+  // =================================================================
+  // 💾 PERSISTÊNCIA ATÔMICA DA NF-e
+  // =================================================================
+
   /**
    * Persiste uma NF-e parseada com transação atômica:
-   * fornecedor + produtos + nota + itens + kardex + saldo.
+   * fornecedor + produtos + nota + itens + kardex.
+   *
+   * Fluxo por item:
+   *   1. Tenta casar com o catálogo (código do fornecedor ou EAN)
+   *   2. Se não existir, cria o produto (status NEW)
+   *   3. Recalcula custo médio ponderado móvel
+   *   4. Registra movimento de ENTRADA no kardex
+   *
+   * @throws ConflictException se a accessKey já foi importada
    */
   private async persistInvoice(
     companyId: string,
     userId: string,
+    clientId: string | undefined,
     parsed: ParsedInvoice,
   ) {
     return this.prisma.$transaction(async (tx) => {
@@ -92,7 +124,7 @@ export class InvoiceService {
         );
       }
 
-      // 2. Fornecedor: cria ou vincula por CNPJ
+      // 2. Fornecedor: cria ou vincula por CNPJ (compartilhado entre clientes)
       const supplier = await tx.fiscalSupplier.upsert({
         where: {
           companyId_cnpj: { companyId, cnpj: parsed.supplier.cnpj },
@@ -113,10 +145,12 @@ export class InvoiceService {
       const movements: any[] = [];
 
       for (const item of parsed.items) {
+        // 🆕 Sprint 8: matching considera o catálogo do cliente
         let product = item.supplierCode
           ? await tx.fiscalProduct.findFirst({
               where: {
                 companyId,
+                clientId: clientId || null,
                 deletedAt: null,
                 code: item.supplierCode,
               },
@@ -125,7 +159,12 @@ export class InvoiceService {
 
         if (!product && item.ean) {
           product = await tx.fiscalProduct.findFirst({
-            where: { companyId, deletedAt: null, ean: item.ean },
+            where: {
+              companyId,
+              clientId: clientId || null,
+              deletedAt: null,
+              ean: item.ean,
+            },
           });
         }
 
@@ -135,6 +174,7 @@ export class InvoiceService {
           product = await tx.fiscalProduct.create({
             data: {
               companyId,
+              clientId: clientId || null, // 🆕 Sprint 8
               code:
                 item.supplierCode ||
                 `AUTO-${parsed.accessKey.slice(-6)}-${item.itemNumber}`,
@@ -189,6 +229,7 @@ export class InvoiceService {
 
         movements.push({
           companyId,
+          clientId: clientId || null, // 🆕 Sprint 8
           productId: product.id,
           type: 'ENTRADA',
           date: parsed.emissionDate,
@@ -205,6 +246,7 @@ export class InvoiceService {
       const invoice = await tx.fiscalInvoice.create({
         data: {
           companyId,
+          clientId: clientId || null, // 🆕 Sprint 8
           supplierId: supplier.id,
           status: 'PARSED',
           number: parsed.number,
@@ -239,108 +281,32 @@ export class InvoiceService {
   }
 
   // =================================================================
-  // 📊 MÉTRICAS E KPIs (para tela de Notas Fiscais)
+  // 📋 LISTAGEM PAGINADA
   // =================================================================
 
-    /**
-   * =================================================================
-   * 📊 getMetrics — KPIs fiscais do período
-   * =================================================================
-   * Retorna indicadores para os cards da tela de Notas Fiscais:
-   * - Total de notas e valor total
-   * - Créditos de ICMS, ICMS-ST, IPI, PIS e COFINS
-   * - Fornecedores distintos e volume/custo de itens movimentados
+  /**
+   * Lista notas da empresa com fornecedor e contagem de itens.
+   * 🆕 Sprint 8: filtro opcional por clientId.
    *
-   * ⚡ Performance: 3 queries em paralelo via Promise.all
-   * 🛡️ Multi-tenant: sempre filtrado por companyId
-   *
-   * @param companyId  Tenant autenticado
-   * @param startDate  Filtro inicial (YYYY-MM-DD, opcional)
-   * @param endDate    Filtro final (YYYY-MM-DD, opcional)
+   * @param filters.page   - Página atual (padrão 1)
+   * @param filters.limit  - Itens por página (padrão 50, máx 100)
+   * @param filters.search - Busca por número, chave ou fornecedor
+   * @param filters.clientId - 🆕 Filtra notas do cliente selecionado
    */
-  async getMetrics(
-    companyId: string,
-    startDate?: string,
-    endDate?: string,
-  ) {
-    // Monta filtro de período para notas fiscais
-    const where: Prisma.FiscalInvoiceWhereInput = { companyId };
-    if (startDate || endDate) {
-      where.emissionDate = {
-        ...(startDate && { gte: new Date(`${startDate}T00:00:00`) }),
-        ...(endDate && { lte: new Date(`${endDate}T23:59:59`) }),
-      };
-    }
-
-    // ✅ CORREÇÃO: Filtro separado para movimentos (tipagem correta)
-    const movementWhere: Prisma.FiscalInventoryMovementWhereInput = {
-      companyId,
-      type: 'ENTRADA',
-    };
-    if (startDate || endDate) {
-      movementWhere.date = {
-        ...(startDate && { gte: new Date(`${startDate}T00:00:00`) }),
-        ...(endDate && { lte: new Date(`${endDate}T23:59:59`) }),
-      };
-    }
-
-    // Queries em paralelo (performance)
-    const [invoiceAgg, suppliers, movementAgg] = await Promise.all([
-      // Totais da nota (valores + impostos)
-      this.prisma.fiscalInvoice.aggregate({
-        where,
-        _count: { id: true },
-        _sum: {
-          totalValue: true,
-          icmsValue: true,
-          icmsStValue: true,
-          ipiValue: true,
-          pisValue: true,
-          cofinsValue: true,
-        },
-      }),
-      // Fornecedores distintos no período
-      this.prisma.fiscalInvoice.findMany({
-        where,
-        distinct: ['supplierId'],
-        select: { supplierId: true },
-      }),
-      // ✅ CORREÇÃO: Usa movementWhere (tipado corretamente)
-      this.prisma.fiscalInventoryMovement.aggregate({
-        where: movementWhere,
-        _sum: { quantity: true, totalCost: true },
-      }),
-    ]);
-
-    // Converte Decimal → Number (JSON limpo para o frontend)
-    const sum = invoiceAgg._sum;
-    return {
-      totalInvoices: invoiceAgg._count.id,
-      totalValue: Number(sum.totalValue ?? 0),
-      totalIcms: Number(sum.icmsValue ?? 0),
-      totalIcmsSt: Number(sum.icmsStValue ?? 0),
-      totalIpi: Number(sum.ipiValue ?? 0),
-      totalPis: Number(sum.pisValue ?? 0),
-      totalCofins: Number(sum.cofinsValue ?? 0),
-      distinctSuppliers: suppliers.length,
-      totalItemsQuantity: Number(movementAgg._sum.quantity ?? 0),
-      totalItemsCost: Number(movementAgg._sum.totalCost ?? 0),
-    };
-  }
-
-  // =================================================================
-  // 📋 LISTAGEM E DETALHE
-  // =================================================================
-
-  /** Lista notas da empresa com fornecedor e contagem de itens */
   async findAll(
     companyId: string,
-    filters: { page?: number; limit?: number; search?: string } = {},
+    filters: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      clientId?: string;
+    } = {},
   ) {
-    const { page = 1, limit = 50, search = '' } = filters;
+    const { page = 1, limit = 50, search = '', clientId } = filters;
 
     const where: any = {
       companyId,
+      ...(clientId && { clientId }), // 🆕 Sprint 8
       ...(search && {
         OR: [
           { number: { contains: search } },
@@ -374,7 +340,16 @@ export class InvoiceService {
     };
   }
 
-  /** Detalhe da nota com itens e produtos */
+  // =================================================================
+  // 🔍 DETALHE DA NOTA
+  // =================================================================
+
+  /**
+   * Detalhe da nota com itens e produtos vinculados.
+   * Usado pelo modal de visualização no frontend.
+   *
+   * @throws NotFoundException se não existir ou pertencer a outro tenant
+   */
   async findOne(id: string, companyId: string) {
     const invoice = await this.prisma.fiscalInvoice.findFirst({
       where: { id, companyId },
@@ -389,5 +364,93 @@ export class InvoiceService {
     }
 
     return invoice;
+  }
+
+  // =================================================================
+  // 📊 KPIs DO PERÍODO
+  // =================================================================
+
+  /**
+   * Métricas agregadas para os cards da tela de Notas Fiscais.
+   * 🆕 Sprint 8: filtro opcional por clientId.
+   *
+   * ⚡ Performance: 3 queries em paralelo via Promise.all
+   * 🛡️ Tipagem: filtros de nota e de movimento tipados separadamente
+   *    (evita o erro de compatibilidade DateTimeFilter entre modelos)
+   */
+  async getMetrics(
+    companyId: string,
+    filters: { startDate?: string; endDate?: string; clientId?: string } = {},
+  ) {
+    const { startDate, endDate, clientId } = filters;
+
+    // Filtro de período para notas fiscais
+    const where: Prisma.FiscalInvoiceWhereInput = { companyId };
+    if (startDate || endDate) {
+      where.emissionDate = {
+        ...(startDate && { gte: new Date(`${startDate}T00:00:00`) }),
+        ...(endDate && { lte: new Date(`${endDate}T23:59:59`) }),
+      };
+    }
+    if (clientId) {
+      where.clientId = clientId; // 🆕 Sprint 8
+    }
+
+    // Filtro de período para movimentos (tipagem própria do modelo)
+    const movementWhere: Prisma.FiscalInventoryMovementWhereInput = {
+      companyId,
+      type: 'ENTRADA',
+    };
+    if (startDate || endDate) {
+      movementWhere.date = {
+        ...(startDate && { gte: new Date(`${startDate}T00:00:00`) }),
+        ...(endDate && { lte: new Date(`${endDate}T23:59:59`) }),
+      };
+    }
+    if (clientId) {
+      movementWhere.clientId = clientId; // 🆕 Sprint 8
+    }
+
+    const [invoiceAgg, suppliers, movementAgg] = await Promise.all([
+      // Totais da nota (valores + impostos)
+      this.prisma.fiscalInvoice.aggregate({
+        where,
+        _count: { id: true },
+        _sum: {
+          totalValue: true,
+          icmsValue: true,
+          icmsStValue: true,
+          ipiValue: true,
+          pisValue: true,
+          cofinsValue: true,
+        },
+      }),
+      // Fornecedores distintos no período
+      this.prisma.fiscalInvoice.findMany({
+        where,
+        distinct: ['supplierId'],
+        select: { supplierId: true },
+      }),
+      // Volume e custo de itens entrados no kardex
+      this.prisma.fiscalInventoryMovement.aggregate({
+        where: movementWhere,
+        _sum: { quantity: true, totalCost: true },
+      }),
+    ]);
+
+    // Converte Decimal → Number (JSON limpo para o frontend)
+    const sum = invoiceAgg._sum;
+    return {
+      totalInvoices: invoiceAgg._count.id,
+      totalValue: Number(sum.totalValue ?? 0),
+      totalIcms: Number(sum.icmsValue ?? 0),
+      totalIcmsSt: Number(sum.icmsStValue ?? 0),
+      totalIpi: Number(sum.ipiValue ?? 0),
+      totalPis: Number(sum.pisValue ?? 0),
+      totalCofins: Number(sum.cofinsValue ?? 0),
+      distinctSuppliers: suppliers.length,
+      totalItemsQuantity: Number(movementAgg._sum.quantity ?? 0),
+      totalItemsCost: Number(movementAgg._sum.totalCost ?? 0),
+    };
   }
 }

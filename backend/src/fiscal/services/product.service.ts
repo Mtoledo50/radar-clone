@@ -12,22 +12,14 @@ import { UpdateProductDto } from '../dto/update-product.dto';
  * =================================================================
  * 📦 ProductService — Catálogo de Produtos Fiscais
  * =================================================================
- * Responsabilidades:
- * - CRUD multi-tenant (companyId em todas as queries)
- * - Normalização de NCM/EAN (somente dígitos)
- * - Validação de NCM (8 dígitos — exigência fiscal)
- * - Soft delete com bloqueio se houver movimentações
- * - Conversão Decimal → Number na resposta (JSON limpo)
+ * Sprint 8: Todas as queries agora suportam filtro por clientId.
+ * A criação de produtos agora aceita e salva o clientId.
  * =================================================================
  */
 @Injectable()
 export class ProductService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Converte campos Decimal do Prisma para Number no JSON.
-   * Evita strings quebradas no frontend ("12.5000" vs 12.5).
-   */
   private toResponse(product: any) {
     return {
       ...product,
@@ -36,24 +28,17 @@ export class ProductService {
     };
   }
 
-  /**
-   * Normaliza NCM/EAN: remove pontuação, mantém só dígitos.
-   */
   private normalizeDigits(value?: string): string {
     return (value || '').replace(/\D/g, '');
   }
 
-  /**
-   * Lista produtos com busca (descrição, código, NCM, EAN) e paginação.
-   */
   async findAll(
     companyId: string,
-    filters: { search?: string; page?: number; limit?: number } = {},
+    filters: { search?: string; page?: number; limit?: number; clientId?: string } = {},
   ) {
-    const { search = '', page = 1, limit = 50 } = filters;
+    const { search = '', page = 1, limit = 50, clientId } = filters;
     const digits = this.normalizeDigits(search);
 
-    // Busca textual + busca por dígitos (NCM/EAN)
     const orConditions: any[] = [
       { description: { contains: search, mode: 'insensitive' } },
       { code: { contains: search, mode: 'insensitive' } },
@@ -66,6 +51,7 @@ export class ProductService {
     const where: any = {
       companyId,
       deletedAt: null,
+      ...(clientId && { clientId }), // 🆕 Sprint 8: Filtra por cliente se fornecido
       ...(search && { OR: orConditions }),
     };
 
@@ -81,63 +67,52 @@ export class ProductService {
 
     return {
       data: products.map((p) => this.toResponse(p)),
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
-  /**
-   * Busca um produto específico (validação multi-tenant).
-   */
   async findOne(id: string, companyId: string) {
     const product = await this.prisma.fiscalProduct.findFirst({
       where: { id, companyId, deletedAt: null },
       include: {
-        _count: {
-          select: { movements: true, invoiceItems: true },
-        },
+        _count: { select: { movements: true, invoiceItems: true } },
       },
     });
 
     if (!product) {
-      throw new NotFoundException(
-        'Produto não encontrado ou não pertence a esta empresa.',
-      );
+      throw new NotFoundException('Produto não encontrado ou não pertence a esta empresa.');
     }
 
     return this.toResponse(product);
   }
 
-  /**
-   * Cria produto com validação de NCM e unicidade de código.
-   */
   async create(companyId: string, dto: CreateProductDto) {
     const ncm = this.normalizeDigits(dto.ncm);
 
-    // NCM fiscal brasileiro: exatamente 8 dígitos
     if (ncm.length !== 8) {
-      throw new BadRequestException(
-        'NCM inválido. Deve conter 8 dígitos (ex: 03019900).',
-      );
+      throw new BadRequestException('NCM inválido. Deve conter 8 dígitos (ex: 03019900).');
     }
 
-    // Unicidade de código por empresa
+    // 🆕 Sprint 8: Unicidade agora considera o clientId (ou null)
     const existing = await this.prisma.fiscalProduct.findFirst({
-      where: { companyId, code: dto.code, deletedAt: null },
+      where: { 
+        companyId, 
+        clientId: dto.clientId || null, 
+        code: dto.code, 
+        deletedAt: null 
+      },
     });
+    
     if (existing) {
       throw new ConflictException(
-        `Já existe um produto com o código ${dto.code} nesta empresa.`,
+        `Já existe um produto com o código ${dto.code} ${dto.clientId ? 'para este cliente' : 'no catálogo geral'}.`,
       );
     }
 
     const product = await this.prisma.fiscalProduct.create({
       data: {
         companyId,
+        clientId: dto.clientId || null, // 🆕 Sprint 8
         code: dto.code,
         description: dto.description,
         ncm,
@@ -151,39 +126,28 @@ export class ProductService {
     return this.toResponse(product);
   }
 
-  /**
-   * Atualiza produto (com re-validação de NCM e código).
-   */
   async update(id: string, companyId: string, dto: UpdateProductDto) {
     const existing = await this.prisma.fiscalProduct.findFirst({
       where: { id, companyId, deletedAt: null },
     });
     if (!existing) {
-      throw new NotFoundException(
-        'Produto não encontrado ou não pertence a esta empresa.',
-      );
+      throw new NotFoundException('Produto não encontrado ou não pertence a esta empresa.');
     }
 
-    // Se código mudou, valida unicidade
     if (dto.code && dto.code !== existing.code) {
       const duplicate = await this.prisma.fiscalProduct.findFirst({
-        where: { companyId, code: dto.code, deletedAt: null, NOT: { id } },
+        where: { companyId, clientId: existing.clientId, code: dto.code, deletedAt: null, NOT: { id } },
       });
       if (duplicate) {
-        throw new ConflictException(
-          `Já existe outro produto com o código ${dto.code}.`,
-        );
+        throw new ConflictException(`Já existe outro produto com o código ${dto.code}.`);
       }
     }
 
-    // Se NCM informado, re-valida 8 dígitos
     let ncm: string | undefined;
     if (dto.ncm !== undefined) {
       ncm = this.normalizeDigits(dto.ncm);
       if (ncm.length !== 8) {
-        throw new BadRequestException(
-          'NCM inválido. Deve conter 8 dígitos (ex: 03019900).',
-        );
+        throw new BadRequestException('NCM inválido. Deve conter 8 dígitos.');
       }
     }
 
@@ -197,16 +161,13 @@ export class ProductService {
         ean: dto.ean !== undefined ? this.normalizeDigits(dto.ean) : undefined,
         averageCost: dto.averageCost,
         currentStock: dto.currentStock,
+        // Nota: clientId não é atualizado aqui para evitar órfãos de histórico
       },
     });
 
     return this.toResponse(product);
-  }
+    }
 
-  /**
-   * Soft delete com proteção de integridade:
-   * bloqueia exclusão se o produto tiver movimentações ou itens de NF.
-   */
   async delete(id: string, companyId: string) {
     const product = await this.findOne(id, companyId);
 

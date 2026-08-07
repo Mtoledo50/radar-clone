@@ -6,15 +6,18 @@ import { PrismaService } from '../../prisma/prisma.service';
  * =================================================================
  * 🧮 IcmsService — Apuração de ICMS Mensal
  * =================================================================
- * Responsabilidades:
- * - Resumo anual (12 meses) com créditos automáticos das NF-e
- * - Detalhe mensal com notas que geraram crédito
- * - Salvamento de débitos manuais (vendas × alíquota)
- * - Fechamento/reabertura do mês (compliance)
+ * Gerencia o fechamento mensal do ICMS (créditos das compras × débitos
+ * das vendas) por empresa (tenant) e opcionalmente por cliente.
  *
- * 🛡️ Regras:
- * - Mês FECHADO não pode ser editado (integridade fiscal)
- * - Créditos recalculados a cada leitura (sempre atuais)
+ * 🆕 Sprint 8: Suporte completo a `clientId`:
+ *   - Chave única composta: companyId + clientId + year + month
+ *   - Créditos calculados apenas das NF-e do cliente selecionado
+ *   - Apurações segregadas por cliente
+ *
+ * 🛡️ Regras fiscais:
+ * - Mês FECHADO não pode ser editado (integridade do SPED)
+ * - Créditos são recalculados automaticamente das NF-e de entrada
+ * - Débitos são informados manualmente (vendas × alíquota)
  * =================================================================
  */
 @Injectable()
@@ -25,7 +28,6 @@ export class IcmsService {
     return Math.round((v + Number.EPSILON) * 100) / 100;
   }
 
-  /** Intervalo local do mês (consistente com agrupamento por getMonth) */
   private monthRange(year: number, month: number) {
     return {
       gte: new Date(year, month - 1, 1, 0, 0, 0),
@@ -33,16 +35,27 @@ export class IcmsService {
     };
   }
 
-  // ---------------------------------------------------------------
-  // 💰 Créditos automáticos das NF-e de entrada
-  // ---------------------------------------------------------------
-  private async computeCredits(companyId: string, year: number, month: number) {
+  /**
+   * Calcula créditos automáticos das NF-e de entrada no mês.
+   * 🆕 Sprint 8: filtra por clientId se fornecido.
+   */
+  private async computeCredits(
+    companyId: string,
+    year: number,
+    month: number,
+    clientId?: string, // 🆕 Sprint 8
+  ) {
+    const where: Prisma.FiscalInvoiceWhereInput = {
+      companyId,
+      status: { in: ['PARSED', 'CONFIRMED'] },
+      emissionDate: this.monthRange(year, month),
+    };
+    if (clientId) {
+      where.clientId = clientId; // 🆕 Sprint 8
+    }
+
     const invoices = await this.prisma.fiscalInvoice.findMany({
-      where: {
-        companyId,
-        status: { in: ['PARSED', 'CONFIRMED'] },
-        emissionDate: this.monthRange(year, month),
-      },
+      where,
       select: {
         id: true,
         number: true,
@@ -84,22 +97,32 @@ export class IcmsService {
     };
   }
 
-  // ---------------------------------------------------------------
-  // 📅 RESUMO ANUAL (12 meses)
-  // ---------------------------------------------------------------
-  async getYearSummary(companyId: string, year: number) {
+  /**
+   * Resumo anual dos 12 meses com totais de créditos, débitos e saldo.
+   * 🆕 Sprint 8: filtra por clientId se fornecido.
+   */
+  async getYearSummary(
+    companyId: string,
+    year: number,
+    clientId?: string, // 🆕 Sprint 8
+  ) {
     const range = {
       gte: new Date(year, 0, 1, 0, 0, 0),
       lt: new Date(year + 1, 0, 1, 0, 0, 0),
     };
 
+    const invWhere: Prisma.FiscalInvoiceWhereInput = {
+      companyId,
+      status: { in: ['PARSED', 'CONFIRMED'] },
+      emissionDate: range,
+    };
+    if (clientId) {
+      invWhere.clientId = clientId; // 🆕 Sprint 8
+    }
+
     const [invoices, apurations] = await Promise.all([
       this.prisma.fiscalInvoice.findMany({
-        where: {
-          companyId,
-          status: { in: ['PARSED', 'CONFIRMED'] },
-          emissionDate: range,
-        },
+        where: invWhere,
         select: {
           emissionDate: true,
           totalValue: true,
@@ -107,11 +130,16 @@ export class IcmsService {
           icmsStValue: true,
         },
       }),
-      this.prisma.fiscalIcmsApuration.findMany({ where: { companyId, year } }),
+      this.prisma.fiscalIcmsApuration.findMany({
+        where: {
+          companyId,
+          year,
+          ...(clientId && { clientId }), // 🆕 Sprint 8
+        },
+      }),
     ]);
 
     const apurByMonth = new Map(apurations.map((a) => [a.month, a]));
-
     let totalCredits = 0;
     let totalDebits = 0;
 
@@ -161,15 +189,29 @@ export class IcmsService {
     };
   }
 
-  // ---------------------------------------------------------------
-  // 🔍 DETALHE MENSAL
-  // ---------------------------------------------------------------
-  async getDetail(companyId: string, year: number, month: number) {
+  /**
+   * Detalhe completo de um mês específico.
+   * 🆕 Sprint 8: usa chave composta companyId_clientId_year_month.
+   */
+  async getDetail(
+    companyId: string,
+    year: number,
+    month: number,
+    clientId?: string, // 🆕 Sprint 8
+  ) {
     this.validateMonth(month);
 
-    const credits = await this.computeCredits(companyId, year, month);
+    const credits = await this.computeCredits(companyId, year, month, clientId);
+
     const apuration = await this.prisma.fiscalIcmsApuration.findUnique({
-      where: { companyId_year_month: { companyId, year, month } },
+      where: {
+        companyId_clientId_year_month: { // 🆕 Sprint 8: chave composta
+          companyId,
+          clientId: clientId || null,
+          year,
+          month,
+        },
+      },
     });
 
     const salesValue = Number(apuration?.salesValue ?? 0);
@@ -191,9 +233,12 @@ export class IcmsService {
     };
   }
 
-  // ---------------------------------------------------------------
-  // 💾 SALVAR DÉBITOS MANUAIS (recalcula apuração)
-  // ---------------------------------------------------------------
+  /**
+   * Salva os débitos manuais do mês (vendas × alíquota).
+   * 🆕 Sprint 8: usa chave composta companyId_clientId_year_month.
+   *
+   * @throws BadRequestException se o mês estiver FECHADO
+   */
   async save(
     companyId: string,
     data: {
@@ -202,14 +247,16 @@ export class IcmsService {
       salesValue: number;
       debitRate: number;
       observations?: string;
+      clientId?: string; // 🆕 Sprint 8
     },
   ) {
     this.validateMonth(data.month);
 
     const existing = await this.prisma.fiscalIcmsApuration.findUnique({
       where: {
-        companyId_year_month: {
+        companyId_clientId_year_month: { // 🆕 Sprint 8
           companyId,
+          clientId: data.clientId || null,
           year: data.year,
           month: data.month,
         },
@@ -226,6 +273,7 @@ export class IcmsService {
       companyId,
       data.year,
       data.month,
+      data.clientId, // 🆕 Sprint 8
     );
 
     const salesValue = Number(data.salesValue ?? 0);
@@ -235,8 +283,9 @@ export class IcmsService {
 
     await this.prisma.fiscalIcmsApuration.upsert({
       where: {
-        companyId_year_month: {
+        companyId_clientId_year_month: { // 🆕 Sprint 8
           companyId,
+          clientId: data.clientId || null,
           year: data.year,
           month: data.month,
         },
@@ -254,6 +303,7 @@ export class IcmsService {
       },
       create: {
         companyId,
+        clientId: data.clientId || null, // 🆕 Sprint 8
         year: data.year,
         month: data.month,
         salesValue,
@@ -268,66 +318,81 @@ export class IcmsService {
       },
     });
 
-    return this.getDetail(companyId, data.year, data.month);
+    return this.getDetail(companyId, data.year, data.month, data.clientId);
   }
 
-  // ---------------------------------------------------------------
-  // 🔒 FECHAR / REABRIR MÊS
-  // ---------------------------------------------------------------
-  async close(companyId: string, year: number, month: number) {
+  /**
+   * Fecha o mês, travando futuras edições (compliance fiscal).
+   * 🆕 Sprint 8: usa chave composta companyId_clientId_year_month.
+   */
+  async close(
+    companyId: string,
+    year: number,
+    month: number,
+    clientId?: string, // 🆕 Sprint 8
+  ) {
     this.validateMonth(month);
 
-    // Garante que a apuração existe (cria com valores atuais)
+    const a = await this.prisma.fiscalIcmsApuration.findUnique({
+      where: {
+        companyId_clientId_year_month: { // 🆕 Sprint 8
+          companyId,
+          clientId: clientId || null,
+          year,
+          month,
+        },
+      },
+    });
+
     await this.save(companyId, {
       year,
       month,
-      salesValue: await this.getCurrentSales(companyId, year, month),
-      debitRate: await this.getCurrentRate(companyId, year, month),
+      salesValue: Number(a?.salesValue ?? 0),
+      debitRate: Number(a?.debitRate ?? 0),
+      clientId, // 🆕 Sprint 8
     });
 
     return this.prisma.fiscalIcmsApuration.update({
-      where: { companyId_year_month: { companyId, year, month } },
+      where: {
+        companyId_clientId_year_month: { // 🆕 Sprint 8
+          companyId,
+          clientId: clientId || null,
+          year,
+          month,
+        },
+      },
       data: { status: 'FECHADA', closedAt: new Date() },
     });
   }
 
-  async reopen(companyId: string, year: number, month: number) {
+  /**
+   * Reabre um mês anteriormente fechado, permitindo ajustes.
+   * 🆕 Sprint 8: usa chave composta companyId_clientId_year_month.
+   */
+  async reopen(
+    companyId: string,
+    year: number,
+    month: number,
+    clientId?: string, // 🆕 Sprint 8
+  ) {
     this.validateMonth(month);
 
     return this.prisma.fiscalIcmsApuration.update({
-      where: { companyId_year_month: { companyId, year, month } },
+      where: {
+        companyId_clientId_year_month: { // 🆕 Sprint 8
+          companyId,
+          clientId: clientId || null,
+          year,
+          month,
+        },
+      },
       data: { status: 'ABERTA', closedAt: null },
     });
   }
 
-  // ---------------------------------------------------------------
-  // 🔧 Helpers privados
-  // ---------------------------------------------------------------
   private validateMonth(month: number) {
     if (!month || month < 1 || month > 12) {
       throw new BadRequestException('Mês inválido. Use 1 a 12.');
     }
-  }
-
-  private async getCurrentSales(
-    companyId: string,
-    year: number,
-    month: number,
-  ): Promise<number> {
-    const a = await this.prisma.fiscalIcmsApuration.findUnique({
-      where: { companyId_year_month: { companyId, year, month } },
-    });
-    return Number(a?.salesValue ?? 0);
-  }
-
-  private async getCurrentRate(
-    companyId: string,
-    year: number,
-    month: number,
-  ): Promise<number> {
-    const a = await this.prisma.fiscalIcmsApuration.findUnique({
-      where: { companyId_year_month: { companyId, year, month } },
-    });
-    return Number(a?.debitRate ?? 0);
   }
 }

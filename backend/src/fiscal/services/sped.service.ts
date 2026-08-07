@@ -1,18 +1,22 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
  * =================================================================
  * 📤 SpedService — Exportação de Inventário (Bloco H do SPED)
  * =================================================================
- * Reconstrói o saldo de estoque em uma data-base (fim do mês)
- * replayando as movimentações do Kardex até a data.
+ * Gera o inventário físico de mercadorias na data-base (fim do mês)
+ * por replay das movimentações do Kardex.
  *
- * 📐 Formatos:
- * - SPED: pipe-delimited (|H001|, |H005|, |H010|, |H990|)
- * - CSV: ponto e vírgula + BOM UTF-8 (Excel BR)
+ * 🆕 Sprint 8: Suporte a `clientId` para exportar inventário
+ * segregado por cliente.
  *
- * ⚠️ Layout mínimo H001/H005/H010 — validar no PVA antes de transmitir
+ * 📐 Formatos suportados:
+ * - SPED: pipe-delimited (H001|H005|H010|H990) — layout oficial
+ * - CSV: separador ; com BOM UTF-8 (abre direto no Excel BR)
+ *
+ * ⚠️ O formato SPED tem layout fixo por lei — não é customizável.
  * =================================================================
  */
 @Injectable()
@@ -28,36 +32,61 @@ export class SpedService {
     return isNaN(n) ? 0 : n;
   }
 
-  /** Último dia do mês (data-base do inventário) */
   private lastDay(year: number, month: number): Date {
     return new Date(year, month, 0, 23, 59, 59);
   }
 
-  // ---------------------------------------------------------------
-  // 📦 INVENTÁRIO NA DATA-BASE (replay do Kardex)
-  // ---------------------------------------------------------------
-  async getBlocoH(companyId: string, year: number, month: number) {
+  /**
+   * Reconstrói o saldo de estoque na data-base (fim do mês)
+   * replayando todas as movimentações do Kardex até a data.
+   *
+   * @param clientId - 🆕 Sprint 8: filtra movimentações por cliente
+   *
+   * 💡 Permite consultar inventários históricos (ex: dezembro/2022).
+   */
+  async getBlocoH(
+    companyId: string,
+    year: number,
+    month: number,
+    clientId?: string, // 🆕 Sprint 8
+  ) {
     if (!month || month < 1 || month > 12) {
       throw new BadRequestException('Mês inválido. Use 1 a 12.');
     }
 
     const refDate = this.lastDay(year, month);
 
-    // Todas as movimentações até a data-base (ordem cronológica)
+    const where: Prisma.FiscalInventoryMovementWhereInput = {
+      companyId,
+      date: { lte: refDate },
+    };
+    if (clientId) {
+      where.clientId = clientId; // 🆕 Sprint 8
+    }
+
     const movements = await this.prisma.fiscalInventoryMovement.findMany({
-      where: { companyId, date: { lte: refDate } },
+      where,
       orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       include: {
         product: {
-          select: { id: true, code: true, description: true, ncm: true, unit: true },
+          select: {
+            id: true,
+            code: true,
+            description: true,
+            ncm: true,
+            unit: true,
+          },
         },
       },
     });
 
-    // Agrupa por produto: soma quantidades e guarda último custo médio
     const map = new Map<string, any>();
     for (const m of movements) {
-      const cur = map.get(m.productId) || { qty: 0, avg: 0, product: m.product };
+      const cur = map.get(m.productId) || {
+        qty: 0,
+        avg: 0,
+        product: m.product,
+      };
       cur.qty += this.num(m.quantity);
       cur.avg = this.num(m.averageCostAfter);
       map.set(m.productId, cur);
@@ -76,7 +105,9 @@ export class SpedService {
       }))
       .sort((a, b) => a.code.localeCompare(b.code));
 
-    const totalValue = this.round2(items.reduce((s, i) => s + i.totalValue, 0));
+    const totalValue = this.round2(
+      items.reduce((s, i) => s + i.totalValue, 0),
+    );
 
     return {
       year,
@@ -88,9 +119,10 @@ export class SpedService {
     };
   }
 
-  // ---------------------------------------------------------------
-  // 📄 TEXTO SPED (pipe-delimited)
-  // ---------------------------------------------------------------
+  /**
+   * Gera o texto SPED pipe-delimited (layout oficial Receita Federal).
+   * Registros: H001 (abertura), H005 (total), H010 (itens), H990 (fechamento).
+   */
   buildSpedText(data: any): string {
     const d = new Date(data.refDate);
     const dtInv =
@@ -102,23 +134,23 @@ export class SpedService {
     const fmtQty = (v: number) => String(v).replace('.', ',');
 
     const lines: string[] = [];
-    lines.push('|H001||0|'); // Abertura do Bloco H (com dados)
-    lines.push(`|H005|${dtInv}|${fmt(data.totalValue)}|01|`); // Total do inventário
+    lines.push('|H001||0|');
+    lines.push(`|H005|${dtInv}|${fmt(data.totalValue)}|01|`);
 
     for (const i of data.items) {
-      // H010: item do inventário (campos obrigatórios)
       lines.push(
         `|H010|${i.code}|${i.description}|${fmtQty(i.quantity)}|${i.unit}|${fmt(i.totalValue)}|`,
       );
     }
 
-    lines.push(`|H990|${lines.length + 1}|`); // Encerramento do bloco
+    lines.push(`|H990|${lines.length + 1}|`);
     return lines.join('\r\n');
   }
 
-  // ---------------------------------------------------------------
-  // 📊 CSV PARA EXCEL (separador ;)
-  // ---------------------------------------------------------------
+  /**
+   * Gera CSV para Excel BR (separador ; e BOM UTF-8).
+   * O BOM (\uFEFF) força o Excel a reconhecer UTF-8 ao abrir com duplo-clique.
+   */
   buildCsv(data: any): string {
     const header =
       'Código;Descrição;NCM;Unidade;Quantidade;Valor Unitário;Valor Total';
@@ -135,7 +167,6 @@ export class SpedService {
       ].join(';'),
     );
 
-    // BOM UTF-8 para acentos corretos no Excel
     return '\uFEFF' + [header, ...rows].join('\r\n');
   }
 }

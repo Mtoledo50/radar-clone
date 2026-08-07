@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma, MovementType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -10,24 +6,32 @@ import { PrismaService } from '../../prisma/prisma.service';
  * =================================================================
  * 📦 InventoryService — Estoque Fiscal e Kardex
  * =================================================================
- * Responsabilidades:
- * - Saldo atual por produto (FiscalProduct.currentStock / averageCost)
- * - Kardex completo (histórico de movimentações de um produto)
- * - KPIs agregados do estoque (valor total, NCMs distintos, top itens)
- * - Ajuste manual de inventário (sobra/quebra) com justificativa
+ * Gerencia o saldo atual de estoque, histórico de movimentações (kardex)
+ * e ajustes manuais de inventário.
  *
- * 🛡️ Multi-tenant: todas as queries filtradas por companyId
- * ✅ Erros de negócio lançam exceções NestJS tipadas (404/400),
- *    nunca Error genérico (que vira 500)
+ * 🆕 Sprint 8: Suporte completo a `clientId`:
+ *   - getBalance filtra produtos por cliente
+ *   - getMetrics calcula KPIs por cliente
+ *   - createAdjustment herda o clientId do produto
+ *
+ * 🛡️ Segurança:
+ *   - Todas as queries filtram por companyId (multi-tenant)
+ *   - Validação de posse do produto antes de operações
+ *   - Ajustes não podem deixar estoque negativo
  * =================================================================
  */
 @Injectable()
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // ---------------------------------------------------------------
-  // 📋 SALDO DE ESTOQUE POR PRODUTO (catálogo atual)
-  // ---------------------------------------------------------------
+  /**
+   * Lista o saldo atual de cada produto (grid principal da tela de estoque).
+   *
+   * @param filters.search - Busca por descrição ou código
+   * @param filters.ncm - Filtro por NCM (aceita parcial, ex: "7318")
+   * @param filters.onlyPositive - true para mostrar apenas produtos com saldo > 0
+   * @param filters.clientId - 🆕 Sprint 8: filtra produtos por cliente
+   */
   async getBalance(
     companyId: string,
     filters: {
@@ -36,14 +40,16 @@ export class InventoryService {
       onlyPositive?: boolean;
       page?: number;
       limit?: number;
+      clientId?: string; // 🆕 Sprint 8
     } = {},
   ) {
-    const { search = '', ncm, onlyPositive = false, page = 1, limit = 50 } = filters;
+    const { search = '', ncm, onlyPositive = false, page = 1, limit = 50, clientId } = filters;
     const digits = (ncm || '').replace(/\D/g, '');
 
     const where: Prisma.FiscalProductWhereInput = {
       companyId,
       deletedAt: null,
+      ...(clientId && { clientId }), // 🆕 Sprint 8
       ...(search && {
         OR: [
           { description: { contains: search, mode: 'insensitive' } },
@@ -60,9 +66,7 @@ export class InventoryService {
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { description: 'asc' },
-        include: {
-          _count: { select: { movements: true } },
-        },
+        include: { _count: { select: { movements: true } } },
       }),
       this.prisma.fiscalProduct.count({ where }),
     ]);
@@ -83,30 +87,28 @@ export class InventoryService {
     };
   }
 
-  // ---------------------------------------------------------------
-  // 📜 KARDEX — Histórico de movimentações de um produto
-  // ---------------------------------------------------------------
+  /**
+   * Histórico completo de movimentações (kardex) de um produto específico.
+   * Essencial para auditoria fiscal e Bloco H do SPED.
+   *
+   * @throws NotFoundException se o produto não existir ou não pertencer ao companyId
+   */
   async getMovements(
     companyId: string,
     productId: string,
     filters: { startDate?: string; endDate?: string; limit?: number } = {},
   ) {
-    // Valida posse do produto (multi-tenant) — 404 tipado, não 500
     const product = await this.prisma.fiscalProduct.findFirst({
       where: { id: productId, companyId, deletedAt: null },
     });
-
     if (!product) {
-      throw new NotFoundException(
-        'Produto não encontrado ou não pertence a esta empresa.',
-      );
+      throw new NotFoundException('Produto não encontrado ou não pertence a esta empresa.');
     }
 
     const where: Prisma.FiscalInventoryMovementWhereInput = {
       companyId,
       productId,
     };
-
     if (filters.startDate || filters.endDate) {
       where.date = {
         ...(filters.startDate && { gte: new Date(`${filters.startDate}T00:00:00`) }),
@@ -161,12 +163,20 @@ export class InventoryService {
     };
   }
 
-  // ---------------------------------------------------------------
-  // 📊 KPIs AGREGADOS DO ESTOQUE
-  // ---------------------------------------------------------------
-  async getMetrics(companyId: string) {
+  /**
+   * KPIs agregados do estoque para os cards do dashboard.
+   *
+   * @param clientId - 🆕 Sprint 8: filtra métricas por cliente específico
+   */
+  async getMetrics(companyId: string, clientId?: string) { // 🆕 Sprint 8
+    const where: Prisma.FiscalProductWhereInput = {
+      companyId,
+      deletedAt: null,
+      ...(clientId && { clientId }), // 🆕 Sprint 8
+    };
+
     const products = await this.prisma.fiscalProduct.findMany({
-      where: { companyId, deletedAt: null },
+      where,
       select: { currentStock: true, averageCost: true, ncm: true },
     });
 
@@ -184,8 +194,15 @@ export class InventoryService {
       if (p.ncm) ncmSet.add(p.ncm);
     }
 
+    const topWhere: Prisma.FiscalProductWhereInput = {
+      companyId,
+      deletedAt: null,
+      currentStock: { gt: 0 },
+      ...(clientId && { clientId }), // 🆕 Sprint 8
+    };
+
     const topProducts = await this.prisma.fiscalProduct.findMany({
-      where: { companyId, deletedAt: null, currentStock: { gt: 0 } },
+      where: topWhere,
       take: 10,
       orderBy: { currentStock: 'desc' },
       select: {
@@ -219,9 +236,17 @@ export class InventoryService {
     };
   }
 
-  // ---------------------------------------------------------------
-  // ✏️ AJUSTE MANUAL DE INVENTÁRIO
-  // ---------------------------------------------------------------
+  /**
+   * Registra um ajuste manual de inventário (sobra ou quebra).
+   *
+   * 🛡️ Regras de Negócio:
+   * - Ajuste negativo não pode deixar o estoque negativo
+   * - Justificativa é obrigatória (auditoria fiscal)
+   * - Custo médio NÃO é alterado (só quantidade)
+   * - userId é registrado para rastreabilidade
+   *
+   * 💡 O clientId é herdado do produto (não pode ser alterado via ajuste).
+   */
   async createAdjustment(
     companyId: string,
     userId: string,
@@ -232,27 +257,20 @@ export class InventoryService {
       reason: string;
     },
   ) {
-    // Validações de negócio — 400 tipado
     if (!data.quantity || data.quantity <= 0) {
       throw new BadRequestException('Quantidade deve ser maior que zero.');
     }
     if (!data.reason || data.reason.trim().length < 5) {
-      throw new BadRequestException(
-        'Justificativa deve ter pelo menos 5 caracteres.',
-      );
+      throw new BadRequestException('Justificativa deve ter pelo menos 5 caracteres.');
     }
 
     const product = await this.prisma.fiscalProduct.findFirst({
       where: { id: data.productId, companyId, deletedAt: null },
     });
-
     if (!product) {
-      throw new NotFoundException(
-        'Produto não encontrado ou não pertence a esta empresa.',
-      );
+      throw new NotFoundException('Produto não encontrado.');
     }
 
-    // Calcula novo estoque (ajuste não altera custo médio)
     const currentStock = Number(product.currentStock);
     const currentAvg = Number(product.averageCost);
     const delta = data.type === 'AJUSTE_POSITIVO' ? data.quantity : -data.quantity;
@@ -273,6 +291,7 @@ export class InventoryService {
       const movement = await tx.fiscalInventoryMovement.create({
         data: {
           companyId,
+          clientId: product.clientId, // 🆕 Sprint 8: herda do produto
           productId: data.productId,
           type: data.type,
           date: new Date(),
