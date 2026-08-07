@@ -3,6 +3,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { XmlParserService, ParsedInvoice } from './xml-parser.service';
 
@@ -26,6 +27,10 @@ export class InvoiceService {
     private readonly prisma: PrismaService,
     private readonly xmlParser: XmlParserService,
   ) {}
+
+  // =================================================================
+  // 📤 UPLOAD E PROCESSAMENTO EM LOTE
+  // =================================================================
 
   /**
    * Processa um lote de arquivos XML.
@@ -232,6 +237,100 @@ export class InvoiceService {
       return invoice;
     });
   }
+
+  // =================================================================
+  // 📊 MÉTRICAS E KPIs (para tela de Notas Fiscais)
+  // =================================================================
+
+    /**
+   * =================================================================
+   * 📊 getMetrics — KPIs fiscais do período
+   * =================================================================
+   * Retorna indicadores para os cards da tela de Notas Fiscais:
+   * - Total de notas e valor total
+   * - Créditos de ICMS, ICMS-ST, IPI, PIS e COFINS
+   * - Fornecedores distintos e volume/custo de itens movimentados
+   *
+   * ⚡ Performance: 3 queries em paralelo via Promise.all
+   * 🛡️ Multi-tenant: sempre filtrado por companyId
+   *
+   * @param companyId  Tenant autenticado
+   * @param startDate  Filtro inicial (YYYY-MM-DD, opcional)
+   * @param endDate    Filtro final (YYYY-MM-DD, opcional)
+   */
+  async getMetrics(
+    companyId: string,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    // Monta filtro de período para notas fiscais
+    const where: Prisma.FiscalInvoiceWhereInput = { companyId };
+    if (startDate || endDate) {
+      where.emissionDate = {
+        ...(startDate && { gte: new Date(`${startDate}T00:00:00`) }),
+        ...(endDate && { lte: new Date(`${endDate}T23:59:59`) }),
+      };
+    }
+
+    // ✅ CORREÇÃO: Filtro separado para movimentos (tipagem correta)
+    const movementWhere: Prisma.FiscalInventoryMovementWhereInput = {
+      companyId,
+      type: 'ENTRADA',
+    };
+    if (startDate || endDate) {
+      movementWhere.date = {
+        ...(startDate && { gte: new Date(`${startDate}T00:00:00`) }),
+        ...(endDate && { lte: new Date(`${endDate}T23:59:59`) }),
+      };
+    }
+
+    // Queries em paralelo (performance)
+    const [invoiceAgg, suppliers, movementAgg] = await Promise.all([
+      // Totais da nota (valores + impostos)
+      this.prisma.fiscalInvoice.aggregate({
+        where,
+        _count: { id: true },
+        _sum: {
+          totalValue: true,
+          icmsValue: true,
+          icmsStValue: true,
+          ipiValue: true,
+          pisValue: true,
+          cofinsValue: true,
+        },
+      }),
+      // Fornecedores distintos no período
+      this.prisma.fiscalInvoice.findMany({
+        where,
+        distinct: ['supplierId'],
+        select: { supplierId: true },
+      }),
+      // ✅ CORREÇÃO: Usa movementWhere (tipado corretamente)
+      this.prisma.fiscalInventoryMovement.aggregate({
+        where: movementWhere,
+        _sum: { quantity: true, totalCost: true },
+      }),
+    ]);
+
+    // Converte Decimal → Number (JSON limpo para o frontend)
+    const sum = invoiceAgg._sum;
+    return {
+      totalInvoices: invoiceAgg._count.id,
+      totalValue: Number(sum.totalValue ?? 0),
+      totalIcms: Number(sum.icmsValue ?? 0),
+      totalIcmsSt: Number(sum.icmsStValue ?? 0),
+      totalIpi: Number(sum.ipiValue ?? 0),
+      totalPis: Number(sum.pisValue ?? 0),
+      totalCofins: Number(sum.cofinsValue ?? 0),
+      distinctSuppliers: suppliers.length,
+      totalItemsQuantity: Number(movementAgg._sum.quantity ?? 0),
+      totalItemsCost: Number(movementAgg._sum.totalCost ?? 0),
+    };
+  }
+
+  // =================================================================
+  // 📋 LISTAGEM E DETALHE
+  // =================================================================
 
   /** Lista notas da empresa com fornecedor e contagem de itens */
   async findAll(
