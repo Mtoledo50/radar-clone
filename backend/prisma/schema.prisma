@@ -166,6 +166,14 @@ model Company {
   // Projetos e Tarefas
   projects        Project[]
   tasks           Task[]
+
+   // 📦 Módulo Fiscal
+  fiscalSuppliers       FiscalSupplier[]
+  fiscalProducts        FiscalProduct[]
+  fiscalInvoices        FiscalInvoice[]
+  fiscalMovements       FiscalInventoryMovement[]
+  fiscalBalances        FiscalInventoryBalance[]
+  
   @@map("companies")
 }
 
@@ -1183,4 +1191,290 @@ model HistoricalEntry {
   @@index([companyId, clientId, year])
   @@index([companyId, amount])
   @@map("historical_entries")
+}
+
+// =================================================================
+// 📦 MÓDULO FISCAL — ESTOQUE E APURAÇÃO DE ICMS
+// =================================================================
+// Fase 1: Upload de XMLs, Catálogo de Produtos, Kardex de Entradas
+// Multi-tenant: todos os modelos possuem companyId
+// =================================================================
+
+// -----------------------------------------------------------------
+// ENUMS DO MÓDULO FISCAL
+// -----------------------------------------------------------------
+
+/// Tipo de documento fiscal processado
+enum FiscalDocumentType {
+  NFE_ENTRADA       /// NF-e de compra (entrada de mercadoria)
+  NFE_DEVOLUCAO     /// NF-e de devolução de compra
+  CTE               /// CT-e (conhecimento de transporte) — futuro
+}
+
+/// Status de processamento do XML
+enum InvoiceStatus {
+  UPLOADED          /// Arquivo recebido, aguardando parser
+  PARSING           /// Parser em execução
+  PARSED            /// Parser concluído com sucesso
+  PARSE_ERROR       /// Falha no parser (XML inválido ou incompleto)
+  AWAITING_REVIEW   /// Aguardando revisão humana (produtos não identificados)
+  CONFIRMED         /// Confirmado e contabilizado no estoque
+  CANCELLED         /// Cancelado pelo usuário
+}
+
+/// Tipo de movimentação no Kardex
+enum MovementType {
+  ENTRADA           /// Entrada via NF-e de compra
+  DEVOLUCAO         /// Devolução de compra (reduz estoque)
+  AJUSTE_POSITIVO   /// Ajuste manual de inventário (sobra)
+  AJUSTE_NEGATIVO   /// Ajuste manual de inventário (quebra/perda)
+  TRANSFERENCIA     /// Transferência entre filiais — futuro
+}
+
+/// Status de identificação de produto (matching)
+enum ProductMatchStatus {
+  IDENTIFIED        /// Produto já cadastrado, match automático
+  SUGGESTED         /// IA sugeriu match, aguardando confirmação
+  NEW               /// Produto novo, precisa ser cadastrado
+}
+
+// -----------------------------------------------------------------
+// 🏢 FORNECEDOR
+// -----------------------------------------------------------------
+/// Fornecedor da empresa (extraído automaticamente dos XMLs)
+/// Unique por companyId + cnpj (mesmo fornecedor não duplica)
+model FiscalSupplier {
+  id                String   @id @default(cuid())
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  cnpj              String              /// CNPJ do fornecedor (14 dígitos)
+  name              String              /// Razão social
+  tradeName         String?             /// Nome fantasia
+  stateRegistration String?             /// Inscrição estadual
+  state             String?             /// UF (para regras de ST)
+  email             String?
+  phone             String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  invoices          FiscalInvoice[]
+
+  @@unique([companyId, cnpj])
+  @@index([companyId, name])
+  @@map("fiscal_suppliers")
+}
+
+// -----------------------------------------------------------------
+// 📦 PRODUTO FISCAL (Catálogo)
+// -----------------------------------------------------------------
+/// Produto cadastrado no catálogo da empresa
+/// Pode ser criado manualmente ou via parser de XML
+/// ncm é obrigatório para apuração de ICMS
+model FiscalProduct {
+  id                String   @id @default(cuid())
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  code              String              /// Código interno do produto
+  ean               String?             /// Código de barras (EAN-13)
+  description       String              /// Descrição padronizada
+  ncm               String              /// NCM (8 dígitos) — obrigatório
+  unit              String              /// Unidade de medida (UN, KG, L, CX, etc.)
+
+  averageCost       Decimal  @default(0) @db.Decimal(12, 4)  /// Custo médio atual
+  currentStock      Decimal  @default(0) @db.Decimal(12, 4)  /// Saldo atual em estoque
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  invoiceItems      FiscalInvoiceItem[]
+  movements         FiscalInventoryMovement[]
+  balances          FiscalInventoryBalance[]
+
+  @@unique([companyId, code])
+  @@index([companyId, ncm])
+  @@index([companyId, description])
+  @@map("fiscal_products")
+}
+
+// -----------------------------------------------------------------
+// 📄 NOTA FISCAL DE ENTRADA (Cabeçalho)
+// -----------------------------------------------------------------
+/// Representa uma NF-e de entrada processada
+/// accessKey é a chave de 44 dígitos (única por empresa)
+/// Guarda os totais da nota e o caminho do XML original
+model FiscalInvoice {
+  id                String   @id @default(cuid())
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  supplierId        String
+  supplier          FiscalSupplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  documentType      FiscalDocumentType @default(NFE_ENTRADA)
+  status            InvoiceStatus      @default(UPLOADED)
+
+  number            String              /// Número da NF-e
+  series            String              /// Série da NF-e
+  accessKey         String              /// Chave de acesso (44 dígitos)
+  emissionDate      DateTime            /// Data de emissão
+  entryDate         DateTime?           /// Data de entrada no sistema
+
+  cfop              String?             /// CFOP principal da nota
+  natOp             String?             /// Natureza da operação
+
+  totalValue        Decimal  @default(0) @db.Decimal(12, 2)
+  discountValue     Decimal  @default(0) @db.Decimal(12, 2)
+  freightValue      Decimal  @default(0) @db.Decimal(12, 2)
+  insuranceValue    Decimal  @default(0) @db.Decimal(12, 2)
+  otherValues       Decimal  @default(0) @db.Decimal(12, 2)
+
+  icmsBase          Decimal  @default(0) @db.Decimal(12, 2)
+  icmsValue         Decimal  @default(0) @db.Decimal(12, 2)
+  icmsStValue       Decimal  @default(0) @db.Decimal(12, 2)
+  ipiValue          Decimal  @default(0) @db.Decimal(12, 2)
+  pisValue          Decimal  @default(0) @db.Decimal(12, 2)
+  cofinsValue       Decimal  @default(0) @db.Decimal(12, 2)
+
+  xmlOriginalUrl    String?             /// Caminho do XML original (S3 ou local)
+  errorMessage      String?             /// Mensagem de erro (se status = PARSE_ERROR)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  items             FiscalInvoiceItem[]
+  // ✅ LINHA NOVA - Relação oposta com movimentos de estoque
+  movements         FiscalInventoryMovement[]
+
+  @@unique([companyId, accessKey])
+  @@index([companyId, supplierId])
+  @@index([companyId, emissionDate])
+  @@index([companyId, status])
+  @@map("fiscal_invoices")
+}
+
+// -----------------------------------------------------------------
+// 📦 ITENS DA NOTA FISCAL
+// -----------------------------------------------------------------
+/// Cada item (produto) dentro de uma NF-e
+/// Guarda os impostos individuais por item (necessário para apuração)
+/// productMatchStatus indica se o produto foi identificado automaticamente
+model FiscalInvoiceItem {
+  id                String   @id @default(cuid())
+  invoiceId         String
+  invoice           FiscalInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  productId         String?
+  product           FiscalProduct? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  productMatchStatus ProductMatchStatus @default(NEW)
+
+  itemNumber        Int                 /// Número do item na NF (1, 2, 3...)
+  supplierCode      String?             /// Código do produto no fornecedor
+  description       String              /// Descrição do produto na NF
+
+  ncm               String              /// NCM do item
+  cfop              String              /// CFOP do item
+  cst               String?             /// CST do ICMS (Lucro Presumido/Real)
+  csosn             String?             /// CSOSN (Simples Nacional)
+
+  quantity          Decimal  @db.Decimal(12, 4)
+  unitValue         Decimal  @db.Decimal(12, 4)
+  totalValue        Decimal  @db.Decimal(12, 2)
+  discount          Decimal  @default(0) @db.Decimal(12, 2)
+
+  icmsBase          Decimal  @default(0) @db.Decimal(12, 2)
+  icmsRate          Decimal  @default(0) @db.Decimal(5, 2)
+  icmsValue         Decimal  @default(0) @db.Decimal(12, 2)
+  icmsStBase        Decimal  @default(0) @db.Decimal(12, 2)
+  icmsStValue       Decimal  @default(0) @db.Decimal(12, 2)
+  ipiBase           Decimal  @default(0) @db.Decimal(12, 2)
+  ipiRate           Decimal  @default(0) @db.Decimal(5, 2)
+  ipiValue          Decimal  @default(0) @db.Decimal(12, 2)
+  pisBase           Decimal  @default(0) @db.Decimal(12, 2)
+  pisRate           Decimal  @default(0) @db.Decimal(5, 2)
+  pisValue          Decimal  @default(0) @db.Decimal(12, 2)
+  cofinsBase        Decimal  @default(0) @db.Decimal(12, 2)
+  cofinsRate        Decimal  @default(0) @db.Decimal(5, 2)
+  cofinsValue       Decimal  @default(0) @db.Decimal(12, 2)
+
+  createdAt         DateTime @default(now())
+
+  @@unique([invoiceId, itemNumber])
+  @@index([productId])
+  @@index([ncm])
+  @@map("fiscal_invoice_items")
+}
+
+// -----------------------------------------------------------------
+// 📊 MOVIMENTAÇÃO DE ESTOQUE (Kardex)
+// -----------------------------------------------------------------
+/// Cada entrada/saída de produto no estoque
+/// Registra o custo unitário e o custo médio APÓS a movimentação
+/// Essencial para apuração de ICMS e Bloco H do SPED
+model FiscalInventoryMovement {
+  id                String   @id @default(cuid())
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  productId         String
+  product           FiscalProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  invoiceId         String?             /// Null em ajustes manuais
+  invoice           FiscalInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  type              MovementType
+  date              DateTime            /// Data da movimentação
+  quantity          Decimal  @db.Decimal(12, 4)  /// Quantidade (+ entrada, - saída)
+  unitCost          Decimal  @db.Decimal(12, 4)  /// Custo unitário da movimentação
+  totalCost         Decimal  @db.Decimal(12, 2)  /// Custo total
+  averageCostAfter  Decimal  @db.Decimal(12, 4)  /// Custo médio APÓS a movimentação
+
+  reason            String?             /// Justificativa (ajustes manuais)
+  userId            String?             /// Usuário que registrou (auditoria)
+
+  createdAt         DateTime @default(now())
+
+  @@index([companyId, productId, date])
+  @@index([companyId, date])
+  @@index([invoiceId])
+  @@map("fiscal_inventory_movements")
+}
+
+// -----------------------------------------------------------------
+// 💰 SALDO MENSAL DE ESTOQUE (Snapshot)
+// -----------------------------------------------------------------
+/// Snapshot mensal do estoque por produto
+/// Usado para o Bloco H do SPED Fiscal (Inventário)
+/// Calculado automaticamente ao final de cada mês
+model FiscalInventoryBalance {
+  id                String   @id @default(cuid())
+  companyId         String
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  productId         String
+  product           FiscalProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  year              Int
+  month             Int                 /// 1-12
+
+  initialQty        Decimal  @default(0) @db.Decimal(12, 4)
+  initialValue      Decimal  @default(0) @db.Decimal(12, 2)
+  inQty             Decimal  @default(0) @db.Decimal(12, 4)
+  inValue           Decimal  @default(0) @db.Decimal(12, 2)
+  outQty            Decimal  @default(0) @db.Decimal(12, 4)
+  outValue          Decimal  @default(0) @db.Decimal(12, 2)
+  finalQty          Decimal  @default(0) @db.Decimal(12, 4)
+  finalValue        Decimal  @default(0) @db.Decimal(12, 2)
+  averageCost       Decimal  @default(0) @db.Decimal(12, 4)
+
+  updatedAt         DateTime @updatedAt
+
+  @@unique([companyId, productId, year, month])
+  @@index([companyId, year, month])
+  @@map("fiscal_inventory_balances")
 }
