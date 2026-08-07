@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 
 /**
  * =================================================================
@@ -25,7 +26,10 @@ export class SupplierService {
 
   /**
    * Lista todos os fornecedores de uma empresa.
-   * Suporta busca por nome/CNPJ e paginação.
+   * Suporta busca por nome/CNPJ/email e paginação.
+   *
+   * ✅ CORRIGIDO: Tipagem explícita Prisma.FiscalSupplierWhereInput
+   * resolve o erro de QueryMode ('insensitive' como string genérica).
    */
   async findAll(
     companyId: string,
@@ -33,17 +37,20 @@ export class SupplierService {
   ) {
     const { search = '', page = 1, limit = 50 } = filters;
 
-    const where = {
+    // ✅ Tipagem explícita — permite 'insensitive' como QueryMode
+    const where: Prisma.FiscalSupplierWhereInput = {
       companyId,
       deletedAt: null,
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { cnpj: { contains: search } },
-          { email: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
     };
+
+    // Busca textual (nome, CNPJ ou email)
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { cnpj: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const [suppliers, total] = await Promise.all([
       this.prisma.fiscalSupplier.findMany({
@@ -105,15 +112,18 @@ export class SupplierService {
   /**
    * Cria um novo fornecedor com validação de duplicidade.
    */
-  async create(companyId: string, data: {
-    cnpj: string;
-    name: string;
-    tradeName?: string;
-    stateRegistration?: string;
-    state?: string;
-    email?: string;
-    phone?: string;
-  }) {
+  async create(
+    companyId: string,
+    data: {
+      cnpj: string;
+      name: string;
+      tradeName?: string;
+      stateRegistration?: string;
+      state?: string;
+      email?: string;
+      phone?: string;
+    },
+  ) {
     // Validação de dados obrigatórios
     if (!data.cnpj || !data.name) {
       throw new BadRequestException('CNPJ e Nome são obrigatórios.');
