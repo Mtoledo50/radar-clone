@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "../backend/src/fiscal/controllers/sped.controller.ts"  ],
   "exclude": ["node_modules"]
 }

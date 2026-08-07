@@ -563,3 +563,67 @@ Responsável por: estoque fiscal e apuração de ICMS
 Features (Fase 1): fornecedores, catálogo de produtos com NCM
 Endpoints: /fiscal/suppliers, /fiscal/products
 
+Módulo Fiscal (Fase 1 concluída)
+Responsável por: estoque fiscal, apuração de ICMS e SPED
+Features: upload de NF-e em lote, kardex, custo médio, apuração mensal, Bloco H
+Endpoints: /fiscal/suppliers, /fiscal/products, /fiscal/invoices,
+/fiscal/inventory, /fiscal/icms, /fiscal/sped
+
+---
+Atualização: Módulo Fiscal — Estoque, Apuração de ICMS e SPED (Fase 1)
+Descrição:
+* Implementação completa do módulo fiscal para escritórios que atendem
+  clientes do Lucro Presumido e Simples Nacional: importação de NF-e de
+  entrada, catálogo de produtos com NCM, kardex com custo médio ponderado,
+  apuração mensal de ICMS com fechamento de competência e exportação do
+  Bloco H do SPED Fiscal.
+Funcionalidades Adicionadas:
+* Importar NF-e: upload em lote (até 50 XMLs) com parser de layout 4.0,
+  criação automática de fornecedores por CNPJ, casagem de produtos por
+  código/EAN e rejeição de notas duplicadas pela chave de acesso.
+* Notas Fiscais: consulta paginada com KPIs por período, busca por número/
+  chave/fornecedor e modal de detalhe com itens, CST/CSOSN e impostos.
+* Estoque: saldo por produto com custo médio ponderado móvel, filtros por
+  NCM/descrição, kardex completo (histórico de movimentações) e ajuste
+  manual de inventário com justificativa obrigatória.
+* Apuração de ICMS: grade dos 12 meses com créditos automáticos das NF-e de
+  entrada, débitos manuais (vendas × alíquota), saldo a pagar/crédito
+  acumulado, fechamento de mês com trava de compliance e reabertura.
+* SPED Fiscal: inventário físico na data-base (reconstrução histórica pelo
+  kardex) com exportação em arquivo pipe-delimited (H001/H005/H010/H990)
+  e CSV para Excel.
+Arquivos Criados/Alterados:
+* backend/src/fiscal/fiscal.module.ts
+* backend/src/fiscal/controllers/ (supplier, product, invoice, inventory,
+  icms, sped)
+* backend/src/fiscal/services/ (supplier, product, invoice, xml-parser,
+  inventory, icms, sped)
+* backend/src/fiscal/dto/ (create/update-product)
+* backend/prisma/schema.prisma (7 models fiscais + 4 enums)
+* backend/src/app.module.ts (registro do FiscalModule)
+* frontend/src/app/dashboard/fiscal/page.tsx (Importar NF-e)
+* frontend/src/app/dashboard/fiscal/notas/page.tsx
+* frontend/src/app/dashboard/fiscal/estoque/page.tsx
+* frontend/src/app/dashboard/fiscal/apuracao/page.tsx
+* frontend/src/app/dashboard/fiscal/sped/page.tsx
+* frontend/src/app/dashboard/layout.tsx (menu Fiscal com 5 submenus)
+Endpoints:
+* /fiscal/suppliers e /fiscal/products (CRUD completo)
+* /fiscal/invoices/upload • /fiscal/invoices • /fiscal/invoices/metrics
+  • /fiscal/invoices/:id
+* /fiscal/inventory/metrics • /balance • /movements/:id • /adjust
+* /fiscal/icms • /fiscal/icms/detail • /fiscal/icms (PUT) • /close • /reopen
+* /fiscal/sped/bloco-h • /fiscal/sped/bloco-h/export (sped|csv)
+Dependências Instaladas:
+* fast-xml-parser — parser de XML de NF-e (tolerante a namespaces)
+Detalhes das Alterações Técnicas:
+* Parser NF-e layout 4.0 com suporte a CST (Presumido/Real) e CSOSN
+  (Simples Nacional), extraindo ICMS, ICMS-ST, IPI, PIS e COFINS por item.
+* Custo médio ponderado móvel calculado a cada entrada (exigência fiscal),
+  com precisão Decimal(12,4) para quantidades/custos e Decimal(12,2) valores.
+* Transações atômicas ($transaction) garantindo consistência entre nota,
+  itens, kardex e saldo do produto.
+* Mês fiscal fechado é imutável (BadRequest em edição) — integridade p/ SPED.
+* Exportação CSV com BOM UTF-8 e SPED com separador pipe e datas ddmmaaaa.
+* Multi-tenant rigoroso: todas as queries filtradas por companyId.
+

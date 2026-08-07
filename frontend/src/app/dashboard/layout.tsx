@@ -160,6 +160,7 @@ const allMenuItems: MenuItem[] = [
     { id: 'fiscal-notas', title: 'Notas Fiscais', href: '/dashboard/fiscal/notas' },
     { id: 'fiscal-estoque', title: 'Estoque', href: '/dashboard/fiscal/estoque' }, // ← NOVO
     { id: 'fiscal-apuracao', title: 'Apuração ICMS', href: '/dashboard/fiscal/apuracao' }, // ← NOVO
+    { id: 'fiscal-sped', title: 'SPED Fiscal', href: '/dashboard/fiscal/sped' }, // ← NOVO
 
   ],
 },
