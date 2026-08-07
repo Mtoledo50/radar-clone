@@ -5,7 +5,7 @@
 Write-Host "Iniciando Radar Clone..." -ForegroundColor Cyan
 Write-Host ""
 
-$projectPath = "H:\radar-clone"
+$projectPath = "c:\radar-clone"
 $backendPath = "$projectPath\backend"
 $frontendPath = "$projectPath\frontend"
 
