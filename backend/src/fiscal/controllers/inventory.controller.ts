@@ -166,9 +166,22 @@ export class InventoryController {
           reason: String(body.reason),
         },
       );
-    } catch (e: any) {
+       } catch (e: any) {
       // Transforma erros de negócio em 400 Bad Request (não 500)
       throw new BadRequestException(e.message || 'Erro ao criar ajuste.');
     }
+  }
+
+  /**
+   * POST /fiscal/inventory/wipe
+   * ☢️ Sprint 9: exclui TODO o estoque do escopo selecionado.
+   * Body: { clientId?: string | null }
+   *
+   * ⚠️ Operação destrutiva e irreversível — o frontend exige
+   * digitar "EXCLUIR" para habilitar o botão.
+   */
+  @Post('wipe')
+  wipe(@Request() req, @Body() body: any) {
+    return this.inventoryService.wipe(req.user.companyId, body?.clientId ?? null);
   }
 }

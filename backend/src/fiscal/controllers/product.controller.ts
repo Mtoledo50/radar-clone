@@ -75,7 +75,18 @@ export class ProductController {
       clientId,
     });
   }
-
+  /**
+   * POST /fiscal/products/cleanup-empty
+   * 🆕 Sprint 9: remove produtos órfãos (saldo 0, sem kardex, sem notas).
+   * Body opcional: { clientId?: string } — limpa apenas aquele cliente.
+   */
+  @Post('cleanup-empty')
+  cleanupEmpty(@Request() req, @Body() body: any) {
+    return this.productService.cleanupEmpty(
+      req.user.companyId,
+      body?.clientId ?? null,
+    );
+  }
   /**
    * GET /fiscal/products/:id
    * 
