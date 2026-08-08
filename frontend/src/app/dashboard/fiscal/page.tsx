@@ -13,6 +13,8 @@ import {
   Receipt,
 } from 'lucide-react';
 import api from '@/lib/axios';
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
+import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
 
 // =================================================================
 // 📦 Tipos do módulo fiscal (frontend)
@@ -46,7 +48,18 @@ const formatDate = (d: string) => new Date(d).toLocaleDateString('pt-BR');
 // =================================================================
 // 📄 Página: Importação de NF-e (Upload de XML)
 // =================================================================
+// Sprint 8: Integrado com seletor de cliente fiscal.
+// Quando um cliente está selecionado:
+//   - As notas importadas são vinculadas a esse cliente (clientId)
+//   - A lista "Últimas Notas" mostra apenas as notas do cliente
+// Quando "Todos os clientes" está selecionado (clientId = null):
+//   - As notas ficam no catálogo geral (dados legados)
+//   - A lista mostra todas as notas do escritório
+// =================================================================
 export default function FiscalUploadPage() {
+  // 🆕 Sprint 8: Estado global do cliente selecionado (Zustand)
+  const { selected } = useFiscalClientStore();
+
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState<UploadResult[] | null>(null);
@@ -54,17 +67,26 @@ export default function FiscalUploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Carrega últimas notas importadas
+  // ---------------------------------------------------------------
+  // 📋 Carrega as últimas 10 notas importadas
+  // ---------------------------------------------------------------
+  // 🆕 Sprint 8:
+  // - Filtro clientId reage ao cliente selecionado
+  // - Ao trocar de cliente, a lista recarrega automaticamente
+  // ---------------------------------------------------------------
   const loadRecent = useCallback(async () => {
     try {
       const { data } = await api.get('/fiscal/invoices', {
-        params: { limit: 10 },
+        params: {
+          limit: 10,
+          clientId: selected.id || undefined, // 🆕 Sprint 8: filtra por cliente
+        },
       });
       setRecent(data.data || []);
     } catch {
       // silencioso — lista recente é complementar
     }
-  }, []);
+  }, [selected.id]); // 🆕 Sprint 8: depende do cliente selecionado
 
   useEffect(() => {
     loadRecent();
@@ -97,6 +119,11 @@ export default function FiscalUploadPage() {
   // ---------------------------------------------------------------
   // 🚀 Upload para o backend
   // ---------------------------------------------------------------
+  // 🆕 Sprint 8:
+  // Se um cliente estiver selecionado, o clientId é enviado como
+  // campo FormData. O backend vincula nota + produtos + movimentos
+  // a esse cliente.
+  // ---------------------------------------------------------------
   const handleUpload = async () => {
     if (files.length === 0) return;
 
@@ -106,6 +133,11 @@ export default function FiscalUploadPage() {
     try {
       const form = new FormData();
       files.forEach((f) => form.append('files', f));
+
+      // 🆕 Sprint 8: vincular ao cliente selecionado (se houver)
+      if (selected.id) {
+        form.append('clientId', selected.id);
+      }
 
       const { data } = await api.post('/fiscal/invoices/upload', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -134,18 +166,47 @@ export default function FiscalUploadPage() {
   // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Receipt className="h-7 w-7 text-teal-600" />
-          Importação de NF-e
-        </h1>
-        <p className="text-slate-600 mt-1">
-          Envie os XMLs de compra para alimentar o estoque fiscal e a apuração de ICMS.
-        </p>
+      {/* ================================================================
+          Cabeçalho com título + seletor de cliente
+          ================================================================ */}
+      <div className="flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Receipt className="h-7 w-7 text-teal-600" />
+            Importação de NF-e
+          </h1>
+          <p className="text-slate-600 mt-1">
+            Envie os XMLs de compra para alimentar o estoque fiscal e a apuração de ICMS.
+          </p>
+        </div>
+
+        {/* 🆕 Sprint 8: Seletor de cliente (estado global persistido) */}
+        <FiscalClientSelector />
       </div>
 
-      {/* Zona de Upload */}
+      {/* ================================================================
+          Aviso contextual: cliente selecionado
+          Mostra ao usuário que os XMLs serão vinculados ao cliente ativo
+          ================================================================ */}
+      {selected.id && (
+        <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-start gap-3">
+          <div className="p-1.5 bg-teal-100 rounded-lg flex-shrink-0">
+            <Receipt className="h-4 w-4 text-teal-700" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-teal-900">
+              Importando para: <span className="font-bold">{selected.name}</span>
+            </p>
+            <p className="text-xs text-teal-700 mt-0.5">
+              As notas importadas serão vinculadas exclusivamente a este cliente.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================
+          Zona de Upload (drag & drop)
+          ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div
           onDragOver={(e) => {
@@ -185,7 +246,7 @@ export default function FiscalUploadPage() {
           />
         </div>
 
-        {/* Arquivos selecionados */}
+        {/* Lista de arquivos selecionados */}
         {files.length > 0 && (
           <div className="mt-4 space-y-2">
             {files.map((f) => (
@@ -222,7 +283,9 @@ export default function FiscalUploadPage() {
         )}
       </div>
 
-      {/* Resultado do processamento */}
+      {/* ================================================================
+          Resultado do processamento (por arquivo)
+          ================================================================ */}
       {results && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h3 className="font-bold text-slate-900 mb-4">Resultado da Importação</h3>
@@ -255,14 +318,27 @@ export default function FiscalUploadPage() {
         </div>
       )}
 
-      {/* Últimas notas importadas */}
+      {/* ================================================================
+          Últimas notas importadas (filtradas pelo cliente selecionado)
+          ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h3 className="font-bold text-slate-900 mb-4">Últimas Notas Importadas</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-slate-900">Últimas Notas Importadas</h3>
+          {selected.id && (
+            <span className="text-xs px-2 py-1 bg-teal-50 text-teal-700 rounded-full font-medium">
+              Filtrando por: {selected.name}
+            </span>
+          )}
+        </div>
 
         {recent.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
             <Inbox className="h-10 w-10 mx-auto mb-2" />
-            <p className="text-sm">Nenhuma nota importada ainda.</p>
+            <p className="text-sm">
+              {selected.id
+                ? 'Nenhuma nota importada para este cliente ainda.'
+                : 'Nenhuma nota importada ainda.'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">

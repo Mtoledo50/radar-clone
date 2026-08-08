@@ -18,6 +18,8 @@ import {
   ArrowUpCircle,
 } from 'lucide-react';
 import api from '@/lib/axios';
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
+import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
 
 // =================================================================
 // 📦 Tipos do frontend (espelham o backend)
@@ -115,7 +117,21 @@ function MovementBadge({ type }: { type: string }) {
 // =================================================================
 // 📄 Página: Estoque Fiscal (saldo + kardex + ajustes)
 // =================================================================
+// Sprint 8: Integrado com seletor de cliente fiscal.
+// Quando um cliente está selecionado:
+//   - KPIs calculados apenas para o estoque do cliente
+//   - Grid de produtos filtrado pelo clientId
+//   - Ajustes vinculados aos produtos do cliente
+// Quando "Todos os clientes" (clientId = null):
+//   - Mostra todos os produtos do escritório (dados legados inclusos)
+// =================================================================
 export default function FiscalEstoquePage() {
+  // =================================================================
+  // 🆕 Sprint 8: Estado global do cliente selecionado (Zustand)
+  // OBRIGATÓRIO estar DENTRO do componente (Rules of Hooks do React)
+  // =================================================================
+  const { selected } = useFiscalClientStore();
+
   const [metrics, setMetrics] = useState<InventoryMetrics | null>(null);
 
   const [products, setProducts] = useState<ProductBalance[]>([]);
@@ -132,25 +148,33 @@ export default function FiscalEstoquePage() {
 
   // Modal Ajuste
   const [adjustTarget, setAdjustTarget] = useState<ProductBalance | null>(null);
-  const [adjustType, setAdjustType] = useState<'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO'>('AJUSTE_POSITIVO');
+  const [adjustType, setAdjustType] = useState<'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO'>(
+    'AJUSTE_POSITIVO',
+  );
   const [adjustQty, setAdjustQty] = useState('');
   const [adjustReason, setAdjustReason] = useState('');
   const [savingAdjust, setSavingAdjust] = useState(false);
 
   // ---------------------------------------------------------------
-  // 📊 KPIs
+  // 📊 KPIs (filtrados pelo cliente selecionado)
+  // ---------------------------------------------------------------
+  // 🆕 Sprint 8:
+  // - clientId enviado para o backend
+  // - selected.id como dependência → recarrega ao trocar de cliente
   // ---------------------------------------------------------------
   const loadMetrics = useCallback(async () => {
     try {
-      const { data } = await api.get('/fiscal/inventory/metrics');
+      const { data } = await api.get('/fiscal/inventory/metrics', {
+        params: { clientId: selected.id || undefined }, // 🆕 Sprint 8
+      });
       setMetrics(data);
     } catch {
       // silencioso — cards ficam zerados
     }
-  }, []);
+  }, [selected.id]); // 🆕 Sprint 8
 
   // ---------------------------------------------------------------
-  // 📋 Saldo por produto
+  // 📋 Saldo por produto (filtrado pelo cliente selecionado)
   // ---------------------------------------------------------------
   const loadBalance = useCallback(async () => {
     setLoading(true);
@@ -162,6 +186,7 @@ export default function FiscalEstoquePage() {
           search: search || undefined,
           ncm: ncm || undefined,
           onlyPositive: onlyPositive ? 'true' : undefined,
+          clientId: selected.id || undefined, // 🆕 Sprint 8
         },
       });
       setProducts(data.data || []);
@@ -171,7 +196,12 @@ export default function FiscalEstoquePage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, ncm, onlyPositive]);
+  }, [page, search, ncm, onlyPositive, selected.id]); // 🆕 Sprint 8
+
+  // Reset da paginação ao trocar de cliente (UX previsível)
+  useEffect(() => {
+    setPage(1);
+  }, [selected.id]);
 
   useEffect(() => {
     loadMetrics();
@@ -182,7 +212,7 @@ export default function FiscalEstoquePage() {
   }, [loadBalance]);
 
   // ---------------------------------------------------------------
-  // 📜 Abrir Kardex
+  // 📜 Abrir Kardex (histórico de movimentações do produto)
   // ---------------------------------------------------------------
   const openKardex = async (product: ProductBalance) => {
     setLoadingKardex(true);
@@ -200,7 +230,7 @@ export default function FiscalEstoquePage() {
   };
 
   // ---------------------------------------------------------------
-  // ✏️ Registrar ajuste de inventário
+  // ✏️ Registrar ajuste de inventário (sobra/quebra)
   // ---------------------------------------------------------------
   const submitAdjust = async () => {
     if (!adjustTarget) return;
@@ -231,18 +261,46 @@ export default function FiscalEstoquePage() {
   // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Package className="h-7 w-7 text-teal-600" />
-          Estoque Fiscal
-        </h1>
-        <p className="text-slate-600 mt-1">
-          Saldo por produto, custo médio ponderado e kardex completo para apuração de ICMS.
-        </p>
+      {/* ================================================================
+          Cabeçalho com título + seletor de cliente
+          ================================================================ */}
+      <div className="flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Package className="h-7 w-7 text-teal-600" />
+            Estoque Fiscal
+          </h1>
+          <p className="text-slate-600 mt-1">
+            Saldo por produto, custo médio ponderado e kardex completo para apuração de ICMS.
+          </p>
+        </div>
+
+        {/* 🆕 Sprint 8: Seletor de cliente (estado global persistido) */}
+        <FiscalClientSelector />
       </div>
 
-      {/* Cards de KPI */}
+      {/* ================================================================
+          Aviso contextual: cliente selecionado
+          ================================================================ */}
+      {selected.id && (
+        <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
+          <div className="p-1.5 bg-teal-100 rounded-lg">
+            <Package className="h-4 w-4 text-teal-700" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-teal-900">
+              Visualizando estoque de: <span className="font-bold">{selected.name}</span>
+            </p>
+            <p className="text-xs text-teal-700 mt-0.5">
+              KPIs, produtos e kardex estão filtrados exclusivamente por este cliente.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================
+          Cards de KPI (filtrados pelo cliente selecionado)
+          ================================================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
@@ -301,7 +359,9 @@ export default function FiscalEstoquePage() {
         </div>
       </div>
 
-      {/* Filtros + Tabela */}
+      {/* ================================================================
+          Filtros + Tabela de produtos
+          ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="relative flex-1 min-w-[220px]">
@@ -348,7 +408,11 @@ export default function FiscalEstoquePage() {
         ) : products.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
             <Package className="h-10 w-10 mx-auto mb-2" />
-            <p className="text-sm">Nenhum produto encontrado.</p>
+            <p className="text-sm">
+              {selected.id
+                ? 'Nenhum produto encontrado para este cliente.'
+                : 'Nenhum produto encontrado.'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -406,7 +470,9 @@ export default function FiscalEstoquePage() {
           </div>
         )}
 
-        {/* Paginação */}
+        {/* ================================================================
+            Paginação
+            ================================================================ */}
         {meta.totalPages > 1 && (
           <div className="flex items-center justify-between mt-4">
             <p className="text-xs text-slate-500">
@@ -432,7 +498,9 @@ export default function FiscalEstoquePage() {
         )}
       </div>
 
-      {/* ================= MODAL KARDEX ================= */}
+      {/* ================================================================
+          MODAL KARDEX (histórico de movimentações do produto)
+          ================================================================ */}
       {(kardex || loadingKardex) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -533,7 +601,9 @@ export default function FiscalEstoquePage() {
         </div>
       )}
 
-      {/* ================= MODAL AJUSTE ================= */}
+      {/* ================================================================
+          MODAL AJUSTE DE INVENTÁRIO (sobra/quebra)
+          ================================================================ */}
       {adjustTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md">
