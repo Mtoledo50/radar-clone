@@ -19,6 +19,8 @@ import {
   Receipt,
 } from 'lucide-react';
 import api from '@/lib/axios';
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
+import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
 
 // =================================================================
 // 📦 Tipos
@@ -93,7 +95,21 @@ const MONTH_SHORT = [
 // =================================================================
 // 📄 Página: Apuração de ICMS
 // =================================================================
+// Sprint 8: Integrado com seletor de cliente fiscal.
+// Quando um cliente está selecionado:
+//   - Resumo anual calculado apenas com NF-e do cliente
+//   - Detalhe mensal segregado por cliente
+//   - Salvar/Fechar/Reabrir vinculados ao cliente
+// Quando "Todos os clientes" (clientId = null):
+//   - Apuração geral do escritório (dados legados inclusos)
+// =================================================================
 export default function FiscalApuracaoPage() {
+  // =================================================================
+  // 🆕 Sprint 8: Estado global do cliente selecionado (Zustand)
+  // OBRIGATÓRIO estar DENTRO do componente (Rules of Hooks do React)
+  // =================================================================
+  const { selected } = useFiscalClientStore();
+
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [summary, setSummary] = useState<YearSummary | null>(null);
@@ -108,33 +124,46 @@ export default function FiscalApuracaoPage() {
   const [saving, setSaving] = useState(false);
 
   // ---------------------------------------------------------------
-  // 📊 Carrega resumo anual
+  // 📊 Carrega resumo anual (filtrado pelo cliente selecionado)
+  // ---------------------------------------------------------------
+  // 🆕 Sprint 8:
+  // - clientId enviado como query param
+  // - selected.id como dependência → recarrega ao trocar de cliente
   // ---------------------------------------------------------------
   const loadSummary = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/fiscal/icms', { params: { year } });
+      const { data } = await api.get('/fiscal/icms', {
+        params: {
+          year,
+          clientId: selected.id || undefined, // 🆕 Sprint 8
+        },
+      });
       setSummary(data);
     } catch {
       toast.error('Erro ao carregar apuração anual.');
     } finally {
       setLoading(false);
     }
-  }, [year]);
+  }, [year, selected.id]); // 🆕 Sprint 8
 
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
 
   // ---------------------------------------------------------------
-  // 🔍 Abre detalhe do mês
+  // 🔍 Abre detalhe do mês (filtrado pelo cliente selecionado)
   // ---------------------------------------------------------------
   const openDetail = async (month: number) => {
     setLoadingDetail(true);
     setDetail(null);
     try {
       const { data } = await api.get('/fiscal/icms/detail', {
-        params: { year, month },
+        params: {
+          year,
+          month,
+          clientId: selected.id || undefined, // 🆕 Sprint 8
+        },
       });
       setDetail(data);
       setEditSales(String(data.salesValue || ''));
@@ -148,7 +177,7 @@ export default function FiscalApuracaoPage() {
   };
 
   // ---------------------------------------------------------------
-  // 💾 Salvar débitos (edita apuração)
+  // 💾 Salvar débitos (edita apuração do cliente selecionado)
   // ---------------------------------------------------------------
   const saveDebits = async () => {
     if (!detail) return;
@@ -160,6 +189,7 @@ export default function FiscalApuracaoPage() {
         salesValue: Number(editSales || 0),
         debitRate: Number(editRate || 0),
         observations: editObs,
+        clientId: selected.id, // 🆕 Sprint 8 (null = geral)
       });
       toast.success('Apuração salva com sucesso!');
       setDetail(null);
@@ -172,7 +202,7 @@ export default function FiscalApuracaoPage() {
   };
 
   // ---------------------------------------------------------------
-  // 🔒 Fechar mês
+  // 🔒 Fechar mês (trava edição para compliance fiscal)
   // ---------------------------------------------------------------
   const closeMonth = async () => {
     if (!detail) return;
@@ -181,6 +211,7 @@ export default function FiscalApuracaoPage() {
       await api.post('/fiscal/icms/close', {
         year: detail.year,
         month: detail.month,
+        clientId: selected.id, // 🆕 Sprint 8
       });
       toast.success('Mês fechado! A apuração foi travada para compliance.');
       setDetail(null);
@@ -193,7 +224,7 @@ export default function FiscalApuracaoPage() {
   };
 
   // ---------------------------------------------------------------
-  // 🔓 Reabrir mês
+  // 🔓 Reabrir mês (permite ajustes antes da transmissão)
   // ---------------------------------------------------------------
   const reopenMonth = async () => {
     if (!detail) return;
@@ -202,11 +233,16 @@ export default function FiscalApuracaoPage() {
       await api.post('/fiscal/icms/reopen', {
         year: detail.year,
         month: detail.month,
+        clientId: selected.id, // 🆕 Sprint 8
       });
       toast.success('Mês reaberto para ajustes.');
       // Recarrega o detalhe atualizado
       const { data } = await api.get('/fiscal/icms/detail', {
-        params: { year: detail.year, month: detail.month },
+        params: {
+          year: detail.year,
+          month: detail.month,
+          clientId: selected.id || undefined, // 🆕 Sprint 8
+        },
       });
       setDetail(data);
       loadSummary();
@@ -226,7 +262,9 @@ export default function FiscalApuracaoPage() {
   // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* Cabeçalho + seletor de ano */}
+      {/* ================================================================
+          Cabeçalho + seletor de cliente + seletor de ano
+          ================================================================ */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -238,30 +276,57 @@ export default function FiscalApuracaoPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm border border-slate-200 px-3 py-2">
-          <button
-            onClick={() => setYear((y) => y - 1)}
-            className="p-1 hover:bg-slate-100 rounded"
-            title="Ano anterior"
-          >
-            <ChevronLeft className="h-5 w-5 text-slate-600" />
-          </button>
-          <div className="flex items-center gap-2 px-4 min-w-[80px] justify-center">
-            <Calendar className="h-4 w-4 text-teal-600" />
-            <span className="font-bold text-slate-900 text-lg">{year}</span>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* 🆕 Sprint 8: Seletor de cliente */}
+          <FiscalClientSelector />
+
+          {/* Seletor de ano */}
+          <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm border border-slate-200 px-3 py-2">
+            <button
+              onClick={() => setYear((y) => y - 1)}
+              className="p-1 hover:bg-slate-100 rounded"
+              title="Ano anterior"
+            >
+              <ChevronLeft className="h-5 w-5 text-slate-600" />
+            </button>
+            <div className="flex items-center gap-2 px-4 min-w-[80px] justify-center">
+              <Calendar className="h-4 w-4 text-teal-600" />
+              <span className="font-bold text-slate-900 text-lg">{year}</span>
+            </div>
+            <button
+              onClick={() => setYear((y) => y + 1)}
+              className="p-1 hover:bg-slate-100 rounded"
+              title="Próximo ano"
+              disabled={year >= currentYear + 1}
+            >
+              <ChevronRight className="h-5 w-5 text-slate-600" />
+            </button>
           </div>
-          <button
-            onClick={() => setYear((y) => y + 1)}
-            className="p-1 hover:bg-slate-100 rounded"
-            title="Próximo ano"
-            disabled={year >= currentYear + 1}
-          >
-            <ChevronRight className="h-5 w-5 text-slate-600" />
-          </button>
         </div>
       </div>
 
-      {/* Cards totais do ano */}
+      {/* ================================================================
+          Aviso contextual: cliente selecionado
+          ================================================================ */}
+      {selected.id && (
+        <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
+          <div className="p-1.5 bg-teal-100 rounded-lg">
+            <Calculator className="h-4 w-4 text-teal-700" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-teal-900">
+              Apurando ICMS de: <span className="font-bold">{selected.name}</span>
+            </p>
+            <p className="text-xs text-teal-700 mt-0.5">
+              Créditos, débitos e fechamentos estão segregados por este cliente.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================
+          Cards totais do ano (créditos, débitos, saldo)
+          ================================================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
@@ -326,7 +391,9 @@ export default function FiscalApuracaoPage() {
         </div>
       </div>
 
-      {/* Grade dos 12 meses */}
+      {/* ================================================================
+          Grade dos 12 meses
+          ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <h3 className="font-bold text-slate-900 mb-4">Apurações Mensais</h3>
 
@@ -390,7 +457,9 @@ export default function FiscalApuracaoPage() {
         )}
       </div>
 
-      {/* Legenda */}
+      {/* ================================================================
+          Legenda
+          ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center gap-4 text-xs text-slate-600">
         <div className="flex items-center gap-2">
           <Unlock className="h-3.5 w-3.5 text-slate-400" />
@@ -410,7 +479,9 @@ export default function FiscalApuracaoPage() {
         </div>
       </div>
 
-      {/* ================= MODAL DETALHE MENSAL ================= */}
+      {/* ================================================================
+          MODAL DETALHE MENSAL
+          ================================================================ */}
       {(detail || loadingDetail) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">

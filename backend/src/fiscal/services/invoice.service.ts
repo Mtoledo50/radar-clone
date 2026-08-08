@@ -2,6 +2,7 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  BadRequestException, // 🆕 Sprint 9: usado no assignClient
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -49,6 +50,22 @@ export class InvoiceService {
    *
    * @returns { total, processed, errors, results[] }
    */
+    // =================================================================
+  // 📤 UPLOAD E PROCESSAMENTO EM LOTE (RESILIENTE)
+  // =================================================================
+
+  /**
+   * Processa um lote de arquivos XML.
+   *
+   * 🆕 Sprint 9 — Resiliência:
+   *   - Cada arquivo é processado ISOLADAMENTE (try/catch por arquivo)
+   *   - NF-e duplicada NÃO aborta o lote: é marcada como DUPLICATE e o
+   *     processamento CONTINUA para os demais arquivos
+   *   - Status semânticos: PROCESSED | DUPLICATE | ERROR
+   *
+   * @param clientId - 🆕 Sprint 8: cliente dono das notas importadas
+   * @returns { total, processed, duplicates, errors, results[] }
+   */
   async processUpload(
     companyId: string,
     userId: string,
@@ -56,16 +73,15 @@ export class InvoiceService {
     files: Express.Multer.File[],
   ) {
     const results: any[] = [];
+    let processed = 0;
+    let duplicates = 0;
+    let errors = 0;
 
     for (const file of files) {
       try {
         const parsed = this.xmlParser.parse(file.buffer.toString('utf-8'));
-        const invoice = await this.persistInvoice(
-          companyId,
-          userId,
-          clientId,
-          parsed,
-        );
+        const invoice = await this.persistInvoice(companyId, userId, clientId, parsed);
+        processed++;
         results.push({
           fileName: file.originalname,
           status: 'PROCESSED',
@@ -75,22 +91,33 @@ export class InvoiceService {
           totalValue: parsed.totalValue,
         });
       } catch (e: any) {
-        results.push({
-          fileName: file.originalname,
-          status: 'ERROR',
-          error: e?.message || 'Erro desconhecido no parser.',
-        });
+        // 🆕 Sprint 9: Duplicata vira status próprio (não bloqueia o lote)
+        if (e instanceof ConflictException) {
+          duplicates++;
+          results.push({
+            fileName: file.originalname,
+            status: 'DUPLICATE',
+            error: 'NF-e já foi importada (chave de acesso duplicada). Ignorada.',
+          });
+        } else {
+          errors++;
+          results.push({
+            fileName: file.originalname,
+            status: 'ERROR',
+            error: e?.message || 'Erro desconhecido no parser.',
+          });
+        }
       }
     }
 
     return {
       total: files.length,
-      processed: results.filter((r) => r.status === 'PROCESSED').length,
-      errors: results.filter((r) => r.status === 'ERROR').length,
+      processed,
+      duplicates, // 🆕 Sprint 9
+      errors,
       results,
     };
   }
-
   // =================================================================
   // 💾 PERSISTÊNCIA ATÔMICA DA NF-e
   // =================================================================
@@ -453,4 +480,174 @@ export class InvoiceService {
       totalItemsCost: Number(movementAgg._sum.totalCost ?? 0),
     };
   }
+  // =================================================================
+  // 🔗 VINCULAR NOTAS ANTIGAS A UM CLIENTE (Sprint 9)
+  // =================================================================
+
+  /**
+   * Atribui (ou remove) o vínculo de cliente em um conjunto de notas.
+   * Usado para migrar notas legadas (clientId = null) para um cliente.
+   *
+   * 🆕 Sprint 9:
+   *   - Atualiza o clientId das notas selecionadas
+   *   - Atualiza o clientId das movimentações de estoque ligadas a elas
+   *   - Atualiza o clientId dos produtos vinculados (apenas os que ainda
+   *     não têm cliente, para não quebrar vínculos existentes)
+   *
+   * @param invoiceIds - Lista de notas a atualizar
+   * @param clientId   - Cliente alvo (null para desvincular)
+   * @throws NotFoundException se o cliente não existir
+   * @throws BadRequestException se nenhuma nota for selecionada
+   */
+  async assignClient(
+    companyId: string,
+    data: { invoiceIds: string[]; clientId: string | null },
+  ) {
+    const { invoiceIds, clientId } = data;
+
+    if (!invoiceIds || invoiceIds.length === 0) {
+      throw new BadRequestException('Nenhuma nota selecionada.');
+    }
+
+    // Valida que o cliente existe e pertence ao tenant
+    if (clientId) {
+      const client = await this.prisma.client.findFirst({
+        where: { id: clientId, companyId },
+      });
+      if (!client) {
+        throw new NotFoundException('Cliente não encontrado.');
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Atualiza o clientId das notas
+      const updatedInvoices = await tx.fiscalInvoice.updateMany({
+        where: { companyId, id: { in: invoiceIds } },
+        data: { clientId },
+      });
+
+      // 2. Atualiza o clientId das movimentações ligadas a essas notas
+      await tx.fiscalInventoryMovement.updateMany({
+        where: { companyId, invoiceId: { in: invoiceIds } },
+        data: { clientId },
+      });
+
+      // 3. Atualiza o clientId dos produtos vinculados aos itens
+      // (apenas produtos ainda sem cliente)
+      const items = await tx.fiscalInvoiceItem.findMany({
+        where: { invoiceId: { in: invoiceIds }, productId: { not: null } },
+        select: { productId: true },
+      });
+      const productIds = items.map((i) => i.productId).filter(Boolean) as string[];
+
+      if (productIds.length > 0) {
+        await tx.fiscalProduct.updateMany({
+          where: { companyId, id: { in: productIds }, clientId: null },
+          data: { clientId },
+        });
+      }
+
+      return { updated: updatedInvoices.count };
+    });
+  }
+
+  // =================================================================
+  // 🗑️ DELETAR NOTA COM ESTORNO DE ESTOQUE (Sprint 9)
+  // =================================================================
+
+  /**
+   * Exclui uma NF-e e reverte seus efeitos no estoque.
+   *
+   * 🆕 Sprint 9 — Estorno fiscalmente correto:
+   *   1. Valida posse da nota (multi-tenant)
+   *   2. Identifica produtos afetados pelas movimentações da nota
+   *   3. Remove as movimentações da nota (estorno)
+   *   4. Remove a nota (itens são removidos em cascata)
+   *   5. Recalcula saldo + custo médio de cada produto afetado
+   *      por REPLAY das movimentações restantes
+   *
+   * ⚠️ Por que não usar apenas cascade delete?
+   *   FiscalInventoryMovement.invoiceId tem onDelete: SetNull, então
+   *   deletar a nota NÃO removeria as movimentações — o estoque ficaria
+   *   inflado. Por isso removemos explicitamente e recalculamos.
+   *
+   * @throws NotFoundException se a nota não existir
+   */
+  async remove(companyId: string, id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Valida posse da nota
+      const invoice = await tx.fiscalInvoice.findFirst({
+        where: { id, companyId },
+      });
+      if (!invoice) {
+        throw new NotFoundException('Nota fiscal não encontrada.');
+      }
+
+      // 2. Identifica produtos afetados
+      const movements = await tx.fiscalInventoryMovement.findMany({
+        where: { invoiceId: id },
+        select: { productId: true },
+      });
+      const productIds = [...new Set(movements.map((m) => m.productId))];
+
+      // 3. Remove as movimentações da nota (estorno)
+      await tx.fiscalInventoryMovement.deleteMany({
+        where: { invoiceId: id },
+      });
+
+      // 4. Remove a nota (itens removidos em cascata)
+      await tx.fiscalInvoice.delete({ where: { id } });
+
+      // 5. Recalcula cada produto afetado
+      for (const productId of productIds) {
+        await this.recalculateProduct(tx, productId);
+      }
+
+      return {
+        message: 'Nota excluída e estoque ajustado.',
+        recalculatedProducts: productIds.length,
+      };
+    });
+  }
+
+  /**
+   * Recalcula saldo e custo médio de um produto por REPLAY das
+   * movimentações restantes (usado após estorno de uma nota).
+   *
+   * @param tx - Cliente de transação Prisma
+   * @param productId - Produto a recalcular
+   */
+  private async recalculateProduct(
+    tx: Prisma.TransactionClient,
+    productId: string,
+  ) {
+    const movements = await tx.fiscalInventoryMovement.findMany({
+      where: { productId },
+      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    let stock = 0;
+    let avg = 0;
+
+    for (const m of movements) {
+      const qty = Number(m.quantity);
+      const cost = Number(m.unitCost);
+
+      if (qty > 0) {
+        // Entrada: recalcula custo médio ponderado móvel
+        const newStock = stock + qty;
+        avg = newStock > 0 ? (stock * avg + qty * cost) / newStock : cost;
+        stock = newStock;
+      } else {
+        // Saída/ajuste negativo: reduz saldo, mantém custo médio
+        stock += qty;
+      }
+    }
+
+    await tx.fiscalProduct.update({
+      where: { id: productId },
+      data: { currentStock: stock, averageCost: avg },
+    });
+  }
+
 }

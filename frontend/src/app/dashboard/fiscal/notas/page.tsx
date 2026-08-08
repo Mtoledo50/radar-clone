@@ -16,6 +16,8 @@ import {
   Eye,
 } from 'lucide-react';
 import api from '@/lib/axios';
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
+import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
 
 // =================================================================
 // 📦 Tipos do frontend (espelham o backend)
@@ -102,37 +104,75 @@ function StatusBadge({ status }: { status: string }) {
 // =================================================================
 // 📄 Página: Notas Fiscais (consulta + detalhe)
 // =================================================================
+// Sprint 8: Integrado com seletor de cliente fiscal.
+// Quando um cliente está selecionado:
+//   - KPIs calculados apenas com notas do cliente
+//   - Tabela filtrada pelo clientId
+// Quando "Todos os clientes" (clientId = null):
+//   - Mostra todas as notas do escritório (dados legados inclusos)
+// =================================================================
 export default function FiscalNotasPage() {
+  // =================================================================
+  // 🆕 Sprint 8: Estado global do cliente selecionado
+  // OBRIGATÓRIO estar DENTRO do componente (Rules of Hooks do React)
+  // =================================================================
+  const { selected } = useFiscalClientStore();
+
+  // KPIs e filtro de período
   const [metrics, setMetrics] = useState<InvoiceMetrics | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // Listagem
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, totalPages: 0 });
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // Detalhe (modal)
   const [detail, setDetail] = useState<InvoiceDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  // ---------------------------------------------------------------
+  // 📊 Carrega KPIs (reage ao filtro de período + cliente selecionado)
+  // ---------------------------------------------------------------
+  // 🆕 Sprint 8:
+  // - O parâmetro clientId é enviado para o backend
+  // - selected.id entra como dependência do useCallback para recarregar
+  //   automaticamente quando o usuário troca de cliente no seletor
+  // ---------------------------------------------------------------
   const loadMetrics = useCallback(async () => {
     try {
       const params: any = {};
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
+      if (selected.id) params.clientId = selected.id; // 🆕 Sprint 8
+
       const { data } = await api.get('/fiscal/invoices/metrics', { params });
       setMetrics(data);
     } catch {
       // silencioso — cards ficam zerados
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, selected.id]); // 🆕 Sprint 8: selected.id como dependência
 
+  // ---------------------------------------------------------------
+  // 📋 Carrega listagem paginada (reage a página, busca e cliente)
+  // ---------------------------------------------------------------
+  // 🆕 Sprint 8:
+  // - clientId filtra notas apenas do cliente selecionado
+  // - Ao trocar cliente, a paginação volta para 1 automaticamente
+  // ---------------------------------------------------------------
   const loadInvoices = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get('/fiscal/invoices', {
-        params: { page, limit: 10, search: search || undefined },
+        params: {
+          page,
+          limit: 10,
+          search: search || undefined,
+          clientId: selected.id || undefined, // 🆕 Sprint 8
+        },
       });
       setInvoices(data.data || []);
       setMeta(data.meta || { total: 0, page: 1, totalPages: 0 });
@@ -141,7 +181,14 @@ export default function FiscalNotasPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, selected.id]); // 🆕 Sprint 8: selected.id como dependência
+
+  // ---------------------------------------------------------------
+  // Reset da paginação ao trocar de cliente (UX previsível)
+  // ---------------------------------------------------------------
+  useEffect(() => {
+    setPage(1);
+  }, [selected.id]);
 
   useEffect(() => {
     loadMetrics();
@@ -151,6 +198,9 @@ export default function FiscalNotasPage() {
     loadInvoices();
   }, [loadInvoices]);
 
+  // ---------------------------------------------------------------
+  // 🔍 Abre o detalhe da nota
+  // ---------------------------------------------------------------
   const openDetail = async (id: string) => {
     setLoadingDetail(true);
     try {
@@ -163,18 +213,52 @@ export default function FiscalNotasPage() {
     }
   };
 
+  // ---------------------------------------------------------------
+  // 🎨 Renderização
+  // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          <Receipt className="h-7 w-7 text-teal-600" />
-          Notas Fiscais
-        </h1>
-        <p className="text-slate-600 mt-1">
-          Consulte as NF-e importadas, impostos apurados e itens vinculados ao estoque.
-        </p>
+      {/* ================================================================
+          Cabeçalho com título + seletor de cliente
+          ================================================================ */}
+      <div className="flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Receipt className="h-7 w-7 text-teal-600" />
+            Notas Fiscais
+          </h1>
+          <p className="text-slate-600 mt-1">
+            Consulte as NF-e importadas, impostos apurados e itens vinculados ao estoque.
+          </p>
+        </div>
+
+        {/* 🆕 Sprint 8: Seletor de cliente (estado global persistido) */}
+        <FiscalClientSelector />
       </div>
 
+      {/* ================================================================
+          Aviso contextual: cliente selecionado
+          Mostra ao usuário qual cliente está ativo no filtro
+          ================================================================ */}
+      {selected.id && (
+        <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
+          <div className="p-1.5 bg-teal-100 rounded-lg">
+            <Receipt className="h-4 w-4 text-teal-700" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-teal-900">
+              Visualizando notas de: <span className="font-bold">{selected.name}</span>
+            </p>
+            <p className="text-xs text-teal-700 mt-0.5">
+              KPIs e listagem estão filtrados exclusivamente por este cliente.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ================================================================
+          Filtro de período (data inicial e final)
+          ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-end gap-4">
         <div>
           <label className="block text-xs font-medium text-slate-500 mb-1">De</label>
@@ -207,6 +291,9 @@ export default function FiscalNotasPage() {
         )}
       </div>
 
+      {/* ================================================================
+          Cards de KPI (filtrados pelo cliente + período)
+          ================================================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
@@ -267,6 +354,9 @@ export default function FiscalNotasPage() {
         </div>
       </div>
 
+      {/* ================================================================
+          Busca + Tabela de notas
+          ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div className="relative mb-4">
           <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -289,7 +379,11 @@ export default function FiscalNotasPage() {
         ) : invoices.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
             <FileText className="h-10 w-10 mx-auto mb-2" />
-            <p className="text-sm">Nenhuma nota encontrada.</p>
+            <p className="text-sm">
+              {selected.id
+                ? 'Nenhuma nota encontrada para este cliente.'
+                : 'Nenhuma nota encontrada.'}
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -340,6 +434,9 @@ export default function FiscalNotasPage() {
           </div>
         )}
 
+        {/* ================================================================
+            Paginação
+            ================================================================ */}
         {meta.totalPages > 1 && (
           <div className="flex items-center justify-between mt-4">
             <p className="text-xs text-slate-500">
@@ -365,6 +462,9 @@ export default function FiscalNotasPage() {
         )}
       </div>
 
+      {/* ================================================================
+          MODAL DE DETALHE DA NOTA
+          ================================================================ */}
       {(detail || loadingDetail) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -375,6 +475,7 @@ export default function FiscalNotasPage() {
             ) : (
               detail && (
                 <>
+                  {/* Cabeçalho do modal */}
                   <div className="flex items-center justify-between p-5 border-b border-slate-200 sticky top-0 bg-white">
                     <div>
                       <h3 className="font-bold text-slate-900">
@@ -392,6 +493,7 @@ export default function FiscalNotasPage() {
                     </button>
                   </div>
 
+                  {/* Totais da nota */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-slate-100">
                     <div>
                       <p className="text-xs text-slate-500">Total da Nota</p>
@@ -413,6 +515,7 @@ export default function FiscalNotasPage() {
                     </div>
                   </div>
 
+                  {/* Itens */}
                   <div className="p-5">
                     <h4 className="text-sm font-bold text-slate-700 mb-3">
                       Itens da Nota ({detail.items.length})
