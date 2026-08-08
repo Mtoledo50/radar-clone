@@ -19,10 +19,12 @@ import {
   Eraser, // 🆕 Sprint 9: ícone da limpeza de catálogo
   Trash2, // 🆕 Sprint 9: excluir todo o estoque
   AlertTriangle, // 🆕 Sprint 9: aviso de operação destrutiva
+  FileUp,
 } from 'lucide-react';
 import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
 import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
+import InitialStockImportModal from '@/components/fiscal/InitialStockImportModal'; // 🆕 Sprint 10
 
 // =================================================================
 // 📦 Tipos do frontend (espelham o backend)
@@ -105,7 +107,8 @@ const MOVEMENT_CONFIG: Record<string, { label: string; className: string }> = {
   ENTRADA: { label: 'Entrada', className: 'bg-green-50 text-green-700' },
   DEVOLUCAO: { label: 'Devolução', className: 'bg-red-50 text-red-700' },
   AJUSTE_POSITIVO: { label: 'Ajuste +', className: 'bg-teal-50 text-teal-700' },
-  AJUSTE_NEGATIVO: { label: 'Ajuste −', className: 'bg-orange-50 text-orange-700' },
+   AJUSTE_NEGATIVO: { label: 'Ajuste −', className: 'bg-orange-50 text-orange-700' },
+  SALDO_INICIAL: { label: 'Saldo Inicial', className: 'bg-blue-50 text-blue-700' }, // 🆕 Sprint 10
 };
 
 function MovementBadge({ type }: { type: string }) {
@@ -168,9 +171,12 @@ export default function FiscalEstoquePage() {
   const [cleaning, setCleaning] = useState(false);
 
   // 🆕 Sprint 9: exclusão total do estoque (operação destrutiva)
-  const [wipeOpen, setWipeOpen] = useState(false);
+    const [wipeOpen, setWipeOpen] = useState(false);
   const [wipeText, setWipeText] = useState('');
   const [wiping, setWiping] = useState(false);
+
+  // 🆕 Sprint 10: modal de importação de estoque inicial
+  const [initialImportOpen, setInitialImportOpen] = useState(false);
 
   // ---------------------------------------------------------------
   // 📊 KPIs (filtrados pelo cliente selecionado)
@@ -483,8 +489,18 @@ export default function FiscalEstoquePage() {
             className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
             title="Exclui TODOS os produtos e movimentações do escopo selecionado"
           >
-            <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" />
             Excluir todo o estoque
+          </button>
+
+          {/* 🆕 Sprint 10: importação de estoque inicial */}
+          <button
+            onClick={() => setInitialImportOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-teal-700 border border-teal-300 rounded-lg hover:bg-teal-50 transition-colors"
+            title="Importa o saldo inicial do sistema anterior (CSV ou texto do PDF)"
+          >
+            <FileUp className="h-4 w-4" />
+            Importar estoque inicial
           </button>
         </div>
 
@@ -902,6 +918,17 @@ export default function FiscalEstoquePage() {
             </div>
           </div>
         </div>
+           )}
+
+      {/* 🆕 Sprint 10: modal de importação de estoque inicial */}
+      {initialImportOpen && (
+        <InitialStockImportModal
+          onClose={() => setInitialImportOpen(false)}
+          onImported={() => {
+            loadBalance();
+            loadMetrics();
+          }}
+        />
       )}
     </div>
   );
