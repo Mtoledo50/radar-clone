@@ -364,7 +364,179 @@ export class InventoryService {
       // 2. Remove produtos (balances em cascata; invoiceItems → SetNull)
       await tx.fiscalProduct.deleteMany({ where: productWhere });
 
-      return { productsDeleted: products, movementsDeleted: movements };
+            return { productsDeleted: products, movementsDeleted: movements };
     });
+  }
+
+  // =================================================================
+  // 📥 IMPORTAÇÃO DE ESTOQUE INICIAL (Sprint 10)
+  // =================================================================
+
+  /**
+   * Importa o saldo inicial de estoque (abertura do sistema) a partir
+   * de um relatório do sistema anterior (ex: posição de estoque).
+   *
+   * 🛡️ Regras de segurança (anti-duplicidade):
+   *   - Produto NÃO existe        → cria + movimento SALDO_INICIAL
+   *   - Existe SEM movimentações  → atualiza saldo/custo + movimento
+   *   - Existe COM movimentações  → PULA (não duplica saldo)
+   *   - Código/descrição ausentes → erro na linha
+   *
+   * 📐 Defaults fiscais:
+   *   - NCM ausente  → '00000000' (editar depois no catálogo)
+   *   - Unit ausente → 'UN'
+   *
+   * 🔍 Auditoria: cada linha gera movimento SALDO_INICIAL com
+   *   userId (quem importou) e reason com a data-base do relatório.
+   *
+   * @param clientId      - cliente dono do estoque (null = geral)
+   * @param referenceDate - data-base do relatório (ex: 31/12/2025)
+   * @param items         - linhas revisadas pelo usuário no frontend
+   *
+   * @returns { created, updated, skipped, errors, results[] }
+   */
+  async importInitialStock(
+    companyId: string,
+    userId: string,
+    clientId: string | null,
+    data: {
+      referenceDate?: string;
+      items: {
+        code: string;
+        description: string;
+        ncm?: string;
+        unit?: string;
+        quantity: number;
+        averageCost: number;
+      }[];
+    },
+  ) {
+    const refDate = data.referenceDate
+      ? new Date(`${data.referenceDate}T12:00:00`)
+      : new Date();
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+    const results: any[] = [];
+
+    for (const item of data.items) {
+      // Validação estrutural da linha
+      if (!item.code || !item.description) {
+        skipped++;
+        results.push({
+          code: item.code || '(sem código)',
+          status: 'ERROR',
+          error: 'Código ou descrição ausentes.',
+        });
+        continue;
+      }
+
+      try {
+        const qty = Number(item.quantity ?? 0);
+        const cost = Number(item.averageCost ?? 0);
+        const ncm = (item.ncm || '').replace(/\D/g, '') || '00000000';
+        const unit = (item.unit || 'UN').toUpperCase();
+
+        const existing = await this.prisma.fiscalProduct.findFirst({
+          where: {
+            companyId,
+            clientId: clientId || null,
+            code: item.code,
+            deletedAt: null,
+          },
+        });
+
+        if (existing) {
+          // 🛡️ Produto com histórico NÃO pode receber saldo inicial duplicado
+          const movCount = await this.prisma.fiscalInventoryMovement.count({
+            where: { productId: existing.id },
+          });
+
+          if (movCount > 0) {
+            skipped++;
+            results.push({
+              code: item.code,
+              status: 'SKIPPED',
+              error: 'Produto já possui movimentações — saldo inicial não aplicado.',
+            });
+            continue;
+          }
+
+          // Existe sem histórico → atualiza e registra abertura
+          await this.prisma.$transaction(async (tx) => {
+            await tx.fiscalProduct.update({
+              where: { id: existing.id },
+              data: {
+                currentStock: qty,
+                averageCost: cost,
+                ncm,
+                unit,
+                description: item.description,
+              },
+            });
+            await tx.fiscalInventoryMovement.create({
+              data: {
+                companyId,
+                clientId: clientId || null,
+                productId: existing.id,
+                type: 'SALDO_INICIAL',
+                date: refDate,
+                quantity: qty,
+                unitCost: cost,
+                totalCost: qty * cost,
+                averageCostAfter: cost,
+                reason: `Saldo inicial importado (data-base ${refDate.toLocaleDateString('pt-BR')})`,
+                userId,
+              },
+            });
+          });
+          updated++;
+          results.push({ code: item.code, status: 'UPDATED' });
+        } else {
+          // Produto novo → cria catálogo + abertura
+          await this.prisma.$transaction(async (tx) => {
+            const product = await tx.fiscalProduct.create({
+              data: {
+                companyId,
+                clientId: clientId || null,
+                code: item.code,
+                description: item.description,
+                ncm,
+                unit,
+                averageCost: cost,
+                currentStock: qty,
+              },
+            });
+            await tx.fiscalInventoryMovement.create({
+              data: {
+                companyId,
+                clientId: clientId || null,
+                productId: product.id,
+                type: 'SALDO_INICIAL',
+                date: refDate,
+                quantity: qty,
+                unitCost: cost,
+                totalCost: qty * cost,
+                averageCostAfter: cost,
+                reason: `Saldo inicial importado (data-base ${refDate.toLocaleDateString('pt-BR')})`,
+                userId,
+              },
+            });
+          });
+          created++;
+          results.push({ code: item.code, status: 'CREATED' });
+        }
+      } catch (e: any) {
+        skipped++;
+        results.push({
+          code: item.code,
+          status: 'ERROR',
+          error: e?.message || 'Erro ao processar a linha.',
+        });
+      }
+    }
+
+    return { created, updated, skipped, results };
   }
 }

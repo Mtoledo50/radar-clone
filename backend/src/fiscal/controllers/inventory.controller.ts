@@ -180,8 +180,38 @@ export class InventoryController {
    * ⚠️ Operação destrutiva e irreversível — o frontend exige
    * digitar "EXCLUIR" para habilitar o botão.
    */
-  @Post('wipe')
+    @Post('wipe')
   wipe(@Request() req, @Body() body: any) {
     return this.inventoryService.wipe(req.user.companyId, body?.clientId ?? null);
+  }
+
+  /**
+   * POST /fiscal/inventory/initial-import
+   * 🆕 Sprint 10: importa saldo inicial de estoque (abertura).
+   *
+   * Body:
+   * {
+   *   clientId?: string | null,
+   *   referenceDate?: 'YYYY-MM-DD',
+   *   items: [{ code, description, ncm?, unit?, quantity, averageCost }]
+   * }
+   *
+   * 🛡️ O frontend envia apenas linhas REVISADAS pelo usuário
+   * (modal de pré-visualização da Sprint 10 Parte 2).
+   */
+  @Post('initial-import')
+  initialImport(@Request() req, @Body() body: any) {
+    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+      throw new BadRequestException('Nenhum item para importar.');
+    }
+    return this.inventoryService.importInitialStock(
+      req.user.companyId,
+      req.user.id,
+      body.clientId ?? null,
+      {
+        referenceDate: body.referenceDate,
+        items: body.items,
+      },
+    );
   }
 }
