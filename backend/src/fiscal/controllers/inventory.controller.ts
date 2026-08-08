@@ -204,7 +204,7 @@ export class InventoryController {
     if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
       throw new BadRequestException('Nenhum item para importar.');
     }
-    return this.inventoryService.importInitialStock(
+        return this.inventoryService.importInitialStock(
       req.user.companyId,
       req.user.id,
       body.clientId ?? null,
@@ -212,6 +212,19 @@ export class InventoryController {
         referenceDate: body.referenceDate,
         items: body.items,
       },
+    );
+  }
+
+  /**
+   * GET /fiscal/inventory/compare?clientId=
+   * ⚖️ Sprint 11: conciliação estoque inicial (PDF) × entradas NF-e × saldo atual.
+   * Retorna { summary, rows[] } com divergências destacadas.
+   */
+  @Get('compare')
+  compare(@Request() req, @Query('clientId') clientId?: string) {
+    return this.inventoryService.getComparison(
+      req.user.companyId,
+      clientId || null,
     );
   }
 }

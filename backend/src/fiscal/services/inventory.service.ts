@@ -25,6 +25,15 @@ export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * 🆕 Sprint 11: arredonda para 2 casas decimais com segurança
+   * (evita erros de ponto flutuante em cálculos financeiros).
+   * Usado pelo getComparison (conciliação de estoque).
+   */
+  private round2(v: number): number {
+    return Math.round((v + Number.EPSILON) * 100) / 100;
+  }
+
+  /**
    * Lista o saldo atual de cada produto (grid principal da tela de estoque).
    *
    * @param filters.search - Busca por descrição ou código
@@ -537,6 +546,109 @@ export class InventoryService {
       }
     }
 
-    return { created, updated, skipped, results };
+       return { created, updated, skipped, results };
+  }
+
+  // =================================================================
+  // ⚖️ COMPARATIVO: ESTOQUE INICIAL × NF-e (Sprint 11)
+  // =================================================================
+
+  /**
+   * Conciliação por produto entre três fontes de verdade:
+   *   1. Saldo inicial importado do PDF (movimentos SALDO_INICIAL)
+   *   2. Entradas via NF-e importadas (movimentos ENTRADA)
+   *   3. Saldo atual do catálogo (currentStock)
+   *
+   * 🧮 Fórmula de conferência:
+   *   teórico = inicial + entradas + ajustes
+   *   divergência = atual − teórico  (esperado: 0)
+   *
+   * 📊 Status por produto:
+   *   - OK               → tem inicial, sem NF-e, atual = inicial
+   *   - MOVIMENTADO_NFE  → recebeu entradas via nota fiscal
+   *   - DIVERGENTE       → atual ≠ teórico (ajuste manual/inconsistência)
+   *   - SEM_SALDO        → tudo zerado
+   *
+   * @param clientId - escopo do cliente (null = todos)
+   * @returns { summary, rows[] }
+   */
+    async getComparison(companyId: string, clientId?: string | null) {
+    const products = await this.prisma.fiscalProduct.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        ...(clientId ? { clientId } : {}),
+      },
+      orderBy: { description: 'asc' },
+      include: {
+        movements: {
+          select: { type: true, quantity: true, unitCost: true, totalCost: true },
+        },
+      },
+    });
+
+    const rows = products.map((p) => {
+      let initialQty = 0;
+      let initialCost = 0;
+      let entryQty = 0;
+      let entryValue = 0;
+      let adjustQty = 0;
+
+      for (const m of p.movements) {
+        const q = Number(m.quantity);
+        if (m.type === 'SALDO_INICIAL') {
+          initialQty += q;
+          initialCost = Number(m.unitCost);
+        } else if (m.type === 'ENTRADA') {
+          entryQty += q;
+          entryValue += Number(m.totalCost);
+        } else {
+          adjustQty += q;
+        }
+      }
+
+      const current = Number(p.currentStock);
+      const theoretical = initialQty + entryQty + adjustQty;
+      const divergence = this.round2(current - theoretical);
+
+      let status: string;
+      if (Math.abs(divergence) > 0.000001) {
+        status = 'DIVERGENTE';
+      } else if (entryQty !== 0) {
+        status = 'MOVIMENTADO_NFE';
+      } else if (initialQty !== 0 || current !== 0) {
+        status = 'OK';
+      } else {
+        status = 'SEM_SALDO';
+      }
+
+      return {
+        id: p.id,
+        code: p.code,
+        description: p.description,
+        ncm: p.ncm,
+        unit: p.unit,
+        initialQty: this.round2(initialQty),
+        initialCost,
+        initialTotal: this.round2(initialQty * initialCost),
+        entryQty: this.round2(entryQty),
+        entryValue: this.round2(entryValue),
+        adjustQty: this.round2(adjustQty),
+        currentStock: current,
+        currentTotal: this.round2(current * Number(p.averageCost)),
+        divergence,
+        status,
+      };
+    });
+
+    const summary = {
+      total: rows.length,
+      ok: rows.filter((r) => r.status === 'OK').length,
+      movedByNfe: rows.filter((r) => r.status === 'MOVIMENTADO_NFE').length,
+      divergent: rows.filter((r) => r.status === 'DIVERGENTE').length,
+      noBalance: rows.filter((r) => r.status === 'SEM_SALDO').length,
+    };
+
+    return { summary, rows };
   }
 }
