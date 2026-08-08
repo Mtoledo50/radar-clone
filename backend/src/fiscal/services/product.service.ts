@@ -189,4 +189,51 @@ export class ProductService {
 
     return { message: 'Produto removido com sucesso.' };
   }
+    // =================================================================
+  // 🧹 LIMPEZA DE CATÁLOGO (Sprint 9)
+  // =================================================================
+
+  /**
+   * Remove (soft delete) produtos que ficaram "órfãos" após o estorno
+   * de notas fiscais.
+   *
+   * 🛡️ Critérios de segurança (TODOS obrigatórios):
+   *   - currentStock = 0
+   *   - nenhuma movimentação no kardex
+   *   - nenhum item de nota vinculado
+   *
+   * Isso garante que NUNCA apagaremos um produto com histórico fiscal
+   * ou saldo em estoque.
+   *
+   * @param clientId - se informado, limpa apenas produtos daquele cliente;
+   *                   se null/undefined, limpa apenas os sem cliente (legado)
+   */
+  async cleanupEmpty(companyId: string, clientId?: string | null) {
+    const empty = await this.prisma.fiscalProduct.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        currentStock: 0,
+        movements: { none: {} },      // sem movimentações
+        invoiceItems: { none: {} },   // sem itens de nota
+        ...(clientId ? { clientId } : {}),
+      },
+      select: { id: true },
+    });
+
+    if (empty.length === 0) {
+      return { removed: 0, message: 'Nenhum produto vazio para limpar.' };
+    }
+
+    // Soft delete (mantém auditoria)
+    await this.prisma.fiscalProduct.updateMany({
+      where: { id: { in: empty.map((p) => p.id) } },
+      data: { deletedAt: new Date() },
+    });
+
+    return {
+      removed: empty.length,
+      message: `${empty.length} produto(s) removido(s) do catálogo.`,
+    };
+  }
 }

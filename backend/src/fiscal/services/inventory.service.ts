@@ -304,7 +304,7 @@ export class InventoryService {
         },
       });
 
-      return {
+            return {
         movement: {
           id: movement.id,
           type: movement.type,
@@ -316,6 +316,55 @@ export class InventoryService {
           averageCost: Number(updated.averageCost),
         },
       };
+    });
+  }
+
+  // =================================================================
+  // ☢️ EXCLUSÃO TOTAL DO ESTOQUE (Sprint 9 — operação destrutiva)
+  // =================================================================
+
+  /**
+   * Remove TODOS os produtos e movimentações do escopo selecionado.
+   *
+   * 🛡️ Semântica de escopo:
+   *   - clientId informado → apaga apenas o estoque daquele cliente
+   *   - clientId null      → apaga TODO o estoque da empresa (nuclear)
+   *
+   * ⚠️ Efeitos colaterais documentados:
+   *   - Movimentações (kardex) são removidas
+   *   - Itens de notas fiscais ficam com productId = null (SetNull),
+   *     ou seja, as notas são mantidas mas perdem o vínculo de catálogo
+   *   - Saldos mensais (balances) são removidos em cascata
+   *
+   * 🔒 Uso previsto: reset do catálogo para reimportação limpa.
+   * A confirmação forte (digitar EXCLUIR) é feita no frontend.
+   *
+   * @returns { productsDeleted, movementsDeleted }
+   */
+  async wipe(companyId: string, clientId?: string | null) {
+    return this.prisma.$transaction(async (tx) => {
+      const productWhere: Prisma.FiscalProductWhereInput = {
+        companyId,
+        ...(clientId ? { clientId } : {}), // null = todos os escopos
+      };
+      const movementWhere: Prisma.FiscalInventoryMovementWhereInput = {
+        companyId,
+        ...(clientId ? { clientId } : {}),
+      };
+
+      // Contagem prévia para o feedback ao usuário
+      const [products, movements] = await Promise.all([
+        tx.fiscalProduct.count({ where: productWhere }),
+        tx.fiscalInventoryMovement.count({ where: movementWhere }),
+      ]);
+
+      // 1. Remove movimentações explicitamente
+      await tx.fiscalInventoryMovement.deleteMany({ where: movementWhere });
+
+      // 2. Remove produtos (balances em cascata; invoiceItems → SetNull)
+      await tx.fiscalProduct.deleteMany({ where: productWhere });
+
+      return { productsDeleted: products, movementsDeleted: movements };
     });
   }
 }
