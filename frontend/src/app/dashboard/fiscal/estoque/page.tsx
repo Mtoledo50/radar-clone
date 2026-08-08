@@ -16,26 +16,29 @@ import {
   Loader2,
   ArrowDownCircle,
   ArrowUpCircle,
-  Eraser, // 🆕 Sprint 9: ícone da limpeza de catálogo
-  Trash2, // 🆕 Sprint 9: excluir todo o estoque
-    AlertTriangle, // 🆕 Sprint 9: aviso de operação destrutiva
-  FileUp, // 🆕 Sprint 10: importar estoque inicial
-  FileDown, // 🆕 Sprint 12: exportar CSV
-  Settings2, // 🆕 Sprint 12: escolher campos da exportação
+  Eraser,
+  Trash2,
+  AlertTriangle,
+  FileUp,
+  FileDown,
+  Settings2,
+  Shuffle, // 🆕 Sprint 14: unificar códigos via planilha
 } from 'lucide-react';
 import api from '@/lib/axios';
-import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
-import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
-import InitialStockImportModal from '@/components/fiscal/InitialStockImportModal'; // 🆕 Sprint 10
-import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal'; // 🆕 Sprint 12
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
+import { useFiscalClientStore } from '@/store/fiscalClientStore';
+import InitialStockImportModal from '@/components/fiscal/InitialStockImportModal';
+import UnifyCodesModal from '@/components/fiscal/UnifyCodesModal'; // 🆕 Sprint 14
+import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal';
 import {
   ColumnDef,
   buildCsv,
   downloadCsv,
   getSelectedKeys,
-} from '@/lib/columnExport'; // 🆕 Sprint 12
+} from '@/lib/columnExport';
+
 // =================================================================
-// 📦 Tipos do frontend (espelham o backend)
+// 📦 Tipos
 // =================================================================
 interface InventoryMetrics {
   totalProducts: number;
@@ -115,8 +118,8 @@ const MOVEMENT_CONFIG: Record<string, { label: string; className: string }> = {
   ENTRADA: { label: 'Entrada', className: 'bg-green-50 text-green-700' },
   DEVOLUCAO: { label: 'Devolução', className: 'bg-red-50 text-red-700' },
   AJUSTE_POSITIVO: { label: 'Ajuste +', className: 'bg-teal-50 text-teal-700' },
-   AJUSTE_NEGATIVO: { label: 'Ajuste −', className: 'bg-orange-50 text-orange-700' },
-  SALDO_INICIAL: { label: 'Saldo Inicial', className: 'bg-blue-50 text-blue-700' }, // 🆕 Sprint 10
+  AJUSTE_NEGATIVO: { label: 'Ajuste −', className: 'bg-orange-50 text-orange-700' },
+  SALDO_INICIAL: { label: 'Saldo Inicial', className: 'bg-blue-50 text-blue-700' },
 };
 
 function MovementBadge({ type }: { type: string }) {
@@ -130,7 +133,6 @@ function MovementBadge({ type }: { type: string }) {
 
 // =================================================================
 // 🆕 Sprint 12: colunas exportáveis do Estoque
-// Código e Descrição são obrigatórias (always) — chave de leitura.
 // =================================================================
 const EXPORT_COLUMNS: ColumnDef[] = [
   { key: 'code', label: 'Código', always: true },
@@ -144,28 +146,12 @@ const EXPORT_COLUMNS: ColumnDef[] = [
 ];
 
 // =================================================================
-// 📄 Página: Estoque Fiscal (saldo + kardex + ajustes + limpeza)
-// =================================================================
-// Sprint 8: Integrado com seletor de cliente fiscal.
-// Quando um cliente está selecionado:
-//   - KPIs calculados apenas para o estoque do cliente
-//   - Grid de produtos filtrado pelo clientId
-//   - Ajustes e limpeza vinculados aos produtos do cliente
-// Quando "Todos os clientes" (clientId = null):
-//   - Mostra/limpa apenas os produtos sem cliente (legados)
-//
-// Sprint 9: Botão "Limpar vazios" remove produtos órfãos
-// (saldo 0 + sem kardex + sem notas) após estorno de NF-e.
+// 📄 Página: Estoque Fiscal
 // =================================================================
 export default function FiscalEstoquePage() {
-  // =================================================================
-  // 🆕 Sprint 8: Estado global do cliente selecionado (Zustand)
-  // OBRIGATÓRIO estar DENTRO do componente (Rules of Hooks do React)
-  // =================================================================
   const { selected } = useFiscalClientStore();
 
   const [metrics, setMetrics] = useState<InventoryMetrics | null>(null);
-
   const [products, setProducts] = useState<ProductBalance[]>([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, totalPages: 0 });
   const [page, setPage] = useState(1);
@@ -174,11 +160,9 @@ export default function FiscalEstoquePage() {
   const [onlyPositive, setOnlyPositive] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Modal Kardex
   const [kardex, setKardex] = useState<KardexData | null>(null);
   const [loadingKardex, setLoadingKardex] = useState(false);
 
-  // Modal Ajuste
   const [adjustTarget, setAdjustTarget] = useState<ProductBalance | null>(null);
   const [adjustType, setAdjustType] = useState<'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO'>(
     'AJUSTE_POSITIVO',
@@ -187,46 +171,36 @@ export default function FiscalEstoquePage() {
   const [adjustReason, setAdjustReason] = useState('');
   const [savingAdjust, setSavingAdjust] = useState(false);
 
-  // =================================================================
-  // 🆕 Sprint 9: Modal de limpeza de produtos vazios
-  // =================================================================
-    const [cleanupOpen, setCleanupOpen] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
   const [cleaning, setCleaning] = useState(false);
 
-  // 🆕 Sprint 9: exclusão total do estoque (operação destrutiva)
-    const [wipeOpen, setWipeOpen] = useState(false);
+  const [wipeOpen, setWipeOpen] = useState(false);
   const [wipeText, setWipeText] = useState('');
   const [wiping, setWiping] = useState(false);
 
-    // 🆕 Sprint 10: modal de importação de estoque inicial
   const [initialImportOpen, setInitialImportOpen] = useState(false);
 
-  // 🆕 Sprint 12: exportação CSV com campos selecionáveis
+  // 🆕 Sprint 14: unificar códigos
+  const [unifyOpen, setUnifyOpen] = useState(false);
+
   const [pickerOpen, setPickerOpen] = useState(false);
   const [exportCols, setExportCols] = useState<string[]>([]);
 
-  // Carrega a seleção persistida ao montar a página
   useEffect(() => {
     setExportCols(getSelectedKeys('fiscal-estoque', EXPORT_COLUMNS));
   }, []);
 
-  // ---------------------------------------------------------------
-  // 📊 KPIs (filtrados pelo cliente selecionado)
-  // ---------------------------------------------------------------
   const loadMetrics = useCallback(async () => {
     try {
       const { data } = await api.get('/fiscal/inventory/metrics', {
-        params: { clientId: selected.id || undefined }, // 🆕 Sprint 8
+        params: { clientId: selected.id || undefined },
       });
       setMetrics(data);
     } catch {
-      // silencioso — cards ficam zerados
+      // silencioso
     }
-  }, [selected.id]); // 🆕 Sprint 8
+  }, [selected.id]);
 
-  // ---------------------------------------------------------------
-  // 📋 Saldo por produto (filtrado pelo cliente selecionado)
-  // ---------------------------------------------------------------
   const loadBalance = useCallback(async () => {
     setLoading(true);
     try {
@@ -237,7 +211,7 @@ export default function FiscalEstoquePage() {
           search: search || undefined,
           ncm: ncm || undefined,
           onlyPositive: onlyPositive ? 'true' : undefined,
-          clientId: selected.id || undefined, // 🆕 Sprint 8
+          clientId: selected.id || undefined,
         },
       });
       setProducts(data.data || []);
@@ -247,9 +221,8 @@ export default function FiscalEstoquePage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, ncm, onlyPositive, selected.id]); // 🆕 Sprint 8
+  }, [page, search, ncm, onlyPositive, selected.id]);
 
-  // Reset da paginação ao trocar de cliente (UX previsível)
   useEffect(() => {
     setPage(1);
   }, [selected.id]);
@@ -262,9 +235,6 @@ export default function FiscalEstoquePage() {
     loadBalance();
   }, [loadBalance]);
 
-  // ---------------------------------------------------------------
-  // 📜 Abrir Kardex (histórico de movimentações do produto)
-  // ---------------------------------------------------------------
   const openKardex = async (product: ProductBalance) => {
     setLoadingKardex(true);
     setKardex(null);
@@ -280,12 +250,8 @@ export default function FiscalEstoquePage() {
     }
   };
 
-  // ---------------------------------------------------------------
-  // ✏️ Registrar ajuste de inventário (sobra/quebra)
-  // ---------------------------------------------------------------
   const submitAdjust = async () => {
     if (!adjustTarget) return;
-
     setSavingAdjust(true);
     try {
       await api.post('/fiscal/inventory/adjust', {
@@ -307,14 +273,6 @@ export default function FiscalEstoquePage() {
     }
   };
 
-  // ---------------------------------------------------------------
-  // 🆕 Sprint 9: Limpar produtos vazios (órfãos após estorno)
-  // ---------------------------------------------------------------
-  // Envia clientId para o backend:
-  //   - Com cliente selecionado → limpa apenas produtos daquele cliente
-  //   - Sem cliente (null)      → limpa apenas produtos legados (sem cliente)
-  // O backend só remove produtos com saldo 0 + sem kardex + sem notas.
-  // ---------------------------------------------------------------
   const confirmCleanup = async () => {
     setCleaning(true);
     try {
@@ -327,14 +285,11 @@ export default function FiscalEstoquePage() {
       loadMetrics();
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Erro na limpeza do catálogo.');
-        } finally {
+    } finally {
       setCleaning(false);
     }
   };
 
-  // ---------------------------------------------------------------
-  // ☢️ Sprint 9: Excluir TODO o estoque do escopo selecionado
-  // ---------------------------------------------------------------
   const confirmWipe = async () => {
     setWiping(true);
     try {
@@ -350,17 +305,11 @@ export default function FiscalEstoquePage() {
       loadMetrics();
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Erro ao excluir o estoque.');
-        } finally {
+    } finally {
       setWiping(false);
     }
   };
 
-  // ---------------------------------------------------------------
-  // 🆕 Sprint 12: Exportar CSV com as colunas selecionadas
-  // ---------------------------------------------------------------
-  // Busca TODAS as linhas (sem paginação) respeitando os filtros
-  // ativos (busca, NCM, saldo, cliente) e gera o CSV customizado.
-  // ---------------------------------------------------------------
   const handleExport = async () => {
     try {
       const { data } = await api.get('/fiscal/inventory/balance', {
@@ -386,14 +335,9 @@ export default function FiscalEstoquePage() {
     }
   };
 
-  // ---------------------------------------------------------------
-  // 🎨 Renderização
-  // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* ================================================================
-          Cabeçalho com título + seletor de cliente
-          ================================================================ */}
+      {/* Cabeçalho */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -404,14 +348,9 @@ export default function FiscalEstoquePage() {
             Saldo por produto, custo médio ponderado e kardex completo para apuração de ICMS.
           </p>
         </div>
-
-        {/* 🆕 Sprint 8: Seletor de cliente (estado global persistido) */}
         <FiscalClientSelector />
       </div>
 
-      {/* ================================================================
-          Aviso contextual: cliente selecionado
-          ================================================================ */}
       {selected.id && (
         <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
           <div className="p-1.5 bg-teal-100 rounded-lg">
@@ -421,16 +360,11 @@ export default function FiscalEstoquePage() {
             <p className="text-sm font-medium text-teal-900">
               Visualizando estoque de: <span className="font-bold">{selected.name}</span>
             </p>
-            <p className="text-xs text-teal-700 mt-0.5">
-              KPIs, produtos e kardex estão filtrados exclusivamente por este cliente.
-            </p>
           </div>
         </div>
       )}
 
-      {/* ================================================================
-          Cards de KPI (filtrados pelo cliente selecionado)
-          ================================================================ */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
@@ -489,9 +423,7 @@ export default function FiscalEstoquePage() {
         </div>
       </div>
 
-      {/* ================================================================
-          Filtros + Tabela de produtos
-          ================================================================ */}
+      {/* Filtros + tabela */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="relative flex-1 min-w-[220px]">
@@ -530,47 +462,46 @@ export default function FiscalEstoquePage() {
             Apenas com saldo
           </label>
 
-          {/* ============================================================
-              🆕 Sprint 9: Botão de limpeza de produtos vazios
-              Posicionado na linha de filtros, após o checkbox.
-              ============================================================ */}
-                    <button
+          <button
             onClick={() => setCleanupOpen(true)}
             className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-            title="Remove produtos com saldo 0, sem kardex e sem notas vinculadas"
           >
             <Eraser className="h-4 w-4" />
             Limpar vazios
           </button>
 
-          {/* 🆕 Sprint 9: exclusão total (vermelho = destrutivo) */}
           <button
             onClick={() => {
               setWipeText('');
               setWipeOpen(true);
             }}
             className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
-            title="Exclui TODOS os produtos e movimentações do escopo selecionado"
           >
-                        <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-4 w-4" />
             Excluir todo o estoque
           </button>
 
-          {/* 🆕 Sprint 10: importação de estoque inicial */}
           <button
             onClick={() => setInitialImportOpen(true)}
             className="flex items-center gap-2 px-3 py-2 text-sm text-teal-700 border border-teal-300 rounded-lg hover:bg-teal-50 transition-colors"
-            title="Importa o saldo inicial do sistema anterior (CSV ou texto do PDF)"
           >
-                        <FileUp className="h-4 w-4" />
+            <FileUp className="h-4 w-4" />
             Importar estoque inicial
           </button>
 
-          {/* 🆕 Sprint 12: exportar CSV + escolher campos */}
+          {/* 🆕 Sprint 14: unificar códigos */}
+          <button
+            onClick={() => setUnifyOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
+            title="Substitui códigos pelo Código Unificado da planilha"
+          >
+            <Shuffle className="h-4 w-4" />
+            Unificar códigos
+          </button>
+
           <button
             onClick={handleExport}
             className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 border border-green-300 rounded-lg hover:bg-green-50 transition-colors"
-            title="Exporta o estoque (respeita filtros e colunas selecionadas)"
           >
             <FileDown className="h-4 w-4" />
             Exportar CSV
@@ -578,7 +509,6 @@ export default function FiscalEstoquePage() {
           <button
             onClick={() => setPickerOpen(true)}
             className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-            title="Escolher campos da exportação"
           >
             <Settings2 className="h-4 w-4" />
             Campos
@@ -634,14 +564,12 @@ export default function FiscalEstoquePage() {
                         <button
                           onClick={() => openKardex(p)}
                           className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
-                          title="Ver Kardex"
                         >
                           <History className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setAdjustTarget(p)}
                           className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg"
-                          title="Ajuste de inventário"
                         >
                           <SlidersHorizontal className="h-4 w-4" />
                         </button>
@@ -654,9 +582,6 @@ export default function FiscalEstoquePage() {
           </div>
         )}
 
-        {/* ================================================================
-            Paginação
-            ================================================================ */}
         {meta.totalPages > 1 && (
           <div className="flex items-center justify-between mt-4">
             <p className="text-xs text-slate-500">
@@ -682,9 +607,7 @@ export default function FiscalEstoquePage() {
         )}
       </div>
 
-      {/* ================================================================
-          MODAL KARDEX (histórico de movimentações do produto)
-          ================================================================ */}
+      {/* Kardex */}
       {(kardex || loadingKardex) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -785,9 +708,7 @@ export default function FiscalEstoquePage() {
         </div>
       )}
 
-      {/* ================================================================
-          MODAL AJUSTE DE INVENTÁRIO (sobra/quebra)
-          ================================================================ */}
+      {/* Ajuste */}
       {adjustTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md">
@@ -862,7 +783,7 @@ export default function FiscalEstoquePage() {
                   onChange={(e) => setAdjustReason(e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  placeholder="Ex: sobra apurada em inventário físico de agosto/2026"
+                  placeholder="Ex: sobra apurada em inventário físico"
                 />
               </div>
 
@@ -878,12 +799,7 @@ export default function FiscalEstoquePage() {
         </div>
       )}
 
-      {/* ================================================================
-          🆕 MODAL: LIMPEZA DE PRODUTOS VAZIOS (Sprint 9)
-          ================================================================
-          Confirmação interativa (padrão Conta Certa, sem confirm() nativo).
-          Só remove produtos com saldo 0 + sem kardex + sem notas.
-          ================================================================ */}
+      {/* Limpar vazios */}
       {cleanupOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md">
@@ -897,13 +813,12 @@ export default function FiscalEstoquePage() {
                   <p className="text-sm text-slate-600 mt-2">
                     Remove do catálogo os produtos com <strong>saldo zero</strong>,{' '}
                     <strong>sem movimentações</strong> e <strong>sem notas vinculadas</strong>.
-                    Não apaga histórico de notas nem produtos com estoque.
                   </p>
                   {selected.id ? (
                     <p className="text-xs text-teal-700 mt-2">
                       Escopo: apenas produtos de <strong>{selected.name}</strong>.
                     </p>
-                                   ) : (
+                  ) : (
                     <p className="text-xs text-slate-500 mt-2">
                       Escopo: todos os produtos vazios, de qualquer cliente.
                     </p>
@@ -929,14 +844,9 @@ export default function FiscalEstoquePage() {
             </div>
           </div>
         </div>
-            )}
+      )}
 
-      {/* ================================================================
-          ☢️ MODAL: EXCLUSÃO TOTAL DO ESTOQUE (Sprint 9)
-          ================================================================
-          Trava de segurança enterprise: o botão só habilita após
-          digitar EXCLUIR. Escopo respeita o seletor de cliente.
-          ================================================================ */}
+      {/* Wipe */}
       {wipeOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md">
@@ -959,14 +869,9 @@ export default function FiscalEstoquePage() {
                     )}
                     . Esta ação <strong>não pode ser desfeita</strong>.
                   </p>
-                  <p className="text-xs text-slate-500 mt-2">
-                    As notas fiscais importadas serão mantidas, mas seus itens
-                    ficarão desvinculados do catálogo.
-                  </p>
                 </div>
               </div>
 
-              {/* Trava de confirmação por digitação */}
               <div className="mt-4">
                 <label className="block text-xs font-medium text-slate-500 mb-1">
                   Digite <span className="font-bold text-red-600">EXCLUIR</span> para confirmar:
@@ -999,10 +904,10 @@ export default function FiscalEstoquePage() {
             </div>
           </div>
         </div>
-           )}
+      )}
 
-      {/* 🆕 Sprint 10: modal de importação de estoque inicial */}
-            {initialImportOpen && (
+      {/* Import inicial */}
+      {initialImportOpen && (
         <InitialStockImportModal
           onClose={() => setInitialImportOpen(false)}
           onImported={() => {
@@ -1012,7 +917,19 @@ export default function FiscalEstoquePage() {
         />
       )}
 
-      {/* 🆕 Sprint 12: seletor de campos da exportação */}
+      {/* 🆕 Sprint 14: unificação de códigos */}
+      {unifyOpen && (
+        <UnifyCodesModal
+          open={unifyOpen}
+          onClose={() => setUnifyOpen(false)}
+          onApplied={() => {
+            loadBalance();
+            loadMetrics();
+          }}
+        />
+      )}
+
+      {/* Campos */}
       <ColumnPickerModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
