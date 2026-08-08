@@ -649,6 +649,117 @@ export class InventoryService {
       noBalance: rows.filter((r) => r.status === 'SEM_SALDO').length,
     };
 
-    return { summary, rows };
+        return { summary, rows };
+  }
+
+  // =================================================================
+  // 📑 RELATÓRIO DE INVENTÁRIO FISCAL COM TRIBUTOS (Sprint 13)
+  // =================================================================
+
+  /**
+   * Gera o relatório de inventário no layout H010 ESTENDIDO
+   * (17 colunas: dados do item + tributos da aquisição + IR).
+   *
+   * 🎯 Regra de negócio (definida com o usuário):
+   *   Lista apenas produtos que:
+   *     1. ESTÃO nas notas importadas (têm itens de NF-e)
+   *     2. NÃO estão zerados no estoque (currentStock ≠ 0)
+   *
+   *  Critérios de agregação:
+   *   - Quantidade/Valor Unitário/Total → saldo ATUAL do catálogo
+   *     (custo médio ponderado)
+   *   - Tributos (ICMS, base, ST, IPI, PIS, COFINS) → SOMA dos
+   *     itens de NF-e do produto (impostos das aquisições)
+   *   - CST → da última compra (cst ou csosn)
+   *
+   * 🛡️ Campos SPED sem dado no sistema saem com default legal:
+   *   - IND_OWN = '0' (mercadoria própria)
+   *   - CNPJ_PROP / COD_CTA / OBS = vazio
+   *
+   * @param clientId - escopo do cliente (null = todos)
+   * @returns { count, rows[] } ordenado por código
+   */
+  async getInventoryTaxReport(companyId: string, clientId?: string | null) {
+    // 1. Busca produtos com saldo ≠ 0, incluindo os itens de NF-e
+    const products = await this.prisma.fiscalProduct.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        currentStock: { not: 0 }, // 🎯 regra: não zerados no estoque
+        ...(clientId ? { clientId } : {}),
+      },
+      orderBy: { code: 'asc' },
+      include: {
+        invoiceItems: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            invoice: {
+              select: {
+                number: true,
+                series: true,
+                emissionDate: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // 2. Monta as linhas do relatório
+    const rows: any[] = [];
+
+    for (const p of products) {
+      const items = p.invoiceItems || [];
+
+      // 🎯 regra: deve estar nas notas importadas
+      if (items.length === 0) continue;
+
+      // Agrega tributos das aquisições (itens de NF-e)
+      let icms = 0;
+      let icmsBase = 0;
+      let st = 0;
+      let ipi = 0;
+      let pis = 0;
+      let cofins = 0;
+      let cst = '';
+      let reference = '';
+
+      for (const it of items) {
+        icms += Number(it.icmsValue ?? 0);
+        icmsBase += Number(it.icmsBase ?? 0);
+        st += Number(it.icmsStValue ?? 0);
+        ipi += Number(it.ipiValue ?? 0);
+        pis += Number(it.pisValue ?? 0);
+        cofins += Number(it.cofinsValue ?? 0);
+        cst = it.cst || it.csosn || cst;
+        reference = it.supplierCode || reference;
+      }
+
+      const quantity = Number(p.currentStock);
+      const unitValue = Number(p.averageCost);
+      const totalValue = this.round2(quantity * unitValue);
+
+      rows.push({
+        code: p.code,                                   // Código do Produto
+        reference: reference || p.description,          // Referência
+        quantity: this.round2(quantity),                // Quantidade
+        unitValue,                                      // Valor Unitário
+        icmsValue: this.round2(icms),                   // Valor do ICMS
+        totalValue,                                     // Valor Total
+        ownershipIndicator: '0',                        // Indicador posse (própria)
+        ownerCnpjCpf: '',                               // CNPJ terceiro (vazio)
+        spedAccount: '',                                // Conta Sped (vazio)
+        observations: '',                               // Observações (vazio)
+        icmsBase: this.round2(icmsBase),                // Base de ICMS
+        cst,                                            // CST do ICMS
+        icmsSt: this.round2(st),                        // Valor de ICMS ST
+        ipi: this.round2(ipi),                          // Valor de IPI
+        pis: this.round2(pis),                          // Valor de PIS
+        cofins: this.round2(cofins),                    // Valor de COFINS
+        irValue: totalValue,                            // Valor p/ IR
+      });
+    }
+
+    return { count: rows.length, rows };
   }
 }

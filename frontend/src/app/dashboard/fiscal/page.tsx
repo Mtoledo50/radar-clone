@@ -8,20 +8,20 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
-  Loader2,
   Inbox,
+  Loader2,
   Receipt,
 } from 'lucide-react';
 import api from '@/lib/axios';
-import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
-import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
+import { useFiscalClientStore } from '@/store/fiscalClientStore';
 
 // =================================================================
 // 📦 Tipos do módulo fiscal (frontend)
 // =================================================================
 interface UploadResult {
   fileName: string;
-  status: 'PROCESSED' | 'ERROR';
+  status: 'PROCESSED' | 'ERROR' | 'DUPLICATE';
   accessKey?: string;
   invoiceId?: string;
   items?: number;
@@ -48,16 +48,7 @@ const formatDate = (d: string) => new Date(d).toLocaleDateString('pt-BR');
 // =================================================================
 // 📄 Página: Importação de NF-e (Upload de XML)
 // =================================================================
-// Sprint 8: Integrado com seletor de cliente fiscal.
-// Quando um cliente está selecionado:
-//   - As notas importadas são vinculadas a esse cliente (clientId)
-//   - A lista "Últimas Notas" mostra apenas as notas do cliente
-// Quando "Todos os clientes" está selecionado (clientId = null):
-//   - As notas ficam no catálogo geral (dados legados)
-//   - A lista mostra todas as notas do escritório
-// =================================================================
 export default function FiscalUploadPage() {
-  // 🆕 Sprint 8: Estado global do cliente selecionado (Zustand)
   const { selected } = useFiscalClientStore();
 
   const [files, setFiles] = useState<File[]>([]);
@@ -67,41 +58,30 @@ export default function FiscalUploadPage() {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ---------------------------------------------------------------
-  // 📋 Carrega as últimas 10 notas importadas
-  // ---------------------------------------------------------------
-  // 🆕 Sprint 8:
-  // - Filtro clientId reage ao cliente selecionado
-  // - Ao trocar de cliente, a lista recarrega automaticamente
-  // ---------------------------------------------------------------
   const loadRecent = useCallback(async () => {
     try {
       const { data } = await api.get('/fiscal/invoices', {
         params: {
           limit: 10,
-          clientId: selected.id || undefined, // 🆕 Sprint 8: filtra por cliente
+          clientId: selected.id || undefined,
         },
       });
       setRecent(data.data || []);
     } catch {
-      // silencioso — lista recente é complementar
+      // silencioso
     }
-  }, [selected.id]); // 🆕 Sprint 8: depende do cliente selecionado
+  }, [selected.id]);
 
   useEffect(() => {
     loadRecent();
   }, [loadRecent]);
 
-  // ---------------------------------------------------------------
-  // 📥 Seleção de arquivos (input + drag & drop)
-  // ---------------------------------------------------------------
   const addFiles = (list: FileList | null) => {
     if (!list) return;
-    const xmls = Array.from(list).filter(
-      (f) => f.name.toLowerCase().endsWith('.xml'),
+    const xmls = Array.from(list).filter((f) =>
+      f.name.toLowerCase().endsWith('.xml'),
     );
     const rejected = list.length - xmls.length;
-
     if (rejected > 0) {
       toast.error(`${rejected} arquivo(s) ignorado(s) — apenas .xml são aceitos.`);
     }
@@ -116,42 +96,29 @@ export default function FiscalUploadPage() {
   const removeFile = (name: string) =>
     setFiles((prev) => prev.filter((f) => f.name !== name));
 
-  // ---------------------------------------------------------------
-  // 🚀 Upload para o backend
-  // ---------------------------------------------------------------
-  // 🆕 Sprint 8:
-  // Se um cliente estiver selecionado, o clientId é enviado como
-  // campo FormData. O backend vincula nota + produtos + movimentos
-  // a esse cliente.
-  // ---------------------------------------------------------------
   const handleUpload = async () => {
     if (files.length === 0) return;
-
     setUploading(true);
     setResults(null);
-
     try {
       const form = new FormData();
       files.forEach((f) => form.append('files', f));
-
-      // 🆕 Sprint 8: vincular ao cliente selecionado (se houver)
       if (selected.id) {
         form.append('clientId', selected.id);
       }
-
       const { data } = await api.post('/fiscal/invoices/upload', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-
       setResults(data.results);
-
       if (data.processed > 0) {
         toast.success(`${data.processed} nota(s) importada(s) com sucesso!`);
+      }
+      if (data.duplicates > 0) {
+        toast.warning(`${data.duplicates} nota(s) duplicada(s) — ignoradas.`);
       }
       if (data.errors > 0) {
         toast.error(`${data.errors} arquivo(s) com erro — veja o detalhamento.`);
       }
-
       setFiles([]);
       loadRecent();
     } catch (e: any) {
@@ -161,14 +128,8 @@ export default function FiscalUploadPage() {
     }
   };
 
-  // ---------------------------------------------------------------
-  // 🎨 Renderização
-  // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* ================================================================
-          Cabeçalho com título + seletor de cliente
-          ================================================================ */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -179,15 +140,9 @@ export default function FiscalUploadPage() {
             Envie os XMLs de compra para alimentar o estoque fiscal e a apuração de ICMS.
           </p>
         </div>
-
-        {/* 🆕 Sprint 8: Seletor de cliente (estado global persistido) */}
         <FiscalClientSelector />
       </div>
 
-      {/* ================================================================
-          Aviso contextual: cliente selecionado
-          Mostra ao usuário que os XMLs serão vinculados ao cliente ativo
-          ================================================================ */}
       {selected.id && (
         <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-start gap-3">
           <div className="p-1.5 bg-teal-100 rounded-lg flex-shrink-0">
@@ -204,15 +159,9 @@ export default function FiscalUploadPage() {
         </div>
       )}
 
-      {/* ================================================================
-          Zona de Upload (drag & drop)
-          ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragActive(true);
-          }}
+          onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
           onDragLeave={() => setDragActive(false)}
           onDrop={(e) => {
             e.preventDefault();
@@ -220,11 +169,9 @@ export default function FiscalUploadPage() {
             addFiles(e.dataTransfer.files);
           }}
           onClick={() => inputRef.current?.click()}
-          className={`
-            border-2 border-dashed rounded-xl p-10 text-center cursor-pointer
-            transition-colors
-            ${dragActive ? 'border-teal-500 bg-teal-50' : 'border-slate-300 hover:border-teal-400 hover:bg-slate-50'}
-          `}
+          className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-colors ${
+            dragActive ? 'border-teal-500 bg-teal-50' : 'border-slate-300 hover:border-teal-400 hover:bg-slate-50'
+          }`}
         >
           <Upload className="h-10 w-10 text-teal-600 mx-auto mb-3" />
           <p className="font-semibold text-slate-700">
@@ -246,7 +193,6 @@ export default function FiscalUploadPage() {
           />
         </div>
 
-        {/* Lista de arquivos selecionados */}
         {files.length > 0 && (
           <div className="mt-4 space-y-2">
             {files.map((f) => (
@@ -266,7 +212,6 @@ export default function FiscalUploadPage() {
                 </button>
               </div>
             ))}
-
             <button
               onClick={handleUpload}
               disabled={uploading}
@@ -283,44 +228,48 @@ export default function FiscalUploadPage() {
         )}
       </div>
 
-      {/* ================================================================
-          Resultado do processamento (por arquivo)
-          ================================================================ */}
       {results && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h3 className="font-bold text-slate-900 mb-4">Resultado da Importação</h3>
           <div className="space-y-2">
-            {results.map((r, i) => (
-              <div
-                key={i}
-                className={`flex items-start gap-3 rounded-lg px-4 py-3 ${
-                  r.status === 'PROCESSED' ? 'bg-green-50' : 'bg-red-50'
-                }`}
-              >
-                {r.status === 'PROCESSED' ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                )}
-                <div className="text-sm">
-                  <p className="font-medium text-slate-800">{r.fileName}</p>
-                  {r.status === 'PROCESSED' ? (
-                    <p className="text-slate-600">
-                      {r.items} item(ns) • Total {formatBRL(r.totalValue || 0)}
-                    </p>
+            {results.map((r, i) => {
+              const isOk = r.status === 'PROCESSED';
+              const isDup = r.status === 'DUPLICATE';
+              return (
+                <div
+                  key={i}
+                  className={`flex items-start gap-3 rounded-lg px-4 py-3 ${
+                    isOk ? 'bg-green-50' : isDup ? 'bg-amber-50' : 'bg-red-50'
+                  }`}
+                >
+                  {isOk ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                   ) : (
-                    <p className="text-red-700">{r.error}</p>
+                    <AlertCircle
+                      className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
+                        isDup ? 'text-amber-600' : 'text-red-600'
+                      }`}
+                    />
                   )}
+                  <div className="text-sm">
+                    <p className="font-medium text-slate-800">{r.fileName}</p>
+                    {isOk ? (
+                      <p className="text-slate-600">
+                        {r.items} item(ns) • Total {formatBRL(r.totalValue || 0)}
+                      </p>
+                    ) : (
+                      <p className={isDup ? 'text-amber-700' : 'text-red-700'}>
+                        {r.error}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* ================================================================
-          Últimas notas importadas (filtradas pelo cliente selecionado)
-          ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-900">Últimas Notas Importadas</h3>

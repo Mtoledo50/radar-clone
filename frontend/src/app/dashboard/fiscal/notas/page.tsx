@@ -19,8 +19,8 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import api from '@/lib/axios';
-import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // Sprint 8
-import { useFiscalClientStore } from '@/store/fiscalClientStore'; // Sprint 8
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
+import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
 
 // =================================================================
 // 📦 Tipos do frontend (espelham o backend)
@@ -114,11 +114,23 @@ function StatusBadge({ status }: { status: string }) {
 // =================================================================
 // 📄 Página: Notas Fiscais (consulta + detalhe + gestão em lote)
 // =================================================================
-// Sprint 8: seletor de cliente (filtro global persistido)
+// Sprint 8: seletor de cliente (filtro global persistido em localStorage).
 // Sprint 9: seleção múltipla + atribuir cliente + excluir com estorno
+//   (recalcula saldo + custo médio por replay das movimentações restantes).
+//
+// 🛡️ Regras de negócio:
+//   - Seleção múltipla é apenas "da página atual" (não cross-page) — UX
+//     segura que evita ações em itens invisíveis.
+//   - Exclusão é SEQUENCIAL (não paralela): cada DELETE recalcula
+//     estoque e custo médio. Ordem preserva integrididade do Kardex.
+//   - Atribuir cliente em lote também atualiza as movimentações e
+//     produtos vinculados (via transação atômica no backend).
 // =================================================================
 export default function FiscalNotasPage() {
+  // =================================================================
   // 🆕 Sprint 8: cliente selecionado (OBRIGATÓRIO dentro do componente)
+  // Zustand + localStorage — sobrevive ao refresh da página.
+  // =================================================================
   const { selected } = useFiscalClientStore();
 
   // KPIs e filtro de período
@@ -133,16 +145,16 @@ export default function FiscalNotasPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // 🆕 Sprint 9: seleção múltipla
+  // 🆕 Sprint 9: seleção múltipla (apenas página atual)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // 🆕 Sprint 9: modal atribuir cliente
+  // 🆕 Sprint 9: modal atribuir cliente em lote
   const [assignOpen, setAssignOpen] = useState(false);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [assignClientId, setAssignClientId] = useState('');
   const [assigning, setAssigning] = useState(false);
 
-  // 🆕 Sprint 9: modal de confirmação de exclusão
+  // 🆕 Sprint 9: modal de confirmação de exclusão (individual ou lote)
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -154,12 +166,14 @@ export default function FiscalNotasPage() {
   // ---------------------------------------------------------------
   // 📊 Carrega KPIs (reage a período + cliente selecionado)
   // ---------------------------------------------------------------
+  // 🆕 Sprint 8: clientId filtra os KPIs por cliente
+  // ---------------------------------------------------------------
   const loadMetrics = useCallback(async () => {
     try {
       const params: any = {};
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
-      if (selected.id) params.clientId = selected.id;
+      if (selected.id) params.clientId = selected.id; // 🆕 Sprint 8
       const { data } = await api.get('/fiscal/invoices/metrics', { params });
       setMetrics(data);
     } catch {
@@ -178,7 +192,7 @@ export default function FiscalNotasPage() {
           page,
           limit: 10,
           search: search || undefined,
-          clientId: selected.id || undefined,
+          clientId: selected.id || undefined, // 🆕 Sprint 8
         },
       });
       setInvoices(data.data || []);
@@ -190,7 +204,12 @@ export default function FiscalNotasPage() {
     }
   }, [page, search, selected.id]);
 
-  // Limpa seleção ao trocar página/cliente (evita ações em itens invisíveis)
+  // ---------------------------------------------------------------
+  // 🧹 Limpa seleção ao trocar página/cliente (UX segura)
+  // ---------------------------------------------------------------
+  // Evita o risco de o usuário executar uma ação em lote em itens
+  // que não estão mais visíveis após paginação ou troca de cliente.
+  // ---------------------------------------------------------------
   useEffect(() => {
     setSelectedIds([]);
   }, [page, selected.id, search]);
@@ -212,6 +231,7 @@ export default function FiscalNotasPage() {
     );
   };
 
+  // "Selecionar tudo" considera apenas a PÁGINA ATUAL (UX previsível)
   const allPageSelected =
     invoices.length > 0 && invoices.every((i) => selectedIds.includes(i.id));
 
@@ -221,6 +241,12 @@ export default function FiscalNotasPage() {
 
   // ---------------------------------------------------------------
   // 🔗 Atribuir cliente em lote (Sprint 9)
+  // ---------------------------------------------------------------
+  // Fluxo:
+  //   1. Abre o modal e carrega a lista de clientes do escritório
+  //   2. Usuário seleciona o cliente de destino
+  //   3. PATCH /fiscal/invoices/assign-client em transação atômica
+  //      atualiza: nota + movimentações + produtos (sem cliente)
   // ---------------------------------------------------------------
   const openAssignModal = async () => {
     setAssignClientId('');
@@ -261,12 +287,24 @@ export default function FiscalNotasPage() {
   // ---------------------------------------------------------------
   // 🗑️ Excluir com estorno (Sprint 9) — individual ou em lote
   // ---------------------------------------------------------------
+  // 🛡️ Decisão técnica: exclusão SEQUENCIAL (não paralela).
+  // Motivo: cada DELETE recalcula o estoque do(s) produto(s) afetado(s)
+  // por replay das movimentações restantes. Paralelizar poderia causar
+  // race condition no cálculo do custo médio ponderado.
+  //
+  // Fluxo:
+  //   1. askDelete(id?) — define se é exclusão individual (id passado)
+  //      ou em lote (null → usa selectedIds)
+  //   2. Modal de confirmação destrutiva
+  //   3. Loop sequencial de DELETE com estorno de estoque
+  // ---------------------------------------------------------------
   const askDelete = (id?: string) => {
     setDeleteTargetId(id || null);
     setDeleteOpen(true);
   };
 
   const confirmDelete = async () => {
+    // Se deleteTargetId tem valor, é individual; caso contrário, em lote
     const ids = deleteTargetId ? [deleteTargetId] : selectedIds;
     if (ids.length === 0) return;
 
@@ -274,7 +312,7 @@ export default function FiscalNotasPage() {
     let ok = 0;
     let fail = 0;
 
-    // Exclusão sequencial com estorno (cada DELETE recalcula o estoque)
+    // SEQUENCIAL — mantém integridade do Kardex (cada DELETE recalcula)
     for (const id of ids) {
       try {
         await api.delete(`/fiscal/invoices/${id}`);
@@ -296,7 +334,7 @@ export default function FiscalNotasPage() {
   };
 
   // ---------------------------------------------------------------
-  // 🔍 Abre o detalhe da nota
+  // 🔍 Abre o detalhe da nota (modal)
   // ---------------------------------------------------------------
   const openDetail = async (id: string) => {
     setLoadingDetail(true);
@@ -310,7 +348,7 @@ export default function FiscalNotasPage() {
     }
   };
 
-  // Quantidade de notas que serão excluídas no modal
+  // Quantidade de notas que serão excluídas no modal (UX clara)
   const deleteCount = deleteTargetId ? 1 : selectedIds.length;
 
   // ---------------------------------------------------------------
@@ -331,10 +369,14 @@ export default function FiscalNotasPage() {
             Consulte, vincule a clientes e exclua NF-e importadas.
           </p>
         </div>
+
+        {/* 🆕 Sprint 8: seletor de cliente (estado global persistido) */}
         <FiscalClientSelector />
       </div>
 
-      {/* Aviso contextual do cliente selecionado */}
+      {/* ================================================================
+          Aviso contextual: cliente selecionado
+          ================================================================ */}
       {selected.id && (
         <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
           <div className="p-1.5 bg-teal-100 rounded-lg">
@@ -349,7 +391,7 @@ export default function FiscalNotasPage() {
       )}
 
       {/* ================================================================
-          Filtro de período
+          Filtro de período (datas inicial e final)
           ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-end gap-4">
         <div>
@@ -384,7 +426,7 @@ export default function FiscalNotasPage() {
       </div>
 
       {/* ================================================================
-          Cards de KPI
+          Cards de KPI (filtrados por período + cliente)
           ================================================================ */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
@@ -465,7 +507,10 @@ export default function FiscalNotasPage() {
           />
         </div>
 
-        {/* 🆕 Sprint 9: barra de ações em lote (aparece com seleção ativa) */}
+        {/* ============================================================
+            🆕 Sprint 9: barra de ações em lote
+            Aparece apenas quando há ao menos uma nota selecionada.
+            ============================================================ */}
         {selectedIds.length > 0 && (
           <div className="mb-4 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-medium text-teal-900">
@@ -475,6 +520,7 @@ export default function FiscalNotasPage() {
               <button
                 onClick={openAssignModal}
                 className="flex items-center gap-2 px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                title="Vincular notas selecionadas a um cliente"
               >
                 <UserPlus className="h-4 w-4" />
                 Atribuir Cliente
@@ -482,6 +528,7 @@ export default function FiscalNotasPage() {
               <button
                 onClick={() => askDelete()}
                 className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                title="Excluir com estorno de estoque (recalcula saldo + custo médio)"
               >
                 <Trash2 className="h-4 w-4" />
                 Excluir
@@ -521,6 +568,7 @@ export default function FiscalNotasPage() {
                       checked={allPageSelected}
                       onChange={toggleSelectAll}
                       className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                      title="Selecionar todas da página atual"
                     />
                   </th>
                   <th className="py-2 pr-4 font-medium">NF-e</th>
@@ -551,7 +599,9 @@ export default function FiscalNotasPage() {
                     </td>
                     <td className="py-3 pr-4 font-medium text-slate-800">
                       #{inv.number} / s{inv.series}
-                      {/* Indicador visual de nota vinculada a cliente */}
+                      {/* 🆕 Sprint 8: indicador visual de nota vinculada a cliente
+                          (bolinha teal) — ajuda a identificar rapidamente notas
+                          que pertencem a um cliente específico vs. legadas */}
                       {inv.clientId && (
                         <span
                           className="ml-2 inline-block w-2 h-2 rounded-full bg-teal-500"
@@ -580,7 +630,7 @@ export default function FiscalNotasPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
-                        {/* 🆕 Sprint 9: exclusão individual */}
+                        {/* 🆕 Sprint 9: exclusão individual com estorno */}
                         <button
                           onClick={() => askDelete(inv.id)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
@@ -625,6 +675,14 @@ export default function FiscalNotasPage() {
 
       {/* ================================================================
           MODAL DE DETALHE DA NOTA
+          ================================================================
+          Exibe cabeçalho + totais + itens com impostos detalhados.
+
+          🛡️ Correção de NaN (Sprint 9+):
+          Os campos `pisValue`, `cofinsValue`, `ipiValue`, `totalValue` e
+          `icmsValue` podem vir do backend como objetos Decimal do Prisma
+          (não Number puro). A dupla proteção `Number(x ?? 0)` garante
+          que a aritmética no frontend funcione corretamente.
           ================================================================ */}
       {(detail || loadingDetail) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -653,23 +711,32 @@ export default function FiscalNotasPage() {
                     </button>
                   </div>
 
+                  {/* Totais da nota — com proteção Number() contra Decimal do Prisma */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-slate-100">
                     <div>
                       <p className="text-xs text-slate-500">Total da Nota</p>
-                      <p className="font-semibold text-slate-800">{formatBRL(detail.totalValue)}</p>
+                      <p className="font-semibold text-slate-800">
+                        {formatBRL(Number(detail.totalValue ?? 0))}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">ICMS</p>
-                      <p className="font-semibold text-green-700">{formatBRL(detail.icmsValue)}</p>
+                      <p className="font-semibold text-green-700">
+                        {formatBRL(Number(detail.icmsValue ?? 0))}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">IPI</p>
-                      <p className="font-semibold text-slate-800">{formatBRL(detail.ipiValue)}</p>
+                      <p className="font-semibold text-slate-800">
+                        {formatBRL(Number(detail.ipiValue ?? 0))}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">PIS + COFINS</p>
                       <p className="font-semibold text-slate-800">
-                        {formatBRL((detail.pisValue || 0) + (detail.cofinsValue || 0))}
+                        {formatBRL(
+                          Number(detail.pisValue ?? 0) + Number(detail.cofinsValue ?? 0),
+                        )}
                       </p>
                     </div>
                   </div>
@@ -690,6 +757,7 @@ export default function FiscalNotasPage() {
                                 NCM {item.ncm} • CFOP {item.cfop} •{' '}
                                 {item.csosn ? `CSOSN ${item.csosn}` : `CST ${item.cst || '-'}`}
                               </p>
+                              {/* Vínculo com o catálogo (se match foi feito) */}
                               {item.product && (
                                 <p className="text-xs text-teal-600 mt-0.5">
                                   → {item.product.code}: {item.product.description}
@@ -698,14 +766,14 @@ export default function FiscalNotasPage() {
                             </div>
                             <div className="text-right text-sm">
                               <p className="font-semibold text-slate-800">
-                                {formatBRL(item.totalValue)}
+                                {formatBRL(Number(item.totalValue ?? 0))}
                               </p>
                               <p className="text-xs text-slate-500">
                                 {Number(item.quantity).toLocaleString('pt-BR')} ×{' '}
-                                {formatBRL(item.unitValue)}
+                                {formatBRL(Number(item.unitValue ?? 0))}
                               </p>
                               <p className="text-xs text-green-700">
-                                ICMS {formatBRL(item.icmsValue)}
+                                ICMS {formatBRL(Number(item.icmsValue ?? 0))}
                               </p>
                             </div>
                           </div>
@@ -722,6 +790,10 @@ export default function FiscalNotasPage() {
 
       {/* ================================================================
           🆕 MODAL: ATRIBUIR CLIENTE (Sprint 9)
+          ================================================================
+          Vincula notas + movimentos + produtos (ainda sem cliente) a um
+          cliente do escritório. Útil para migrar notas legadas que foram
+          importadas sem cliente selecionado.
           ================================================================ */}
       {assignOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -764,6 +836,7 @@ export default function FiscalNotasPage() {
                 </select>
               </div>
 
+              {/* Info-box: o que será vinculado (transparência) */}
               <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-600">
                 <p className="font-medium text-slate-700 mb-1">O que será vinculado:</p>
                 <ul className="list-disc list-inside space-y-0.5">
@@ -788,6 +861,14 @@ export default function FiscalNotasPage() {
 
       {/* ================================================================
           🆕 MODAL: CONFIRMAÇÃO DE EXCLUSÃO (Sprint 9)
+          ================================================================
+          Modal destrutivo com explicação clara do que acontece:
+          - A(s) nota(s) será(ão) removida(s)
+          - O estoque será revertido (saldo + custo médio recalculados)
+          - Ação IRREVERSÍVEL
+
+          Suporta tanto exclusão individual (deleteTargetId setado) quanto
+          em lote (deleteTargetId null → usa selectedIds).
           ================================================================ */}
       {deleteOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
