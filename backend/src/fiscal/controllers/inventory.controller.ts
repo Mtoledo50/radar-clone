@@ -16,21 +16,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
  * =================================================================
  * 📦 InventoryController — Estoque Fiscal e Kardex
  * =================================================================
- * Gerencia o saldo atual de estoque, histórico de movimentações (kardex)
- * e ajustes manuais de inventário.
- * 
- * 🆕 Sprint 8: Todos os endpoints suportam `clientId` para visualizar
- * apenas o estoque do cliente selecionado.
- * 
- * 📌 Endpoints:
- *   GET  /fiscal/inventory/metrics           → KPIs agregados
- *   GET  /fiscal/inventory/balance           → Saldo por produto (paginado)
- *   GET  /fiscal/inventory/movements/:id     → Kardex de um produto
- *   POST /fiscal/inventory/adjust            → Ajuste manual (sobra/quebra)
- * 
- * ⚠️ Ordem das rotas:
- * Rotas literais ('metrics', 'balance', 'adjust') devem vir ANTES
- * de rotas parametrizadas (':productId') para evitar conflitos.
+ * Sprint 14: unificação de códigos via planilha (POST unify-codes)
  * =================================================================
  */
 @Controller('fiscal/inventory')
@@ -38,39 +24,11 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
-  /**
-   * GET /fiscal/inventory/metrics
-   * 
-   * KPIs agregados do estoque para os cards do dashboard.
-   * 
-   * @param clientId - 🆕 Sprint 8: filtra métricas por cliente específico
-   * @returns {
-   *   totalProducts, productsWithStock, totalQuantity, totalValue,
-   *   distinctNcms, distinctSuppliers, topProducts[]
-   * }
-   * 
-   * 💡 Os KPIs são calculados em tempo real a partir do currentStock
-   * e averageCost dos produtos, garantindo sempre dados atualizados.
-   */
   @Get('metrics')
   getMetrics(@Request() req, @Query('clientId') clientId?: string) {
     return this.inventoryService.getMetrics(req.user.companyId, clientId);
   }
 
-  /**
-   * GET /fiscal/inventory/balance
-   * 
-   * Lista o saldo atual de cada produto (grid principal da tela de estoque).
-   * 
-   * @param search - Busca por descrição ou código
-   * @param ncm - Filtro por NCM (aceita parcial, ex: "7318")
-   * @param onlyPositive - "true" para mostrar apenas produtos com saldo > 0
-   * @param page - Página atual
-   * @param limit - Itens por página (máx 100)
-   * @param clientId - 🆕 Sprint 8: filtra produtos por cliente
-   * 
-   * @returns { data: ProdutoSaldo[], meta: PaginationMeta }
-   */
   @Get('balance')
   getBalance(
     @Request() req,
@@ -79,7 +37,7 @@ export class InventoryController {
     @Query('onlyPositive') onlyPositive?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('clientId') clientId?: string, // 🆕 Sprint 8
+    @Query('clientId') clientId?: string,
   ) {
     return this.inventoryService.getBalance(req.user.companyId, {
       search,
@@ -91,24 +49,25 @@ export class InventoryController {
     });
   }
 
-  /**
-   * GET /fiscal/inventory/movements/:productId
-   * 
-   * Histórico completo de movimentações (kardex) de um produto específico.
-   * Essencial para auditoria fiscal e Bloco H do SPED.
-   * 
-   * @param productId - UUID do produto
-   * @param startDate - Filtro inicial (YYYY-MM-DD)
-   * @param endDate - Filtro final (YYYY-MM-DD)
-   * @param limit - Máximo de registros (padrão: 200)
-   * 
-   * @returns {
-   *   product: { id, code, description, ncm, unit, currentStock, averageCost },
-   *   movements: [ { date, type, quantity, unitCost, totalCost, averageCostAfter, invoice? } ]
-   * }
-   * 
-   * 🛡️ Segurança: o service valida se o produto pertence ao companyId do usuário.
-   */
+  @Get('compare')
+  compare(@Request() req, @Query('clientId') clientId?: string) {
+    return this.inventoryService.getComparison(
+      req.user.companyId,
+      clientId || null,
+    );
+  }
+
+  @Get('report/tax')
+  inventoryTaxReport(
+    @Request() req,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.inventoryService.getInventoryTaxReport(
+      req.user.companyId,
+      clientId || null,
+    );
+  }
+
   @Get('movements/:productId')
   getMovements(
     @Request() req,
@@ -124,32 +83,8 @@ export class InventoryController {
     });
   }
 
-  /**
-   * POST /fiscal/inventory/adjust
-   * 
-   * Registra um ajuste manual de inventário (sobra ou quebra).
-   * 
-   * @param body - {
-   *   productId: string (obrigatório),
-   *   type: 'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO',
-   *   quantity: number (> 0),
-   *   reason: string (mínimo 5 caracteres)
-   * }
-   * 
-   * @returns { movement: AjusteCriado, product: NovoSaldo }
-   * 
-   * 🛡️ Regras de Negócio:
-   * - Ajuste negativo não pode deixar o estoque negativo (BadRequest)
-   * - Justificativa é obrigatória (auditoria fiscal)
-   * - Custo médio NÃO é alterado (só quantidade)
-   * - userId é registrado para rastreabilidade
-   * 
-   * 💡 Para ajustes via NF-e (entrada/devolução), use o upload de XML.
-   * Este endpoint é apenas para ajustes manuais de inventário físico.
-   */
   @Post('adjust')
   async adjust(@Request() req, @Body() body: any) {
-    // Validação estrutural no controller (antes de chegar ao service)
     if (!body.productId || !body.type || !body.quantity || !body.reason) {
       throw new BadRequestException(
         'Campos obrigatórios: productId, type, quantity, reason.',
@@ -158,7 +93,7 @@ export class InventoryController {
     try {
       return await this.inventoryService.createAdjustment(
         req.user.companyId,
-        req.user.id, // Auditoria: quem fez o ajuste
+        req.user.id,
         {
           productId: body.productId,
           type: body.type,
@@ -166,45 +101,22 @@ export class InventoryController {
           reason: String(body.reason),
         },
       );
-       } catch (e: any) {
-      // Transforma erros de negócio em 400 Bad Request (não 500)
+    } catch (e: any) {
       throw new BadRequestException(e.message || 'Erro ao criar ajuste.');
     }
   }
 
-  /**
-   * POST /fiscal/inventory/wipe
-   * ☢️ Sprint 9: exclui TODO o estoque do escopo selecionado.
-   * Body: { clientId?: string | null }
-   *
-   * ⚠️ Operação destrutiva e irreversível — o frontend exige
-   * digitar "EXCLUIR" para habilitar o botão.
-   */
-    @Post('wipe')
+  @Post('wipe')
   wipe(@Request() req, @Body() body: any) {
     return this.inventoryService.wipe(req.user.companyId, body?.clientId ?? null);
   }
 
-  /**
-   * POST /fiscal/inventory/initial-import
-   * 🆕 Sprint 10: importa saldo inicial de estoque (abertura).
-   *
-   * Body:
-   * {
-   *   clientId?: string | null,
-   *   referenceDate?: 'YYYY-MM-DD',
-   *   items: [{ code, description, ncm?, unit?, quantity, averageCost }]
-   * }
-   *
-   * 🛡️ O frontend envia apenas linhas REVISADAS pelo usuário
-   * (modal de pré-visualização da Sprint 10 Parte 2).
-   */
   @Post('initial-import')
   initialImport(@Request() req, @Body() body: any) {
     if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
       throw new BadRequestException('Nenhum item para importar.');
     }
-        return this.inventoryService.importInitialStock(
+    return this.inventoryService.importInitialStock(
       req.user.companyId,
       req.user.id,
       body.clientId ?? null,
@@ -216,33 +128,14 @@ export class InventoryController {
   }
 
   /**
-   * GET /fiscal/inventory/compare?clientId=
-   * ⚖️ Sprint 11: conciliação estoque inicial (PDF) × entradas NF-e × saldo atual.
-   * Retorna { summary, rows[] } com divergências destacadas.
+   * POST /fiscal/inventory/unify-codes
+   * 🆕 Sprint 14: aplica códigos unificados da planilha.
    */
-    @Get('compare')
-  compare(@Request() req, @Query('clientId') clientId?: string) {
-    return this.inventoryService.getComparison(
-      req.user.companyId,
-      clientId || null,
-    );
-  }
-
-  /**
-   * GET /fiscal/inventory/report/tax?clientId=
-   *  Sprint 13: Relatório de Inventário Fiscal com Tributos
-   * (layout H010 estendido — 17 colunas).
-   *
-   * 🎯 Regra: produtos que ESTÃO nas notas E com saldo ≠ 0.
-   */
-  @Get('report/tax')
-  inventoryTaxReport(
-    @Request() req,
-    @Query('clientId') clientId?: string,
-  ) {
-    return this.inventoryService.getInventoryTaxReport(
-      req.user.companyId,
-      clientId || null,
-    );
+  @Post('unify-codes')
+  unifyCodes(@Request() req, @Body() body: any) {
+    if (!body.items || !Array.isArray(body.items)) {
+      throw new BadRequestException('items deve ser um array.');
+    }
+    return this.inventoryService.unifyCodes(req.user.companyId, body.items);
   }
 }

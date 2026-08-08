@@ -1,134 +1,227 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { Prisma, MovementType } from '@prisma/client';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
  * =================================================================
- * 📦 InventoryService — Estoque Fiscal e Kardex
+ * 📦 InventoryService — Estoque Fiscal, Kardex e Relatórios
  * =================================================================
- * Gerencia o saldo atual de estoque, histórico de movimentações (kardex)
- * e ajustes manuais de inventário.
+ * Responsável pela gestão completa do estoque fiscal do sistema:
+ * - Saldo atual por produto (currentStock + averageCost)
+ * - Kardex (histórico de movimentações)
+ * - Ajustes manuais de inventário (sobra/quebra)
+ * - Importação de saldo inicial (Sprint 10)
+ * - Relatórios fiscais: Comparativo (Sprint 11), H010 (Sprint 13)
+ * - Unificação de códigos via planilha (Sprint 14)
+ * - Operações destrutivas: wipe e cleanup (Sprint 9)
  *
- * 🆕 Sprint 8: Suporte completo a `clientId`:
- *   - getBalance filtra produtos por cliente
- *   - getMetrics calcula KPIs por cliente
- *   - createAdjustment herda o clientId do produto
- *
- * 🛡️ Segurança:
- *   - Todas as queries filtram por companyId (multi-tenant)
- *   - Validação de posse do produto antes de operações
- *   - Ajustes não podem deixar estoque negativo
+ * 🛡️ Todas as operações validam companyId (multi-tenant)
+ * 📐 Custo médio ponderado móvel recalculado a cada movimentação
  * =================================================================
  */
 @Injectable()
 export class InventoryService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // =================================================================
+  // 🔧 HELPER PRIVADO
+  // =================================================================
+
   /**
-   * 🆕 Sprint 11: arredonda para 2 casas decimais com segurança
-   * (evita erros de ponto flutuante em cálculos financeiros).
-   * Usado pelo getComparison (conciliação de estoque).
+   * Arredonda para 2 casas decimais com segurança.
+   * Evita erros de ponto flutuante em cálculos financeiros.
    */
   private round2(v: number): number {
     return Math.round((v + Number.EPSILON) * 100) / 100;
   }
 
+  // =================================================================
+  // 📊 KPIs DO ESTOQUE (Dashboard)
+  // =================================================================
+
   /**
-   * Lista o saldo atual de cada produto (grid principal da tela de estoque).
+   * GET /fiscal/inventory/metrics
    *
-   * @param filters.search - Busca por descrição ou código
-   * @param filters.ncm - Filtro por NCM (aceita parcial, ex: "7318")
-   * @param filters.onlyPositive - true para mostrar apenas produtos com saldo > 0
-   * @param filters.clientId - 🆕 Sprint 8: filtra produtos por cliente
+   * KPIs agregados do estoque para os cards do dashboard.
+   * Suporta filtro por cliente (Sprint 8).
+   *
+   * @returns { totalProducts, productsWithStock, totalQuantity,
+   *            totalValue, distinctNcms, distinctSuppliers, topProducts[] }
+   */
+  async getMetrics(companyId: string, clientId?: string | null) {
+    const products = await this.prisma.fiscalProduct.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        ...(clientId ? { clientId } : {}),
+      },
+      include: {
+        movements: {
+          where: { type: 'ENTRADA' },
+          include: { invoice: { include: { supplier: true } } },
+        },
+      },
+    });
+
+    let totalProducts = 0;
+    let productsWithStock = 0;
+    let totalQuantity = 0;
+    let totalValue = 0;
+    const ncmSet = new Set<string>();
+    const supplierSet = new Set<string>();
+
+    for (const p of products) {
+      totalProducts++;
+      const stock = Number(p.currentStock);
+      const cost = Number(p.averageCost);
+      if (stock > 0) {
+        productsWithStock++;
+        totalQuantity += stock;
+        totalValue += stock * cost;
+      }
+      if (p.ncm) ncmSet.add(p.ncm);
+      for (const m of p.movements) {
+        if (m.invoice?.supplier?.id) {
+          supplierSet.add(m.invoice.supplier.id);
+        }
+      }
+    }
+
+    // Top 5 produtos por valor total em estoque
+    const topProducts = products
+      .map((p) => ({
+        id: p.id,
+        code: p.code,
+        description: p.description,
+        quantity: Number(p.currentStock),
+        unitCost: Number(p.averageCost),
+        totalValue: this.round2(Number(p.currentStock) * Number(p.averageCost)),
+      }))
+      .sort((a, b) => b.totalValue - a.totalValue)
+      .slice(0, 5);
+
+    return {
+      totalProducts,
+      productsWithStock,
+      totalQuantity: this.round2(totalQuantity),
+      totalValue: this.round2(totalValue),
+      distinctNcms: ncmSet.size,
+      distinctSuppliers: supplierSet.size,
+      topProducts,
+    };
+  }
+
+  // =================================================================
+  // 📋 SALDO POR PRODUTO (Grid paginado)
+  // =================================================================
+
+  /**
+   * GET /fiscal/inventory/balance
+   *
+   * Lista o saldo atual de cada produto com paginação, busca e filtros.
    */
   async getBalance(
     companyId: string,
-    filters: {
+    opts: {
       search?: string;
       ncm?: string;
       onlyPositive?: boolean;
-      page?: number;
-      limit?: number;
-      clientId?: string; // 🆕 Sprint 8
-    } = {},
+      page: number;
+      limit: number;
+      clientId?: string;
+    },
   ) {
-    const { search = '', ncm, onlyPositive = false, page = 1, limit = 50, clientId } = filters;
-    const digits = (ncm || '').replace(/\D/g, '');
-
-    const where: Prisma.FiscalProductWhereInput = {
+    const where: any = {
       companyId,
       deletedAt: null,
-      ...(clientId && { clientId }), // 🆕 Sprint 8
-      ...(search && {
-        OR: [
-          { description: { contains: search, mode: 'insensitive' } },
-          { code: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
-      ...(digits && { ncm: { startsWith: digits } }),
-      ...(onlyPositive && { currentStock: { gt: 0 } }),
+      ...(opts.clientId ? { clientId: opts.clientId } : {}),
     };
 
-    const [products, total] = await Promise.all([
+    if (opts.search) {
+      where.OR = [
+        { description: { contains: opts.search, mode: 'insensitive' } },
+        { code: { contains: opts.search, mode: 'insensitive' } },
+      ];
+    }
+    if (opts.ncm) {
+      where.ncm = { contains: opts.ncm };
+    }
+    if (opts.onlyPositive) {
+      where.currentStock = { gt: 0 };
+    }
+
+    const [data, total] = await Promise.all([
       this.prisma.fiscalProduct.findMany({
         where,
-        skip: (page - 1) * limit,
-        take: limit,
+        skip: (opts.page - 1) * opts.limit,
+        take: opts.limit,
         orderBy: { description: 'asc' },
         include: { _count: { select: { movements: true } } },
       }),
       this.prisma.fiscalProduct.count({ where }),
     ]);
 
+    const rows = data.map((p) => ({
+      id: p.id,
+      code: p.code,
+      description: p.description,
+      ncm: p.ncm,
+      unit: p.unit,
+      currentStock: Number(p.currentStock),
+      averageCost: Number(p.averageCost),
+      totalValue: this.round2(Number(p.currentStock) * Number(p.averageCost)),
+      movementsCount: p._count.movements,
+      clientId: p.clientId,
+    }));
+
     return {
-      data: products.map((p) => ({
-        id: p.id,
-        code: p.code,
-        description: p.description,
-        ncm: p.ncm,
-        unit: p.unit,
-        currentStock: Number(p.currentStock ?? 0),
-        averageCost: Number(p.averageCost ?? 0),
-        totalValue: Number(p.currentStock ?? 0) * Number(p.averageCost ?? 0),
-        movementsCount: p._count.movements,
-      })),
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      data: rows,
+      meta: {
+        total,
+        page: opts.page,
+        totalPages: Math.ceil(total / opts.limit),
+      },
     };
   }
 
+  // =================================================================
+  // 📜 KARDEX (histórico de movimentações de um produto)
+  // =================================================================
+
   /**
-   * Histórico completo de movimentações (kardex) de um produto específico.
-   * Essencial para auditoria fiscal e Bloco H do SPED.
+   * GET /fiscal/inventory/movements/:productId
    *
-   * @throws NotFoundException se o produto não existir ou não pertencer ao companyId
+   * Retorna o histórico completo de movimentações de um produto,
+   * ordenado cronologicamente (mais antigo → mais recente).
+   * Essencial para auditoria fiscal e Bloco H do SPED.
    */
   async getMovements(
     companyId: string,
     productId: string,
-    filters: { startDate?: string; endDate?: string; limit?: number } = {},
+    opts: { startDate?: string; endDate?: string; limit?: number },
   ) {
     const product = await this.prisma.fiscalProduct.findFirst({
       where: { id: productId, companyId, deletedAt: null },
     });
     if (!product) {
-      throw new NotFoundException('Produto não encontrado ou não pertence a esta empresa.');
+      throw new NotFoundException('Produto não encontrado.');
     }
 
-    const where: Prisma.FiscalInventoryMovementWhereInput = {
-      companyId,
-      productId,
-    };
-    if (filters.startDate || filters.endDate) {
-      where.date = {
-        ...(filters.startDate && { gte: new Date(`${filters.startDate}T00:00:00`) }),
-        ...(filters.endDate && { lte: new Date(`${filters.endDate}T23:59:59`) }),
-      };
+    const where: any = { productId };
+    if (opts.startDate || opts.endDate) {
+      where.date = {};
+      if (opts.startDate) where.date.gte = new Date(opts.startDate);
+      if (opts.endDate) where.date.lte = new Date(opts.endDate);
     }
 
     const movements = await this.prisma.fiscalInventoryMovement.findMany({
       where,
-      orderBy: { date: 'desc' },
-      take: filters.limit || 200,
+      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      take: opts.limit || 200,
       include: {
         invoice: {
           select: {
@@ -148,113 +241,233 @@ export class InventoryService {
         description: product.description,
         ncm: product.ncm,
         unit: product.unit,
-        currentStock: Number(product.currentStock ?? 0),
-        averageCost: Number(product.averageCost ?? 0),
+        currentStock: Number(product.currentStock),
+        averageCost: Number(product.averageCost),
       },
       movements: movements.map((m) => ({
         id: m.id,
         date: m.date,
-        type: m.type as MovementType,
+        type: m.type,
         quantity: Number(m.quantity),
         unitCost: Number(m.unitCost),
         totalCost: Number(m.totalCost),
         averageCostAfter: Number(m.averageCostAfter),
         reason: m.reason,
-        invoice: m.invoice
-          ? {
-              id: m.invoice.id,
-              number: m.invoice.number,
-              series: m.invoice.series,
-              supplier: m.invoice.supplier,
-            }
-          : null,
+        invoice: m.invoice,
       })),
     };
   }
 
+  // =================================================================
+  // ⚖️ COMPARATIVO: ESTOQUE INICIAL × NF-e (Sprint 11)
+  // =================================================================
+
   /**
-   * KPIs agregados do estoque para os cards do dashboard.
+   * GET /fiscal/inventory/compare
    *
-   * @param clientId - 🆕 Sprint 8: filtra métricas por cliente específico
+   * Conciliação entre três fontes de verdade:
+   *   1. Saldo inicial (movimentos SALDO_INICIAL - Sprint 10)
+   *   2. Entradas via NF-e (movimentos ENTRADA)
+   *   3. Saldo atual do catálogo
+   *
+   * Fórmula: teórico = inicial + entradas + ajustes
+   *         divergência = atual − teórico (esperado: 0)
+   *
+   * Status por produto:
+   *   - OK              → tem inicial, sem NF-e, atual = inicial
+   *   - MOVIMENTADO_NFE → recebeu entradas via NF-e
+   *   - DIVERGENTE      → atual ≠ teórico
+   *   - SEM_SALDO       → tudo zerado
    */
-  async getMetrics(companyId: string, clientId?: string) { // 🆕 Sprint 8
-    const where: Prisma.FiscalProductWhereInput = {
-      companyId,
-      deletedAt: null,
-      ...(clientId && { clientId }), // 🆕 Sprint 8
-    };
-
+  async getComparison(companyId: string, clientId?: string | null) {
     const products = await this.prisma.fiscalProduct.findMany({
-      where,
-      select: { currentStock: true, averageCost: true, ncm: true },
-    });
-
-    let totalValue = 0;
-    let totalQuantity = 0;
-    let productsWithStock = 0;
-    const ncmSet = new Set<string>();
-
-    for (const p of products) {
-      const qty = Number(p.currentStock ?? 0);
-      const avg = Number(p.averageCost ?? 0);
-      totalValue += qty * avg;
-      totalQuantity += qty;
-      if (qty > 0) productsWithStock++;
-      if (p.ncm) ncmSet.add(p.ncm);
-    }
-
-    const topWhere: Prisma.FiscalProductWhereInput = {
-      companyId,
-      deletedAt: null,
-      currentStock: { gt: 0 },
-      ...(clientId && { clientId }), // 🆕 Sprint 8
-    };
-
-    const topProducts = await this.prisma.fiscalProduct.findMany({
-      where: topWhere,
-      take: 10,
-      orderBy: { currentStock: 'desc' },
-      select: {
-        id: true,
-        code: true,
-        description: true,
-        currentStock: true,
-        averageCost: true,
+      where: {
+        companyId,
+        deletedAt: null,
+        ...(clientId ? { clientId } : {}),
+      },
+      orderBy: { description: 'asc' },
+      include: {
+        movements: {
+          select: { type: true, quantity: true, unitCost: true, totalCost: true },
+        },
       },
     });
 
-    const suppliersCount = await this.prisma.fiscalSupplier.count({
-      where: { companyId, deletedAt: null },
-    });
+    const rows = products.map((p) => {
+      let initialQty = 0;
+      let initialCost = 0;
+      let entryQty = 0;
+      let entryValue = 0;
+      let adjustQty = 0;
 
-    return {
-      totalProducts: products.length,
-      productsWithStock,
-      totalQuantity,
-      totalValue,
-      distinctNcms: ncmSet.size,
-      distinctSuppliers: suppliersCount,
-      topProducts: topProducts.map((p) => ({
+      for (const m of p.movements) {
+        const q = Number(m.quantity);
+        if (m.type === 'SALDO_INICIAL') {
+          initialQty += q;
+          initialCost = Number(m.unitCost);
+        } else if (m.type === 'ENTRADA') {
+          entryQty += q;
+          entryValue += Number(m.totalCost);
+        } else {
+          adjustQty += q;
+        }
+      }
+
+      const current = Number(p.currentStock);
+      const theoretical = initialQty + entryQty + adjustQty;
+      const divergence = this.round2(current - theoretical);
+
+      let status: string;
+      if (Math.abs(divergence) > 0.000001) status = 'DIVERGENTE';
+      else if (entryQty !== 0) status = 'MOVIMENTADO_NFE';
+      else if (initialQty !== 0 || current !== 0) status = 'OK';
+      else status = 'SEM_SALDO';
+
+      return {
         id: p.id,
         code: p.code,
         description: p.description,
-        quantity: Number(p.currentStock),
-        unitCost: Number(p.averageCost),
-        totalValue: Number(p.currentStock) * Number(p.averageCost),
-      })),
+        ncm: p.ncm,
+        unit: p.unit,
+        initialQty: this.round2(initialQty),
+        initialCost,
+        initialTotal: this.round2(initialQty * initialCost),
+        entryQty: this.round2(entryQty),
+        entryValue: this.round2(entryValue),
+        adjustQty: this.round2(adjustQty),
+        currentStock: current,
+        currentTotal: this.round2(current * Number(p.averageCost)),
+        divergence,
+        status,
+      };
+    });
+
+    const summary = {
+      total: rows.length,
+      ok: rows.filter((r) => r.status === 'OK').length,
+      movedByNfe: rows.filter((r) => r.status === 'MOVIMENTADO_NFE').length,
+      divergent: rows.filter((r) => r.status === 'DIVERGENTE').length,
+      noBalance: rows.filter((r) => r.status === 'SEM_SALDO').length,
     };
+
+    return { summary, rows };
   }
 
+  // =================================================================
+  // 📑 RELATÓRIO H010 ESTENDIDO COM TRIBUTOS (Sprint 13)
+  // =================================================================
+
   /**
-   * Registra um ajuste manual de inventário (sobra ou quebra).
+   * GET /fiscal/inventory/report/tax
    *
-   * 🛡️ Regras de Negócio:
-   * - Ajuste negativo não pode deixar o estoque negativo
-   * - Justificativa é obrigatória (auditoria fiscal)
-   * - Custo médio NÃO é alterado (só quantidade)
-   * - userId é registrado para rastreabilidade
+   * Lista produtos com saldo ≠ 0 que foram movimentados por NF-e,
+   * incluindo todos os tributos (ICMS, IPI, PIS, COFINS, ICMS-ST).
    *
-   * 💡 O clientId é herdado do produto (não pode ser alterado via ajuste).
+   * Formato: 17 colunas conforme layout H010 do SPED Fiscal.
+   *
+   * 🎯 Regra: produto deve ter saldo ≠ 0 E movimentações
+   */
+  async getInventoryTaxReport(companyId: string, clientId?: string | null) {
+    const products = await this.prisma.fiscalProduct.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        currentStock: { not: 0 },
+        ...(clientId ? { clientId } : {}),
+        movements: { some: {} },
+      },
+      include: {
+        movements: {
+          where: { type: 'ENTRADA' },
+          include: {
+            invoice: {
+              include: {
+                items: {
+                  where: { productId: { not: null } },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { code: 'asc' },
+    });
+
+    const rows: any[] = [];
+
+    for (const p of products) {
+      // Agrega tributos das aquisições (itens de NF-e)
+      let icms = 0;
+      let icmsBase = 0;
+      let st = 0;
+      let ipi = 0;
+      let pis = 0;
+      let cofins = 0;
+      let cst = '';
+      let reference = '';
+
+      for (const m of p.movements) {
+        if (m.invoice?.items) {
+          for (const it of m.invoice.items) {
+            if (it.productId === p.id) {
+              icms += Number(it.icmsValue ?? 0);
+              icmsBase += Number(it.icmsBase ?? 0);
+              st += Number(it.icmsStValue ?? 0);
+              ipi += Number(it.ipiValue ?? 0);
+              pis += Number(it.pisValue ?? 0);
+              cofins += Number(it.cofinsValue ?? 0);
+              cst = it.cst || it.csosn || cst;
+              reference = it.supplierCode || reference;
+            }
+          }
+        }
+      }
+
+      const quantity = Number(p.currentStock);
+      const unitValue = Number(p.averageCost);
+      const totalValue = this.round2(quantity * unitValue);
+
+      rows.push({
+        code: p.code,
+        reference: p.description || reference, // 🆕 Sprint 14: nome do produto
+        quantity: this.round2(quantity),
+        unitValue,
+        totalValue,
+        icmsBase: this.round2(icmsBase),
+        icms: this.round2(icms),
+        st: this.round2(st),
+        ipi: this.round2(ipi),
+        pis: this.round2(pis),
+        cofins: this.round2(cofins),
+        cst,
+        ncm: p.ncm,
+        unit: p.unit,
+        ownershipIndicator: '0', // Mercadoria própria (padrão SPED)
+        ownerCnpjCpf: '',
+        spedAccount: '',
+        observations: '',
+        irValue: totalValue,
+      });
+    }
+
+    return { count: rows.length, rows };
+  }
+
+  // =================================================================
+  // ✏️ AJUSTE MANUAL DE INVENTÁRIO
+  // =================================================================
+
+  /**
+   * POST /fiscal/inventory/adjust
+   *
+   * Registra ajuste manual (sobra ou quebra) de inventário.
+   *
+   * 🛡️ Regras:
+   *   - Ajuste negativo não pode deixar estoque negativo
+   *   - Justificativa obrigatória (mínimo 5 caracteres)
+   *   - Custo médio NÃO é alterado
+   *   - userId registrado para auditoria
    */
   async createAdjustment(
     companyId: string,
@@ -266,54 +479,57 @@ export class InventoryService {
       reason: string;
     },
   ) {
-    if (!data.quantity || data.quantity <= 0) {
+    if (data.quantity <= 0) {
       throw new BadRequestException('Quantidade deve ser maior que zero.');
     }
     if (!data.reason || data.reason.trim().length < 5) {
-      throw new BadRequestException('Justificativa deve ter pelo menos 5 caracteres.');
-    }
-
-    const product = await this.prisma.fiscalProduct.findFirst({
-      where: { id: data.productId, companyId, deletedAt: null },
-    });
-    if (!product) {
-      throw new NotFoundException('Produto não encontrado.');
-    }
-
-    const currentStock = Number(product.currentStock);
-    const currentAvg = Number(product.averageCost);
-    const delta = data.type === 'AJUSTE_POSITIVO' ? data.quantity : -data.quantity;
-    const newStock = currentStock + delta;
-
-    if (newStock < 0) {
-      throw new BadRequestException(
-        `Estoque insuficiente. Saldo atual: ${currentStock} ${product.unit}.`,
-      );
+      throw new BadRequestException('Justificativa é obrigatória (mínimo 5 caracteres).');
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const updated = await tx.fiscalProduct.update({
-        where: { id: data.productId },
-        data: { currentStock: newStock },
+      const product = await tx.fiscalProduct.findFirst({
+        where: { id: data.productId, companyId, deletedAt: null },
       });
+      if (!product) {
+        throw new NotFoundException('Produto não encontrado.');
+      }
+
+      const currentStock = Number(product.currentStock);
+      const avgCost = Number(product.averageCost);
+      const delta = data.type === 'AJUSTE_POSITIVO' ? data.quantity : -data.quantity;
+      const newStock = currentStock + delta;
+
+      if (newStock < 0) {
+        throw new BadRequestException(
+          `Estoque insuficiente. Saldo atual: ${currentStock}, ajuste: ${delta}.`,
+        );
+      }
+
+      // Custo médio inalterado em ajustes manuais
+      const newAvgCost = avgCost;
 
       const movement = await tx.fiscalInventoryMovement.create({
         data: {
           companyId,
-          clientId: product.clientId, // 🆕 Sprint 8: herda do produto
-          productId: data.productId,
+          productId: product.id,
+          clientId: product.clientId,
           type: data.type,
           date: new Date(),
           quantity: delta,
-          unitCost: currentAvg,
-          totalCost: Math.abs(delta) * currentAvg,
-          averageCostAfter: currentAvg,
+          unitCost: newAvgCost,
+          totalCost: this.round2(Math.abs(delta) * newAvgCost),
+          averageCostAfter: newAvgCost,
           reason: data.reason,
           userId,
         },
       });
 
-            return {
+      const updated = await tx.fiscalProduct.update({
+        where: { id: product.id },
+        data: { currentStock: newStock },
+      });
+
+      return {
         movement: {
           id: movement.id,
           type: movement.type,
@@ -329,80 +545,49 @@ export class InventoryService {
   }
 
   // =================================================================
-  // ☢️ EXCLUSÃO TOTAL DO ESTOQUE (Sprint 9 — operação destrutiva)
+  // ☢️ OPERAÇÃO DESTRUTIVA: WIPE (Excluir todo o estoque)
   // =================================================================
 
   /**
+   * POST /fiscal/inventory/wipe
+   *
    * Remove TODOS os produtos e movimentações do escopo selecionado.
-   *
-   * 🛡️ Semântica de escopo:
-   *   - clientId informado → apaga apenas o estoque daquele cliente
-   *   - clientId null      → apaga TODO o estoque da empresa (nuclear)
-   *
-   * ⚠️ Efeitos colaterais documentados:
-   *   - Movimentações (kardex) são removidas
-   *   - Itens de notas fiscais ficam com productId = null (SetNull),
-   *     ou seja, as notas são mantidas mas perdem o vínculo de catálogo
-   *   - Saldos mensais (balances) são removidos em cascata
-   *
-   * 🔒 Uso previsto: reset do catálogo para reimportação limpa.
-   * A confirmação forte (digitar EXCLUIR) é feita no frontend.
-   *
-   * @returns { productsDeleted, movementsDeleted }
+   * ⚠️ Operação irreversível — frontend exige digitar "EXCLUIR".
    */
   async wipe(companyId: string, clientId?: string | null) {
     return this.prisma.$transaction(async (tx) => {
-      const productWhere: Prisma.FiscalProductWhereInput = {
+      const productWhere: any = {
         companyId,
-        ...(clientId ? { clientId } : {}), // null = todos os escopos
+        ...(clientId ? { clientId } : {}),
       };
-      const movementWhere: Prisma.FiscalInventoryMovementWhereInput = {
+      const movementWhere: any = {
         companyId,
         ...(clientId ? { clientId } : {}),
       };
 
-      // Contagem prévia para o feedback ao usuário
       const [products, movements] = await Promise.all([
         tx.fiscalProduct.count({ where: productWhere }),
         tx.fiscalInventoryMovement.count({ where: movementWhere }),
       ]);
 
-      // 1. Remove movimentações explicitamente
       await tx.fiscalInventoryMovement.deleteMany({ where: movementWhere });
-
-      // 2. Remove produtos (balances em cascata; invoiceItems → SetNull)
       await tx.fiscalProduct.deleteMany({ where: productWhere });
 
-            return { productsDeleted: products, movementsDeleted: movements };
+      return { productsDeleted: products, movementsDeleted: movements };
     });
   }
 
   // =================================================================
-  // 📥 IMPORTAÇÃO DE ESTOQUE INICIAL (Sprint 10)
+  // 📥 IMPORTAÇÃO DE SALDO INICIAL (Sprint 10)
   // =================================================================
 
   /**
-   * Importa o saldo inicial de estoque (abertura do sistema) a partir
-   * de um relatório do sistema anterior (ex: posição de estoque).
+   * POST /fiscal/inventory/initial-import
    *
-   * 🛡️ Regras de segurança (anti-duplicidade):
+   * Importa o saldo inicial de estoque (abertura) com regras anti-duplicidade:
    *   - Produto NÃO existe        → cria + movimento SALDO_INICIAL
    *   - Existe SEM movimentações  → atualiza saldo/custo + movimento
    *   - Existe COM movimentações  → PULA (não duplica saldo)
-   *   - Código/descrição ausentes → erro na linha
-   *
-   * 📐 Defaults fiscais:
-   *   - NCM ausente  → '00000000' (editar depois no catálogo)
-   *   - Unit ausente → 'UN'
-   *
-   * 🔍 Auditoria: cada linha gera movimento SALDO_INICIAL com
-   *   userId (quem importou) e reason com a data-base do relatório.
-   *
-   * @param clientId      - cliente dono do estoque (null = geral)
-   * @param referenceDate - data-base do relatório (ex: 31/12/2025)
-   * @param items         - linhas revisadas pelo usuário no frontend
-   *
-   * @returns { created, updated, skipped, errors, results[] }
    */
   async importInitialStock(
     companyId: string,
@@ -430,7 +615,6 @@ export class InventoryService {
     const results: any[] = [];
 
     for (const item of data.items) {
-      // Validação estrutural da linha
       if (!item.code || !item.description) {
         skipped++;
         results.push({
@@ -457,7 +641,6 @@ export class InventoryService {
         });
 
         if (existing) {
-          // 🛡️ Produto com histórico NÃO pode receber saldo inicial duplicado
           const movCount = await this.prisma.fiscalInventoryMovement.count({
             where: { productId: existing.id },
           });
@@ -467,12 +650,11 @@ export class InventoryService {
             results.push({
               code: item.code,
               status: 'SKIPPED',
-              error: 'Produto já possui movimentações — saldo inicial não aplicado.',
+              error: 'Produto já possui movimentações.',
             });
             continue;
           }
 
-          // Existe sem histórico → atualiza e registra abertura
           await this.prisma.$transaction(async (tx) => {
             await tx.fiscalProduct.update({
               where: { id: existing.id },
@@ -503,7 +685,6 @@ export class InventoryService {
           updated++;
           results.push({ code: item.code, status: 'UPDATED' });
         } else {
-          // Produto novo → cria catálogo + abertura
           await this.prisma.$transaction(async (tx) => {
             const product = await tx.fiscalProduct.create({
               data: {
@@ -546,220 +727,85 @@ export class InventoryService {
       }
     }
 
-       return { created, updated, skipped, results };
+    return { created, updated, skipped, results };
   }
 
   // =================================================================
-  // ⚖️ COMPARATIVO: ESTOQUE INICIAL × NF-e (Sprint 11)
+  // 🔀 UNIFICAÇÃO DE CÓDIGOS VIA PLANILHA (Sprint 14)
   // =================================================================
 
   /**
-   * Conciliação por produto entre três fontes de verdade:
-   *   1. Saldo inicial importado do PDF (movimentos SALDO_INICIAL)
-   *   2. Entradas via NF-e importadas (movimentos ENTRADA)
-   *   3. Saldo atual do catálogo (currentStock)
+   * POST /fiscal/inventory/unify-codes
    *
-   * 🧮 Fórmula de conferência:
-   *   teórico = inicial + entradas + ajustes
-   *   divergência = atual − teórico  (esperado: 0)
+   * Atualiza os códigos dos produtos com base no mapeamento
+   * descrição → código unificado vindo da planilha do usuário.
    *
-   * 📊 Status por produto:
-   *   - OK               → tem inicial, sem NF-e, atual = inicial
-   *   - MOVIMENTADO_NFE  → recebeu entradas via nota fiscal
-   *   - DIVERGENTE       → atual ≠ teórico (ajuste manual/inconsistência)
-   *   - SEM_SALDO        → tudo zerado
+   * 🛡️ Regras de segurança:
+   *   - Valida posse do produto (companyId + não deletado)
+   *   - ANTI-COLISÃO: se o novo código já pertence a outro produto
+   *     do mesmo escopo (companyId + clientId), o item é PULADO
+   *   - Transação atômica: tudo ou nada
    *
-   * @param clientId - escopo do cliente (null = todos)
-   * @returns { summary, rows[] }
+   * ⚠️ O histórico das notas NÃO é reescrito (auditoria preservada).
    */
-    async getComparison(companyId: string, clientId?: string | null) {
-    const products = await this.prisma.fiscalProduct.findMany({
-      where: {
-        companyId,
-        deletedAt: null,
-        ...(clientId ? { clientId } : {}),
-      },
-      orderBy: { description: 'asc' },
-      include: {
-        movements: {
-          select: { type: true, quantity: true, unitCost: true, totalCost: true },
-        },
-      },
-    });
-
-    const rows = products.map((p) => {
-      let initialQty = 0;
-      let initialCost = 0;
-      let entryQty = 0;
-      let entryValue = 0;
-      let adjustQty = 0;
-
-      for (const m of p.movements) {
-        const q = Number(m.quantity);
-        if (m.type === 'SALDO_INICIAL') {
-          initialQty += q;
-          initialCost = Number(m.unitCost);
-        } else if (m.type === 'ENTRADA') {
-          entryQty += q;
-          entryValue += Number(m.totalCost);
-        } else {
-          adjustQty += q;
-        }
-      }
-
-      const current = Number(p.currentStock);
-      const theoretical = initialQty + entryQty + adjustQty;
-      const divergence = this.round2(current - theoretical);
-
-      let status: string;
-      if (Math.abs(divergence) > 0.000001) {
-        status = 'DIVERGENTE';
-      } else if (entryQty !== 0) {
-        status = 'MOVIMENTADO_NFE';
-      } else if (initialQty !== 0 || current !== 0) {
-        status = 'OK';
-      } else {
-        status = 'SEM_SALDO';
-      }
-
-      return {
-        id: p.id,
-        code: p.code,
-        description: p.description,
-        ncm: p.ncm,
-        unit: p.unit,
-        initialQty: this.round2(initialQty),
-        initialCost,
-        initialTotal: this.round2(initialQty * initialCost),
-        entryQty: this.round2(entryQty),
-        entryValue: this.round2(entryValue),
-        adjustQty: this.round2(adjustQty),
-        currentStock: current,
-        currentTotal: this.round2(current * Number(p.averageCost)),
-        divergence,
-        status,
-      };
-    });
-
-    const summary = {
-      total: rows.length,
-      ok: rows.filter((r) => r.status === 'OK').length,
-      movedByNfe: rows.filter((r) => r.status === 'MOVIMENTADO_NFE').length,
-      divergent: rows.filter((r) => r.status === 'DIVERGENTE').length,
-      noBalance: rows.filter((r) => r.status === 'SEM_SALDO').length,
-    };
-
-        return { summary, rows };
-  }
-
-  // =================================================================
-  // 📑 RELATÓRIO DE INVENTÁRIO FISCAL COM TRIBUTOS (Sprint 13)
-  // =================================================================
-
-  /**
-   * Gera o relatório de inventário no layout H010 ESTENDIDO
-   * (17 colunas: dados do item + tributos da aquisição + IR).
-   *
-   * 🎯 Regra de negócio (definida com o usuário):
-   *   Lista apenas produtos que:
-   *     1. ESTÃO nas notas importadas (têm itens de NF-e)
-   *     2. NÃO estão zerados no estoque (currentStock ≠ 0)
-   *
-   *  Critérios de agregação:
-   *   - Quantidade/Valor Unitário/Total → saldo ATUAL do catálogo
-   *     (custo médio ponderado)
-   *   - Tributos (ICMS, base, ST, IPI, PIS, COFINS) → SOMA dos
-   *     itens de NF-e do produto (impostos das aquisições)
-   *   - CST → da última compra (cst ou csosn)
-   *
-   * 🛡️ Campos SPED sem dado no sistema saem com default legal:
-   *   - IND_OWN = '0' (mercadoria própria)
-   *   - CNPJ_PROP / COD_CTA / OBS = vazio
-   *
-   * @param clientId - escopo do cliente (null = todos)
-   * @returns { count, rows[] } ordenado por código
-   */
-  async getInventoryTaxReport(companyId: string, clientId?: string | null) {
-    // 1. Busca produtos com saldo ≠ 0, incluindo os itens de NF-e
-    const products = await this.prisma.fiscalProduct.findMany({
-      where: {
-        companyId,
-        deletedAt: null,
-        currentStock: { not: 0 }, // 🎯 regra: não zerados no estoque
-        ...(clientId ? { clientId } : {}),
-      },
-      orderBy: { code: 'asc' },
-      include: {
-        invoiceItems: {
-          orderBy: { createdAt: 'asc' },
-          include: {
-            invoice: {
-              select: {
-                number: true,
-                series: true,
-                emissionDate: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // 2. Monta as linhas do relatório
-    const rows: any[] = [];
-
-    for (const p of products) {
-      const items = p.invoiceItems || [];
-
-      // 🎯 regra: deve estar nas notas importadas
-      if (items.length === 0) continue;
-
-      // Agrega tributos das aquisições (itens de NF-e)
-      let icms = 0;
-      let icmsBase = 0;
-      let st = 0;
-      let ipi = 0;
-      let pis = 0;
-      let cofins = 0;
-      let cst = '';
-      let reference = '';
-
-      for (const it of items) {
-        icms += Number(it.icmsValue ?? 0);
-        icmsBase += Number(it.icmsBase ?? 0);
-        st += Number(it.icmsStValue ?? 0);
-        ipi += Number(it.ipiValue ?? 0);
-        pis += Number(it.pisValue ?? 0);
-        cofins += Number(it.cofinsValue ?? 0);
-        cst = it.cst || it.csosn || cst;
-        reference = it.supplierCode || reference;
-      }
-
-      const quantity = Number(p.currentStock);
-      const unitValue = Number(p.averageCost);
-      const totalValue = this.round2(quantity * unitValue);
-
-      rows.push({
-        code: p.code,                                   // Código do Produto
-        reference: reference || p.description,          // Referência
-        quantity: this.round2(quantity),                // Quantidade
-        unitValue,                                      // Valor Unitário
-        icmsValue: this.round2(icms),                   // Valor do ICMS
-        totalValue,                                     // Valor Total
-        ownershipIndicator: '0',                        // Indicador posse (própria)
-        ownerCnpjCpf: '',                               // CNPJ terceiro (vazio)
-        spedAccount: '',                                // Conta Sped (vazio)
-        observations: '',                               // Observações (vazio)
-        icmsBase: this.round2(icmsBase),                // Base de ICMS
-        cst,                                            // CST do ICMS
-        icmsSt: this.round2(st),                        // Valor de ICMS ST
-        ipi: this.round2(ipi),                          // Valor de IPI
-        pis: this.round2(pis),                          // Valor de PIS
-        cofins: this.round2(cofins),                    // Valor de COFINS
-        irValue: totalValue,                            // Valor p/ IR
-      });
+  async unifyCodes(
+    companyId: string,
+    items: { productId: string; newCode: string }[],
+  ) {
+    if (!items || items.length === 0) {
+      return { updated: 0, skipped: [] };
     }
 
-    return { count: rows.length, rows };
+    let updated = 0;
+    const skipped: any[] = [];
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const it of items) {
+        const newCode = (it.newCode || '').trim();
+        if (!newCode) {
+          skipped.push({ productId: it.productId, reason: 'Código vazio.' });
+          continue;
+        }
+
+        const product = await tx.fiscalProduct.findFirst({
+          where: { id: it.productId, companyId, deletedAt: null },
+        });
+        if (!product) {
+          skipped.push({ productId: it.productId, reason: 'Produto não encontrado.' });
+          continue;
+        }
+
+        if (product.code === newCode) {
+          continue; // já está unificado
+        }
+
+        // ANTI-COLISÃO: novo código já em uso por outro produto?
+        const clash = await tx.fiscalProduct.findFirst({
+          where: {
+            companyId,
+            clientId: product.clientId,
+            code: newCode,
+            deletedAt: null,
+            id: { not: product.id },
+          },
+        });
+        if (clash) {
+          skipped.push({
+            productId: it.productId,
+            newCode,
+            reason: `Código "${newCode}" já em uso por outro produto.`,
+          });
+          continue;
+        }
+
+        await tx.fiscalProduct.update({
+          where: { id: product.id },
+          data: { code: newCode },
+        });
+        updated++;
+      }
+    });
+
+    return { updated, skipped };
   }
 }
