@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -12,11 +13,18 @@ import {
   RefreshCw,
   PackageX,
   Receipt,
+  Settings2, // 🆕 Sprint 12: escolher campos da exportação
 } from 'lucide-react';
 import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
 import { useFiscalClientStore } from '@/store/fiscalClientStore';
-
+import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal'; // 🆕 Sprint 12
+import {
+  ColumnDef,
+  buildCsv,
+  downloadCsv,
+  getSelectedKeys,
+} from '@/lib/columnExport'; // 🆕 Sprint 12
 // =================================================================
 // 📦 Tipos
 // =================================================================
@@ -71,6 +79,25 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // =================================================================
+// 🆕 Sprint 12: colunas exportáveis do Comparativo
+// =================================================================
+const EXPORT_COLUMNS: ColumnDef[] = [
+  { key: 'code', label: 'Código', always: true },
+  { key: 'description', label: 'Descrição', always: true },
+  { key: 'ncm', label: 'NCM' },
+  { key: 'unit', label: 'Un' },
+  { key: 'initialQty', label: 'Qtd Inicial (PDF)' },
+  { key: 'initialCost', label: 'Custo Inicial' },
+  { key: 'initialTotal', label: 'Total Inicial' },
+  { key: 'entryQty', label: 'Qtd NF-e' },
+  { key: 'entryValue', label: 'Total NF-e' },
+  { key: 'adjustQty', label: 'Ajustes' },
+  { key: 'currentStock', label: 'Qtd Atual' },
+  { key: 'currentTotal', label: 'Total Atual' },
+  { key: 'divergence', label: 'Divergência' },
+  { key: 'status', label: 'Status', format: (r) => STATUS_CONFIG[r.status]?.label || r.status },
+];
+// =================================================================
 // 📄 Página: Comparativo Estoque Inicial × NF-e (Sprint 11)
 // =================================================================
 // Conciliação contábil por produto:
@@ -84,8 +111,16 @@ export default function FiscalComparativoPage() {
   const [rows, setRows] = useState<CompareRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [search, setSearch] = useState('');
+    const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  // 🆕 Sprint 12: exportação com campos selecionáveis
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [exportCols, setExportCols] = useState<string[]>([]);
+
+  useEffect(() => {
+    setExportCols(getSelectedKeys('fiscal-comparativo', EXPORT_COLUMNS));
+  }, []);
 
   // ---------------------------------------------------------------
   // 📥 Carrega o comparativo (reage ao cliente selecionado)
@@ -131,39 +166,17 @@ export default function FiscalComparativoPage() {
   // ---------------------------------------------------------------
   // 📤 Exportação CSV do comparativo (UTF-8 + BOM p/ Excel)
   // ---------------------------------------------------------------
+    // ---------------------------------------------------------------
+  // 🆕 Sprint 12: Exporta CSV apenas com as colunas selecionadas
+  // (respeita os filtros ativos de busca + status)
+  // ---------------------------------------------------------------
   const exportCsv = () => {
     if (filtered.length === 0) {
       toast.error('Nada para exportar.');
       return;
     }
-    const header =
-      'Código;Descrição;NCM;Un;Qtd Inicial (PDF);Custo Inicial;Total Inicial;Qtd NF-e;Total NF-e;Ajustes;Qtd Atual;Total Atual;Divergência;Status';
-    const lines = filtered.map((r) =>
-      [
-        r.code,
-        r.description.replace(/;/g, ','),
-        r.ncm,
-        r.unit,
-        String(r.initialQty).replace('.', ','),
-        String(r.initialCost).replace('.', ','),
-        String(r.initialTotal).replace('.', ','),
-        String(r.entryQty).replace('.', ','),
-        String(r.entryValue).replace('.', ','),
-        String(r.adjustQty).replace('.', ','),
-        String(r.currentStock).replace('.', ','),
-        String(r.currentTotal).replace('.', ','),
-        String(r.divergence).replace('.', ','),
-        STATUS_CONFIG[r.status]?.label || r.status,
-      ].join(';'),
-    );
-    const csv = '\uFEFF' + [header, ...lines].join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `comparativo-estoque-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    const csv = buildCsv(filtered, EXPORT_COLUMNS, exportCols);
+    downloadCsv(`comparativo-estoque-${new Date().toISOString().slice(0, 10)}.csv`, csv);
     toast.success(`${filtered.length} linha(s) exportada(s).`);
   };
 
@@ -246,12 +259,20 @@ export default function FiscalComparativoPage() {
             <option value="DIVERGENTE">Divergentes</option>
             <option value="SEM_SALDO">Sem saldo</option>
           </select>
-          <button
+                   <button
             onClick={exportCsv}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors"
           >
             <FileDown className="h-4 w-4" />
             Exportar CSV
+          </button>
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            title="Escolher campos da exportação"
+          >
+            <Settings2 className="h-4 w-4" />
+            Campos
           </button>
         </div>
 
@@ -335,9 +356,18 @@ export default function FiscalComparativoPage() {
         <p>
           Teórico = Inicial (PDF) + Entradas NF-e + Ajustes manuais. A divergência é
           Atual − Teórico e deve ser zero. Valores ≠ 0 indicam ajustes manuais ou
-          inconsistências de importação e devem ser auditados.
+                    inconsistências de importação e devem ser auditados.
         </p>
       </div>
+
+      {/* 🆕 Sprint 12: seletor de campos da exportação */}
+      <ColumnPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        context="fiscal-comparativo"
+        columns={EXPORT_COLUMNS}
+        onApply={setExportCols}
+      />
     </div>
   );
 }

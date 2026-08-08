@@ -18,14 +18,22 @@ import {
   ArrowUpCircle,
   Eraser, // 🆕 Sprint 9: ícone da limpeza de catálogo
   Trash2, // 🆕 Sprint 9: excluir todo o estoque
-  AlertTriangle, // 🆕 Sprint 9: aviso de operação destrutiva
-  FileUp,
+    AlertTriangle, // 🆕 Sprint 9: aviso de operação destrutiva
+  FileUp, // 🆕 Sprint 10: importar estoque inicial
+  FileDown, // 🆕 Sprint 12: exportar CSV
+  Settings2, // 🆕 Sprint 12: escolher campos da exportação
 } from 'lucide-react';
 import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
 import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
 import InitialStockImportModal from '@/components/fiscal/InitialStockImportModal'; // 🆕 Sprint 10
-
+import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal'; // 🆕 Sprint 12
+import {
+  ColumnDef,
+  buildCsv,
+  downloadCsv,
+  getSelectedKeys,
+} from '@/lib/columnExport'; // 🆕 Sprint 12
 // =================================================================
 // 📦 Tipos do frontend (espelham o backend)
 // =================================================================
@@ -121,6 +129,21 @@ function MovementBadge({ type }: { type: string }) {
 }
 
 // =================================================================
+// 🆕 Sprint 12: colunas exportáveis do Estoque
+// Código e Descrição são obrigatórias (always) — chave de leitura.
+// =================================================================
+const EXPORT_COLUMNS: ColumnDef[] = [
+  { key: 'code', label: 'Código', always: true },
+  { key: 'description', label: 'Descrição', always: true },
+  { key: 'ncm', label: 'NCM' },
+  { key: 'unit', label: 'Unidade' },
+  { key: 'currentStock', label: 'Saldo' },
+  { key: 'averageCost', label: 'Custo Médio' },
+  { key: 'totalValue', label: 'Valor Total' },
+  { key: 'movementsCount', label: 'Movimentações' },
+];
+
+// =================================================================
 // 📄 Página: Estoque Fiscal (saldo + kardex + ajustes + limpeza)
 // =================================================================
 // Sprint 8: Integrado com seletor de cliente fiscal.
@@ -175,8 +198,17 @@ export default function FiscalEstoquePage() {
   const [wipeText, setWipeText] = useState('');
   const [wiping, setWiping] = useState(false);
 
-  // 🆕 Sprint 10: modal de importação de estoque inicial
+    // 🆕 Sprint 10: modal de importação de estoque inicial
   const [initialImportOpen, setInitialImportOpen] = useState(false);
+
+  // 🆕 Sprint 12: exportação CSV com campos selecionáveis
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [exportCols, setExportCols] = useState<string[]>([]);
+
+  // Carrega a seleção persistida ao montar a página
+  useEffect(() => {
+    setExportCols(getSelectedKeys('fiscal-estoque', EXPORT_COLUMNS));
+  }, []);
 
   // ---------------------------------------------------------------
   // 📊 KPIs (filtrados pelo cliente selecionado)
@@ -318,8 +350,39 @@ export default function FiscalEstoquePage() {
       loadMetrics();
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Erro ao excluir o estoque.');
-    } finally {
+        } finally {
       setWiping(false);
+    }
+  };
+
+  // ---------------------------------------------------------------
+  // 🆕 Sprint 12: Exportar CSV com as colunas selecionadas
+  // ---------------------------------------------------------------
+  // Busca TODAS as linhas (sem paginação) respeitando os filtros
+  // ativos (busca, NCM, saldo, cliente) e gera o CSV customizado.
+  // ---------------------------------------------------------------
+  const handleExport = async () => {
+    try {
+      const { data } = await api.get('/fiscal/inventory/balance', {
+        params: {
+          page: 1,
+          limit: 100000,
+          search: search || undefined,
+          ncm: ncm || undefined,
+          onlyPositive: onlyPositive ? 'true' : undefined,
+          clientId: selected.id || undefined,
+        },
+      });
+      const rows = data.data || [];
+      if (rows.length === 0) {
+        toast.error('Nada para exportar com os filtros atuais.');
+        return;
+      }
+      const csv = buildCsv(rows, EXPORT_COLUMNS, exportCols);
+      downloadCsv(`estoque-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+      toast.success(`${rows.length} linha(s) exportada(s).`);
+    } catch {
+      toast.error('Erro ao exportar o estoque.');
     }
   };
 
@@ -499,8 +562,26 @@ export default function FiscalEstoquePage() {
             className="flex items-center gap-2 px-3 py-2 text-sm text-teal-700 border border-teal-300 rounded-lg hover:bg-teal-50 transition-colors"
             title="Importa o saldo inicial do sistema anterior (CSV ou texto do PDF)"
           >
-            <FileUp className="h-4 w-4" />
+                        <FileUp className="h-4 w-4" />
             Importar estoque inicial
+          </button>
+
+          {/* 🆕 Sprint 12: exportar CSV + escolher campos */}
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-green-700 border border-green-300 rounded-lg hover:bg-green-50 transition-colors"
+            title="Exporta o estoque (respeita filtros e colunas selecionadas)"
+          >
+            <FileDown className="h-4 w-4" />
+            Exportar CSV
+          </button>
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            title="Escolher campos da exportação"
+          >
+            <Settings2 className="h-4 w-4" />
+            Campos
           </button>
         </div>
 
@@ -921,7 +1002,7 @@ export default function FiscalEstoquePage() {
            )}
 
       {/* 🆕 Sprint 10: modal de importação de estoque inicial */}
-      {initialImportOpen && (
+            {initialImportOpen && (
         <InitialStockImportModal
           onClose={() => setInitialImportOpen(false)}
           onImported={() => {
@@ -930,6 +1011,15 @@ export default function FiscalEstoquePage() {
           }}
         />
       )}
+
+      {/* 🆕 Sprint 12: seletor de campos da exportação */}
+      <ColumnPickerModal
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        context="fiscal-estoque"
+        columns={EXPORT_COLUMNS}
+        onApply={setExportCols}
+      />
     </div>
   );
 }

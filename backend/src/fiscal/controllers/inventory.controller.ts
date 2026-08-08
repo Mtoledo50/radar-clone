@@ -220,9 +220,27 @@ export class InventoryController {
    * ⚖️ Sprint 11: conciliação estoque inicial (PDF) × entradas NF-e × saldo atual.
    * Retorna { summary, rows[] } com divergências destacadas.
    */
-  @Get('compare')
+    @Get('compare')
   compare(@Request() req, @Query('clientId') clientId?: string) {
     return this.inventoryService.getComparison(
+      req.user.companyId,
+      clientId || null,
+    );
+  }
+
+  /**
+   * GET /fiscal/inventory/report/tax?clientId=
+   *  Sprint 13: Relatório de Inventário Fiscal com Tributos
+   * (layout H010 estendido — 17 colunas).
+   *
+   * 🎯 Regra: produtos que ESTÃO nas notas E com saldo ≠ 0.
+   */
+  @Get('report/tax')
+  inventoryTaxReport(
+    @Request() req,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.inventoryService.getInventoryTaxReport(
       req.user.companyId,
       clientId || null,
     );
