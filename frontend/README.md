@@ -737,3 +737,52 @@ Sistema inteligente de conciliação bancária que realiza matching automático 
 
 ### Logs de Debug
 O backend agora exibe logs detalhados no terminal:
+
+---
+
+## 🆕 ATUALIZAÇÃO — Módulo Fiscal Completo: NF-e, Estoque, ICMS e SPED (Sprints 8–14)
+
+### 🎯 O QUE FOI IMPLEMENTADO
+
+Ciclo completo do módulo fiscal para escritórios contábeis **multi-cliente**:
+
+1. **Sprint 8 — Seletor de Cliente Fiscal**: estado global (Zustand + localStorage) que segrega notas, estoque, apuração e SPED por cliente.
+2. **Sprint 9 — Gestão de Notas**: exclusão de NF-e com **estorno de estoque** (recálculo de custo médio por replay), atribuição de cliente em lote, limpeza de produtos órfãos e wipe total com trava de confirmação (`EXCLUIR`).
+3. **Sprint 10 — Estoque Inicial**: importação de saldo inicial via PDF (texto colado) ou CSV, com **tabela de revisão editável** e movimento `SALDO_INICIAL`.
+4. **Sprint 11 — Comparativo**: conciliação `Inicial (PDF) × Entradas NF-e × Saldo Atual` com divergências destacadas para auditoria.
+5. **Sprint 12 — Exportação Selecionável**: CSV com colunas escolhidas pelo usuário (persistido por contexto); SPED `.txt` permanece com **layout legal fixo**.
+6. **Sprint 13 — Relatório H010**: inventário fiscal estendido (17 colunas) com tributos das aquisições (ICMS, ST, IPI, PIS, COFINS, IR).
+7. **Sprint 14 — Unificação de Códigos**: substituição dos códigos do catálogo pelo "Código Unificado" da planilha, casando por **descrição normalizada**, com proteção anti-colisão.
+
+### 📁 ARQUIVOS CRIADOS/MODIFICADOS
+
+**Backend (NestJS + Prisma):**
+- `src/fiscal/services/invoice.service.ts` — upload resiliente (`DUPLICATE`), `assignClient`, `remove` com estorno
+- `src/fiscal/services/inventory.service.ts` — `wipe`, `importInitialStock`, `getComparison`, `getInventoryTaxReport`, `unifyCodes`
+- `src/fiscal/services/icms.service.ts` / `sped.service.ts` — apuração e Bloco H por cliente
+- `src/fiscal/controllers/*` — rotas `assign-client`, `wipe`, `initial-import`, `compare`, `report/tax`, `unify-codes`
+- `prisma/schema.prisma` — `clientId` em `FiscalInvoice`/`FiscalProduct`/`FiscalInventoryMovement`; enum `SALDO_INICIAL`
+
+**Frontend (Next.js):**
+- `src/store/fiscalClientStore.ts` — estado global do cliente fiscal
+- `src/components/fiscal/` — `FiscalClientSelector`, `InitialStockImportModal`, `ColumnPickerModal`, `UnifyCodesModal`
+- `src/lib/` — `parseInitialStock.ts`, `columnExport.ts`
+- Páginas — `estoque`, `notas`, `apuracao`, `sped`, `comparativo`, `relatorio-inventario`
+
+### 🔧 DECISÕES TÉCNICAS
+
+- **Estorno por replay**: ao excluir NF-e, recalcula saldo + custo médio reprocessando as movimentações restantes (não apenas subtrai).
+- **Exclusão sequencial**: DELETE de notas em lote é sequencial para preservar integridade do Kardex (evita race condition no custo médio).
+- **Parse → Revisão → Confirmar**: importações (inicial e unificação) nunca aplicam cegamente; o usuário revisa antes de gravar.
+- **Anti-colisão**: unificação de códigos pula códigos já em uso (respeita constraint `unique [companyId, clientId, code]`).
+- **Compliance**: SPED `.txt` fixo (H001/H005/H010/H990); CSV customizável apenas para conferência interna.
+- **Multi-tenant**: todos os endpoints validam `companyId` e aceitam `clientId` opcional.
+
+### ✅ COMO TESTAR
+
+1. Selecionar cliente no seletor fiscal → importar XML → estoque/apuração segregados.
+2. Estoque → "Importar estoque inicial" → colar texto do PDF → revisar → confirmar.
+3. Comparativo → validar conciliação (OK / Movimentado por NF-e / Divergente / Sem saldo).
+4. Estoque → "Unificar códigos" → CSV (coluna E + W) → revisar → aplicar.
+5. Relatório Inventário → códigos unificados + coluna "Referência" = nome do produto.
+6. Exportar CSV com campos selecionáveis; SPED `.txt` mantém layout fixo.
