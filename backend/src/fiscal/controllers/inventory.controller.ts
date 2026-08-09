@@ -49,11 +49,24 @@ export class InventoryController {
     });
   }
 
-  @Get('compare')
+    @Get('compare')
   compare(@Request() req, @Query('clientId') clientId?: string) {
     return this.inventoryService.getComparison(
       req.user.companyId,
       clientId || null,
+    );
+  }
+
+  /**
+   * GET /fiscal/inventory/compare/:productId/details
+   * 🆕 Sprint 15: drill-down da conciliação (NF-es, fornecedores,
+   * saldo inicial, ajustes) + flags de procedência do código.
+   */
+  @Get('compare/:productId/details')
+  compareDetails(@Request() req, @Param('productId') productId: string) {
+    return this.inventoryService.getComparisonDetails(
+      req.user.companyId,
+      productId,
     );
   }
 

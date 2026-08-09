@@ -351,7 +351,126 @@ export class InventoryService {
       noBalance: rows.filter((r) => r.status === 'SEM_SALDO').length,
     };
 
-    return { summary, rows };
+      return { summary, rows };
+  }
+
+  // =================================================================
+  // 🔎 DETALHE DA CONCILIAÇÃO POR PRODUTO (Sprint 15)
+  // =================================================================
+
+  /**
+   * GET /fiscal/inventory/compare/:productId/details
+   *
+   * Drill-down da conciliação: mostra as EVIDÊNCIAS de cada origem
+   * de saldo do produto, para auditoria completa.
+   *
+   * 🏷️ Flags de procedência (respondem "de onde veio este código?"):
+   *   - origin.initialImport → true se recebeu SALDO_INICIAL (PDF/planilha)
+   *   - origin.nfe           → true se possui entradas via NF-e
+   *
+   * ⚠️ Honestidade de dados: o catálogo é MISTO (inicial + NF-e +
+   *    unificação Sprint 14). As flags + evidências dão a
+   *    rastreabilidade real de cada produto.
+   *
+   * @returns { product, origin, initial[], entries[], adjustments[], summary }
+   */
+  async getComparisonDetails(companyId: string, productId: string) {
+    // 1. Valida posse do produto (multi-tenant)
+    const product = await this.prisma.fiscalProduct.findFirst({
+      where: { id: productId, companyId, deletedAt: null },
+    });
+    if (!product) {
+      throw new NotFoundException('Produto não encontrado.');
+    }
+
+    // 2. Busca todas as movimentações com a NF-e + fornecedor embutidos
+    const movements = await this.prisma.fiscalInventoryMovement.findMany({
+      where: { productId },
+      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      include: {
+        invoice: {
+          select: {
+            id: true,
+            number: true,
+            series: true,
+            accessKey: true,
+            emissionDate: true,
+            supplier: { select: { name: true, cnpj: true } },
+          },
+        },
+      },
+    });
+
+    // 3. Separa por origem (evidências da conciliação)
+    const initial = movements
+      .filter((m) => m.type === 'SALDO_INICIAL')
+      .map((m) => ({
+        date: m.date,
+        quantity: Number(m.quantity),
+        unitCost: Number(m.unitCost),
+        totalCost: Number(m.totalCost),
+        reason: m.reason,
+      }));
+
+    const entries = movements
+      .filter((m) => m.type === 'ENTRADA')
+      .map((m) => ({
+        invoiceId: m.invoice?.id,
+        invoiceNumber: m.invoice?.number,
+        series: m.invoice?.series,
+        accessKey: m.invoice?.accessKey,
+        emissionDate: m.invoice?.emissionDate,
+        supplierName: m.invoice?.supplier?.name,
+        supplierCnpj: m.invoice?.supplier?.cnpj,
+        quantity: Number(m.quantity),
+        unitCost: Number(m.unitCost),
+        totalCost: Number(m.totalCost),
+      }));
+
+    const adjustments = movements
+      .filter((m) =>
+        ['AJUSTE_POSITIVO', 'AJUSTE_NEGATIVO', 'DEVOLUCAO'].includes(m.type),
+      )
+      .map((m) => ({
+        date: m.date,
+        type: m.type,
+        quantity: Number(m.quantity),
+        reason: m.reason,
+      }));
+
+    // 4. Resumo auditável: a fórmula da conciliação
+    const initialQty = initial.reduce((s, i) => s + i.quantity, 0);
+    const entryQty = entries.reduce((s, i) => s + i.quantity, 0);
+    const adjustQty = adjustments.reduce((s, i) => s + i.quantity, 0);
+    const current = Number(product.currentStock);
+    const divergence = this.round2(current - (initialQty + entryQty + adjustQty));
+
+    return {
+      product: {
+        id: product.id,
+        code: product.code,
+        description: product.description,
+        ncm: product.ncm,
+        unit: product.unit,
+        currentStock: current,
+        averageCost: Number(product.averageCost),
+      },
+      // 🏷️ Procedência do produto (rastreabilidade do código)
+      origin: {
+        initialImport: initial.length > 0,  // veio do estoque inicial (PDF/planilha)
+        nfe: entries.length > 0,            // tem entradas via NF-e
+      },
+      initial,
+      entries,
+      adjustments,
+      summary: {
+        initialQty: this.round2(initialQty),
+        entryQty: this.round2(entryQty),
+        adjustQty: this.round2(adjustQty),
+        currentStock: current,
+        divergence,
+      },
+    };
   }
 
   // =================================================================
