@@ -627,3 +627,69 @@ Detalhes das Alterações Técnicas:
 * Exportação CSV com BOM UTF-8 e SPED com separador pipe e datas ddmmaaaa.
 * Multi-tenant rigoroso: todas as queries filtradas por companyId.
 
+---
+
+## 🆕 ATUALIZAÇÃO — Módulo Fiscal Completo: NF-e, Estoque, ICMS e SPED (Sprints 8–20)
+
+### 🎯 Descrição
+
+Implementação do módulo fiscal completo para escritórios contábeis (SaaS multi-tenant + multi-cliente por escritório). O módulo cobre o ciclo completo da **NF-e de entrada**: importação de XML → catálogo de produtos → estoque com custo médio ponderado → apuração de ICMS → SPED Fiscal (Bloco H) → relatório de inventário estendido (H010, 17 colunas) → conciliação e auditoria.
+
+### 📦 Sprints entregues
+
+| Sprint | Funcionalidade |
+|---|---|
+| 8 | Seletor de cliente fiscal (segregação de notas/estoque/apuração por cliente) |
+| 9 | Gestão de NF-e: exclusão com estorno de estoque (replay), atribuição de cliente em lote, limpeza de órfãos, wipe com trava |
+| 10 | Importação de estoque inicial (PDF/CSV) com tabela de revisão editável e movimento `SALDO_INICIAL` |
+| 11 | Comparativo: Inicial × NF-e × Atual com divergências |
+| 12 | Exportação CSV selecionável por contexto (preferência persistida) |
+| 13 | Relatório de Inventário Fiscal H010 estendido (17 colunas) com tributos |
+| 14 | Unificação de códigos via planilha (descrição → código unificado) |
+| 15 | Drill-down da conciliação (evidências por origem + flags de procedência) |
+| 16 | Manutenção manual de produtos (edição de todos os campos, soft delete) |
+| 17 | Procedência no estoque: COD_EST × COD_NF × Unificado, origem, NF-e e datas |
+| 18 | Unificação por similaridade (Dice sobre tokens) com % de match revisável |
+| 19 | Código Unificado como coluna extra (`unifiedCode`), sem alterar o código do catálogo |
+| 20 | Documentação viva: painel "Como funciona esta página" em todas as páginas fiscais |
+
+### 📁 Arquivos criados/alterados
+
+**Backend (NestJS + Prisma):**
+- `src/fiscal/**` — controllers e services: `invoice`, `inventory`, `icms`, `sped`, `product`
+- `prisma/schema.prisma` — `clientId` nos modelos fiscais; enum `SALDO_INICIAL`; `code String?` e `unifiedCode String?` no `FiscalProduct`
+
+**Frontend (Next.js):**
+- `src/store/fiscalClientStore.ts` — estado global do cliente fiscal (Zustand + localStorage)
+- `src/components/fiscal/` — `FiscalClientSelector`, `InitialStockImportModal`, `ColumnPickerModal`, `UnifyCodesModal`, `ProductEditModal`, `ComparisonDetailModal`, `FiscalInfoPanel`
+- `src/lib/` — `columnExport.ts` (CSV selecionável), `parseInitialStock.ts`
+- Páginas: `fiscal/` (importação), `notas`, `estoque`, `apuracao`, `sped`, `comparativo`, `relatorio-inventario`
+
+### 🔧 Decisões técnicas
+
+- **Multi-cliente**: todos os endpoints fiscais aceitam `clientId` opcional; a UI segrega por seletor global.
+- **Estorno por replay**: excluir uma NF-e recalcula saldo e custo médio reprocessando as movimentações restantes (integridade do Kardex).
+- **Exclusão sequencial**: DELETEs em lote são sequenciais para evitar race condition no custo médio.
+- **Parse → Revisão → Confirmar**: importações nunca aplicam cegamente; o usuário revisa antes de gravar.
+- **Anti-colisão**: unificação e edição respeitam a constraint unique `[companyId, clientId, code]`.
+- **Compliance vs flexibilidade**: SPED `.txt` com layout legal fixo (H001/H005/H010/H990); CSV customizável apenas para conferência interna.
+- **Matching fuzzy**: unificação por similaridade (coeficiente de Dice sobre tokens), limiar configurável a partir de 10%, com % de match exibido para auditoria.
+- **Unificação não destrutiva**: código unificado em coluna extra `unifiedCode` (Sprint 19), sem sobrescrever `code`.
+- **Documentação viva**: `FiscalInfoPanel` embute métricas, fórmulas e interpretação de resultados em cada página.
+
+### ✅ Como testar
+
+1. Selecionar cliente no seletor fiscal → importar XML de NF-e de entrada → estoque e apuração segregados.
+2. Estoque → conferir colunas COD_EST, COD_NF, Cód. Unificado, Origem, NF-e e datas.
+3. Comparativo → drill-down (👁) exibe evidências por origem (inicial, NF-es com fornecedor, ajustes).
+4. Unificar códigos → CSV da planilha → revisar % de match → aplicar → `unifiedCode` preenchido.
+5. SPED → exportar `.txt` (fixo) e CSV (selecionável).
+6. Relatório Inventário → 17 colunas com tributos das aquisições.
+7. Abrir o painel "Como funciona..." em cada página fiscal.
+
+### 🚧 Próximos passos (Fase 4 do Fiscal)
+
+- [ ] **NF-e de SAÍDA** (vendas) com débito de ICMS automático e baixa de estoque
+- [ ] Dashboard Fiscal Consolidado (créditos × débitos × saldo a pagar)
+- [ ] Conciliação automática de divergências
+- [ ] SPED completo (blocos 0, C, D, E, G, K)

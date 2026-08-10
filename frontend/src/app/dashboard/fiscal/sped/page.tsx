@@ -13,19 +13,19 @@ import {
   Barcode,
   Loader2,
   FileText,
-  Settings2, // 🆕 Sprint 12: escolher campos da exportação
+  Settings2,
 } from 'lucide-react';
 import api from '@/lib/axios';
-import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
-import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
-import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal'; // 🆕 Sprint 12
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
+import { useFiscalClientStore } from '@/store/fiscalClientStore';
+import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal';
+import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
 import {
   ColumnDef,
   buildCsv,
   downloadCsv,
   getSelectedKeys,
-} from '@/lib/columnExport'; // 🆕 Sprint 12
-import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
+} from '@/lib/columnExport';
 
 // =================================================================
 // 📦 Tipos
@@ -65,13 +65,13 @@ const MONTH_NAMES = [
 ];
 
 // =================================================================
-// 🆕 Sprint 12: colunas exportáveis do inventário (Bloco H)
+// 📑 Colunas exportáveis do inventário (Bloco H)
+// 🆕 Sprint 20: Código e Descrição DESTRADOS (sem always:true)
 // ⚠️ O .txt SPED permanece com layout legal FIXO (não customizável).
-//    Apenas o CSV de conferência aceita campos selecionáveis.
 // =================================================================
 const EXPORT_COLUMNS: ColumnDef[] = [
-  { key: 'code', label: 'Código', always: true },
-  { key: 'description', label: 'Descrição', always: true },
+  { key: 'code', label: 'Código' },
+  { key: 'description', label: 'Descrição' },
   { key: 'ncm', label: 'NCM' },
   { key: 'unit', label: 'Unidade' },
   { key: 'quantity', label: 'Quantidade' },
@@ -82,19 +82,7 @@ const EXPORT_COLUMNS: ColumnDef[] = [
 // =================================================================
 // 📄 Página: SPED Fiscal — Bloco H (Inventário)
 // =================================================================
-// Sprint 8:  integrado com seletor de cliente (filtros persistidos).
-// Sprint 12: CSV com campos selecionáveis (gerado no client).
-//
-// 🛡️ Regra de compliance:
-//   - .txt SPED → gerado no backend com layout oficial Receita Federal
-//     (H001/H005/H010/H990) — NÃO customizável
-//   - .csv Excel → gerado no client com as colunas escolhidas pelo
-//     usuário (conferência interna)
-// =================================================================
 export default function FiscalSpedPage() {
-  // =================================================================
-  // 🆕 Sprint 8: cliente selecionado (estado global Zustand + localStorage)
-  // =================================================================
   const { selected } = useFiscalClientStore();
 
   const currentYear = new Date().getFullYear();
@@ -106,19 +94,15 @@ export default function FiscalSpedPage() {
   const [loading, setLoading] = useState(true);
   const [exportingSped, setExportingSped] = useState(false);
 
-  // 🆕 Sprint 12: exportação CSV com campos selecionáveis
   const [pickerOpen, setPickerOpen] = useState(false);
   const [exportCols, setExportCols] = useState<string[]>([]);
 
-  // Carrega a seleção persistida do localStorage ao montar
   useEffect(() => {
     setExportCols(getSelectedKeys('fiscal-sped', EXPORT_COLUMNS));
   }, []);
 
   // ---------------------------------------------------------------
-  // 📦 Carrega inventário da data-base (filtrado pelo cliente selecionado)
-  // ---------------------------------------------------------------
-  // 🆕 Sprint 8: clientId enviado ao backend para inventário segregado
+  // 📦 Carrega inventário da data-base (filtrado pelo cliente)
   // ---------------------------------------------------------------
   const load = useCallback(async () => {
     setLoading(true);
@@ -127,7 +111,7 @@ export default function FiscalSpedPage() {
         params: {
           year,
           month,
-          clientId: selected.id || undefined, // 🆕 Sprint 8
+          clientId: selected.id || undefined,
         },
       });
       setData(data);
@@ -136,7 +120,7 @@ export default function FiscalSpedPage() {
     } finally {
       setLoading(false);
     }
-  }, [year, month, selected.id]); // 🆕 Sprint 8: selected.id como dependência
+  }, [year, month, selected.id]);
 
   useEffect(() => {
     load();
@@ -144,9 +128,6 @@ export default function FiscalSpedPage() {
 
   // ---------------------------------------------------------------
   // 📥 Download do .txt SPED (layout legal — gerado no backend)
-  // ---------------------------------------------------------------
-  // ⚠️ Este arquivo NÃO é customizável: segue o layout mínimo do
-  // Bloco H (H001/H005/H010/H990) exigido pelo PVA da Receita Federal.
   // ---------------------------------------------------------------
   const downloadSped = async () => {
     setExportingSped(true);
@@ -156,7 +137,7 @@ export default function FiscalSpedPage() {
           year,
           month,
           format: 'sped',
-          clientId: selected.id || undefined, // 🆕 Sprint 8
+          clientId: selected.id || undefined,
         },
         responseType: 'blob',
       });
@@ -182,11 +163,7 @@ export default function FiscalSpedPage() {
   };
 
   // ---------------------------------------------------------------
-  // 🆕 Sprint 12: Exporta CSV no CLIENT com as colunas selecionadas
-  // ---------------------------------------------------------------
-  // Usa o JSON já carregado (data.items) e gera o CSV diretamente
-  // no navegador, respeitando as colunas escolhidas pelo usuário.
-  // Vantagens: resposta imediata, sem round-trip ao backend.
+  // 📤 Exporta CSV no client com as colunas selecionadas
   // ---------------------------------------------------------------
   const exportCsvClient = () => {
     if (!data || data.items.length === 0) {
@@ -203,9 +180,7 @@ export default function FiscalSpedPage() {
   // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* ================================================================
-          Cabeçalho + seletor de cliente + seletores de mês/ano
-          ================================================================ */}
+      {/* Cabeçalho + seletores */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -218,10 +193,8 @@ export default function FiscalSpedPage() {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          {/* 🆕 Sprint 8: seletor de cliente */}
           <FiscalClientSelector />
 
-          {/* Seletor de mês */}
           <select
             value={month}
             onChange={(e) => setMonth(Number(e.target.value))}
@@ -234,7 +207,6 @@ export default function FiscalSpedPage() {
             ))}
           </select>
 
-          {/* Seletor de ano */}
           <div className="flex items-center gap-1 bg-white rounded-lg shadow-sm border border-slate-200 px-2 py-1.5">
             <button
               onClick={() => setYear((y) => y - 1)}
@@ -259,9 +231,10 @@ export default function FiscalSpedPage() {
         </div>
       </div>
 
-      {/* ================================================================
-          Aviso contextual: cliente selecionado
-          ================================================================ */}
+      {/* 🆕 Sprint 20: documentação viva da página */}
+      <FiscalInfoPanel page="sped" />
+
+      {/* Aviso contextual */}
       {selected.id && (
         <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
           <div className="p-1.5 bg-teal-100 rounded-lg">
@@ -278,12 +251,7 @@ export default function FiscalSpedPage() {
         </div>
       )}
 
-      {/* 🆕 Sprint 20: documentação viva da página */}
-      <FiscalInfoPanel page="sped" />
-
-      {/* ================================================================
-          Cards de resumo
-          ================================================================ */}
+      {/* Cards de resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
@@ -328,9 +296,7 @@ export default function FiscalSpedPage() {
         </div>
       </div>
 
-      {/* ================================================================
-          Tabela + botões de exportação
-          ================================================================ */}
+      {/* Tabela + exportação */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <h3 className="font-bold text-slate-900">
@@ -338,7 +304,6 @@ export default function FiscalSpedPage() {
           </h3>
 
           <div className="flex gap-2 flex-wrap">
-            {/* .txt SPED — layout legal fixo (gerado no backend) */}
             <button
               onClick={downloadSped}
               disabled={exportingSped || loading}
@@ -353,7 +318,6 @@ export default function FiscalSpedPage() {
               Exportar SPED (.txt)
             </button>
 
-            {/* 🆕 Sprint 12: CSV gerado no client com colunas selecionáveis */}
             <button
               onClick={exportCsvClient}
               disabled={loading || !data || data.items.length === 0}
@@ -364,7 +328,6 @@ export default function FiscalSpedPage() {
               Exportar CSV (Excel)
             </button>
 
-            {/* 🆕 Sprint 12: botão para escolher campos da exportação */}
             <button
               onClick={() => setPickerOpen(true)}
               className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
@@ -444,9 +407,7 @@ export default function FiscalSpedPage() {
         )}
       </div>
 
-      {/* ================================================================
-          Nota de compliance
-          ================================================================ */}
+      {/* Nota de compliance */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
         <p className="font-semibold mb-1">⚠️ Nota de Compliance</p>
         <p>
@@ -458,12 +419,7 @@ export default function FiscalSpedPage() {
         </p>
       </div>
 
-      {/* ================================================================
-          🆕 Sprint 12: seletor de campos da exportação (somente CSV)
-          ================================================================
-          Colunas Código e Descrição são travadas (always: true).
-          A seleção persiste em localStorage por contexto "fiscal-sped".
-          ================================================================ */}
+      {/* Seletor de campos da exportação */}
       <ColumnPickerModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
