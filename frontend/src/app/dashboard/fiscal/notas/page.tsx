@@ -19,6 +19,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import api from '@/lib/axios';
+import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
 import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
 
@@ -373,6 +374,9 @@ export default function FiscalNotasPage() {
         {/* 🆕 Sprint 8: seletor de cliente (estado global persistido) */}
         <FiscalClientSelector />
       </div>
+
+      {/* 🆕 Sprint 20: documentação viva da página */}
+      <FiscalInfoPanel page="notas" />
 
       {/* ================================================================
           Aviso contextual: cliente selecionado

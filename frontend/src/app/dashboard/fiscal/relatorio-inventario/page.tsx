@@ -13,8 +13,8 @@ import {
 import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
 import { useFiscalClientStore } from '@/store/fiscalClientStore';
-import { ColumnDef, buildCsv, downloadCsv } from '@/lib/columnExport';
 import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
+import { ColumnDef, buildCsv, downloadCsv } from '@/lib/columnExport';
 
 // =================================================================
 // 📦 Tipos (espelham o backend — Sprint 13)
@@ -48,10 +48,7 @@ const formatBRL = (v: number) =>
 const formatQty = (v: number) => Number(v || 0).toLocaleString('pt-BR');
 
 // =================================================================
-// 📑 Sprint 13: colunas do relatório (layout H010 estendido)
-// =================================================================
-// ⚠️ ORDEM E RÓTULOS IDÊNTICOS ao modelo exigido pelo usuário.
-// O CSV exporta exatamente estas 17 colunas nesta ordem.
+// 📑 Colunas do relatório (layout H010 estendido — FIXAS, modelo legal)
 // =================================================================
 const REPORT_COLUMNS: ColumnDef[] = [
   { key: 'code', label: 'Código do Produto' },
@@ -75,13 +72,6 @@ const REPORT_COLUMNS: ColumnDef[] = [
 
 // =================================================================
 // 📄 Página: Relatório de Inventário Fiscal com Tributos
-// =================================================================
-// Sprint 13: lista produtos que ESTÃO nas notas importadas E cujo
-// saldo atual NÃO está zerado, no layout H010 estendido (17 colunas).
-//
-// 🛡️ Regra de negócio (backend):
-//   - currentStock ≠ 0  → não zerados no estoque
-//   - invoiceItems > 0  → presentes nas notas importadas
 // =================================================================
 export default function FiscalRelatorioInventarioPage() {
   const { selected } = useFiscalClientStore();
@@ -150,6 +140,9 @@ export default function FiscalRelatorioInventarioPage() {
         <FiscalClientSelector />
       </div>
 
+      {/* 🆕 Sprint 20: documentação viva da página */}
+      <FiscalInfoPanel page="relatorio" />
+
       {/* Aviso contextual do cliente */}
       {selected.id && (
         <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
@@ -163,9 +156,6 @@ export default function FiscalRelatorioInventarioPage() {
           </div>
         </div>
       )}
-
-      {/* 🆕 Sprint 20: documentação viva da página */}
-      <FiscalInfoPanel page="relatorio" />
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

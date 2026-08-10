@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
+import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
 import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
 
 // =================================================================
@@ -93,21 +94,9 @@ const MONTH_SHORT = [
 ];
 
 // =================================================================
-// 📄 Página: Apuração de ICMS
-// =================================================================
-// Sprint 8: Integrado com seletor de cliente fiscal.
-// Quando um cliente está selecionado:
-//   - Resumo anual calculado apenas com NF-e do cliente
-//   - Detalhe mensal segregado por cliente
-//   - Salvar/Fechar/Reabrir vinculados ao cliente
-// Quando "Todos os clientes" (clientId = null):
-//   - Apuração geral do escritório (dados legados inclusos)
+// 📄 Página: Apuração de ICMS (Sprints 8 + 20)
 // =================================================================
 export default function FiscalApuracaoPage() {
-  // =================================================================
-  // 🆕 Sprint 8: Estado global do cliente selecionado (Zustand)
-  // OBRIGATÓRIO estar DENTRO do componente (Rules of Hooks do React)
-  // =================================================================
   const { selected } = useFiscalClientStore();
 
   const currentYear = new Date().getFullYear();
@@ -115,7 +104,6 @@ export default function FiscalApuracaoPage() {
   const [summary, setSummary] = useState<YearSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Modal de detalhe/edit
   const [detail, setDetail] = useState<MonthDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [editSales, setEditSales] = useState('');
@@ -123,20 +111,13 @@ export default function FiscalApuracaoPage() {
   const [editObs, setEditObs] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // ---------------------------------------------------------------
-  // 📊 Carrega resumo anual (filtrado pelo cliente selecionado)
-  // ---------------------------------------------------------------
-  // 🆕 Sprint 8:
-  // - clientId enviado como query param
-  // - selected.id como dependência → recarrega ao trocar de cliente
-  // ---------------------------------------------------------------
   const loadSummary = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get('/fiscal/icms', {
         params: {
           year,
-          clientId: selected.id || undefined, // 🆕 Sprint 8
+          clientId: selected.id || undefined,
         },
       });
       setSummary(data);
@@ -145,15 +126,12 @@ export default function FiscalApuracaoPage() {
     } finally {
       setLoading(false);
     }
-  }, [year, selected.id]); // 🆕 Sprint 8
+  }, [year, selected.id]);
 
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
 
-  // ---------------------------------------------------------------
-  // 🔍 Abre detalhe do mês (filtrado pelo cliente selecionado)
-  // ---------------------------------------------------------------
   const openDetail = async (month: number) => {
     setLoadingDetail(true);
     setDetail(null);
@@ -162,7 +140,7 @@ export default function FiscalApuracaoPage() {
         params: {
           year,
           month,
-          clientId: selected.id || undefined, // 🆕 Sprint 8
+          clientId: selected.id || undefined,
         },
       });
       setDetail(data);
@@ -176,9 +154,6 @@ export default function FiscalApuracaoPage() {
     }
   };
 
-  // ---------------------------------------------------------------
-  // 💾 Salvar débitos (edita apuração do cliente selecionado)
-  // ---------------------------------------------------------------
   const saveDebits = async () => {
     if (!detail) return;
     setSaving(true);
@@ -189,7 +164,7 @@ export default function FiscalApuracaoPage() {
         salesValue: Number(editSales || 0),
         debitRate: Number(editRate || 0),
         observations: editObs,
-        clientId: selected.id, // 🆕 Sprint 8 (null = geral)
+        clientId: selected.id,
       });
       toast.success('Apuração salva com sucesso!');
       setDetail(null);
@@ -201,9 +176,6 @@ export default function FiscalApuracaoPage() {
     }
   };
 
-  // ---------------------------------------------------------------
-  // 🔒 Fechar mês (trava edição para compliance fiscal)
-  // ---------------------------------------------------------------
   const closeMonth = async () => {
     if (!detail) return;
     setSaving(true);
@@ -211,7 +183,7 @@ export default function FiscalApuracaoPage() {
       await api.post('/fiscal/icms/close', {
         year: detail.year,
         month: detail.month,
-        clientId: selected.id, // 🆕 Sprint 8
+        clientId: selected.id,
       });
       toast.success('Mês fechado! A apuração foi travada para compliance.');
       setDetail(null);
@@ -223,9 +195,6 @@ export default function FiscalApuracaoPage() {
     }
   };
 
-  // ---------------------------------------------------------------
-  // 🔓 Reabrir mês (permite ajustes antes da transmissão)
-  // ---------------------------------------------------------------
   const reopenMonth = async () => {
     if (!detail) return;
     setSaving(true);
@@ -233,15 +202,14 @@ export default function FiscalApuracaoPage() {
       await api.post('/fiscal/icms/reopen', {
         year: detail.year,
         month: detail.month,
-        clientId: selected.id, // 🆕 Sprint 8
+        clientId: selected.id,
       });
       toast.success('Mês reaberto para ajustes.');
-      // Recarrega o detalhe atualizado
       const { data } = await api.get('/fiscal/icms/detail', {
         params: {
           year: detail.year,
           month: detail.month,
-          clientId: selected.id || undefined, // 🆕 Sprint 8
+          clientId: selected.id || undefined,
         },
       });
       setDetail(data);
@@ -253,18 +221,12 @@ export default function FiscalApuracaoPage() {
     }
   };
 
-  // Cálculo em tempo real (preview antes de salvar)
   const previewDebits = Number(editSales || 0) * (Number(editRate || 0) / 100);
   const previewBalance = previewDebits - (detail?.creditsIcms || 0);
 
-  // ---------------------------------------------------------------
-  // 🎨 Renderização
-  // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* ================================================================
-          Cabeçalho + seletor de cliente + seletor de ano
-          ================================================================ */}
+      {/* Cabeçalho + seletor de cliente + seletor de ano */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -277,10 +239,8 @@ export default function FiscalApuracaoPage() {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          {/* 🆕 Sprint 8: Seletor de cliente */}
           <FiscalClientSelector />
 
-          {/* Seletor de ano */}
           <div className="flex items-center gap-2 bg-white rounded-lg shadow-sm border border-slate-200 px-3 py-2">
             <button
               onClick={() => setYear((y) => y - 1)}
@@ -305,9 +265,10 @@ export default function FiscalApuracaoPage() {
         </div>
       </div>
 
-      {/* ================================================================
-          Aviso contextual: cliente selecionado
-          ================================================================ */}
+      {/* 🆕 Sprint 20: documentação viva da página */}
+      <FiscalInfoPanel page="apuracao" />
+
+      {/* Aviso contextual: cliente selecionado */}
       {selected.id && (
         <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
           <div className="p-1.5 bg-teal-100 rounded-lg">
@@ -324,9 +285,7 @@ export default function FiscalApuracaoPage() {
         </div>
       )}
 
-      {/* ================================================================
-          Cards totais do ano (créditos, débitos, saldo)
-          ================================================================ */}
+      {/* Cards totais do ano */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
@@ -391,9 +350,7 @@ export default function FiscalApuracaoPage() {
         </div>
       </div>
 
-      {/* ================================================================
-          Grade dos 12 meses
-          ================================================================ */}
+      {/* Grade dos 12 meses */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
         <h3 className="font-bold text-slate-900 mb-4">Apurações Mensais</h3>
 
@@ -457,9 +414,7 @@ export default function FiscalApuracaoPage() {
         )}
       </div>
 
-      {/* ================================================================
-          Legenda
-          ================================================================ */}
+      {/* Legenda */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-center gap-4 text-xs text-slate-600">
         <div className="flex items-center gap-2">
           <Unlock className="h-3.5 w-3.5 text-slate-400" />
@@ -479,9 +434,7 @@ export default function FiscalApuracaoPage() {
         </div>
       </div>
 
-      {/* ================================================================
-          MODAL DETALHE MENSAL
-          ================================================================ */}
+      {/* MODAL DETALHE MENSAL */}
       {(detail || loadingDetail) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -492,7 +445,6 @@ export default function FiscalApuracaoPage() {
             ) : (
               detail && (
                 <>
-                  {/* Cabeçalho */}
                   <div className="flex items-center justify-between p-5 border-b border-slate-200 sticky top-0 bg-white z-10">
                     <div>
                       <div className="flex items-center gap-2">
@@ -524,7 +476,6 @@ export default function FiscalApuracaoPage() {
                   </div>
 
                   <div className="p-5 space-y-6">
-                    {/* Créditos (automáticos) */}
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-bold text-slate-800 flex items-center gap-2">
@@ -596,7 +547,6 @@ export default function FiscalApuracaoPage() {
                       )}
                     </div>
 
-                    {/* Débitos (editáveis se mês aberto) */}
                     <div className="border-t border-slate-200 pt-5">
                       <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
                         <TrendingDown className="h-4 w-4 text-red-600" />
@@ -649,7 +599,6 @@ export default function FiscalApuracaoPage() {
                       </div>
                     </div>
 
-                    {/* Resultado (preview em tempo real) */}
                     <div
                       className={`rounded-lg p-4 border-2 ${
                         previewBalance > 0
@@ -695,7 +644,6 @@ export default function FiscalApuracaoPage() {
                       </div>
                     </div>
 
-                    {/* Ações */}
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200">
                       {detail.status === 'ABERTA' ? (
                         <>
