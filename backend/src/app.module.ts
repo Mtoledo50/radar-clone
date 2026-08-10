@@ -31,7 +31,8 @@ import { TasksModule } from './tasks/tasks.module';
 import { ProjectsModule } from './projects/projects.module';
 
 // Operational Fiscal (NOVO)
-import { FiscalModule } from './fiscal/fiscal.module'; // ← NOVO
+import { FiscalModule } from './fiscal/fiscal.module';
+import { BankingModule } from './banking/banking.module';
 
 
 @Module({
@@ -66,8 +67,8 @@ import { FiscalModule } from './fiscal/fiscal.module'; // ← NOVO
     TasksModule,
     ProjectsModule,
     
-    FiscalModule, // ← fiscal NOVO
-
+    FiscalModule,
+    BankingModule,
   ],
 })
 export class AppModule {}
