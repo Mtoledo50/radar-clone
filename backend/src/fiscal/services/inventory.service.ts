@@ -124,6 +124,17 @@ export class InventoryService {
    *
    * Lista o saldo atual de cada produto com paginação, busca e filtros.
    */
+  /**
+   * GET /fiscal/inventory/balance
+   *
+   * Lista o saldo atual de cada produto com paginação, busca e filtros.
+   *
+   * 🆕 Sprint 17: procedência por produto —
+   *   - codNf      → código do produto NA NF-e (supplierCode do item)
+   *   - origin     → INICIAL | NFE | AMBOS | OUTRO
+   *   - nfNumber/nfSeries/nfEmissionDate → última nota de entrada
+   *   - importedAt → data da importação (createdAt do movimento)
+   */
   async getBalance(
     companyId: string,
     opts: {
@@ -160,23 +171,63 @@ export class InventoryService {
         skip: (opts.page - 1) * opts.limit,
         take: opts.limit,
         orderBy: { description: 'asc' },
-        include: { _count: { select: { movements: true } } },
+        include: {
+          _count: { select: { movements: true } },
+          // 🆕 Sprint 17: movimentações c/ NF-e (mais recente primeiro)
+          movements: {
+            select: {
+              type: true,
+              createdAt: true,
+              invoice: {
+                select: { number: true, series: true, emissionDate: true },
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+          },
+          // 🆕 Sprint 17: código do fornecedor nos itens de NF-e (COD_NF)
+          invoiceItems: { select: { supplierCode: true } },
+        },
       }),
       this.prisma.fiscalProduct.count({ where }),
     ]);
 
-    const rows = data.map((p) => ({
-      id: p.id,
-      code: p.code,
-      description: p.description,
-      ncm: p.ncm,
-      unit: p.unit,
-      currentStock: Number(p.currentStock),
-      averageCost: Number(p.averageCost),
-      totalValue: this.round2(Number(p.currentStock) * Number(p.averageCost)),
-      movementsCount: p._count.movements,
-      clientId: p.clientId,
-    }));
+    const rows = data.map((p) => {
+      // Última ENTRADA e SALDO_INICIAL (movements já ordenado desc)
+      const lastEntry = p.movements.find((m) => m.type === 'ENTRADA');
+      const initial = p.movements.find((m) => m.type === 'SALDO_INICIAL');
+      // Primeiro código de fornecedor encontrado nos itens de NF-e
+      const codNf =
+        p.invoiceItems.map((i) => i.supplierCode).find((c) => !!c) || '';
+
+      return {
+        id: p.id,
+        code: p.code ?? '',
+        description: p.description,
+        ncm: p.ncm,
+        unit: p.unit,
+        currentStock: Number(p.currentStock),
+        averageCost: Number(p.averageCost),
+        totalValue: this.round2(
+          Number(p.currentStock) * Number(p.averageCost),
+        ),
+        movementsCount: p._count.movements,
+        clientId: p.clientId,
+        // 🆕 Sprint 17: procedência completa
+        codNf,
+        origin:
+          initial && lastEntry
+            ? 'AMBOS'
+            : lastEntry
+              ? 'NFE'
+              : initial
+                ? 'INICIAL'
+                : 'OUTRO',
+        nfNumber: lastEntry?.invoice?.number ?? null,
+        nfSeries: lastEntry?.invoice?.series ?? null,
+        nfEmissionDate: lastEntry?.invoice?.emissionDate ?? null,
+        importedAt: lastEntry?.createdAt ?? initial?.createdAt ?? null,
+      };
+    });
 
     return {
       data: rows,
@@ -850,22 +901,22 @@ export class InventoryService {
   }
 
   // =================================================================
-  // 🔀 UNIFICAÇÃO DE CÓDIGOS VIA PLANILHA (Sprint 14)
+  // 🔀 UNIFICAÇÃO DE CÓDIGOS VIA PLANILHA (Sprint 14 → 19)
   // =================================================================
 
   /**
    * POST /fiscal/inventory/unify-codes
    *
-   * Atualiza os códigos dos produtos com base no mapeamento
-   * descrição → código unificado vindo da planilha do usuário.
+   * 🆕 Sprint 19: NÃO altera o código do catálogo (code).
+   * Grava o "Código Unificado Encontrado" da planilha na coluna
+   * dedicada `unifiedCode` (campo informativo, sem constraint unique).
    *
-   * 🛡️ Regras de segurança:
+   * 🛡️ Regras:
    *   - Valida posse do produto (companyId + não deletado)
-   *   - ANTI-COLISÃO: se o novo código já pertence a outro produto
-   *     do mesmo escopo (companyId + clientId), o item é PULADO
+   *   - Idempotente: se unifiedCode já é igual, pula
    *   - Transação atômica: tudo ou nada
    *
-   * ⚠️ O histórico das notas NÃO é reescrito (auditoria preservada).
+   * ⚠️ O histórico das notas NUNCA é reescrito (auditoria preservada).
    */
   async unifyCodes(
     companyId: string,
@@ -894,37 +945,139 @@ export class InventoryService {
           continue;
         }
 
-        if (product.code === newCode) {
-          continue; // já está unificado
-        }
-
-        // ANTI-COLISÃO: novo código já em uso por outro produto?
-        const clash = await tx.fiscalProduct.findFirst({
-          where: {
-            companyId,
-            clientId: product.clientId,
-            code: newCode,
-            deletedAt: null,
-            id: { not: product.id },
-          },
-        });
-        if (clash) {
-          skipped.push({
-            productId: it.productId,
-            newCode,
-            reason: `Código "${newCode}" já em uso por outro produto.`,
-          });
-          continue;
+        if (product.unifiedCode === newCode) {
+          continue; // já unificado (idempotente)
         }
 
         await tx.fiscalProduct.update({
           where: { id: product.id },
-          data: { code: newCode },
+          data: { unifiedCode: newCode },
         });
         updated++;
       }
     });
 
     return { updated, skipped };
+  }
+  // =================================================================
+  // ✏️ MANUTENÇÃO MANUAL DE PRODUTO (Sprint 16)
+  // =================================================================
+
+  /**
+   * PUT /fiscal/inventory/products/:id
+   *
+   * Edição manual completa do produto:
+   *   - code        → editável; vazio = "sem código" (nullable)
+   *   - description / ncm / unit → edição direta
+   *   - quantity    → edição direta gera movimento de AJUSTE (auditoria)
+   *   - averageCost → reavaliação de custo
+   *
+   * 🛡️ Regras: posse (companyId), anti-colisão de código,
+   *    saldo nunca negativo, transação atômica.
+   */
+  async updateProduct(
+    companyId: string,
+    userId: string,
+    id: string,
+    data: {
+      code?: string | null;
+      description?: string;
+      ncm?: string;
+      unit?: string;
+      quantity?: number;
+      averageCost?: number;
+    },
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.fiscalProduct.findFirst({
+        where: { id, companyId, deletedAt: null },
+      });
+      if (!product) {
+        throw new NotFoundException('Produto não encontrado.');
+      }
+
+      // Normaliza código: vazio → null ("sem código")
+      const newCode =
+        data.code === undefined
+          ? undefined
+          : (data.code || '').trim() === ''
+            ? null
+            : (data.code || '').trim();
+
+      // 🛡️ ANTI-COLISÃO: código já em uso por outro produto?
+      if (newCode && newCode !== product.code) {
+        const clash = await tx.fiscalProduct.findFirst({
+          where: {
+            companyId,
+            clientId: product.clientId,
+            code: newCode,
+            deletedAt: null,
+            id: { not: id },
+          },
+        });
+        if (clash) {
+          throw new ConflictException(
+            `Código "${newCode}" já em uso por outro produto.`,
+          );
+        }
+      }
+
+      const update: any = {};
+      if (newCode !== undefined) update.code = newCode;
+      if (data.description !== undefined) update.description = data.description;
+      if (data.ncm !== undefined) update.ncm = data.ncm;
+      if (data.unit !== undefined) update.unit = data.unit;
+      if (data.averageCost !== undefined) update.averageCost = Number(data.averageCost);
+
+      // 📐 Edição de saldo → movimento de AJUSTE (trilha de auditoria)
+      if (data.quantity !== undefined) {
+        const current = Number(product.currentStock);
+        const target = Number(data.quantity);
+        if (target < 0) {
+          throw new BadRequestException('O saldo não pode ser negativo.');
+        }
+        const delta = target - current;
+        if (delta !== 0) {
+          const cost = Number(product.averageCost);
+          await tx.fiscalInventoryMovement.create({
+            data: {
+              companyId,
+              clientId: product.clientId,
+              productId: id,
+              type: delta > 0 ? 'AJUSTE_POSITIVO' : 'AJUSTE_NEGATIVO',
+              date: new Date(),
+              quantity: delta,
+              unitCost: cost,
+              totalCost: this.round2(Math.abs(delta) * cost),
+              averageCostAfter: cost,
+              reason: 'Edição manual de produto (Sprint 16)',
+              userId,
+            },
+          });
+          update.currentStock = target;
+        }
+      }
+
+      return tx.fiscalProduct.update({ where: { id }, data: update });
+    });
+  }
+
+  /**
+   * DELETE /fiscal/inventory/products/:id
+   *
+   * 🗑️ Exclusão do produto (SOFT DELETE — preserva histórico fiscal).
+   * O produto some do catálogo/relatórios; notas e kardex permanecem.
+   */
+  async deleteProduct(companyId: string, id: string) {
+    const product = await this.prisma.fiscalProduct.findFirst({
+      where: { id, companyId, deletedAt: null },
+    });
+    if (!product) {
+      throw new NotFoundException('Produto não encontrado.');
+    }
+    return this.prisma.fiscalProduct.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 }

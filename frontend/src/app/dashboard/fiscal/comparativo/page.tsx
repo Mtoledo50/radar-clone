@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -13,18 +12,21 @@ import {
   RefreshCw,
   PackageX,
   Receipt,
-  Settings2, // 🆕 Sprint 12: escolher campos da exportação
+  Settings2,
+  Eye, // 🆕 Sprint 15: detalhe da conciliação
 } from 'lucide-react';
 import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
 import { useFiscalClientStore } from '@/store/fiscalClientStore';
-import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal'; // 🆕 Sprint 12
+import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal';
+import ComparisonDetailModal from '@/components/fiscal/ComparisonDetailModal'; // 🆕 Sprint 15
 import {
   ColumnDef,
   buildCsv,
   downloadCsv,
   getSelectedKeys,
-} from '@/lib/columnExport'; // 🆕 Sprint 12
+} from '@/lib/columnExport';
+
 // =================================================================
 // 📦 Tipos
 // =================================================================
@@ -97,12 +99,9 @@ const EXPORT_COLUMNS: ColumnDef[] = [
   { key: 'divergence', label: 'Divergência' },
   { key: 'status', label: 'Status', format: (r) => STATUS_CONFIG[r.status]?.label || r.status },
 ];
+
 // =================================================================
-// 📄 Página: Comparativo Estoque Inicial × NF-e (Sprint 11)
-// =================================================================
-// Conciliação contábil por produto:
-//   Inicial (PDF) + Entradas NF-e + Ajustes = Atual
-// Divergências ≠ 0 são destacadas em vermelho para auditoria.
+// 📄 Página: Comparativo Estoque Inicial × NF-e (Sprint 11 + 12 + 15)
 // =================================================================
 export default function FiscalComparativoPage() {
   const { selected } = useFiscalClientStore();
@@ -111,12 +110,15 @@ export default function FiscalComparativoPage() {
   const [rows, setRows] = useState<CompareRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-    const [search, setSearch] = useState('');
+  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
   // 🆕 Sprint 12: exportação com campos selecionáveis
   const [pickerOpen, setPickerOpen] = useState(false);
   const [exportCols, setExportCols] = useState<string[]>([]);
+
+  // 🆕 Sprint 15: drill-down da conciliação
+  const [detailTarget, setDetailTarget] = useState<CompareRow | null>(null);
 
   useEffect(() => {
     setExportCols(getSelectedKeys('fiscal-comparativo', EXPORT_COLUMNS));
@@ -157,18 +159,14 @@ export default function FiscalComparativoPage() {
       list = list.filter(
         (r) =>
           r.description.toLowerCase().includes(term) ||
-          r.code.toLowerCase().includes(term),
+          (r.code || '').toLowerCase().includes(term),
       );
     }
     return list;
   }, [rows, search, statusFilter]);
 
   // ---------------------------------------------------------------
-  // 📤 Exportação CSV do comparativo (UTF-8 + BOM p/ Excel)
-  // ---------------------------------------------------------------
-    // ---------------------------------------------------------------
-  // 🆕 Sprint 12: Exporta CSV apenas com as colunas selecionadas
-  // (respeita os filtros ativos de busca + status)
+  // 📤 Exporta CSV apenas com as colunas selecionadas
   // ---------------------------------------------------------------
   const exportCsv = () => {
     if (filtered.length === 0) {
@@ -259,7 +257,7 @@ export default function FiscalComparativoPage() {
             <option value="DIVERGENTE">Divergentes</option>
             <option value="SEM_SALDO">Sem saldo</option>
           </select>
-                   <button
+          <button
             onClick={exportCsv}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors"
           >
@@ -297,7 +295,8 @@ export default function FiscalComparativoPage() {
                   <th className="py-2 pr-3 font-medium text-right">Ajustes</th>
                   <th className="py-2 pr-3 font-medium text-right">Atual</th>
                   <th className="py-2 pr-3 font-medium text-right">Divergência</th>
-                  <th className="py-2 font-medium">Status</th>
+                  <th className="py-2 pr-3 font-medium">Status</th>
+                  <th className="py-2 font-medium text-center">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -336,8 +335,20 @@ export default function FiscalComparativoPage() {
                     >
                       {formatQty(r.divergence)}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 pr-3">
                       <StatusBadge status={r.status} />
+                    </td>
+                    {/* 🆕 Sprint 15: drill-down da conciliação */}
+                    <td className="py-3">
+                      <div className="flex justify-center">
+                        <button
+                          onClick={() => setDetailTarget(r)}
+                          className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
+                          title="Ver detalhe da conciliação"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -356,9 +367,17 @@ export default function FiscalComparativoPage() {
         <p>
           Teórico = Inicial (PDF) + Entradas NF-e + Ajustes manuais. A divergência é
           Atual − Teórico e deve ser zero. Valores ≠ 0 indicam ajustes manuais ou
-                    inconsistências de importação e devem ser auditados.
+          inconsistências de importação e devem ser auditados.
         </p>
       </div>
+
+      {/* 🆕 Sprint 15: drill-down da conciliação */}
+      {detailTarget && (
+        <ComparisonDetailModal
+          productId={detailTarget.id}
+          onClose={() => setDetailTarget(null)}
+        />
+      )}
 
       {/* 🆕 Sprint 12: seletor de campos da exportação */}
       <ColumnPickerModal
