@@ -25,6 +25,7 @@ import {
   downloadCsv,
   getSelectedKeys,
 } from '@/lib/columnExport'; // 🆕 Sprint 12
+import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
 
 // =================================================================
 // 📦 Tipos
@@ -276,6 +277,9 @@ export default function FiscalSpedPage() {
           </div>
         </div>
       )}
+
+      {/* 🆕 Sprint 20: documentação viva da página */}
+      <FiscalInfoPanel page="sped" />
 
       {/* ================================================================
           Cards de resumo

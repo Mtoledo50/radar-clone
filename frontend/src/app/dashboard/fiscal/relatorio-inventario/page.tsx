@@ -14,6 +14,7 @@ import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
 import { useFiscalClientStore } from '@/store/fiscalClientStore';
 import { ColumnDef, buildCsv, downloadCsv } from '@/lib/columnExport';
+import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
 
 // =================================================================
 // 📦 Tipos (espelham o backend — Sprint 13)
@@ -162,6 +163,9 @@ export default function FiscalRelatorioInventarioPage() {
           </div>
         </div>
       )}
+
+      {/* 🆕 Sprint 20: documentação viva da página */}
+      <FiscalInfoPanel page="relatorio" />
 
       {/* Cards de resumo */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

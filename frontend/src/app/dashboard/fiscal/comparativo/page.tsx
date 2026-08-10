@@ -20,6 +20,7 @@ import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
 import { useFiscalClientStore } from '@/store/fiscalClientStore';
 import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal';
 import ComparisonDetailModal from '@/components/fiscal/ComparisonDetailModal'; // 🆕 Sprint 15
+import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
 import {
   ColumnDef,
   buildCsv,
@@ -81,11 +82,12 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // =================================================================
-// 🆕 Sprint 12: colunas exportáveis do Comparativo
+// 📑 Colunas exportáveis do Comparativo
+// 🆕 Sprint 20: Código e Descrição DESTRADOS (sem always:true)
 // =================================================================
 const EXPORT_COLUMNS: ColumnDef[] = [
-  { key: 'code', label: 'Código', always: true },
-  { key: 'description', label: 'Descrição', always: true },
+  { key: 'code', label: 'Código' },
+  { key: 'description', label: 'Descrição' },
   { key: 'ncm', label: 'NCM' },
   { key: 'unit', label: 'Un' },
   { key: 'initialQty', label: 'Qtd Inicial (PDF)' },
@@ -97,11 +99,15 @@ const EXPORT_COLUMNS: ColumnDef[] = [
   { key: 'currentStock', label: 'Qtd Atual' },
   { key: 'currentTotal', label: 'Total Atual' },
   { key: 'divergence', label: 'Divergência' },
-  { key: 'status', label: 'Status', format: (r) => STATUS_CONFIG[r.status]?.label || r.status },
+  {
+    key: 'status',
+    label: 'Status',
+    format: (r) => STATUS_CONFIG[r.status]?.label || r.status,
+  },
 ];
 
 // =================================================================
-// 📄 Página: Comparativo Estoque Inicial × NF-e (Sprint 11 + 12 + 15)
+// 📄 Página: Comparativo Estoque Inicial × NF-e (Sprints 11, 12, 15, 20)
 // =================================================================
 export default function FiscalComparativoPage() {
   const { selected } = useFiscalClientStore();
@@ -174,7 +180,10 @@ export default function FiscalComparativoPage() {
       return;
     }
     const csv = buildCsv(filtered, EXPORT_COLUMNS, exportCols);
-    downloadCsv(`comparativo-estoque-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    downloadCsv(
+      `comparativo-estoque-${new Date().toISOString().slice(0, 10)}.csv`,
+      csv,
+    );
     toast.success(`${filtered.length} linha(s) exportada(s).`);
   };
 
@@ -196,6 +205,9 @@ export default function FiscalComparativoPage() {
         </div>
         <FiscalClientSelector />
       </div>
+
+      {/* 🆕 Sprint 20: documentação viva da página */}
+      <FiscalInfoPanel page="comparativo" />
 
       {/* Cards de resumo da conciliação */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
