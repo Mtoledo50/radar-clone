@@ -3,39 +3,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
-  Package,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  DollarSign,
-  Boxes,
-  Barcode,
-  History,
-  SlidersHorizontal,
-  Loader2,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  Eraser,
-  Trash2,
-  AlertTriangle,
-  FileUp,
-  FileDown,
-  Settings2,
-  Shuffle, // 🆕 Sprint 14: unificar códigos via planilha
+  Package, Search, ChevronLeft, ChevronRight, X, DollarSign, Boxes, Barcode,
+  History, SlidersHorizontal, Loader2, ArrowDownCircle, ArrowUpCircle, Eraser,
+  Trash2, AlertTriangle, FileUp, FileDown, Settings2, Shuffle, Pencil,
 } from 'lucide-react';
 import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
 import { useFiscalClientStore } from '@/store/fiscalClientStore';
 import InitialStockImportModal from '@/components/fiscal/InitialStockImportModal';
-import UnifyCodesModal from '@/components/fiscal/UnifyCodesModal'; // 🆕 Sprint 14
+import UnifyCodesModal from '@/components/fiscal/UnifyCodesModal';
+import ProductEditModal from '@/components/fiscal/ProductEditModal';
 import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal';
-import {
-  ColumnDef,
-  buildCsv,
-  downloadCsv,
-  getSelectedKeys,
-} from '@/lib/columnExport';
+import { ColumnDef, buildCsv, downloadCsv, getSelectedKeys } from '@/lib/columnExport';
 
 // =================================================================
 // 📦 Tipos
@@ -47,14 +26,7 @@ interface InventoryMetrics {
   totalValue: number;
   distinctNcms: number;
   distinctSuppliers: number;
-  topProducts: {
-    id: string;
-    code: string;
-    description: string;
-    quantity: number;
-    unitCost: number;
-    totalValue: number;
-  }[];
+  topProducts: { id: string; code: string; description: string; quantity: number; unitCost: number; totalValue: number }[];
 }
 
 interface ProductBalance {
@@ -67,6 +39,14 @@ interface ProductBalance {
   averageCost: number;
   totalValue: number;
   movementsCount: number;
+  // 🆕 Sprint 17: procedência
+  codNf: string;
+  unifiedCode: string; // 🆕 Sprint 19
+  origin: string;
+  nfNumber: string | null;
+  nfSeries: string | null;
+  nfEmissionDate: string | null;
+  importedAt: string | null;
 }
 
 interface Movement {
@@ -78,24 +58,11 @@ interface Movement {
   totalCost: number;
   averageCostAfter: number;
   reason: string | null;
-  invoice: {
-    id: string;
-    number: string;
-    series: string;
-    supplier: { name: string; cnpj: string };
-  } | null;
+  invoice: { id: string; number: string; series: string; supplier: { name: string; cnpj: string } } | null;
 }
 
 interface KardexData {
-  product: {
-    id: string;
-    code: string;
-    description: string;
-    ncm: string;
-    unit: string;
-    currentStock: number;
-    averageCost: number;
-  };
+  product: { id: string; code: string; description: string; ncm: string; unit: string; currentStock: number; averageCost: number };
   movements: Movement[];
 }
 
@@ -108,11 +75,7 @@ const formatBRL = (v: number) =>
 const formatQty = (v: number) => Number(v || 0).toLocaleString('pt-BR');
 
 const formatDate = (d: string) =>
-  new Date(d).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
+  new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 const MOVEMENT_CONFIG: Record<string, { label: string; className: string }> = {
   ENTRADA: { label: 'Entrada', className: 'bg-green-50 text-green-700' },
@@ -131,9 +94,24 @@ function MovementBadge({ type }: { type: string }) {
   );
 }
 
-// =================================================================
-// 🆕 Sprint 12: colunas exportáveis do Estoque
-// =================================================================
+// 🆕 Sprint 17: procedência do produto (de onde veio o código/saldo)
+const ORIGIN_CONFIG: Record<string, { label: string; className: string }> = {
+  INICIAL: { label: 'Estoque Inicial', className: 'bg-blue-50 text-blue-700' },
+  NFE: { label: 'NF-e', className: 'bg-green-50 text-green-700' },
+  AMBOS: { label: 'Inicial + NF-e', className: 'bg-teal-50 text-teal-700' },
+  OUTRO: { label: 'Ajustes', className: 'bg-slate-100 text-slate-500' },
+};
+
+function OriginBadge({ origin }: { origin: string }) {
+  const cfg = ORIGIN_CONFIG[origin] || ORIGIN_CONFIG.OUTRO;
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${cfg.className}`}>
+      {cfg.label}
+    </span>
+  );
+}
+
+// Sprint 12: colunas exportáveis
 const EXPORT_COLUMNS: ColumnDef[] = [
   { key: 'code', label: 'Código', always: true },
   { key: 'description', label: 'Descrição', always: true },
@@ -143,10 +121,14 @@ const EXPORT_COLUMNS: ColumnDef[] = [
   { key: 'averageCost', label: 'Custo Médio' },
   { key: 'totalValue', label: 'Valor Total' },
   { key: 'movementsCount', label: 'Movimentações' },
+  { key: 'codNf', label: 'COD_NF' }, // 🆕 Sprint 17
+  { key: 'unifiedCode', label: 'Cód. Unificado' }, // 🆕 Sprint 19
+  { key: 'origin', label: 'Origem' }, // 🆕 Sprint 17
+  { key: 'nfNumber', label: 'NF-e' }, // 🆕 Sprint 17
 ];
 
 // =================================================================
-// 📄 Página: Estoque Fiscal
+// 📄 Página: Estoque Fiscal (Sprints 8–16)
 // =================================================================
 export default function FiscalEstoquePage() {
   const { selected } = useFiscalClientStore();
@@ -164,9 +146,7 @@ export default function FiscalEstoquePage() {
   const [loadingKardex, setLoadingKardex] = useState(false);
 
   const [adjustTarget, setAdjustTarget] = useState<ProductBalance | null>(null);
-  const [adjustType, setAdjustType] = useState<'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO'>(
-    'AJUSTE_POSITIVO',
-  );
+  const [adjustType, setAdjustType] = useState<'AJUSTE_POSITIVO' | 'AJUSTE_NEGATIVO'>('AJUSTE_POSITIVO');
   const [adjustQty, setAdjustQty] = useState('');
   const [adjustReason, setAdjustReason] = useState('');
   const [savingAdjust, setSavingAdjust] = useState(false);
@@ -179,9 +159,8 @@ export default function FiscalEstoquePage() {
   const [wiping, setWiping] = useState(false);
 
   const [initialImportOpen, setInitialImportOpen] = useState(false);
-
-  // 🆕 Sprint 14: unificar códigos
   const [unifyOpen, setUnifyOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<ProductBalance | null>(null); // 🆕 Sprint 16
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [exportCols, setExportCols] = useState<string[]>([]);
@@ -235,13 +214,12 @@ export default function FiscalEstoquePage() {
     loadBalance();
   }, [loadBalance]);
 
+  // 📜 Kardex
   const openKardex = async (product: ProductBalance) => {
     setLoadingKardex(true);
     setKardex(null);
     try {
-      const { data } = await api.get(
-        `/fiscal/inventory/movements/${product.id}`,
-      );
+      const { data } = await api.get(`/fiscal/inventory/movements/${product.id}`);
       setKardex(data);
     } catch {
       toast.error('Erro ao carregar o kardex.');
@@ -250,6 +228,7 @@ export default function FiscalEstoquePage() {
     }
   };
 
+  // ✏️ Ajuste manual
   const submitAdjust = async () => {
     if (!adjustTarget) return;
     setSavingAdjust(true);
@@ -273,6 +252,7 @@ export default function FiscalEstoquePage() {
     }
   };
 
+  // 🧹 Limpar vazios
   const confirmCleanup = async () => {
     setCleaning(true);
     try {
@@ -290,6 +270,7 @@ export default function FiscalEstoquePage() {
     }
   };
 
+  // ☢️ Wipe
   const confirmWipe = async () => {
     setWiping(true);
     try {
@@ -310,6 +291,7 @@ export default function FiscalEstoquePage() {
     }
   };
 
+  // 📤 Exportar CSV (Sprint 12)
   const handleExport = async () => {
     try {
       const { data } = await api.get('/fiscal/inventory/balance', {
@@ -368,55 +350,36 @@ export default function FiscalEstoquePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-teal-50 rounded-lg">
-              <Boxes className="h-5 w-5 text-teal-600" />
-            </div>
+            <div className="p-2 bg-teal-50 rounded-lg"><Boxes className="h-5 w-5 text-teal-600" /></div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">
-                {metrics?.totalProducts ?? 0}
-              </p>
+              <p className="text-2xl font-bold text-slate-900">{metrics?.totalProducts ?? 0}</p>
               <p className="text-xs text-slate-500">Produtos no Catálogo</p>
             </div>
           </div>
         </div>
-
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-lg">
-              <DollarSign className="h-5 w-5 text-blue-600" />
-            </div>
+            <div className="p-2 bg-blue-50 rounded-lg"><DollarSign className="h-5 w-5 text-blue-600" /></div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">
-                {formatBRL(metrics?.totalValue)}
-              </p>
+              <p className="text-2xl font-bold text-slate-900">{formatBRL(metrics?.totalValue)}</p>
               <p className="text-xs text-slate-500">Valor em Estoque</p>
             </div>
           </div>
         </div>
-
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-50 rounded-lg">
-              <Package className="h-5 w-5 text-green-600" />
-            </div>
+            <div className="p-2 bg-green-50 rounded-lg"><Package className="h-5 w-5 text-green-600" /></div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">
-                {metrics?.productsWithStock ?? 0}
-              </p>
+              <p className="text-2xl font-bold text-slate-900">{metrics?.productsWithStock ?? 0}</p>
               <p className="text-xs text-slate-500">Produtos com Saldo</p>
             </div>
           </div>
         </div>
-
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-50 rounded-lg">
-              <Barcode className="h-5 w-5 text-orange-600" />
-            </div>
+            <div className="p-2 bg-orange-50 rounded-lg"><Barcode className="h-5 w-5 text-orange-600" /></div>
             <div>
-              <p className="text-2xl font-bold text-slate-900">
-                {metrics?.distinctNcms ?? 0}
-              </p>
+              <p className="text-2xl font-bold text-slate-900">{metrics?.distinctNcms ?? 0}</p>
               <p className="text-xs text-slate-500">NCMs Distintos</p>
             </div>
           </div>
@@ -432,10 +395,7 @@ export default function FiscalEstoquePage() {
               type="text"
               placeholder="Buscar por descrição ou código..."
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
@@ -443,20 +403,14 @@ export default function FiscalEstoquePage() {
             type="text"
             placeholder="Filtrar por NCM"
             value={ncm}
-            onChange={(e) => {
-              setNcm(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => { setNcm(e.target.value); setPage(1); }}
             className="w-40 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
           />
           <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
             <input
               type="checkbox"
               checked={onlyPositive}
-              onChange={(e) => {
-                setOnlyPositive(e.target.checked);
-                setPage(1);
-              }}
+              onChange={(e) => { setOnlyPositive(e.target.checked); setPage(1); }}
               className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
             />
             Apenas com saldo
@@ -471,10 +425,7 @@ export default function FiscalEstoquePage() {
           </button>
 
           <button
-            onClick={() => {
-              setWipeText('');
-              setWipeOpen(true);
-            }}
+            onClick={() => { setWipeText(''); setWipeOpen(true); }}
             className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50 transition-colors"
           >
             <Trash2 className="h-4 w-4" />
@@ -489,7 +440,6 @@ export default function FiscalEstoquePage() {
             Importar estoque inicial
           </button>
 
-          {/* 🆕 Sprint 14: unificar códigos */}
           <button
             onClick={() => setUnifyOpen(true)}
             className="flex items-center gap-2 px-3 py-2 text-sm text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition-colors"
@@ -523,18 +473,22 @@ export default function FiscalEstoquePage() {
           <div className="text-center py-10 text-slate-400">
             <Package className="h-10 w-10 mx-auto mb-2" />
             <p className="text-sm">
-              {selected.id
-                ? 'Nenhum produto encontrado para este cliente.'
-                : 'Nenhum produto encontrado.'}
+              {selected.id ? 'Nenhum produto encontrado para este cliente.' : 'Nenhum produto encontrado.'}
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm whitespace-nowrap">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
                   <th className="py-2 pr-4 font-medium">Código</th>
+                  <th className="py-2 pr-4 font-medium">COD_NF</th>
+                  <th className="py-2 pr-4 font-medium">Cód. Unificado</th>
                   <th className="py-2 pr-4 font-medium">Descrição</th>
+                  <th className="py-2 pr-4 font-medium">Origem</th>
+                  <th className="py-2 pr-4 font-medium">NF-e</th>
+                  <th className="py-2 pr-4 font-medium">Emissão NF</th>
+                  <th className="py-2 pr-4 font-medium">Importação</th>
                   <th className="py-2 pr-4 font-medium">NCM</th>
                   <th className="py-2 pr-4 font-medium text-center">Saldo</th>
                   <th className="py-2 pr-4 font-medium text-right">Custo Médio</th>
@@ -545,31 +499,47 @@ export default function FiscalEstoquePage() {
               <tbody>
                 {products.map((p) => (
                   <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-3 pr-4 font-medium text-slate-800">{p.code}</td>
-                    <td className="py-3 pr-4 text-slate-600 max-w-[280px] truncate">
-                      {p.description}
+                    <td className="py-3 pr-4 font-medium text-slate-800">{p.code || '—'}</td>
+                    <td className="py-3 pr-4 text-slate-600">{p.codNf || '—'}</td>
+                    <td className="py-3 pr-4 font-medium text-teal-700">{p.unifiedCode || '—'}</td>
+                    <td className="py-3 pr-4 text-slate-600 max-w-[280px] truncate">{p.description}</td>
+                    <td className="py-3 pr-4"><OriginBadge origin={p.origin} /></td>
+                    <td className="py-3 pr-4 text-slate-600">
+                      {p.nfNumber ? `#${p.nfNumber} / s${p.nfSeries}` : '—'}
+                    </td>
+                    <td className="py-3 pr-4 text-slate-600">
+                      {p.nfEmissionDate ? formatDate(p.nfEmissionDate) : '—'}
+                    </td>
+                    <td className="py-3 pr-4 text-slate-600">
+                      {p.importedAt ? formatDate(p.importedAt) : '—'}
                     </td>
                     <td className="py-3 pr-4 text-slate-600">{p.ncm}</td>
                     <td className="py-3 pr-4 text-center font-semibold text-slate-800">
                       {formatQty(p.currentStock)} {p.unit}
                     </td>
-                    <td className="py-3 pr-4 text-right text-slate-600">
-                      {formatBRL(p.averageCost)}
-                    </td>
-                    <td className="py-3 pr-4 text-right font-semibold text-slate-800">
-                      {formatBRL(p.totalValue)}
-                    </td>
+                    <td className="py-3 pr-4 text-right text-slate-600">{formatBRL(p.averageCost)}</td>
+                    <td className="py-3 pr-4 text-right font-semibold text-slate-800">{formatBRL(p.totalValue)}</td>
                     <td className="py-3">
                       <div className="flex items-center justify-center gap-1">
+                        {/* 🆕 Sprint 16: editar produto */}
+                        <button
+                          onClick={() => setEditTarget(p)}
+                          className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
+                          title="Editar produto"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => openKardex(p)}
                           className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg"
+                          title="Ver Kardex"
                         >
                           <History className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setAdjustTarget(p)}
                           className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg"
+                          title="Ajuste de inventário"
                         >
                           <SlidersHorizontal className="h-4 w-4" />
                         </button>
@@ -620,17 +590,12 @@ export default function FiscalEstoquePage() {
                 <>
                   <div className="flex items-center justify-between p-5 border-b border-slate-200 sticky top-0 bg-white">
                     <div>
-                      <h3 className="font-bold text-slate-900">
-                        Kardex — {kardex.product.code}
-                      </h3>
+                      <h3 className="font-bold text-slate-900">Kardex — {kardex.product.code}</h3>
                       <p className="text-xs text-slate-500 mt-0.5">
                         {kardex.product.description} • NCM {kardex.product.ncm}
                       </p>
                     </div>
-                    <button
-                      onClick={() => setKardex(null)}
-                      className="text-slate-400 hover:text-slate-600"
-                    >
+                    <button onClick={() => setKardex(null)} className="text-slate-400 hover:text-slate-600">
                       <X className="h-5 w-5" />
                     </button>
                   </div>
@@ -644,22 +609,16 @@ export default function FiscalEstoquePage() {
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Custo Médio</p>
-                      <p className="font-semibold text-slate-800">
-                        {formatBRL(kardex.product.averageCost)}
-                      </p>
+                      <p className="font-semibold text-slate-800">{formatBRL(kardex.product.averageCost)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Movimentações</p>
-                      <p className="font-semibold text-slate-800">
-                        {kardex.movements.length}
-                      </p>
+                      <p className="font-semibold text-slate-800">{kardex.movements.length}</p>
                     </div>
                   </div>
 
                   <div className="p-5">
-                    <h4 className="text-sm font-bold text-slate-700 mb-3">
-                      Histórico de Movimentações
-                    </h4>
+                    <h4 className="text-sm font-bold text-slate-700 mb-3">Histórico de Movimentações</h4>
                     <div className="space-y-2">
                       {kardex.movements.map((m) => (
                         <div key={m.id} className="border border-slate-200 rounded-lg p-3">
@@ -667,34 +626,21 @@ export default function FiscalEstoquePage() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <MovementBadge type={m.type} />
-                                <p className="text-xs text-slate-500">
-                                  {formatDate(m.date)}
-                                </p>
+                                <p className="text-xs text-slate-500">{formatDate(m.date)}</p>
                               </div>
                               {m.invoice && (
                                 <p className="text-xs text-slate-600 mt-1">
                                   NF-e #{m.invoice.number} — {m.invoice.supplier?.name}
                                 </p>
                               )}
-                              {m.reason && (
-                                <p className="text-xs text-slate-500 mt-0.5">{m.reason}</p>
-                              )}
+                              {m.reason && <p className="text-xs text-slate-500 mt-0.5">{m.reason}</p>}
                             </div>
                             <div className="text-right text-sm">
-                              <p
-                                className={`font-semibold ${
-                                  m.quantity >= 0 ? 'text-green-700' : 'text-red-700'
-                                }`}
-                              >
-                                {m.quantity >= 0 ? '+' : ''}
-                                {formatQty(m.quantity)}
+                              <p className={`font-semibold ${m.quantity >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                {m.quantity >= 0 ? '+' : ''}{formatQty(m.quantity)}
                               </p>
-                              <p className="text-xs text-slate-500">
-                                {formatBRL(m.unitCost)} / un
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                média após: {formatBRL(m.averageCostAfter)}
-                              </p>
+                              <p className="text-xs text-slate-500">{formatBRL(m.unitCost)} / un</p>
+                              <p className="text-xs text-slate-500">média após: {formatBRL(m.averageCostAfter)}</p>
                             </div>
                           </div>
                         </div>
@@ -716,23 +662,17 @@ export default function FiscalEstoquePage() {
               <div>
                 <h3 className="font-bold text-slate-900">Ajuste de Inventário</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {adjustTarget.code} — saldo atual:{' '}
-                  {formatQty(adjustTarget.currentStock)} {adjustTarget.unit}
+                  {adjustTarget.code} — saldo atual: {formatQty(adjustTarget.currentStock)} {adjustTarget.unit}
                 </p>
               </div>
-              <button
-                onClick={() => setAdjustTarget(null)}
-                className="text-slate-400 hover:text-slate-600"
-              >
+              <button onClick={() => setAdjustTarget(null)} className="text-slate-400 hover:text-slate-600">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
-                  Tipo de ajuste
-                </label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Tipo de ajuste</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => setAdjustType('AJUSTE_POSITIVO')}
@@ -760,9 +700,7 @@ export default function FiscalEstoquePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
-                  Quantidade
-                </label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Quantidade</label>
                 <input
                   type="number"
                   min="0"
@@ -775,9 +713,7 @@ export default function FiscalEstoquePage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">
-                  Justificativa (obrigatória)
-                </label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Justificativa (obrigatória)</label>
                 <textarea
                   value={adjustReason}
                   onChange={(e) => setAdjustReason(e.target.value)}
@@ -860,13 +796,7 @@ export default function FiscalEstoquePage() {
                   <p className="text-sm text-slate-600 mt-2">
                     Remove <strong>todos os produtos</strong> e{' '}
                     <strong>todas as movimentações</strong> do kardex{' '}
-                    {selected.id ? (
-                      <>
-                        de <strong>{selected.name}</strong>
-                      </>
-                    ) : (
-                      <strong>de todos os clientes</strong>
-                    )}
+                    {selected.id ? <>de <strong>{selected.name}</strong></> : <strong>de todos os clientes</strong>}
                     . Esta ação <strong>não pode ser desfeita</strong>.
                   </p>
                 </div>
@@ -906,30 +836,33 @@ export default function FiscalEstoquePage() {
         </div>
       )}
 
-      {/* Import inicial */}
+      {/* Importação inicial */}
       {initialImportOpen && (
         <InitialStockImportModal
           onClose={() => setInitialImportOpen(false)}
-          onImported={() => {
-            loadBalance();
-            loadMetrics();
-          }}
+          onImported={() => { loadBalance(); loadMetrics(); }}
         />
       )}
 
-      {/* 🆕 Sprint 14: unificação de códigos */}
+      {/* Unificação de códigos */}
       {unifyOpen && (
         <UnifyCodesModal
           open={unifyOpen}
           onClose={() => setUnifyOpen(false)}
-          onApplied={() => {
-            loadBalance();
-            loadMetrics();
-          }}
+          onApplied={() => { loadBalance(); loadMetrics(); }}
         />
       )}
 
-      {/* Campos */}
+      {/* 🆕 Sprint 16: edição manual de produto */}
+      {editTarget && (
+        <ProductEditModal
+          product={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => { loadBalance(); loadMetrics(); }}
+        />
+      )}
+
+      {/* Campos da exportação */}
       <ColumnPickerModal
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}

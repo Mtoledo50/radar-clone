@@ -1283,6 +1283,8 @@ model FiscalSupplier {
 /// Pode ser criado manualmente ou via parser de XML
 /// ncm é obrigatório para apuração de ICMS
 /// Sprint 8: vínculo opcional a um cliente específico (clientId)
+/// Sprint 16: código opcional (nullable)
+/// Sprint 19: unifiedCode (Código Unificado da planilha)
 model FiscalProduct {
   id                String   @id @default(cuid())
   companyId         String
@@ -1292,11 +1294,12 @@ model FiscalProduct {
   clientId          String?
   client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
-  code              String              /// Código interno do produto
-  ean               String?             /// Código de barras (EAN-13)
-  description       String              /// Descrição padronizada
-  ncm               String              /// NCM (8 dígitos) — obrigatório
-  unit              String              /// Unidade de medida (UN, KG, L, CX, etc.)
+  code              String?   /// Código do produto (opcional - Sprint 16)
+  unifiedCode       String?   /// 🆕 Sprint 19: Código Unificado da planilha (coluna extra)
+  ean               String?   /// Código de barras (EAN-13)
+  description       String    /// Descrição padronizada
+  ncm               String    /// NCM (8 dígitos) — obrigatório
+  unit              String    /// Unidade de medida (UN, KG, L, CX, etc.)
 
   averageCost       Decimal  @default(0) @db.Decimal(12, 4)  /// Custo médio atual
   currentStock      Decimal  @default(0) @db.Decimal(12, 4)  /// Saldo atual em estoque
@@ -1309,8 +1312,8 @@ model FiscalProduct {
   movements         FiscalInventoryMovement[]
   balances          FiscalInventoryBalance[]
 
-  @@unique([companyId, clientId, code])   // 🆕 unique inclui clientId
-  @@index([companyId, clientId])          // 🆕 índice para filtro por cliente
+  @@unique([companyId, clientId, code])   // unique inclui clientId
+  @@index([companyId, clientId])          // índice para filtro por cliente
   @@index([companyId, ncm])
   @@index([companyId, description])
   @@map("fiscal_products")
