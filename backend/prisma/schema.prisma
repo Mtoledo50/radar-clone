@@ -176,6 +176,7 @@ model Company {
   fiscalMovements       FiscalInventoryMovement[]
   fiscalBalances        FiscalInventoryBalance[]
   fiscalApurations    FiscalIcmsApuration[]
+  bankStatements      BankStatement[]
 
   
   @@map("companies")
@@ -323,7 +324,8 @@ model Client {
   fiscalInvoices        FiscalInvoice[]
   fiscalMovements       FiscalInventoryMovement[]
   fiscalApurations      FiscalIcmsApuration[]
-  
+  bankStatements        BankStatement[]
+    
   @@index([userId])
   @@index([companyId])
   @@map("clients")
@@ -1552,4 +1554,78 @@ model FiscalIcmsApuration {
   @@index([companyId, clientId, year])          // 🆕 índice
   @@index([companyId, year])
   @@map("fiscal_icms_apurations")
+}
+
+// =================================================================
+// 🏦 MÓDULO BANCÁRIO — Fechamento Mensal (Sprint 21)
+// =================================================================
+// Extratos importados (CSV), classificação por natureza e memória
+// de aprendizado (regras). Multi-tenant + multi-cliente.
+
+enum BankNature {
+  RECEITA_OPERACIONAL   /// Mensalidades, vendas cartão, serviços
+  RECEITA_FINANCEIRA    /// Rendimentos da conta
+  DESPESA_OPERACIONAL   /// Luz, água, aluguel, fornecedores
+  IMPOSTO               /// DAS/Simples Nacional, Receita Federal
+  SOCIO                 /// Movimentação de sócios (fora do DRE)
+  NAO_CLASSIFICADO      /// Aguardando revisão humana
+}
+
+/// Importação mensal do extrato (1 por cliente/mês/ano)
+model BankStatement {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  year      Int
+  month     Int      /// 1-12
+  fileName  String?
+  status    String   @default("ABERTO") /// ABERTO | FECHADO
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions BankTransaction[]
+
+  @@unique([companyId, clientId, year, month])
+  @@index([companyId, clientId])
+  @@map("bank_statements")
+}
+
+/// Cada linha do extrato (débito/crédito) classificada
+model BankTransaction {
+  id          String        @id @default(cuid())
+  statementId String
+  statement   BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  companyId   String
+
+  date        DateTime
+  description String        /// Texto original do banco
+  counterparty String?      /// Nome extraído (após o "-")
+  amount      Decimal       @db.Decimal(12, 2) /// + crédito / - débito
+
+  nature       BankNature   @default(NAO_CLASSIFICADO)
+  classifiedBy String?      /// AUTO | MANUAL
+
+  createdAt DateTime @default(now())
+
+  @@index([statementId])
+  @@index([companyId, nature])
+  @@map("bank_transactions")
+}
+
+/// Memória de classificação: aprende com as revisões do contador
+model BankClassificationRule {
+  id        String     @id @default(cuid())
+  companyId String
+  pattern   String     /// Texto normalizado p/ casar (ex: "CEEE")
+  nature    BankNature
+  hits      Int        @default(0) /// quantas vezes foi usada
+  createdAt DateTime   @default(now())
+
+  @@unique([companyId, pattern])
+  @@map("bank_classification_rules")
 }
