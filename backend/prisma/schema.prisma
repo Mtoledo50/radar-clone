@@ -302,7 +302,14 @@ model Client {
   contactEmail          String?
   contactPhone          String?
   
-  observations          String?               @db.Text
+    observations          String?               @db.Text
+
+  // 🆕 Sprint 23: dados contratuais importados (planilha de honorários)
+  lastPaymentDate       DateTime?
+  installments          Int?
+  openAmount            Float?
+  paidAmount            Float?
+  overdueAmount         Float?
   
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
@@ -1562,15 +1569,6 @@ model FiscalIcmsApuration {
 // Extratos importados (CSV), classificação por natureza e memória
 // de aprendizado (regras). Multi-tenant + multi-cliente.
 
-enum BankNature {
-  RECEITA_OPERACIONAL   /// Mensalidades, vendas cartão, serviços
-  RECEITA_FINANCEIRA    /// Rendimentos da conta
-  DESPESA_OPERACIONAL   /// Luz, água, aluguel, fornecedores
-  IMPOSTO               /// DAS/Simples Nacional, Receita Federal
-  SOCIO                 /// Movimentação de sócios (fora do DRE)
-  NAO_CLASSIFICADO      /// Aguardando revisão humana
-}
-
 /// Importação mensal do extrato (1 por cliente/mês/ano)
 model BankStatement {
   id        String   @id @default(cuid())
@@ -1607,7 +1605,7 @@ model BankTransaction {
   counterparty String?      /// Nome extraído (após o "-")
   amount      Decimal       @db.Decimal(12, 2) /// + crédito / - débito
 
-  nature       BankNature   @default(NAO_CLASSIFICADO)
+  nature       String       @default("NAO_CLASSIFICADO") // 🆕 Sprint 24: categoria livre por cliente
   classifiedBy String?      /// AUTO | MANUAL
 
   createdAt DateTime @default(now())
@@ -1622,10 +1620,26 @@ model BankClassificationRule {
   id        String     @id @default(cuid())
   companyId String
   pattern   String     /// Texto normalizado p/ casar (ex: "CEEE")
-  nature    BankNature
+  nature    String
   hits      Int        @default(0) /// quantas vezes foi usada
   createdAt DateTime   @default(now())
 
   @@unique([companyId, pattern])
   @@map("bank_classification_rules")
+}
+
+/// 🆕 Sprint 24: categorias personalizadas por cliente (naturezas do extrato)
+model BankCategory {
+  id        String   @id @default(cuid())
+  companyId String
+  clientId  String?  /// null = modelo geral do escritório
+  label     String   /// "Mensalidades", "Energia", "Cartões"...
+  group     String   /// RECEITA | FINANCEIRA | DESPESA | IMPOSTO | SOCIO | PENDENTE
+  isSystem  Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, clientId, label])
+  @@index([companyId, clientId])
+  @@map("bank_categories")
 }

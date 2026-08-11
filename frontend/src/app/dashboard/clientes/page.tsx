@@ -4,6 +4,8 @@
 // 🚀 MOTOR DE ONBOARDING E CONTRATOS (Enterprise Edition)
 // Transforma o cadastro de clientes em um motor de vendas de planos
 // e serviços avulsos, integrado ao Catálogo Dinâmico do SaaS.
+//
+// 🆕 Sprint 23: Importação em massa de clientes via CSV
 // =================================================================
 'use client';
 
@@ -15,8 +17,9 @@ import autoTable from 'jspdf-autotable';
 import {
   Users, Plus, Search, Edit2, Trash2, Eye, Loader2, X, Save, FileText,
   Mail, Phone, Building2, Crown, Package, CheckCircle2, AlertTriangle,
-  ChevronRight, ChevronLeft, DollarSign, Sparkles
+  ChevronRight, ChevronLeft, DollarSign, Sparkles, Upload
 } from 'lucide-react';
+import ImportClientsModal from '@/components/clients/ImportClientsModal'; // 🆕 Sprint 23
 
 // =================================================================
 // TIPOS E INTERFACES (Tipagem Forte alinhada ao Backend)
@@ -86,10 +89,11 @@ export default function ClientesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   
-  // Modais
+  // Modais (incluindo o novo de importação)
   const [showFormModal, setShowFormModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false); // 🆕 Sprint 23
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [submitting, setSubmitting] = useState(false);
   
@@ -116,19 +120,18 @@ export default function ClientesPage() {
   // =================================================================
   // CARREGAR DADOS (Clientes + Catálogo)
   // =================================================================
-    useEffect(() => {
-    loadInitialData(); // ✅ Função que já existe no seu arquivo
-    //loadPlans();       // ✅ Carregamento isolado dos planos
+  useEffect(() => {
+    loadInitialData();
   }, []);
 
-    async function loadInitialData() {
+  async function loadInitialData() {
     try {
       setLoading(true);
       // ✅ URLs CORRETAS do catálogo
       const [clientsRes, plansRes, itemsRes] = await Promise.all([
         api.get('/clients'),
-        api.get('/commercial-plans/plans').catch(() => ({ data: { data: [] } })),  // era '/commercial-plans'
-        api.get('/commercial-plans/items').catch(() => ({ data: { data: [] } })),  // era '/service-items'
+        api.get('/commercial-plans/plans').catch(() => ({ data: { data: [] } })),
+        api.get('/commercial-plans/items').catch(() => ({ data: { data: [] } })),
       ]);
 
       setClients(clientsRes.data.data || []);
@@ -140,6 +143,7 @@ export default function ClientesPage() {
       setLoading(false);
     }
   }
+
   // =================================================================
   // LÓGICA DE NEGÓCIO: CALCULADORA DE HONORÁRIOS
   // =================================================================
@@ -148,8 +152,6 @@ export default function ClientesPage() {
     
     // 1. Soma o valor do Plano Comercial (se selecionado)
     if (form.commercialPlanId) {
-      // Em uma implementação real, o plano teria um basePrice.
-      // Aqui usamos o manualMonthlyFee como base do plano.
       total += form.manualMonthlyFee;
     }
     
@@ -192,7 +194,7 @@ export default function ClientesPage() {
       companyName: '', cnpj: '', contactName: '', contactEmail: '', contactPhone: '',
       observations: '', status: 'ATIVO',
       startDate: new Date().toISOString().split('T')[0], endDate: '',
-      commercialPlanId: plans[0]?.id || '', // Seleciona o primeiro plano por padrão
+      commercialPlanId: plans[0]?.id || '',
       avulsoServiceIds: [],
       manualMonthlyFee: 0,
     });
@@ -223,7 +225,7 @@ export default function ClientesPage() {
       endDate: client.endDate?.split('T')[0] || '',
       commercialPlanId: activeContract?.commercialPlan.id || '',
       avulsoServiceIds: activeAvulsos,
-      manualMonthlyFee: client.monthlyFee, // Usa o fee atual como base
+      manualMonthlyFee: client.monthlyFee,
     });
     setCurrentTab(1);
     setShowFormModal(true);
@@ -256,8 +258,8 @@ export default function ClientesPage() {
       const payload = {
         companyName: form.companyName,
         cnpj: form.cnpj,
-        serviceType: 'CONTABIL', // Mantido para compatibilidade
-        monthlyFee: calculatedFee, // 🚀 Envia o valor calculado
+        serviceType: 'CONTABIL',
+        monthlyFee: calculatedFee,
         status: form.status,
         startDate: form.startDate,
         endDate: form.endDate || null,
@@ -265,7 +267,6 @@ export default function ClientesPage() {
         contactEmail: form.contactEmail,
         contactPhone: form.contactPhone,
         observations: form.observations,
-        // 🚀 NOVOS CAMPOS ENTERPRISE
         commercialPlanId: form.commercialPlanId || undefined,
         avulsoServiceIds: form.avulsoServiceIds,
       };
@@ -301,16 +302,7 @@ export default function ClientesPage() {
       setSubmitting(false);
     }
   }
- // ✅ Carregamento isolado de planos (não depende de outras chamadas)
-  async function loadPlans() {
-    try {
-      const res = await api.get('/commercial-plans/plans');
-      setPlans(res.data.data || []);
-    } catch (err) {
-      console.error('Erro ao carregar planos:', err);
-      setPlans([]);
-    }
-  }
+
   // =================================================================
   // EXPORTAR PDF
   // =================================================================
@@ -381,7 +373,11 @@ export default function ClientesPage() {
           </h1>
           <p className="text-slate-600 mt-1">Gerencie contratos, planos e serviços avulsos</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          {/* 🆕 Sprint 23: Botão de importação CSV */}
+          <button onClick={() => setShowImportModal(true)} className={btnSecondary}>
+            <Upload className="h-5 w-5" /> Importar CSV
+          </button>
           <button onClick={exportToPDF} className={btnSecondary}>
             <FileText className="h-5 w-5" /> Exportar
           </button>
@@ -761,14 +757,14 @@ export default function ClientesPage() {
                     </button>
                   ) : (
                      <button
-    type="button"
-    onClick={handleSubmit}
-    disabled={submitting}
-    className={btnPrimary}
-  >
-    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-    {selectedClient ? 'Atualizar Contrato' : 'Criar Contrato'}
-  </button>
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={submitting}
+                      className={btnPrimary}
+                    >
+                      {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      {selectedClient ? 'Atualizar Contrato' : 'Criar Contrato'}
+                    </button>
                   )}
                 </div>
               </div>
@@ -876,6 +872,16 @@ export default function ClientesPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ================================================================= */}
+      {/* 🆕 SPRINT 23: MODAL DE IMPORTAÇÃO DE CLIENTES VIA CSV */}
+      {/* ================================================================= */}
+      {showImportModal && (
+        <ImportClientsModal
+          onClose={() => setShowImportModal(false)}
+          onImported={() => loadInitialData()}
+        />
       )}
     </div>
   );

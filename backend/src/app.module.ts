@@ -33,7 +33,7 @@ import { ProjectsModule } from './projects/projects.module';
 // Operational Fiscal (NOVO)
 import { FiscalModule } from './fiscal/fiscal.module';
 import { BankingModule } from './banking/banking.module';
-
+import { ClientImportModule } from './client/client-import.module';
 
 @Module({
   imports: [
@@ -69,6 +69,7 @@ import { BankingModule } from './banking/banking.module';
     
     FiscalModule,
     BankingModule,
+    ClientImportModule,
   ],
 })
 export class AppModule {}

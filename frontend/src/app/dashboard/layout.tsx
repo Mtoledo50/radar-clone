@@ -196,6 +196,14 @@ const allMenuItems: MenuItem[] = [
     icon: Scale,
   },
 
+    // --- FECHAMENTO MENSAL ---
+  {
+    id: 'fechamento',
+    title: 'Fechamento Mensal',
+    href: '/dashboard/fechamento',
+    icon: CalendarDays,
+  },
+
   // --- CONTÁBIL ---
   {
     id: 'contabil',

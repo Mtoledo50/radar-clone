@@ -1,0 +1,1002 @@
+'use client';
+
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { toast } from 'sonner';
+import {
+  Calendar, Upload, Loader2, FileText, TrendingUp, TrendingDown, DollarSign,
+  User, Sparkles, Lock, Unlock, CheckSquare, Square, Pencil, Trash2, Plus,
+  BarChart3, Printer, FileDown, X, Sigma, Tag, Settings2, Save,
+} from 'lucide-react';
+import api from '@/lib/axios';
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
+import { useFiscalClientStore } from '@/store/fiscalClientStore';
+import { parseBankCsv } from '@/lib/parseBankCsv';
+import { exportToCSV } from '@/lib/exportToCSV';
+
+// =================================================================
+// 📦 Tipos
+// =================================================================
+interface Transaction {
+  id: string;
+  date: string;
+  description: string;
+  counterparty: string | null;
+  amount: number;
+  nature: string;
+  classifiedBy: string | null;
+}
+
+interface Category {
+  id: string;
+  label: string;
+  group: string;
+  isSystem: boolean;
+}
+
+const DRE_GROUPS = ['RECEITA', 'FINANCEIRA', 'DESPESA', 'IMPOSTO', 'SOCIO', 'PENDENTE'] as const;
+
+const GROUP_STYLE: Record<string, { label: string; chip: string; dot: string }> = {
+  RECEITA: { label: 'Receita', chip: 'bg-green-50 text-green-700 border-green-200', dot: 'bg-green-500' },
+  FINANCEIRA: { label: 'Financeira', chip: 'bg-teal-50 text-teal-700 border-teal-200', dot: 'bg-teal-500' },
+  DESPESA: { label: 'Despesa', chip: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500' },
+  IMPOSTO: { label: 'Imposto', chip: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
+  SOCIO: { label: 'Sócio', chip: 'bg-slate-100 text-slate-600 border-slate-300', dot: 'bg-slate-500' },
+  PENDENTE: { label: 'Pendente', chip: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+};
+
+const formatBRL = (v: number) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const formatDate = (d: string) => new Date(d).toLocaleDateString('pt-BR');
+const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+
+const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+// =================================================================
+// 📄 Página: Fechamento Mensal (Sprint 21 + 22 + 24 + 24.1)
+// =================================================================
+export default function FechamentoMensalPage() {
+  const { selected } = useFiscalClientStore();
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+
+  const [statement, setStatement] = useState<any>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+
+  // Seleção em lote
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkNature, setBulkNature] = useState('');
+  const [bulkLearning, setBulkLearning] = useState(true);
+  const [savingBulk, setSavingBulk] = useState(false);
+
+  // Modal lançar/editar transação
+  const [modal, setModal] = useState<{ mode: 'create' } | { mode: 'edit'; tx: Transaction } | null>(null);
+  const [fDate, setFDate] = useState('');
+  const [fDesc, setFDesc] = useState('');
+  const [fAmount, setFAmount] = useState('');
+  const [fType, setFType] = useState<'C' | 'D'>('C');
+  const [fNature, setFNature] = useState('');
+  const [savingModal, setSavingModal] = useState(false);
+
+  // Exclusões
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'tx'; id: string } | { kind: 'statement' } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // DRE
+  const [dreOpen, setDreOpen] = useState(false);
+  const [showRunning, setShowRunning] = useState(false);
+
+  // Gestão de categorias (Sprint 24)
+  const [catMgrOpen, setCatMgrOpen] = useState(false);
+  const [newCatLabel, setNewCatLabel] = useState('');
+  const [newCatGroup, setNewCatGroup] = useState('RECEITA');
+  const [savingCat, setSavingCat] = useState(false);
+
+  // Edição de categoria (Sprint 24.1)
+  const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editGroup, setEditGroup] = useState('RECEITA');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deleteCatTarget, setDeleteCatTarget] = useState<Category | null>(null);
+  const [deletingCat, setDeletingCat] = useState(false);
+
+  // ---------------------------------------------------------------
+  // 📥 Carrega statement do mês
+  // ---------------------------------------------------------------
+  const loadStatement = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/banking/statement', {
+        params: { clientId: selected.id || undefined, year, month },
+      });
+      setStatement(data.statement);
+      setTransactions(data.transactions || []);
+      setCategories(data.categories || []);
+      setSelectedIds(new Set());
+    } catch {
+      toast.error('Erro ao carregar o fechamento.');
+    } finally {
+      setLoading(false);
+    }
+  }, [selected.id, year, month]);
+
+  useEffect(() => { loadStatement(); }, [loadStatement]);
+
+  // ---------------------------------------------------------------
+  // 📤 Upload do CSV
+  // ---------------------------------------------------------------
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const parsed = parseBankCsv(text);
+      if (parsed.rows.length === 0) { toast.error('Nenhuma transação válida no CSV.'); return; }
+      const { data } = await api.post('/banking/import', {
+        clientId: selected.id || null, year, month, fileName: file.name, rows: parsed.rows,
+      });
+      toast.success(`Importado: ${data.imported} transações (${data.autoClassified} auto, ${data.pendingReview} pendentes).`);
+      await loadStatement();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao importar.');
+    } finally {
+      setImporting(false);
+      e.target.value = '';
+    }
+  };
+
+  // ---------------------------------------------------------------
+  // 🏷️ Edição de categoria (Sprint 24.1)
+  // ---------------------------------------------------------------
+  const openEditCat = (cat: Category) => {
+    setEditingCat(cat);
+    setEditLabel(cat.label);
+    setEditGroup(cat.group);
+  };
+
+  const saveEditCat = async () => {
+    if (!editingCat || !editLabel.trim()) return;
+    setSavingEdit(true);
+    try {
+      await api.patch(`/banking/categories/${editingCat.id}`, {
+        label: editLabel.trim(),
+        group: editGroup,
+      });
+      toast.success('Natureza atualizada!');
+      setEditingCat(null);
+      await loadStatement();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao editar natureza.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const confirmDeleteCat = async () => {
+    if (!deleteCatTarget) return;
+    setDeletingCat(true);
+    try {
+      await api.delete(`/banking/categories/${deleteCatTarget.id}`);
+      toast.success(`Natureza "${deleteCatTarget.label}" excluída.`);
+      setDeleteCatTarget(null);
+      await loadStatement();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao excluir natureza.');
+    } finally {
+      setDeletingCat(false);
+    }
+  };
+
+  // ---------------------------------------------------------------
+  // ✏️ Modal lançar/editar transação
+  // ---------------------------------------------------------------
+  const openCreate = () => {
+    setFDate(`${year}-${String(month).padStart(2, '0')}-01`);
+    setFDesc(''); setFAmount(''); setFType('C');
+    setFNature(categories[0]?.label || '');
+    setModal({ mode: 'create' });
+  };
+
+  const openEdit = (tx: Transaction) => {
+    setFDate(tx.date.slice(0, 10));
+    setFDesc(tx.description);
+    setFAmount(String(Math.abs(tx.amount)));
+    setFType(tx.amount < 0 ? 'D' : 'C');
+    setFNature(tx.nature);
+    setModal({ mode: 'edit', tx });
+  };
+
+  const saveModal = async () => {
+    const abs = Math.abs(Number(fAmount || 0));
+    const amount = fType === 'D' ? -abs : abs;
+    if (!fDesc.trim() || !abs) { toast.error('Preencha descrição e valor.'); return; }
+    setSavingModal(true);
+    try {
+       if (modal?.mode === 'edit') {
+        await api.patch(`/banking/transactions/${modal.tx.id}`, {
+          description: fDesc, date: fDate, amount, nature: fNature,
+          learn: true, // 🆕 edição manual sempre alimenta a memória
+        });
+        toast.success('Lançamento atualizado!');
+      } else {
+        await api.post('/banking/transactions', {
+          clientId: selected.id || null, year, month,
+          date: fDate, description: fDesc, amount, nature: fNature,
+        });
+        toast.success('Lançamento adicionado!');
+      }
+      setModal(null);
+      await loadStatement();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao salvar.');
+    } finally {
+      setSavingModal(false);
+    }
+  };
+
+  // ---------------------------------------------------------------
+  // 🗑️ Exclusões de transação/statement
+  // ---------------------------------------------------------------
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      if (deleteTarget.kind === 'tx') {
+        await api.delete(`/banking/transactions/${deleteTarget.id}`);
+        toast.success('Transação excluída.');
+      } else {
+        await api.delete(`/banking/statements/${statement.id}`);
+        toast.success('Importação do mês excluída.');
+      }
+      setDeleteTarget(null);
+      await loadStatement();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao excluir.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // ---------------------------------------------------------------
+  // ☑️ Seleção em lote
+  // ---------------------------------------------------------------
+  const toggleSelect = (id: string) =>
+    setSelectedIds((p) => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll = () =>
+    setSelectedIds(selectedIds.size === transactions.length ? new Set() : new Set(transactions.map((t) => t.id)));
+
+  const applyBulk = async () => {
+    const effectiveNature = bulkNature || firstCat; // 🆕 usa o valor exibido no dropdown
+    if (selectedIds.size === 0 || !effectiveNature) return;
+    setSavingBulk(true);
+    try {
+      for (const id of selectedIds) {
+        await api.patch(`/banking/transactions/${id}`, { nature: effectiveNature, learn: bulkLearning });
+      }
+      toast.success(`${selectedIds.size} reclassificada(s)${bulkLearning ? ' + regras aprendidas' : ''}.`);
+      setSelectedIds(new Set());
+      await loadStatement();
+    } catch { toast.error('Erro ao reclassificar.'); } finally { setSavingBulk(false); }
+  };
+
+  // ---------------------------------------------------------------
+  // 🔒 Fechar / Reabrir mês + criar categoria
+  // ---------------------------------------------------------------
+  const closeMonth = async () => {
+    if (!statement) return;
+    if (summary.pendentes > 0) {
+      toast.error(`Ainda há ${summary.pendentes} transação(ões) pendente(s) de classificação.`);
+      return;
+    }
+    try {
+      await api.post(`/banking/close/${statement.id}`);
+      toast.success('Mês FECHADO! A apuração foi travada.');
+      await loadStatement();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao fechar mês.');
+    }
+  };
+
+  const reopenMonth = async () => {
+    if (!statement) return;
+    try {
+      await api.post(`/banking/reopen/${statement.id}`);
+      toast.success('Mês reaberto para ajustes.');
+      await loadStatement();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao reabrir mês.');
+    }
+  };
+
+  const createCategory = async () => {
+    if (!newCatLabel.trim()) { toast.error('Informe o nome da natureza.'); return; }
+    setSavingCat(true);
+    try {
+      await api.post('/banking/categories', {
+        clientId: selected.id || null,
+        label: newCatLabel.trim(),
+        group: newCatGroup,
+      });
+      toast.success('Natureza criada!');
+      setNewCatLabel('');
+      await loadStatement();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao criar natureza.');
+    } finally {
+      setSavingCat(false);
+    }
+  };
+
+  // ---------------------------------------------------------------
+  // 📊 DRE calculado (linhas por categoria personalizada)
+  // ---------------------------------------------------------------
+  const summary = useMemo(() => {
+    const catMap = new Map(categories.map((c) => [c.label, c.group]));
+    const groupOf = (nature: string) => catMap.get(nature) || 'PENDENTE';
+
+    const sumGroup = (g: string) =>
+      round2(transactions.filter((t) => groupOf(t.nature) === g).reduce((s, t) => s + t.amount, 0));
+
+    const linhas: { label: string; group: string; total: number; count: number }[] = [];
+    const map = new Map<string, typeof linhas[0]>();
+    for (const t of transactions) {
+      const group = groupOf(t.nature);
+      const line = map.get(t.nature) || { label: t.nature, group, total: 0, count: 0 };
+      line.total = round2(line.total + t.amount);
+      line.count++;
+      map.set(t.nature, line);
+    }
+    linhas.push(...[...map.values()].sort((a, b) => {
+      const ga = DRE_GROUPS.indexOf(a.group as any);
+      const gb = DRE_GROUPS.indexOf(b.group as any);
+      return ga !== gb ? ga - gb : b.total - a.total;
+    }));
+
+    const receita = sumGroup('RECEITA');
+    const financeira = sumGroup('FINANCEIRA');
+    const despesa = sumGroup('DESPESA');
+    const imposto = sumGroup('IMPOSTO');
+    const socioEnv = round2(
+      transactions.filter((t) => groupOf(t.nature) === 'SOCIO' && t.amount < 0).reduce((s, t) => s + t.amount, 0),
+    );
+    const socioRec = round2(
+      transactions.filter((t) => groupOf(t.nature) === 'SOCIO' && t.amount > 0).reduce((s, t) => s + t.amount, 0),
+    );
+
+    return {
+      linhas,
+      receita, financeira, despesa, imposto,
+      socioEnv, socioRec,
+      saldoSocio: round2(socioRec + socioEnv),
+      resultado: round2(receita + financeira + despesa + imposto),
+      pendentes: transactions.filter((t) => groupOf(t.nature) === 'PENDENTE').length,
+      totalCreditos: round2(transactions.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0)),
+      totalDebitos: round2(transactions.filter((t) => t.amount < 0).reduce((s, t) => s + t.amount, 0)),
+    };
+  }, [transactions, categories]);
+
+  // Autosoma (saldo acumulado)
+  const running = useMemo(() => {
+    const map = new Map<string, number>();
+    let acc = 0;
+    for (const t of [...transactions].sort((a, b) => a.date.localeCompare(b.date))) {
+      acc = round2(acc + t.amount);
+      map.set(t.id, acc);
+    }
+    return map;
+  }, [transactions]);
+
+  // ---------------------------------------------------------------
+  // 📤 Exportações
+  // ---------------------------------------------------------------
+  const exportTransactions = () => {
+    if (transactions.length === 0) { toast.error('Nada para exportar.'); return; }
+    exportToCSV(
+      transactions.map((t) => ({
+        data: formatDate(t.date), descricao: t.description, contraparte: t.counterparty || '',
+        valor: t.amount, natureza: t.nature,
+      })),
+      ['data', 'descricao', 'contraparte', 'valor', 'natureza'],
+      `extrato-${year}-${String(month).padStart(2, '0')}`,
+    );
+    toast.success('Extrato exportado.');
+  };
+
+  const exportDRE = () => {
+    exportToCSV(
+      [
+        ...summary.linhas.map((l) => ({ categoria: `[${GROUP_STYLE[l.group]?.label}] ${l.label}`, valor: l.total })),
+        { categoria: '---', valor: 0 },
+        { categoria: 'RESULTADO LÍQUIDO', valor: summary.resultado },
+        { categoria: 'Saldo Líquido Sócios (fora do DRE)', valor: summary.saldoSocio },
+      ],
+      ['categoria', 'valor'],
+      `DRE-${year}-${String(month).padStart(2, '0')}`,
+    );
+    toast.success('DRE exportado.');
+  };
+
+  const printDRE = () => {
+    const w = window.open('', '_blank');
+    if (!w) { toast.error('Permita pop-ups para imprimir.'); return; }
+    const rowsHtml = summary.linhas
+      .map((l) => {
+        const style = GROUP_STYLE[l.group] || GROUP_STYLE.PENDENTE;
+        const cls = l.group === 'DESPESA' || l.group === 'IMPOSTO' || l.group === 'SOCIO'
+          ? (l.total < 0 ? 'neg' : '')
+          : (l.total > 0 ? 'pos' : '');
+        return `<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px" class="${style.dot}"></span>${l.label}</td><td class="${cls}">${formatBRL(l.total)}</td></tr>`;
+      })
+      .join('');
+    w.document.write(`
+      <html><head><title>DRE ${MONTH_NAMES[month - 1]} ${year}</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:32px;color:#0f172a}
+        h1{font-size:20px;margin:0} h2{font-size:14px;color:#475569;margin:4px 0 20px}
+        table{width:100%;border-collapse:collapse;margin-top:12px}
+        td,th{border:1px solid #cbd5e1;padding:8px;font-size:12px;text-align:left}
+        th{background:#0d9488;color:#fff}
+        .neg{color:#b91c1c}.pos{color:#15803d}.tot{font-weight:bold;background:#f1f5f9}
+        .bg-green-500{background:#22c55e}.bg-teal-500{background:#14b8a6}
+        .bg-red-500{background:#ef4444}.bg-purple-500{background:#a855f7}
+        .bg-slate-500{background:#64748b}.bg-amber-500{background:#f59e0b}
+      </style></head><body>
+      <h1>DRE — DEMONSTRAÇÃO DO RESULTADO DO EXERCÍCIO</h1>
+      <h2>${selected.name || 'Cliente'} • ${MONTH_NAMES[month - 1]}/${year} • Gerado em ${new Date().toLocaleDateString('pt-BR')}</h2>
+      <table>
+        <tr><th>Categoria</th><th>Valor (R$)</th></tr>
+        ${rowsHtml}
+        <tr class="tot"><td>(=) RESULTADO LÍQUIDO</td><td>${formatBRL(summary.resultado)}</td></tr>
+        <tr><td>Saldo Líquido Sócios (fora do DRE)</td><td>${formatBRL(summary.saldoSocio)}</td></tr>
+      </table>
+      </body></html>`);
+    w.document.close();
+    w.focus();
+    w.print();
+  };
+
+  const isClosed = statement?.status === 'FECHADO';
+  const firstCat = categories[0]?.label || '';
+
+  // ---------------------------------------------------------------
+  // 🎨 Renderização
+  // ---------------------------------------------------------------
+  return (
+    <div className="space-y-6">
+      {/* Cabeçalho */}
+      <div className="flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <Calendar className="h-7 w-7 text-teal-600" /> Fechamento Mensal
+          </h1>
+          <p className="text-slate-600 mt-1">Importe o extrato, classifique, gere o DRE e feche o mês.</p>
+        </div>
+        <FiscalClientSelector />
+      </div>
+
+      {selected.id && (
+        <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
+          <div className="p-1.5 bg-teal-100 rounded-lg"><FileText className="h-4 w-4 text-teal-700" /></div>
+          <p className="text-sm font-medium text-teal-900">Fechamento de: <span className="font-bold">{selected.name}</span></p>
+        </div>
+      )}
+
+      {/* Controles */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+          </select>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white">
+            {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+
+          <label className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg cursor-pointer">
+            {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            Importar Extrato (CSV)
+            <input type="file" accept=".csv,.txt" onChange={handleUpload} disabled={importing || isClosed} className="hidden" />
+          </label>
+
+          <button onClick={openCreate} disabled={isClosed} className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
+            <Plus className="h-4 w-4" /> Lançamento Manual
+          </button>
+
+          <button onClick={() => setCatMgrOpen(true)} className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-50">
+            <Settings2 className="h-4 w-4" /> Naturezas ({categories.length})
+          </button>
+
+          <button onClick={() => setDreOpen(true)} disabled={transactions.length === 0} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
+            <BarChart3 className="h-4 w-4" /> Gerar DRE
+          </button>
+
+          <button onClick={exportTransactions} disabled={transactions.length === 0} className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50">
+            <FileDown className="h-4 w-4" /> Exportar Extrato
+          </button>
+
+          {statement && !isClosed && (
+            <button onClick={closeMonth} className="flex items-center gap-2 px-3 py-2 text-sm text-teal-700 border border-teal-300 rounded-lg hover:bg-teal-50">
+              <Lock className="h-4 w-4" /> Fechar Mês
+            </button>
+          )}
+          {statement && isClosed && (
+            <button onClick={reopenMonth} className="flex items-center gap-2 px-3 py-2 text-sm text-orange-700 border border-orange-300 rounded-lg hover:bg-orange-50">
+              <Unlock className="h-4 w-4" /> Reabrir Mês
+            </button>
+          )}
+
+          {statement && !isClosed && (
+            <button onClick={() => setDeleteTarget({ kind: 'statement' })} className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 border border-red-300 rounded-lg hover:bg-red-50">
+              <Trash2 className="h-4 w-4" /> Excluir Importação
+            </button>
+          )}
+
+          {statement && (
+            <span className="flex items-center gap-1 text-xs text-slate-500">
+              {isClosed ? <Lock className="h-3.5 w-3.5 text-teal-600" /> : <Unlock className="h-3.5 w-3.5" />}
+              {isClosed ? 'FECHADO' : 'Aberto'} {statement.fileName && `• ${statement.fileName}`}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <p className="text-xs text-slate-500 flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5 text-green-600" /> Receita</p>
+          <p className="text-lg font-bold text-green-700">{formatBRL(summary.receita)}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <p className="text-xs text-slate-500 flex items-center gap-1"><Sparkles className="h-3.5 w-3.5 text-teal-600" /> Financeira</p>
+          <p className="text-lg font-bold text-teal-700">{formatBRL(summary.financeira)}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <p className="text-xs text-slate-500 flex items-center gap-1"><TrendingDown className="h-3.5 w-3.5 text-red-600" /> Despesas</p>
+          <p className="text-lg font-bold text-red-700">{formatBRL(summary.despesa)}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <p className="text-xs text-slate-500 flex items-center gap-1"><FileText className="h-3.5 w-3.5 text-purple-600" /> Impostos</p>
+          <p className="text-lg font-bold text-purple-700">{formatBRL(summary.imposto)}</p>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+          <p className="text-xs text-slate-500 flex items-center gap-1"><User className="h-3.5 w-3.5 text-slate-600" /> Sócio (líquido)</p>
+          <p className="text-lg font-bold text-slate-700">{formatBRL(summary.saldoSocio)}</p>
+        </div>
+        <div className={`rounded-xl shadow-sm border p-4 ${summary.resultado >= 0 ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}`}>
+          <p className="text-xs text-slate-600 flex items-center gap-1"><DollarSign className="h-3.5 w-3.5" /> Resultado Líquido</p>
+          <p className={`text-lg font-bold ${summary.resultado >= 0 ? 'text-green-800' : 'text-red-800'}`}>{formatBRL(summary.resultado)}</p>
+        </div>
+      </div>
+
+      {/* Barra de lote */}
+      {selectedIds.size > 0 && !isClosed && (
+        <div className="bg-teal-50 border border-teal-300 rounded-xl p-4 flex flex-wrap items-center gap-3">
+          <p className="text-sm font-semibold text-teal-900">{selectedIds.size} selecionada(s)</p>
+          <select value={bulkNature || firstCat} onChange={(e) => setBulkNature(e.target.value)} className="border border-teal-300 rounded-lg px-3 py-2 text-sm bg-white">
+            {categories.map((c) => (
+              <option key={c.id} value={c.label}>
+                [{GROUP_STYLE[c.group]?.label}] {c.label}
+              </option>
+            ))}
+          </select>
+          <label className="flex items-center gap-2 text-sm text-teal-800">
+            <input type="checkbox" checked={bulkLearning} onChange={(e) => setBulkLearning(e.target.checked)} className="rounded" />
+            Aprender p/ próximo mês
+          </label>
+          <button onClick={applyBulk} disabled={savingBulk} className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
+            {savingBulk ? 'Aplicando...' : 'Aplicar'}
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} className="text-sm text-teal-700">Limpar</button>
+        </div>
+      )}
+
+      {/* Tabela */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-slate-900">Transações ({transactions.length})</h3>
+          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+            <input type="checkbox" checked={showRunning} onChange={(e) => setShowRunning(e.target.checked)} className="rounded" />
+            <Sigma className="h-3.5 w-3.5" /> Saldo acumulado (autosoma)
+          </label>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 text-teal-600 animate-spin" /></div>
+        ) : transactions.length === 0 ? (
+          <div className="text-center py-10 text-slate-400">
+            <Upload className="h-10 w-10 mx-auto mb-2" />
+            <p className="text-sm">Nenhuma transação. Importe o CSV ou faça um lançamento manual.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm whitespace-nowrap">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-500">
+                  <th className="py-2 pr-2 w-8">
+                    <button onClick={toggleAll}>{selectedIds.size === transactions.length ? <CheckSquare className="h-4 w-4 text-teal-600" /> : <Square className="h-4 w-4" />}</button>
+                  </th>
+                  <th className="py-2 pr-4 font-medium">Data</th>
+                  <th className="py-2 pr-4 font-medium">Descrição</th>
+                  <th className="py-2 pr-4 font-medium">Contraparte</th>
+                  <th className="py-2 pr-4 font-medium text-right">Valor</th>
+                  {showRunning && <th className="py-2 pr-4 font-medium text-right">Saldo Acum.</th>}
+                  <th className="py-2 pr-4 font-medium">Natureza</th>
+                  <th className="py-2 font-medium text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((t) => {
+                  const cat = categories.find((c) => c.label === t.nature);
+                  const style = GROUP_STYLE[cat?.group || 'PENDENTE'];
+                  return (
+                    <tr key={t.id} className={`border-b border-slate-100 hover:bg-slate-50 ${selectedIds.has(t.id) ? 'bg-teal-50/50' : ''}`}>
+                      <td className="py-3 pr-2">
+                        <button onClick={() => toggleSelect(t.id)}>{selectedIds.has(t.id) ? <CheckSquare className="h-4 w-4 text-teal-600" /> : <Square className="h-4 w-4 text-slate-400" />}</button>
+                      </td>
+                      <td className="py-3 pr-4 text-slate-600">{formatDate(t.date)}</td>
+                      <td className="py-3 pr-4 text-slate-700 max-w-[280px] truncate" title={t.description}>{t.description}</td>
+                      <td className="py-3 pr-4 text-slate-600 max-w-[180px] truncate">{t.counterparty || '—'}</td>
+                      <td className={`py-3 pr-4 text-right font-semibold ${t.amount >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatBRL(t.amount)}</td>
+                      {showRunning && <td className="py-3 pr-4 text-right text-slate-600">{formatBRL(running.get(t.id) || 0)}</td>}
+                      <td className="py-3 pr-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${style.chip}`}>
+                          {t.nature}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => openEdit(t)} disabled={isClosed} className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg" title="Editar">
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => setDeleteTarget({ kind: 'tx', id: t.id })} disabled={isClosed} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 font-semibold text-slate-700">
+                  <td colSpan={4} className="py-3 px-2 text-right">TOTAIS:</td>
+                  <td className="py-3 pr-4 text-right">
+                    <span className="text-green-700">+{formatBRL(summary.totalCreditos)}</span>{' '}
+                    <span className="text-red-700">{formatBRL(summary.totalDebitos)}</span>
+                  </td>
+                  {showRunning && <td className="py-3 pr-4 text-right">{formatBRL(round2(summary.totalCreditos + summary.totalDebitos))}</td>}
+                  <td colSpan={2} className="py-3 px-2 text-right">= {formatBRL(round2(summary.totalCreditos + summary.totalDebitos))}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* MODAL lançar/editar transação */}
+      {modal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900">{modal.mode === 'edit' ? 'Editar Lançamento' : 'Lançamento Manual'}</h3>
+              <button onClick={() => setModal(null)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Data</label>
+                  <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
+                  <select value={fType} onChange={(e) => setFType(e.target.value as 'C' | 'D')} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+                    <option value="C">Crédito (+)</option>
+                    <option value="D">Débito (−)</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Descrição</label>
+                <input value={fDesc} onChange={(e) => setFDesc(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Ex: Pix recebido - Fulano" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Valor (R$)</label>
+                  <input type="number" step="0.01" value={fAmount} onChange={(e) => setFAmount(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Natureza</label>
+                  <select value={fNature} onChange={(e) => setFNature(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.label}>
+                        [{GROUP_STYLE[c.group]?.label}] {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button onClick={saveModal} disabled={savingModal} className="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg py-2.5 disabled:opacity-50">
+                {savingModal ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL Gestão de Naturezas (Sprint 24) */}
+      {catMgrOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <div>
+                <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                  <Tag className="h-5 w-5 text-teal-600" /> Naturezas (Categorias)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {selected.id ? `Personalizadas para ${selected.name}` : 'Gerais do escritório'}
+                </p>
+              </div>
+              <button onClick={() => setCatMgrOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+
+            <div className="p-5 overflow-y-auto space-y-4">
+              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                {categories.length === 0 && (
+                  <div className="p-4 text-center text-slate-400 text-sm">Nenhuma natureza cadastrada.</div>
+                )}
+                {DRE_GROUPS.map((g) => {
+                  const groupCats = categories.filter((c) => c.group === g);
+                  if (groupCats.length === 0) return null;
+                  const style = GROUP_STYLE[g];
+                  return (
+                    <div key={g}>
+                      <div className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide ${style.chip}`}>
+                        {style.label}
+                      </div>
+                      {groupCats.map((c) => (
+                        <div key={c.id} className="px-4 py-2 flex items-center justify-between text-sm hover:bg-slate-50">
+                          <span className="text-slate-700">{c.label}</span>
+                          <div className="flex items-center gap-1">
+                            {c.isSystem && (
+                              <span className="text-[10px] text-slate-400 italic mr-2">sistema</span>
+                            )}
+                            <button
+                              onClick={() => openEditCat(c)}
+                              className="p-1 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded"
+                              title="Editar"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            {!c.isSystem && (
+                              <button
+                                onClick={() => setDeleteCatTarget(c)}
+                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                title="Excluir"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="border-t border-slate-200 pt-4">
+                <p className="text-sm font-semibold text-slate-700 mb-2">➕ Adicionar nova natureza</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Nome</label>
+                    <input
+                      value={newCatLabel}
+                      onChange={(e) => setNewCatLabel(e.target.value)}
+                      placeholder="Ex: Mensalidade, Energia, Cartão Crédito"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Grupo (DRE)</label>
+                    <select value={newCatGroup} onChange={(e) => setNewCatGroup(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
+                      {DRE_GROUPS.map((g) => (
+                        <option key={g} value={g}>{GROUP_STYLE[g].label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button
+                  onClick={createCategory}
+                  disabled={savingCat || !newCatLabel.trim()}
+                  className="mt-3 flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50"
+                >
+                  {savingCat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  {savingCat ? 'Criando...' : 'Criar Natureza'}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-200 bg-slate-50">
+              <button onClick={() => setCatMgrOpen(false)} className="w-full px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-white">
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL Editar Categoria (Sprint 24.1) */}
+      {editingCat && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                <Pencil className="h-4 w-4 text-teal-600" /> Editar Natureza
+              </h3>
+              <button onClick={() => setEditingCat(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Nome</label>
+                <input
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Grupo (DRE)</label>
+                <select
+                  value={editGroup}
+                  onChange={(e) => setEditGroup(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                >
+                  {DRE_GROUPS.map((g) => (
+                    <option key={g} value={g}>{GROUP_STYLE[g].label}</option>
+                  ))}
+                </select>
+              </div>
+              {editingCat.isSystem && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+                  Esta é uma categoria padrão (sistema). Você pode renomeá-la e trocar de grupo, mas <strong>não pode excluí-la</strong>.
+                </div>
+              )}
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setEditingCat(null)}
+                  className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveEditCat}
+                  disabled={savingEdit || !editLabel.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg disabled:opacity-50"
+                >
+                  {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL Confirmar Exclusão de Categoria (Sprint 24.1) */}
+      {deleteCatTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2.5 bg-red-50 rounded-full flex-shrink-0">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Excluir "{deleteCatTarget.label}"?</h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  Esta natureza será removida permanentemente. Se houver transações usando-a, você precisará reclassificá-las antes.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setDeleteCatTarget(null)}
+                className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteCat}
+                disabled={deletingCat}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg disabled:opacity-50"
+              >
+                {deletingCat ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DRE */}
+      {dreOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200 sticky top-0 bg-white">
+              <div>
+                <h3 className="font-bold text-slate-900">DRE — {MONTH_NAMES[month - 1]}/{year}</h3>
+                <p className="text-xs text-slate-500">{selected.name || 'Todos os clientes'}</p>
+              </div>
+              <button onClick={() => setDreOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-5">
+              <table className="w-full text-sm">
+                <tbody>
+                  {summary.linhas.map((l) => {
+                    const style = GROUP_STYLE[l.group];
+                    return (
+                      <tr key={l.label} className="border-b border-slate-100">
+                        <td className="py-2 text-slate-700 flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${style.dot}`} />
+                          <span className="text-[10px] font-bold uppercase text-slate-400">{style.label}</span>
+                          <span>{l.label}</span>
+                          <span className="text-[10px] text-slate-400">({l.count})</span>
+                        </td>
+                        <td className={`py-2 text-right font-semibold ${l.total >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                          {formatBRL(l.total)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-slate-50 font-bold">
+                    <td className="py-2 px-2 text-slate-800">(=) RESULTADO LÍQUIDO</td>
+                    <td className={`py-2 px-2 text-right ${summary.resultado >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                      {formatBRL(summary.resultado)}
+                    </td>
+                  </tr>
+                  <tr className="bg-slate-50 font-semibold">
+                    <td className="py-2 px-2 text-slate-700 text-xs">Saldo Líquido Sócios (fora do DRE)</td>
+                    <td className="py-2 px-2 text-right text-slate-700 text-xs">{formatBRL(summary.saldoSocio)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="flex gap-2 mt-5">
+                <button onClick={exportDRE} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg text-sm">
+                  <FileDown className="h-4 w-4" /> Exportar DRE (CSV)
+                </button>
+                <button onClick={printDRE} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-lg text-sm">
+                  <Printer className="h-4 w-4" /> Imprimir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL confirmação de exclusão de transação/statement */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-6">
+            <h3 className="font-bold text-slate-900">
+              {deleteTarget.kind === 'tx' ? 'Excluir esta transação?' : 'Excluir a importação do mês?'}
+            </h3>
+            <p className="text-sm text-slate-600 mt-2">
+              {deleteTarget.kind === 'tx'
+                ? 'A transação será removida do fechamento.'
+                : 'Todas as transações do mês serão removidas. Ação irreversível.'}
+            </p>
+            <div className="flex gap-2 mt-6">
+              <button onClick={() => setDeleteTarget(null)} className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50">Cancelar</button>
+              <button onClick={confirmDelete} disabled={deleting} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg disabled:opacity-50">
+                {deleting ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
