@@ -88,7 +88,7 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  
+  const [sortOrder, setSortOrder] = useState('az'); // 🆕 padrão: A → Z  
   // Modais (incluindo o novo de importação)
   const [showFormModal, setShowFormModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -171,19 +171,41 @@ export default function ClientesPage() {
     return total;
   }, [form.commercialPlanId, form.avulsoServiceIds, form.manualMonthlyFee, serviceItems]);
 
+   // =================================================================
+  // FILTRAGEM + ORDENAÇÃO INTELIGENTES
   // =================================================================
-  // FILTRAGEM INTELIGENTE
-  // =================================================================
-  const filteredClients = clients.filter((client) => {
-    const matchesSearch = 
-      client.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.cnpj?.includes(searchTerm) ||
-      client.contactName?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = filterStatus === 'all' || client.status === filterStatus;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredClients = useMemo(() => {
+    const filtered = clients.filter((client) => {
+      const matchesSearch =
+        client.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        client.cnpj?.includes(searchTerm) ||
+        client.contactName?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus = filterStatus === 'all' || client.status === filterStatus;
+
+      return matchesSearch && matchesStatus;
+    });
+
+    // 🆕 Ordenação (A→Z é o padrão)
+    const sorted = [...filtered];
+    switch (sortOrder) {
+      case 'az':
+        sorted.sort((a, b) => a.companyName.localeCompare(b.companyName, 'pt-BR', { sensitivity: 'base' }));
+        break;
+      case 'za':
+        sorted.sort((a, b) => b.companyName.localeCompare(a.companyName, 'pt-BR', { sensitivity: 'base' }));
+        break;
+      case 'fee-desc':
+        sorted.sort((a, b) => (b.monthlyFee || 0) - (a.monthlyFee || 0));
+        break;
+      case 'fee-asc':
+        sorted.sort((a, b) => (a.monthlyFee || 0) - (b.monthlyFee || 0));
+        break;
+      default:
+        break; // 'default' = ordem de cadastro (como vem do servidor)
+    }
+    return sorted;
+  }, [clients, searchTerm, filterStatus, sortOrder]);
 
   // =================================================================
   // FUNÇÕES DE UI: ABRIR MODAIS
@@ -389,7 +411,7 @@ export default function ClientesPage() {
 
       {/* FILTROS */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
             <input
@@ -400,11 +422,18 @@ export default function ClientesPage() {
               className={`pl-10 ${inputClass}`}
             />
           </div>
-          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={inputClass}>
+                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={inputClass}>
             <option value="all">Todos os status</option>
             <option value="ATIVO">Ativos</option>
             <option value="INATIVO">Inativos</option>
             <option value="CHURN">Churn (Cancelados)</option>
+          </select>
+          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className={inputClass}>
+            <option value="az">Ordenar: A → Z</option>
+            <option value="za">Ordenar: Z → A</option>
+            <option value="fee-desc">Honorário: maior → menor</option>
+            <option value="fee-asc">Honorário: menor → maior</option>
+            <option value="default">Ordem de cadastro</option>
           </select>
         </div>
       </div>

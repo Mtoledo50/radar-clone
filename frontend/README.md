@@ -786,3 +786,45 @@ Ciclo completo do módulo fiscal para escritórios contábeis **multi-cliente**:
 4. Estoque → "Unificar códigos" → CSV (coluna E + W) → revisar → aplicar.
 5. Relatório Inventário → códigos unificados + coluna "Referência" = nome do produto.
 6. Exportar CSV com campos selecionáveis; SPED `.txt` mantém layout fixo.
+
+🏗️ Nova Arquitetura do Menu (visão CTO)
+Vou introduzir seções visuais (section headers) que agrupam os itens por domínio contábil, seguindo a ordem natural do trabalho de um escritório:
+
+📊 OPERACIONAL      Dashboard, Empresa, Pessoas, Clientes, Projetos
+💼 COMERCIAL        Precificação, Planejamento
+🧾 FISCAL           NF-e, Estoque, Apuração, SPED (7 filhos)
+🏦 BANCÁRIO         Fechamento Mensal ← movido e renomeado visualmente
+📒 CONTÁBIL         Lançamentos, SCI, Revisão, Plano de Contas
+📈 INTELIGÊNCIA     BI, Indicadores, Tributário
+⚙️ SISTEMA          Administração
+
+OPERACIONAL ─────────────
+📊 Dashboard
+🏢 Minha Empresa
+👥 Gestão de Pessoas ▼
+👥 Clientes
+📁 Operacional ▼
+
+COMERCIAL ─────────────
+🧮 Precificação
+📅 Planejamento
+
+FISCAL ─────────────
+🧾 Fiscal ▼
+
+BANCÁRIO ─────────────
+🏦 Fechamento Mensal           ← ícone Landmark
+
+CONTÁBIL ─────────────
+📒 Lançamentos Contábeis ▼
+🧮 Contábil ▼
+
+INTELIGÊNCIA ─────────────
+📊 B.I. Contábil
+⚠️ Ponto Fora da Curva
+📈 Indicadores
+⚖️ Planejamento Tributário
+⚖️ Reforma Tributária
+
+SISTEMA ─────────────
+🛡️ Administração ▼

@@ -5,6 +5,8 @@
  * AccountingController
  * Gerencia os endpoints REST para contas contábeis, lançamentos 
  * e exportação de arquivos para o sistema SCI.
+ * 
+ * 🆕 Sprint 25.2: endpoint promote-from-banking
  */
 import { 
   Controller, 
@@ -14,7 +16,7 @@ import {
   Delete, 
   Body, 
   Param, 
-  Query, // 🔥 Adicionado para suportar filtros de ano/mês na exportação
+  Query,
   UseGuards, 
   Request 
 } from '@nestjs/common';
@@ -27,13 +29,9 @@ export class AccountingController {
   constructor(private readonly service: AccountingService) {}
 
   // =================================================================
-  // INÍCIO: ENDPOINTS DE CONTAS CONTÁBEIS (CRUD)
+  // ENDPOINTS DE CONTAS CONTÁBEIS (CRUD)
   // =================================================================
 
-  /**
-   * GET /accounting/accounts
-   * Lista todas as contas contábeis (globais + específicas da empresa).
-   */
   @Get('accounts')
   async getAccounts(@Request() req) {
     return { 
@@ -42,10 +40,6 @@ export class AccountingController {
     };
   }
 
-  /**
-   * POST /accounting/accounts
-   * Cria uma nova conta contábil vinculada à empresa.
-   */
   @Post('accounts')
   async createAccount(@Request() req, @Body() body: any) {
     return { 
@@ -54,10 +48,6 @@ export class AccountingController {
     };
   }
 
-  /**
-   * PUT /accounting/accounts/:id
-   * Atualiza os dados de uma conta contábil existente.
-   */
   @Put('accounts/:id')
   async updateAccount(@Param('id') id: string, @Body() body: any) {
     return { 
@@ -66,10 +56,6 @@ export class AccountingController {
     };
   }
 
-  /**
-   * DELETE /accounting/accounts/:id
-   * Realiza soft delete na conta contábil (marca como inativa).
-   */
   @Delete('accounts/:id')
   async deleteAccount(@Param('id') id: string) {
     return { 
@@ -77,38 +63,25 @@ export class AccountingController {
       data: await this.service.deleteAccount(id) 
     };
   }
-// =================================================================
-// INÍCIO: Endpoint PUT /accounting/entries/:id/conciliate
-// =================================================================
-/**
- * Concilia um lançamento específico (atualiza apenas contas e status)
- * Não toca em entryDate nem outros campos
- */
-@Put('entries/:id/conciliate')
-async conciliateEntry(@Param('id') id: string, @Request() req, @Body() body: any) {
-  try {
-    const result = await this.service.conciliateEntry(id, req.user.companyId, body);
-    return { success: true, data: result };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+
+  // =================================================================
+  // CONCILIAÇÃO DE LANÇAMENTOS
+  // =================================================================
+
+  @Put('entries/:id/conciliate')
+  async conciliateEntry(@Param('id') id: string, @Request() req, @Body() body: any) {
+    try {
+      const result = await this.service.conciliateEntry(id, req.user.companyId, body);
+      return { success: true, data: result };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
   }
-}
-// =================================================================
-// FIM: Endpoint PUT /accounting/entries/:id/conciliate
-// =================================================================
-  // =================================================================
-  // FIM: ENDPOINTS DE CONTAS CONTÁBEIS (CRUD)
-  // =================================================================
-
 
   // =================================================================
-  // INÍCIO: ENDPOINTS DE LANÇAMENTOS CONTÁBEIS (CRUD)
+  // ENDPOINTS DE LANÇAMENTOS CONTÁBEIS (CRUD)
   // =================================================================
 
-  /**
-   * GET /accounting/entries
-   * Lista todos os lançamentos contábeis da empresa, incluindo nomes das contas.
-   */
   @Get('entries')
   async getEntries(@Request() req) {
     return { 
@@ -117,10 +90,6 @@ async conciliateEntry(@Param('id') id: string, @Request() req, @Body() body: any
     };
   }
 
-  /**
-   * POST /accounting/entries
-   * Cria um novo lançamento contábil manualmente.
-   */
   @Post('entries')
   async createEntry(@Request() req, @Body() body: any) {
     return { 
@@ -129,10 +98,6 @@ async conciliateEntry(@Param('id') id: string, @Request() req, @Body() body: any
     };
   }
 
-  /**
-   * PUT /accounting/entries/:id
-   * Atualiza um lançamento contábil existente (ex: durante a revisão manual).
-   */
   @Put('entries/:id')
   async updateEntry(@Request() req, @Param('id') id: string, @Body() body: any) {
     return { 
@@ -141,10 +106,6 @@ async conciliateEntry(@Param('id') id: string, @Request() req, @Body() body: any
     };
   }
 
-  /**
-   * DELETE /accounting/entries/:id
-   * Exclui permanentemente um lançamento contábil.
-   */
   @Delete('entries/:id')
   async deleteEntry(@Request() req, @Param('id') id: string) {
     await this.service.deleteEntry(id, req.user.companyId);
@@ -152,26 +113,16 @@ async conciliateEntry(@Param('id') id: string, @Request() req, @Body() body: any
   }
 
   // =================================================================
-  // FIM: ENDPOINTS DE LANÇAMENTOS CONTÁBEIS (CRUD)
+  // EXPORTAÇÃO PARA SCI
   // =================================================================
 
-
-  // =================================================================
-  // INÍCIO: ENDPOINT DE EXPORTAÇÃO PARA SCI
-  // =================================================================
-
-  /**
-   * GET /accounting/export-sci
-   * Gera o arquivo de texto formatado para importação no SCI.
-   * Aceita query params opcionais: ?year=2025&month=1
-   */
   @Get('export-sci')
   async exportToSCI(
     @Request() req,
     @Query('year') year?: string,
     @Query('month') month?: string
   ) {
-    const content = await this.service.exportToSCI( // 🔥 Corrigido de this.accountingService para this.service
+    const content = await this.service.exportToSCI(
       req.user.companyId,
       year ? parseInt(year) : undefined,
       month ? parseInt(month) : undefined
@@ -185,9 +136,27 @@ async conciliateEntry(@Param('id') id: string, @Request() req, @Body() body: any
   }
 
   // =================================================================
-  // FIM: ENDPOINT DE EXPORTAÇÃO PARA SCI
+  // 🆕 SPRINT 25.2: PROMOVER TRANSAÇÕES BANCÁRIAS P/ CONTÁBIL
   // =================================================================
+  /**
+   * POST /accounting/promote-from-banking
+   * Body: { statementId, clientId?, accountMapping, bankAccountId }
+   * 
+   * Transforma todas as transações de um mês FECHADO em lançamentos
+   * contábeis de partida dobrada, usando o mapeamento categoria → conta.
+   * Idempotente: não duplica lançamentos já promovidos.
+   */
+  @Post('promote-from-banking')
+  async promoteFromBanking(@Request() req, @Body() body: any) {
+    const result = await this.service.promoteFromBanking(req.user.companyId, {
+      statementId: body.statementId,
+      clientId: body.clientId || null,
+      accountMapping: body.accountMapping || {},
+      bankAccountId: body.bankAccountId,
+    });
 
+    return { success: true, data: result };
+  }
 }
 // =================================================================
 // FIM: accounting.controller.ts
