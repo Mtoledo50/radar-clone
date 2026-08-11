@@ -48,8 +48,19 @@ export class AccountingService {
    *   ATIVO + DESPESA          → DEVEDORA (saldo cresce no débito)
    *   PASSIVO + PL + RECEITA   → CREDORA  (saldo cresce no crédito)
    */
+    /**
+   * 🆕 Sprint 25.2.1: cria conta contábil com inferência automática de
+   * `type` e `nature` + IDEMPOTÊNCIA (upsert por companyId+code).
+   *
+   * Comportamento:
+   *   - Se a conta já existe → retorna a existente (sem erro)
+   *   - Se não existe → cria com type/nature inferidos pelo prefixo
+   *
+   * Regra contábil:
+   *   ATIVO + DESPESA          → DEVEDORA
+   *   PASSIVO + PL + RECEITA   → CREDORA
+   */
   async createAccount(companyId: string, data: any) {
-    // Inferência do tipo pelo primeiro dígito do código
     const inferType = (code: string): string => {
       const prefix = (code || '').replace(/\D/g, '').charAt(0);
       const map: Record<string, string> = {
@@ -62,16 +73,14 @@ export class AccountingService {
       return map[prefix] || 'ATIVO';
     };
 
-    // Inferência da natureza pelo tipo
     const inferNature = (type: string): string => {
       if (type === 'ATIVO' || type === 'DESPESA') return 'DEVEDORA';
-      return 'CREDORA'; // PASSIVO, PATRIMONIO_LIQUIDO, RECEITA
+      return 'CREDORA';
     };
 
     const resolvedType = data.type || inferType(data.code);
     const resolvedNature = data.nature || inferNature(resolvedType);
 
-    // Cast `as any` resolve a incompatibilidade de enums do Prisma
     const payload = {
       companyId,
       code: data.code,
@@ -83,7 +92,19 @@ export class AccountingService {
       ...(data.parentId ? { parentId: data.parentId } : {}),
     };
 
-    return this.prisma.accountingAccount.create({ data: payload as any });
+    // 🆕 UPSERT idempotente: cria se não existe, retorna se já existe
+    return this.prisma.accountingAccount.upsert({
+      where: {
+        companyId_code: { companyId, code: data.code },
+      },
+      update: {
+        // Se já existe, só atualiza o nome (permite renomear sem perder vínculo)
+        name: payload.name,
+        type: payload.type as any,
+        nature: payload.nature as any,
+      },
+      create: payload as any,
+    });
   }
 
   /**
@@ -306,8 +327,7 @@ export class AccountingService {
     const catMap = new Map(categories.map((c) => [c.label, c.group]));
 
     // 4. Busca todas as contas contábeis necessárias pelo código
-    const accountCodes = [...new Set(Object.values(payload.accountMapping))];
-    accountCodes.push(payload.bankAccountId);
+      const accountCodes = [...new Set(Object.values(payload.accountMapping))];
 
     const accounts = await this.prisma.accountingAccount.findMany({
       where: {
@@ -317,6 +337,23 @@ export class AccountingService {
       },
     });
     const accountByCode = new Map(accounts.map((a) => [a.code, a.id]));
+
+    // 🆕 26.1: conta bancária chega como ID (combobox) — resolve por ID ou código
+    const bankAccount = await this.prisma.accountingAccount.findFirst({
+      where: {
+        isActive: true,
+        OR: [
+          { companyId, id: payload.bankAccountId },
+          { companyId: null, id: payload.bankAccountId },
+          { companyId, code: payload.bankAccountId },
+          { companyId: null, code: payload.bankAccountId },
+        ],
+      },
+    });
+    if (!bankAccount) {
+      throw new BadRequestException('Conta bancária não encontrada no Plano de Contas.');
+    }
+    const bankAccountId = bankAccount.id;
 
     // 5. Identifica transações já promovidas (idempotência)
     const alreadyPromoted = await this.prisma.accountingEntry.findMany({
@@ -360,12 +397,7 @@ export class AccountingService {
           continue;
         }
 
-        // Resolve conta bancária
-        const bankAccountId = accountByCode.get(payload.bankAccountId);
-        if (!bankAccountId) {
-          failed++;
-          continue;
-        }
+              // bankAccountId já resolvido acima (por ID ou código)
 
         // Partida dobrada
         const amount = Number(t.amount);
@@ -397,6 +429,128 @@ export class AccountingService {
     });
 
     return { promoted, skipped, failed };
+  }
+    // =================================================================
+  // 🆕 SPRINT 26: DRE OFICIAL DO CLIENTE (lançamentos promovidos)
+  // =================================================================
+  /**
+   * Agrega AccountingEntry do cliente no mês por tipo de conta:
+   *   • Receitas  = contas tipo RECEITA creditadas
+   *   • Despesas  = contas tipo DESPESA debitadas
+   * E retorna o confronto com o DRE bancário (gerencial) do mesmo mês.
+   */
+  async getClientDRE(
+    companyId: string,
+    clientId: string,
+    year: number,
+    month: number,
+  ) {
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month, 0, 23, 59, 59);
+
+    // 1. Lançamentos contábeis do cliente no mês
+    const entries = await this.prisma.accountingEntry.findMany({
+      where: { companyId, clientId, entryDate: { gte: start, lte: end } },
+      include: {
+        debitAccount: { select: { code: true, name: true, type: true } },
+        creditAccount: { select: { code: true, name: true, type: true } },
+      },
+    });
+
+      const recMap = new Map<string, { code: string; name: string; total: number }>();
+    const despMap = new Map<string, { code: string; name: string; total: number }>();
+
+    // 🆕 26.1: lançamentos promovidos classificam pelo SINAL da transação
+    // bancária original (crédito → receita / débito → despesa), independente
+    // da convenção do plano de contas. Manuais caem no tipo da conta.
+    const bankIds = entries.map((e) => e.bankTransactionId).filter(Boolean) as string[];
+    const bankTxs = bankIds.length
+      ? await this.prisma.bankTransaction.findMany({
+          where: { id: { in: bankIds } },
+          select: { id: true, amount: true },
+        })
+      : [];
+    const bankAmount = new Map(bankTxs.map((t) => [t.id, Number(t.amount)]));
+
+    for (const e of entries) {
+      const orig = e.bankTransactionId ? bankAmount.get(e.bankTransactionId) : undefined;
+
+      if (orig !== undefined) {
+        if (orig > 0 && e.creditAccount) {
+          const k = e.creditAccount.code;
+          const cur = recMap.get(k) || { code: k, name: e.creditAccount.name, total: 0 };
+          cur.total += Number(e.creditValue);
+          recMap.set(k, cur);
+        } else if (orig < 0 && e.debitAccount) {
+          const k = e.debitAccount.code;
+          const cur = despMap.get(k) || { code: k, name: e.debitAccount.name, total: 0 };
+          cur.total += Number(e.debitValue);
+          despMap.set(k, cur);
+        }
+      } else {
+        if (e.creditAccount?.type === 'RECEITA') {
+          const k = e.creditAccount.code;
+          const cur = recMap.get(k) || { code: k, name: e.creditAccount.name, total: 0 };
+          cur.total += Number(e.creditValue);
+          recMap.set(k, cur);
+        }
+        if (e.debitAccount?.type === 'DESPESA') {
+          const k = e.debitAccount.code;
+          const cur = despMap.get(k) || { code: k, name: e.debitAccount.name, total: 0 };
+          cur.total += Number(e.debitValue);
+          despMap.set(k, cur);
+        }
+      }
+    }
+
+    const receitas = [...recMap.values()].sort((a, b) => b.total - a.total);
+    const despesas = [...despMap.values()].sort((a, b) => b.total - a.total);
+    const totalReceitas = receitas.reduce((s, r) => s + r.total, 0);
+    const totalDespesas = despesas.reduce((s, d) => s + d.total, 0);
+
+    // 2. Confronto com o DRE BANCÁRIO (gerencial) do mesmo mês
+    const statements = await this.prisma.bankStatement.findMany({
+      where: { companyId, clientId, year, month },
+    });
+    let bankResultado = 0;
+    let bankReceita = 0;
+    let bankDespesa = 0;
+    if (statements.length > 0) {
+      const txs = await this.prisma.bankTransaction.findMany({
+        where: { statementId: { in: statements.map((s) => s.id) } },
+      });
+      const cats = await this.prisma.bankCategory.findMany({
+        where: { companyId, clientId },
+      });
+      const groupOf = (nature: string) =>
+        cats.find((c) => c.label === nature)?.group || 'PENDENTE';
+      for (const t of txs) {
+        const g = groupOf(t.nature);
+        const v = Number(t.amount);
+        if (g === 'RECEITA' || g === 'FINANCEIRA') bankReceita += v;
+        if (g === 'DESPESA' || g === 'IMPOSTO') bankDespesa += v;
+      }
+      bankResultado = bankReceita + bankDespesa;
+    }
+
+    return {
+      contabil: {
+        receitas,
+        despesas,
+        totalReceitas,
+        totalDespesas,
+        resultado: totalReceitas - totalDespesas,
+        lancamentos: entries.length,
+        conciliados: entries.filter((e) => e.status === 'CONCILIADO').length,
+        pendentes: entries.filter((e) => e.status === 'PENDENTE').length,
+      },
+      bancario: {
+        receita: bankReceita,
+        despesa: bankDespesa,
+        resultado: bankResultado,
+        temExtrato: statements.length > 0,
+      },
+    };
   }
 }
 // =================================================================
