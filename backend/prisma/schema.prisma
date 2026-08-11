@@ -695,6 +695,7 @@ model AccountingEntry {
   counterpartyType    String?
   
   clientId            String?
+  bankTransactionId   String?   /// 🆕 Sprint 25.2: vínculo à transação bancária de origem
   client              Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   
   debitAccountId      String?
