@@ -199,13 +199,8 @@ const allMenuItems: MenuItem[] = [
   // ─────────────────────────────────────────────────────────
   // 📈 INTELIGÊNCIA
   // ─────────────────────────────────────────────────────────
-  {
-    id: 'bi',
-    title: 'B.I. Contábil',
-    href: '/dashboard/bi',
-    icon: BarChart3,
-    section: 'inteligencia',
-  },
+    { id: 'bi', title: 'B.I. Contábil', href: '/dashboard/bi', icon: BarChart3, section: 'inteligencia' },
+  { id: 'bi-dre-cliente', title: 'DRE do Cliente', href: '/dashboard/bi/dre-cliente', icon: Landmark, section: 'inteligencia' },
   {
     id: 'ponto-fora-da-curva',
     title: 'Ponto Fora da Curva',
