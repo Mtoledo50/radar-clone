@@ -13,6 +13,7 @@ import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
 import { useFiscalClientStore } from '@/store/fiscalClientStore';
 import { parseBankCsv } from '@/lib/parseBankCsv';
 import { exportToCSV } from '@/lib/exportToCSV';
+import AccountCombobox from '@/components/accounting/AccountCombobox';
 
 interface Transaction {
   id: string;
@@ -1080,10 +1081,14 @@ export default function FechamentoMensalPage() {
                     </button>
                   </div>
                 )}
-                <select value={bankAccountId} onChange={(e) => setBankAccountId(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white">
-                  <option value="">Selecione a conta do extrato...</option>
-                  {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
-                </select>
+                  <AccountCombobox
+                  accounts={accounts}
+                  value={bankAccountId}
+                  valueKey="id"
+                  onSelect={(acc) => setBankAccountId(acc ? acc.id : '')}
+                  placeholder="Digite código ou nome da conta bancária..."
+                  className="w-full"
+                />
                 <p className="text-[10px] text-slate-500 mt-1">Esta conta receberá os débitos/créditos. Use "+ Criar nova conta" se não achar.</p>
               </div>
               <div className="border-t pt-4">
@@ -1096,10 +1101,16 @@ export default function FechamentoMensalPage() {
                       <div key={cat.id} className="flex items-center gap-3 py-1">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${style.chip} whitespace-nowrap`}>{style.label}</span>
                         <span className="text-sm text-slate-700 w-40 truncate" title={cat.label}>{cat.label}</span>
-                        <select value={accountMapping[cat.label] || ''} onChange={(e) => setAccountMapping({ ...accountMapping, [cat.label]: e.target.value })} className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-xs bg-white">
-                          <option value="">— não mapear —</option>
-                          {accounts.map((a) => <option key={a.id} value={a.code}>{a.code} — {a.name}</option>)}
-                        </select>
+                            <AccountCombobox
+                          accounts={accounts}
+                          value={accountMapping[cat.label] || ''}
+                          valueKey="code"
+                          onSelect={(acc) =>
+                            setAccountMapping({ ...accountMapping, [cat.label]: acc ? acc.code : '' })
+                          }
+                          placeholder="Código ou nome..."
+                          className="flex-1"
+                        />
                       </div>
                     );
                   })}
