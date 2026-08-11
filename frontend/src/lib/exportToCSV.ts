@@ -1,70 +1,139 @@
 /**
  * =================================================================
- * UTILITÁRIO DE EXPORTAÇÃO CSV (UTF-8 com BOM)
+ * 📤 exportToCSV — Exportação de dados para CSV
  * =================================================================
- * 
- * POR QUE ESTA FUNÇÃO É NECESSÁRIA?
- * O Excel tem um bug histórico onde ele abre arquivos CSV assumindo 
- * que estão em codificação ANSI, quebrando todos os acentos (ex: "Contábil" vira "ContÃ¡bil").
- * 
- * A SOLUÇÃO:
- * Adicionamos o caractere BOM (\uFEFF) no início do arquivo. Isso força 
- * o Excel a reconhecer que o arquivo é UTF-8, mantendo os acentos perfeitos.
- * Além disso, tratamos vírgulas e aspas nos dados para não quebrar as colunas.
+ * Função utilitária para exportar dados em formato CSV compatível
+ * com Excel, Google Sheets e LibreOffice.
+ *
+ * Características:
+ * - UTF-8 + BOM (suporte a acentos e caracteres especiais)
+ * - Separador ponto-e-vírgula (;) — padrão brasileiro
+ * - Escape automático de campos com vírgulas ou aspas
+ * - Download automático do arquivo
+ *
+ * @param data - Array de objetos com os dados
+ * @param headers - Array com os nomes das colunas
+ * @param filename - Nome do arquivo (sem extensão)
+ *
+ * @example
+ * ```typescript
+ * const data = [
+ *   { nome: 'João Silva', email: 'joao@email.com' },
+ *   { nome: 'Maria Santos', email: 'maria@email.com' }
+ * ];
+ * const headers = ['Nome', 'Email'];
+ * exportToCSV(data, headers, 'usuarios');
+ * ```
+ * =================================================================
  */
 
-export function exportToCSV(data: any[], filename: string) {
-  // 1. Validação de segurança: se não houver dados, não faz nada.
+export function exportToCSV(
+  data: any[],
+  headers: string[],
+  filename: string
+): void {
+  // Validação básica
   if (!data || data.length === 0) {
-    console.warn('⚠️ Nenhum dado disponível para exportar.');
+    console.warn('exportToCSV: Nenhum dado para exportar');
     return;
   }
 
-  // 2. Extrai os cabeçalhos (nomes das colunas) baseados nas chaves do primeiro objeto.
-  const headers = Object.keys(data[0]);
+  if (!headers || headers.length === 0) {
+    console.warn('exportToCSV: Headers não fornecidos');
+    return;
+  }
 
-  // 3. Mapeia cada linha de dados para o formato CSV.
-  const csvRows = data.map((row) => {
-    return headers
-      .map((header) => {
-        let value = row[header];
+  // Função auxiliar para escapar campos CSV
+  const escapeCSV = (value: any): string => {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    
+    const stringValue = String(value);
+    
+    // Se contém vírgula, aspas ou quebra de linha, envolve em aspas
+    if (
+      stringValue.includes(',') ||
+      stringValue.includes('"') ||
+      stringValue.includes('\n') ||
+      stringValue.includes('\r')
+    ) {
+      // Escapa aspas duplicando-as
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+    
+    return stringValue;
+  };
 
-        // Tratamento especial para Datas (transforma de ISO para formato Brasileiro)
-        if (value instanceof Date) {
-          value = value.toLocaleDateString('pt-BR');
-        } 
-        // Tratamento para valores nulos ou indefinidos
-        else if (value !== null && value !== undefined) {
-          value = String(value);
-        } else {
-          value = '';
-        }
+  // Monta o conteúdo CSV
+  const csvContent = [
+    // Linha de headers
+    headers.map(escapeCSV).join(';'),
+    
+    // Linhas de dados
+    ...data.map((row) => {
+      return headers
+        .map((header) => {
+          // Converte header para camelCase para acessar propriedade
+          const key = header.toLowerCase().replace(/\s+/g, '');
+          return escapeCSV(row[key] ?? row[header] ?? '');
+        })
+        .join(';');
+    }),
+  ].join('\r\n');
 
-        // Escapa aspas duplas (regra padrão do CSV) e envolve o valor em aspas
-        const escaped = ('' + value).replace(/"/g, '""');
-        return `"${escaped}"`;
-      })
-      .join(',');
-  });
+  // Adiciona BOM UTF-8 (Byte Order Mark) para compatibilidade com Excel
+  const BOM = '\uFEFF';
+  const csvWithBOM = BOM + csvContent;
 
-  // 4. Junta os cabeçalhos e as linhas, separando por quebra de linha (\n)
-  const csvString = [headers.join(','), ...csvRows].join('\n');
-
-  // 5. Adiciona o BOM (Byte Order Mark) para o Excel reconhecer os acentos
-  const bom = '\uFEFF';
-  const blob = new Blob([bom + csvString], { type: 'text/csv;charset=utf-8;' });
-
-  // 6. Cria um link invisível no DOM e simula o clique para forçar o download
-  const url = URL.createObjectURL(blob);
+  // Cria o blob e faz download
+  const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+
+  // Adiciona timestamp ao nome do arquivo
+  const timestamp = new Date().toISOString().split('T')[0];
+  const fullFilename = `${filename}-${timestamp}.csv`;
+
   link.setAttribute('href', url);
-  link.setAttribute('download', `${filename}.csv`);
+  link.setAttribute('download', fullFilename);
   link.style.visibility = 'hidden';
   
   document.body.appendChild(link);
   link.click();
-  
-  // 7. Limpeza de memória (remove o link e revoga a URL do Blob)
   document.body.removeChild(link);
+  
+  // Libera a URL do blob
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Exporta dados para CSV usando as chaves dos objetos como headers
+ */
+export function exportToCSVWithKeys(
+  data: any[],
+  filename: string,
+  columnMapping?: Record<string, string>
+): void {
+  if (!data || data.length === 0) {
+    console.warn('exportToCSVWithKeys: Nenhum dado para exportar');
+    return;
+  }
+
+  // Extrai todas as chaves do primeiro objeto
+  const keys = Object.keys(data[0]);
+  
+  // Usa mapeamento customizado se fornecido, senão usa as próprias chaves
+  const headers = keys.map((key) => columnMapping?.[key] || key);
+
+  // Cria novo array de dados com as chaves mapeadas
+  const mappedData = data.map((row) => {
+    const mapped: any = {};
+    keys.forEach((key) => {
+      mapped[key] = row[key];
+    });
+    return mapped;
+  });
+
+  exportToCSV(mappedData, headers, filename);
 }
