@@ -1,851 +1,316 @@
-# 🎯 Radar Conta Certa
+# 🎯 RADAR CONTA CERTA
+
+### O cérebro digital do escritório contábil
 
 <div align="center">
 
-![Status](https://img.shields.io/badge/status-em_desenvolvimento-yellow)
-![Next.js](https://img.shields.io/badge/Next.js-16-black)
-![React](https://img.shields.io/badge/React-19-blue)
-![NestJS](https://img.shields.io/badge/NestJS-10-red)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
-![License](https://img.shields.io/badge/license-Proprietary-green)
+![Status](https://img.shields.io/badge/🚀_PRODUÇÃO_EM_BREVE-0d9488?style=for-the-badge)
+![Next.js](https://img.shields.io/badge/Next.js-16.2-black?style=for-the-badge)
+![NestJS](https://img.shields.io/badge/NestJS-10-red?style=for-the-badge)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge)
+![Prisma](https://img.shields.io/badge/Prisma-5-2d3748?style=for-the-badge)
+![Sprints](https://img.shields.io/badge/Sprints_Entregues-30-f97316?style=for-the-badge)
 
-**Sistema SaaS Enterprise de gestão empresarial para escritórios contábeis**
+**Um SaaS que transforma 4 horas de trabalho manual em 15 minutos** —
+importando extratos e notas fiscais, classificando sozinho, conciliando com inteligência
+e entregando DREs prontos para o cliente e para a diretoria.
 
-[🚀 Começar](#-instalação) • [📖 Documentação](#-documentação) • [🗺️ Roadmap](#️-roadmap) • [📞 Suporte](#-suporte)
+[Para Diretores](#-resumo-executivo-para-quem-não-programa) •
+[Mapa do Sistema](#️-mapa-do-sistema) •
+[Jornada das Sprints](#-jornada-de-desenvolvimento-sprints-130) •
+[Arquitetura](#️-arquitetura-para-a-equipe-técnica) •
+[Roadmap](#️-roadmap-onde-chegamos-e-onde-vamos)
 
 </div>
 
 ---
 
-## 📖 Sobre
+## 📌 Resumo Executivo *(para quem não programa)*
 
-O **Radar Conta Certa** é uma plataforma SaaS completa que transforma a gestão de escritórios contábeis. Desenvolvido com arquitetura Enterprise (multi-tenant, RBAC, catálogo dinâmico), permite administrar clientes, colaboradores, propostas comerciais e inteligência de negócios em uma única interface moderna.
+> 💡 **Em uma frase:** o Radar Conta Certa é um sistema na nuvem (SaaS) que
+> **automatiza a rotina contábil de ponta a ponta** — do extrato do banco ao relatório
+> final do cliente — com segurança, rastreabilidade e inteligência artificial de regras.
 
-### 🎯 Para quem é?
+### 😫 Antes (como é hoje nos escritórios)
 
-- **Escritórios contábeis** que querem escalar operações
-- **Contadores** que precisam de precificação inteligente
-- **Gestores** que buscam BI contábil integrado
-- **Equipes** que precisam de automação de processos
+| Atividade | Tempo mensal | Risco |
+|---|---|---|
+| Digitar extrato bancário planilha por planilha | 2–4 h por cliente | Erros de digitação |
+| Classificar cada lançamento "na mão" | 1–2 h por cliente | Inconsistência |
+| Conferir Pix × Nota Fiscal olho a olho | 1–3 h por cliente | Pagamentos esquecidos |
+| Montar DRE no Excel | 1 h por cliente | Fórmulas quebradas |
 
-### ✨ Diferenciais
+### 🤖 Com o Radar Conta Certa
 
-| Recurso | Benefício |
-|---------|-----------|
-| 🛡️ **Multi-Tenant Seguro** | Isolamento total por empresa com RBAC em 3 camadas |
-| 📦 **Catálogo Dinâmico** | Venda MEI, IRPF, serviços avulsos com escopo detalhado |
-| 💼 **Motor de Contratos** | Propostas → Contratos → Clientes em fluxo automatizado |
-| 📊 **BI Contábil** | DRE, Ponto Fora da Curva e Simulador Tributário nativos |
-| 🎲 **Dados Demo** | 12 meses de dados fictícios para demonstrações comerciais |
+| Atividade | Tempo | Como |
+|---|---|---|
+| Importar extrato | **10 segundos** | 1 clique no CSV do banco |
+| Classificar lançamentos | **automático** | O sistema aprende com o contador |
+| Conferir Banco × NF-e | **automático** | Motor de score com confiança % |
+| DRE pronto p/ cliente | **1 clique** | Exporta CSV / imprime profissional |
 
----
+### 🔢 Resultados reais medidos (cliente-piloto: Academia do Renan)
 
-## 🚀 Principais Funcionalidades
-
-### 🔐 Segurança & Acesso
-- ✅ Autenticação JWT com refresh token
-- ✅ Proteção de rotas em 3 camadas (Middleware + UI + RolesGuard)
-- ✅ RBAC com decorator `@Roles('ADMIN')`
-- ✅ Soft Delete (preserva histórico contábil)
-- ✅ Multi-tenant single-database
-
-### 📊 Dashboards & BI
-- ✅ Dashboard executivo com KPIs em tempo real
-- ✅ Admin Overview (visão estratégica do sistema)
-- ✅ DRE Gerencial Visual
-- ✅ Ponto Fora da Curva (detecção de anomalias)
-- ✅ Simulador de Regimes Tributários
-
-### 💼 Comercial
-- ✅ **Motor de Propostas**: Wizard de 5 passos com calculadora em tempo real
-- ✅ **Funil de Vendas**: DRAFT → SENT → VIEWED → CLOSED_WON / CLOSED_LOST
-- ✅ **Catálogo Rico**: Serviços com escopo, fora-do-escopo, SLA e documentos
-- ✅ **Planos Comerciais**: START, PRIME, BLACK com multiplicadores
-- ✅ **Link Público**: Propostas compartilháveis com tracking de engajamento
-
-### 👥 Gestão
-- ✅ **Clientes**: Onboarding em 3 etapas (Empresa → Plano → Add-ons)
-- ✅ **Colaboradores**: CRUD + controle de turnover
-- ✅ **Lançamentos Contábeis**: Plano de contas hierárquico
-- ✅ **Planejamento Estratégico**: OKRs, metas e planos de ação
-
-### 🛠️ Administrativa
-- ✅ **Admin de Catálogo**: CRUD completo de categorias, serviços e planos
-- ✅ **Painel Super Admin**: Gestão de empresas e usuários (multi-tenant)
-- ✅ **Onboard Automático**: Cria empresa + usuário admin em transação
+```diff
++ 74 transações importadas e classificadas em segundos (junho/2026)
++ DRE fechado: Receita R$ 9.404,71 × Despesas R$ 10.832,75 (bate com o banco)
++ Julho/2026: 90% classificado SOZINHO pela memória de aprendizado
++ Conciliação Banco × NF-e com sugestões de 80–90% de confiança
+```
 
 ---
 
-## 🛠️ Stack Tecnológica
+## 🗺️ Mapa do Sistema
 
-<div align="center">
-
-| Camada | Tecnologia | Versão |
-|--------|------------|--------|
-| **Frontend** | Next.js + React + TypeScript | 16 + 19 + 5.x |
-| **Estilização** | Tailwind CSS | 3.x |
-| **Estado** | Zustand + localStorage | 4.x |
-| **Notificações** | Sonner | 1.x |
-| **Backend** | NestJS + TypeScript | 10 + 5.x |
-| **ORM** | Prisma | 5.x |
-| **Banco** | PostgreSQL | 15+ |
-| **Auth** | JWT + bcrypt | - |
-
-</div>
-
----
-
-## 🏗️ Arquitetura
-
-### Visão Geral
-┌─────────────────────────────────────────┐
-│ Frontend (Next.js 16 + React 19) │
-│ Tailwind + Zustand + Sonner + Axios │
-└──────────────────┬──────────────────────┘
-│ HTTP/REST
-▼
-┌─────────────────────────────────────────┐
-│ Backend (NestJS 10 + TypeScript) │
-│ Controllers + Services + DTOs + Guards │
-└──────────────────┬──────────────────────┘
-│ Prisma ORM
-▼
-┌─────────────────────────────────────────┐
-│ PostgreSQL (Multi-Tenant) │
-│ Tabelas isoladas por companyId │
-└─────────────────────────────────────────┘
-
-
-### 🛡️ Camadas de Segurança (Defense in Depth)
-
-| Camada | Onde roda | Função |
-|--------|-----------|--------|
-| **1. Middleware Next.js** | Borda (Edge) | Redireciona não-admins (UX rápida) |
-| **2. Sidebar Dinâmica** | UI | Esconde itens admin do menu |
-| **3. RolesGuard (NestJS)** | Backend | Validação real (fonte da verdade) |
-
-### 📁 Estrutura do Projeto
-radar-clone/
-├── 📂 frontend/ # Next.js 16
-│ └── src/
-│ ├── app/
-│ │ ├── dashboard/ # Área logada
-│ │ │ ├── admin/ # Painel admin (Overview + Catálogo)
-│ │ │ ├── clientes/ # Motor de onboarding
-│ │ │ ├── precificacao/# Motor de propostas
-│ │ │ ├── bi/ # Business Intelligence
-│ │ │ └── ...
-│ │ ├── login/
-│ │ ├── forbidden/ # Página 403
-│ │ └── proposta/[slug]/ # Link público
-│ ├── middleware.ts # Proteção de rotas
-│ ├── lib/axios.ts
-│ └── store/authStore.ts
-│
-├── 📂 backend/ # NestJS 10
-│ ├── prisma/
-│ │ ├── schema.prisma # ~30 tabelas
-│ │ └── seed.ts # Catálogo rico
-│ └── src/
-│ ├── admin/ # Super Admin
-│ ├── auth/ # JWT + Guards
-│ ├── client/ # Clientes + Contratos
-│ ├── commercial-plans/ # Catálogo Enterprise
-│ ├── proposals/ # Propostas comerciais
-│ ├── common/ # Decorators + Guards
-│ └── ...
-│
-└── README.md
-
+```mermaid
+flowchart LR
+    subgraph OPERACIONAL["📊 Operacional"]
+        DASH[Dashboard] --> PESSOAS[Pessoas & Turnover]
+        DASH --> CLIENTES[Clientes & CRM]
+        DASH --> PROJ[Projetos & Tarefas]
+    end
+    subgraph COMERCIAL["💼 Comercial"]
+        PRECO[Precificação] --> PROP[Propostas & Planos]
+    end
+    subgraph FISCAL["🧾 Fiscal"]
+        NFE[NF-e de Entrada] --> EST[Estoque Kardex]
+        EST --> ICMS[Apuração ICMS]
+        ICMS --> SPED[SPED Bloco H]
+    end
+    subgraph BANCARIO["🏦 Bancário"]
+        EXT[Extrato CSV] --> CLASS[Classificação c/ Memória]
+        CLASS --> DREB[DRE Bancário]
+        DREB --> FECHA[Fechamento do Mês]
+    end
+    subgraph CONTABIL["📒 Contábil"]
+        FECHA -->|promoção| DOB[Partidas Dobradas]
+        DOB --> DREO[DRE Oficial]
+        NFE --> CONC[Conciliação Banco × NF-e]
+        FECHA --> CONC
+    end
+    subgraph BI["📈 Inteligência"]
+        DREE[DRE do Escritório]
+        OUT[Ponto Fora da Curva]
+        SIM[Simulador Tributário]
+    end
+```
 
 ---
 
-## 🚀 Instalação
+## ✨ Módulos e Funcionalidades
 
-### Pré-requisitos
+### 🔐 Segurança & Plataforma
+- [x] Login com JWT + refresh token e proteção de rotas
+- [x] **Multi-tenant**: cada escritório vê APENAS os seus dados (`companyId`)
+- [x] Papéis de acesso (Super Admin, Admin, Gerente, Usuário, Cliente)
+- [x] Módulos liberados por plano de assinatura (`allowedModules`)
 
-- Node.js 18+ (recomendado 20+)
-- PostgreSQL 15+
-- npm 9+
+### 📊 Dashboard Executivo
+- [x] KPIs em tempo real (clientes, faturamento, pessoas, metas)
+- [x] Gráficos nativos em CSS puro (zero dependências pesadas)
 
-### Passo a Passo
+### 👥 Pessoas & Clientes
+- [x] CRUD de colaboradores + **Turnover automático** por setor
+- [x] Carteira de clientes com honorários, status e ticket médio
+- [x] **Importação em massa** da carteira (~100 clientes de uma planilha) sem duplicar
 
-**1. Clonar e preparar**
-```bash
-git clone https://github.com/seu-usuario/radar-conta-certa.git
-cd radar-conta-certa
+### 💰 Comercial
+- [x] Precificação por horas + margem • Planos e propostas com link público
+- [x] CRM com funil, motivos de perda e taxa de conversão
 
-2. Configurar Backend
-cd backend
-npm install
-cp .env.example .env
+### 🧾 Fiscal *(Sprints 8–19)*
+- [x] Upload de NF-e em lote com parser próprio de XML
+- [x] **Estoque Kardex** com custo médio por replay e saldo inicial importado
+- [x] Apuração de ICMS mensal + **SPED Bloco H** (layout legal fixo)
+- [x] Relatório H010 com 17 colunas e tributos (ICMS/ST/IPI/PIS/COFINS)
+- [x] Manutenção manual de produtos com trilha de auditoria (ajustes)
 
-# Editar .env com suas credenciais PostgreSQL
-# DATABASE_URL="postgresql://user:pass@localhost:5432/radar_conta_certa"
+### 🏦 Bancário *(Sprints 21–24)*
+- [x] Importação de extrato CSV com parser à prova de erros (milhares BR/US, datas)
+- [x] **Classificação com memória**: o sistema aprende cada correção do contador
+- [x] **Naturezas personalizadas por cliente** (cada empresa tem o seu DRE)
+- [x] DRE gerencial, relatório por natureza com subtotais, autosoma
+- [x] **Fechamento do mês com trava de compliance** (fechou, não mexe)
 
-npx prisma generate
-npx prisma migrate deploy
-npx prisma db seed              # (Opcional) dados iniciais
-npm run start:dev               # http://localhost:3001
+### 📒 Contábil *(Sprints 20, 25–26)*
+- [x] Plano de contas (padrão SCI 90113) + lançamentos de partida dobrada
+- [x] **Ponte Bancário → Contábil**: 1 clique transforma o mês em escrituração
+- [x] Exportação para o sistema SCI
+- [x] **DRE Oficial do Cliente** com confronto Contábil × Bancário
 
-3. Configurar Frontend
-bash
+### 🔗 Conciliação Inteligente *(Sprint 29)*
+- [x] Motor que cruza **débitos do banco × NF-e de entrada** com score de confiança
+- [x] Sugestões 🟢 ≥80% / 🟡 50–79% com revisão humana obrigatória
 
-cd ../frontend
-npm install
-cp .env.example .env.local
-
-# NEXT_PUBLIC_API_URL=http://localhost:3001
-
-npm run dev                     # http://localhost:3000
-
-🎲 Usar Dados de Demonstração
-Para uma demo completa com 28 clientes, 15 propostas e 12 meses de histórico:
-cd backend
-npx ts-node src/seed-demo.ts
-
-Credenciais de acesso:
-📧 Email: admin@demo.com
-🔑 Senha: 123456
-
-🔐 Variáveis de Ambiente
-Backend (backend/.env)
-# Banco
-DATABASE_URL="postgresql://user:pass@localhost:5432/radar_conta_certa?schema=public"
-
-# JWT
-JWT_SECRET="sua-chave-super-segura"
-JWT_EXPIRATION="7d"
-
-# App
-PORT=3001
-NODE_ENV=development
-
-Frontend (frontend/.env.local)
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_APP_NAME="Radar Conta Certa"
-
-📜 Scripts
-Backend                              
-Comando                     Descrição
-npm run start:dev           Servidor em modo dev (watch)
-npm run build               Build de produção
-npm run start:prod          Servidor em produção
-npx prisma migrate dev      Criar migração
-npx prisma studio           GUI do banco
-npm run seed:demo           Dados fictícios
-
-Frontend
-
-Comando                      Descrição
-npm run dev                  Dev server (Turbopack)
-npm run build                Build de produção
-npm run start                Servidor de produção
-npm run lint                 Executar ESLint
-
-🗺️ Roadmap
-✅ Fase 1 - Fundação (Concluída)
-Autenticação JWT multi-tenant
-Dashboard executivo
-Gestão de Clientes, Pessoas, Precificação
-Exportação CSV com UTF-8 + BOM
-Notificações Toast (Sonner)
-✅ Fase 2 - BI & Comercial (Concluída)
-DRE Gerencial + Ponto Fora da Curva
-Simulador Tributário
-Motor de Propostas (Wizard 5 passos)
-Catálogo Enterprise (MEI, IRPF, etc.)
-Admin de Catálogo + Overview
-✅ Fase 3 - Segurança Enterprise (Concluída)
-RBAC com RolesGuard
-Proteção de rotas em 3 camadas
-Soft Delete em entidades críticas
-Seed demo com 12 meses de histórico
-🚧 Fase 4 - Produção (Em andamento)
-Deploy em VPS/Render/Railway
-CI/CD com GitHub Actions
-Monitoramento (Sentry, LogRocket)
-Backup automático
-📋 Fase 5 - Expansão (Planejada)
-Relatórios em PDF
-Integração com APIs contábeis (Sintegra, eSocial)
-Módulo de tarefas e projetos
-Chat interno contador ↔ cliente
-App mobile (React Native)
-White-label
-📖 Documentação
-Decisões Técnicas (ADRs)
-Principais decisões arquiteturais documentadas:
-ADR-01: Enums como fonte da verdade (fim das strings soltas)
-ADR-11: Zero dependências opcionais em DTOs
-ADR-13: Propostas relacionais (fim do JSON solto)
-ADR-15: Idempotência via UPSERT em seeds
-ADR-25: RBAC com decorator @Roles()
-ADR-27: Cookie espelho para middleware Next.js
-🎨 Identidade Visual
-Teal Principal: #0d9488 (cor primária)
-Laranja Vibrante: #f97316 (destaque)
-Cinza Escuro: #475569 (textos)
-🤝 Contribuição
-Este é um projeto proprietário. Contribuições externas não são aceitas no momento.
-Para reportar bugs ou sugerir melhorias, entre em contato com a equipe de desenvolvimento.
-📄 Licença
-Proprietary License
-Copyright © 2026 Conta Certa Soluções Empresariais. Todos os direitos reservados.
-Este software é propriedade intelectual da Conta Certa e não pode ser copiado, modificado ou distribuído sem autorização expressa.
-📞 Suporte
-Dúvidas, suporte técnico ou informações comerciais:
-📧 Email: contato@contacerta.com.br
-🌐 Website: www.contacerta.com.br
-👨‍💻 Autor
-Marcos - Desenvolvedor Full Stack
-Projeto: Radar Conta Certa
-Stack: Next.js 16 + NestJS 10 + PostgreSQL 15
-Ano: 2026
-🙏 Agradecimentos
-Next.js Team - Framework excepcional
-Vercel - Por manter o Next.js
-NestJS Team - Framework enterprise robusto
-Prisma - ORM moderno e intuitivo
-Tailwind CSS - Estilização utility-first incrível
-Lucide - Ícones bonitos e consistentes
-Sonner - Notificações elegantes
-<div align="center">
-
-Feito com ❤️ por Marcos e equipe Conta Certa
-⭐ Se este projeto foi útil, considere dar uma estrela!
-</div>
-
+### 📈 BI & Inteligência
+- [x] DRE do Escritório • Ponto Fora da Curva (anomalias estatísticas)
+- [x] Simulador Simples Nacional × Presumido × Real • Reforma Tributária (EC 132/23)
+- [x] Exportação **PDF profissional** e CSV compatível com Excel (UTF-8 + BOM)
 
 ---
 
-## 📊 O que mudou (resumo das melhorias)
+## 🏆 O Diferencial: os 3 DREs
 
-### ❌ Removido
-
-| Item | Motivo |
-|------|--------|
-| Seções "Atualização: ..." (changelogs) | README não é CHANGELOG — movi para seção separada |
-| ADRs detalhados | Vão para `docs/ARCHITECTURE.md` ou `docs/decisions/` |
-| Diagramas ASCII duplicados | Simplifiquei para 1 diagrama limpo |
-| Tabelas técnicas gigantes | Substituídas por tabelas focadas no leitor |
-| Repetições de "Motor de Propostas" | Consolidado em uma seção |
-| Lista de 30+ arquivos modificados | Removida — pertence a CHANGELOG.md |
-
-### ✅ Adicionado
-
-| Item | Benefício |
-|------|-----------|
-| **"Para quem é?"** | Define público-alvo claramente |
-| **Tabela de diferenciais** | Escaneamento rápido |
-| **Credenciais demo destacadas** | Onboarding em 10 segundos |
-| **Roadmap com emojis** | Status visual imediato |
-| **Seção "Documentação"** | Aponta para docs externos |
-
-### 🔄 Reorganizado
-
-- Funcionalidades **agrupadas por domínio** (Segurança, Comercial, Gestão)
-- Instalação em **3 passos claros** (não 4 sub-seções)
-- Variáveis de ambiente **consolidadas** em uma seção
-- Scripts em **tabelas únicas** (não 2 seções separadas)
-
----
-
-## 💡 Recomendações Finais
-
-Para um projeto profissional, sugiro criar estes arquivos **separados** do README:
-📂 docs/
-├── ARCHITECTURE.md # ADRs completos + diagramas detalhados
-├── API.md # Documentação da API (ou Swagger)
-├── DEPLOYMENT.md # Guia de deploy em produção
-└── CONTRIBUTING.md # (quando abrir para contribuições)
-CHANGELOG.md # Histórico de versões (padrão Keep a Changelog)
-
-📂 H:\radar-clone\
-├── 📂 backend/
-│   ├── 📂 src/
-│   │   ├── 📂 admin/                          ← 🆕 Service + DTOs
-│   │   │   ├── admin.controller.ts            ← 🔧 Refatorado
-│   │   │   ├── admin.service.ts               ← 🆕 NOVO
-│   │   │   └── 📂 dto/                        ← 🆕 Pasta criada
-│   │   │       ├── onboard-client.dto.ts
-│   │   │       ├── update-company.dto.ts
-│   │   │       └── update-user-role.dto.ts
-│   │   │
-│   │   ├── 📂 common/                         ← 🆕 Compartilhado
-│   │   │   ├── 📂 decorators/
-│   │   │   │   ├── roles.decorator.ts         ← 🆕 @Roles()
-│   │   │   │   └── current-user.decorator.ts  ← 🆕 @CurrentUser()
-│   │   │   └── 📂 guards/
-│   │   │       └── roles.guard.ts             ← 🆕 RBAC Guard
-│   │   │
-│   │   ├── 📂 client/                         ← 🔧 Refatorado
-│   │   │   ├── client.service.ts              ← + transação
-│   │   │   ├── client.controller.ts           ← + @CurrentUser
-│   │   │   └── 📂 dto/
-│   │   │       ├── create-client.dto.ts       ← + commercialPlanId
-│   │   │       └── update-client.dto.ts       ← refatorado
-│   │   │
-│   │   ├── 📂 commercial-plans/               ← 🔧 Refatorado
-│   │   │   ├── commercial-plans.service.ts    ← + soft delete
-│   │   │   ├── commercial-plans.controller.ts ← + @Roles
-│   │   │   └── 📂 dto/                        ← 🆕 3 DTOs
-│   │   │
-│   │   ├── 📂 proposals/                      ← 🔧 Refatorado
-│   │   │   ├── proposals.service.ts           ← + findBySlug, trends
-│   │   │   └── proposals.controller.ts        ← + @CurrentUser
-│   │   │
-│   │   ├── seed-demo.ts                       ← 🆕 Dados fictícios
-│   │   ├── seed-accounts.ts                   ← 🆕 Plano de contas
-│   │   └── seed-global-accounts.ts            ← 🆕 Contas globais
-│   │
-│   └── 📂 prisma/
-│       ├── schema.prisma                      ← 🔧 Expandido
-│       └── seed.ts                            ← 🔧 Catálogo rico
-│
-└── 📂 frontend/
-    └── 📂 src/
-        ├── middleware.ts                      ← 🆕 Proteção de rotas
-        ├── 📂 app/
-        │   ├── 📂 forbidden/
-        │   │   └── page.tsx                   ← 🆕 Página 403
-        │   │
-        │   └── 📂 dashboard/
-        │       ├── layout.tsx                 ← 🔧 Menu admin
-        │       ├── 📂 admin/
-        │       │   ├── page.tsx               ← 🆕 Overview KPIs
-        │       │   └── 📂 catalogo/
-        │       │       └── page.tsx           ← 🆕 CRUD completo
-        │       ├── 📂 clientes/
-        │       │   └── page.tsx               ← 🔧 Wizard 3 passos
-        │       └── 📂 precificacao/
-        │           └── page.tsx               ← 🔧 Motor de propostas
-        │
-        └── 📂 store/
-            └── authStore.ts                   ← 🔧 + cookies
-
-### 🌐 Página Pública da Proposta
-O cliente do escritório visualiza a proposta comercial por um link compartilhado:
-
-*   **Acesso Público**: Sem necessidade de login (rota `/proposta/[slug]`)
-*   **Design Premium**: Identidade visual Conta Certa com gradiente teal/laranja
-*   **Itens Detalhados**: Plano comercial + serviços avulsos com escopo
-*   **Seções Ricas**: Sobre o escritório, diferenciais, onboarding, termos
-*   **CTA WhatsApp**: Botão com mensagem pré-definida e tracking de cliques
-*   **Tracking de Engajamento**: Contadores de views e cliques alimentam o BI
-*   **Segurança**: Slug não-sequencial, sem exposição de IDs internos
-*   **Estados Completos**: Loading, erro (não encontrada) e sucesso
-
-### 📦 Catálogo Completo de Serviços
-O sistema inclui um catálogo profissional com **17 departamentos** e **~200 serviços** pré-configurados:
-
-*   **Departamentos**: Contábil, Fiscal, Pessoal, Legalização, Consultoria, BPO, Controladoria, Auditoria, LGPD, Tecnologia, Premium
-*   **Dados Ricos**: Cada serviço possui escopo, fora-do-escopo, SLA, documentos necessários e preço base
-*   **Importação em Massa**: Botão "Importar Catálogo Padrão" na tela Admin popula todos os dados automaticamente
-*   **Execução via Seed**: `npx ts-node src/seed-full-catalog.ts` para importar via terminal
-*   **Prevenção de Scope Creep**: Definição clara do que está incluso e o que é cobrado à parte
-
-### 🔐 Sistema de Autenticação com Sincronização de Cookies
-O sistema implementa autenticação JWT com sincronização automática de cookies para proteção de rotas:
-
-*   **AuthStore (Zustand)**: Gerencia estado de autenticação + persistência em localStorage
-*   **Sincronização de Cookies**: Cookies `radar_auth_token` e `radar_auth_role` criados automaticamente no login
-*   **Middleware Next.js**: Proteção de rotas `/dashboard/admin/*` com verificação de role ADMIN
-*   **Redirect Inteligente**: Após login, redireciona para o destino original (ex: `/dashboard/admin/catalogo`)
-*   **Logout Limpo**: Remove cookies + localStorage ao sair
-
-📊 Resultado Visual na Sidebar
-Após aplicar as alterações, o menu ficará assim:
-📊 Dashboard
-🏢 Minha Empresa
-👥 Gestão de Pessoas ▼
-   ├─ Colaboradores
-   └─ Turnover
-👥 Clientes
-📒 Lançamentos Contábeis ▼
-   ├─ Todos os Lançamentos
-   └─ Revisão Manual
-🧮 Precificação
-📅 Planejamento
-📁 Operacional ▼           ← 🆕 NOVO
-   ├─ Projetos              ← 🆕 NOVO
-   └─ Tarefas               ← 🆕 NOVO
-📊 B.I. Contábil
-⚠️ Ponto Fora da Curva
-📈 Indicadores
-⚖️ Planejamento Tributário
-⚖️ Reforma Tributária
-🧮 Contábil ▼
-   ├─ Importar / Exportar SCI
-   ├─ Revisão de Lançamentos
-   └─ Plano de Contas
-🛡️ Administração ▼ (Admin only)
-   ├─ Visão Geral
-   └─ Catálogo de Serviços
-
----
-Atualização: Módulo de Gestão Operacional (Projetos e Tarefas)
-Descrição:
-* Implementação do módulo operacional para organizar entregas, obrigações e demandas
-  internas do escritório contábil, com visão de progresso, prazos e prioridades.
-Funcionalidades Adicionadas:
-* Projetos: CRUD com status (Planejamento, Ativo, Pausado, Concluído, Cancelado),
-  prioridade, cor de identificação, vínculo opcional com cliente e progresso
-  calculado automaticamente pelas tarefas concluídas.
-* Tarefas: CRUD com fluxo Kanban (Backlog, A Fazer, Em Andamento, Revisão,
-  Bloqueada, Concluída), prioridade, categoria (Fiscal, Contábil, DP, Societário,
-  Financeiro, Comercial, Interno), responsável, prazo e horas estimadas/realizadas.
-* Indicadores: KPIs de projetos (ativos, atrasados, concluídos, progresso geral)
-  e de tarefas (atrasadas, para hoje, em andamento, bloqueadas, concluídas na semana).
-* Frontend: página /dashboard/projetos com cards de KPI, filtros, tabela com barra
-  de progresso, modal de criação/edição e confirmação de exclusão.
-* Navegação: grupo "Operacional" na sidebar com atalhos para Projetos e Tarefas.
-Arquivos Criados/Alterados:
-* backend/src/projects/ (module, controller, service, DTOs)
-* backend/src/tasks/ (module, controller, service, DTOs)
-* backend/prisma/schema.prisma (models Project e Task + enums de status/prioridade)
-* backend/src/app.module.ts (registro dos módulos)
-* frontend/src/app/dashboard/projetos/page.tsx
-* frontend/src/components/projects/ (ProjectModal, ProjectStatusBadge, ProjectPriorityBadge)
-* frontend/src/types/projects.ts
-* frontend/src/app/dashboard/layout.tsx (menu Operacional)
-Endpoints:
-* GET/POST /projects • GET/PATCH/DELETE /projects/:id • GET /projects/metrics
-* GET/POST /tasks • PATCH/DELETE /tasks/:id • PATCH /tasks/:id/status
-* GET /tasks/kanban • GET /tasks/metrics
-Detalhes das Alterações Técnicas:
-* Multi-tenant: todas as queries filtradas por companyId do usuário autenticado.
-* Soft delete (deletedAt) para preservação de histórico operacional.
-* Integridade: projeto com tarefas pendentes não pode ser excluído (Restrict + validação).
-* completedAt preenchido automaticamente ao concluir tarefa ou projeto.
-* Índices compostos (companyId + status/prazo/responsável) para performance.
-
----
-Atualização: Módulo Fiscal — Estoque e Apuração de ICMS (Fase 1 — Backend Homologado)
-Descrição:
-* Primeira fase do módulo fiscal para clientes do Lucro Presumido e Simples Nacional:
-  base para upload de NF-e de entrada, catálogo de produtos com NCM, controle de
-  fornecedores, kardex de estoque e futura apuração de ICMS / Bloco H do SPED.
-Funcionalidades Adicionadas:
-* Fornecedores Fiscais: CRUD com CNPJ único por empresa e criação automática
-  (findOrCreateByCnpj) para uso pelo parser de XML.
-* Produtos Fiscais: CRUD com validação de NCM (8 dígitos), EAN, unidade de medida,
-  custo médio e saldo de estoque; busca por descrição, código, NCM ou EAN.
-* Modelagem completa para as próximas fases: NF-e de entrada, itens com impostos
-  (ICMS, ICMS-ST, IPI, PIS, COFINS, CST/CSOSN), movimentações de kardex e
-  saldo mensal de estoque.
-Arquivos Criados/Alterados:
-* backend/src/fiscal/fiscal.module.ts
-* backend/src/fiscal/controllers/supplier.controller.ts e product.controller.ts
-* backend/src/fiscal/services/supplier.service.ts e product.service.ts
-* backend/src/fiscal/dto/ (create/update-product.dto.ts)
-* backend/prisma/schema.prisma (6 models fiscais + 4 enums)
-* backend/src/app.module.ts (registro do FiscalModule)
-Endpoints Homologados (Postman — todos 200/201):
-* GET/POST /fiscal/suppliers • GET/PUT/DELETE /fiscal/suppliers/:id
-* GET/POST /fiscal/products • GET/PUT/DELETE /fiscal/products/:id
-Detalhes das Alterações Técnicas:
-* Multi-tenant rigoroso (companyId em todas as queries).
-* Soft delete com bloqueio de exclusão quando há movimentações/itens vinculados.
-* Normalização de CNPJ/NCM/EAN (somente dígitos) com validação de formato.
-* Precisão fiscal: Decimal(12,4) para quantidades/custos e Decimal(12,2) para valores.
-* accessKey única por empresa para impedir NF-e duplicada (upload em massa na Fase 2).
-Status: Backend da Fase 1 homologado. Parser de XML, estoque antigo (CSV),
-relatórios personalizados e frontend do módulo nas próximas sprints.
-
-Módulo Operacional (Projetos e Tarefas)
-Responsável por: organizar entregas e demandas do escritório
-Features: Kanban, prioridades, categorias, prazos, progresso automático
-Endpoints: /projects, /tasks
-
-Módulo Fiscal (em evolução)
-Responsável por: estoque fiscal e apuração de ICMS
-Features (Fase 1): fornecedores, catálogo de produtos com NCM
-Endpoints: /fiscal/suppliers, /fiscal/products
-
-Módulo Fiscal (Fase 1 concluída)
-Responsável por: estoque fiscal, apuração de ICMS e SPED
-Features: upload de NF-e em lote, kardex, custo médio, apuração mensal, Bloco H
-Endpoints: /fiscal/suppliers, /fiscal/products, /fiscal/invoices,
-/fiscal/inventory, /fiscal/icms, /fiscal/sped
-
----
-Atualização: Módulo Fiscal — Estoque, Apuração de ICMS e SPED (Fase 1)
-Descrição:
-* Implementação completa do módulo fiscal para escritórios que atendem
-  clientes do Lucro Presumido e Simples Nacional: importação de NF-e de
-  entrada, catálogo de produtos com NCM, kardex com custo médio ponderado,
-  apuração mensal de ICMS com fechamento de competência e exportação do
-  Bloco H do SPED Fiscal.
-Funcionalidades Adicionadas:
-* Importar NF-e: upload em lote (até 50 XMLs) com parser de layout 4.0,
-  criação automática de fornecedores por CNPJ, casagem de produtos por
-  código/EAN e rejeição de notas duplicadas pela chave de acesso.
-* Notas Fiscais: consulta paginada com KPIs por período, busca por número/
-  chave/fornecedor e modal de detalhe com itens, CST/CSOSN e impostos.
-* Estoque: saldo por produto com custo médio ponderado móvel, filtros por
-  NCM/descrição, kardex completo (histórico de movimentações) e ajuste
-  manual de inventário com justificativa obrigatória.
-* Apuração de ICMS: grade dos 12 meses com créditos automáticos das NF-e de
-  entrada, débitos manuais (vendas × alíquota), saldo a pagar/crédito
-  acumulado, fechamento de mês com trava de compliance e reabertura.
-* SPED Fiscal: inventário físico na data-base (reconstrução histórica pelo
-  kardex) com exportação em arquivo pipe-delimited (H001/H005/H010/H990)
-  e CSV para Excel.
-Arquivos Criados/Alterados:
-* backend/src/fiscal/fiscal.module.ts
-* backend/src/fiscal/controllers/ (supplier, product, invoice, inventory,
-  icms, sped)
-* backend/src/fiscal/services/ (supplier, product, invoice, xml-parser,
-  inventory, icms, sped)
-* backend/src/fiscal/dto/ (create/update-product)
-* backend/prisma/schema.prisma (7 models fiscais + 4 enums)
-* backend/src/app.module.ts (registro do FiscalModule)
-* frontend/src/app/dashboard/fiscal/page.tsx (Importar NF-e)
-* frontend/src/app/dashboard/fiscal/notas/page.tsx
-* frontend/src/app/dashboard/fiscal/estoque/page.tsx
-* frontend/src/app/dashboard/fiscal/apuracao/page.tsx
-* frontend/src/app/dashboard/fiscal/sped/page.tsx
-* frontend/src/app/dashboard/layout.tsx (menu Fiscal com 5 submenus)
-Endpoints:
-* /fiscal/suppliers e /fiscal/products (CRUD completo)
-* /fiscal/invoices/upload • /fiscal/invoices • /fiscal/invoices/metrics
-  • /fiscal/invoices/:id
-* /fiscal/inventory/metrics • /balance • /movements/:id • /adjust
-* /fiscal/icms • /fiscal/icms/detail • /fiscal/icms (PUT) • /close • /reopen
-* /fiscal/sped/bloco-h • /fiscal/sped/bloco-h/export (sped|csv)
-Dependências Instaladas:
-* fast-xml-parser — parser de XML de NF-e (tolerante a namespaces)
-Detalhes das Alterações Técnicas:
-* Parser NF-e layout 4.0 com suporte a CST (Presumido/Real) e CSOSN
-  (Simples Nacional), extraindo ICMS, ICMS-ST, IPI, PIS e COFINS por item.
-* Custo médio ponderado móvel calculado a cada entrada (exigência fiscal),
-  com precisão Decimal(12,4) para quantidades/custos e Decimal(12,2) valores.
-* Transações atômicas ($transaction) garantindo consistência entre nota,
-  itens, kardex e saldo do produto.
-* Mês fiscal fechado é imutável (BadRequest em edição) — integridade p/ SPED.
-* Exportação CSV com BOM UTF-8 e SPED com separador pipe e datas ddmmaaaa.
-* Multi-tenant rigoroso: todas as queries filtradas por companyId.
-
----
-
-## 🆕 ATUALIZAÇÃO — Módulo Fiscal Completo: NF-e, Estoque, ICMS e SPED (Sprints 8–20)
-
-### 🎯 Descrição
-
-Implementação do módulo fiscal completo para escritórios contábeis (SaaS multi-tenant + multi-cliente por escritório). O módulo cobre o ciclo completo da **NF-e de entrada**: importação de XML → catálogo de produtos → estoque com custo médio ponderado → apuração de ICMS → SPED Fiscal (Bloco H) → relatório de inventário estendido (H010, 17 colunas) → conciliação e auditoria.
-
-### 📦 Sprints entregues
-
-| Sprint | Funcionalidade |
-|---|---|
-| 8 | Seletor de cliente fiscal (segregação de notas/estoque/apuração por cliente) |
-| 9 | Gestão de NF-e: exclusão com estorno de estoque (replay), atribuição de cliente em lote, limpeza de órfãos, wipe com trava |
-| 10 | Importação de estoque inicial (PDF/CSV) com tabela de revisão editável e movimento `SALDO_INICIAL` |
-| 11 | Comparativo: Inicial × NF-e × Atual com divergências |
-| 12 | Exportação CSV selecionável por contexto (preferência persistida) |
-| 13 | Relatório de Inventário Fiscal H010 estendido (17 colunas) com tributos |
-| 14 | Unificação de códigos via planilha (descrição → código unificado) |
-| 15 | Drill-down da conciliação (evidências por origem + flags de procedência) |
-| 16 | Manutenção manual de produtos (edição de todos os campos, soft delete) |
-| 17 | Procedência no estoque: COD_EST × COD_NF × Unificado, origem, NF-e e datas |
-| 18 | Unificação por similaridade (Dice sobre tokens) com % de match revisável |
-| 19 | Código Unificado como coluna extra (`unifiedCode`), sem alterar o código do catálogo |
-| 20 | Documentação viva: painel "Como funciona esta página" em todas as páginas fiscais |
-
-### 📁 Arquivos criados/alterados
-
-**Backend (NestJS + Prisma):**
-- `src/fiscal/**` — controllers e services: `invoice`, `inventory`, `icms`, `sped`, `product`
-- `prisma/schema.prisma` — `clientId` nos modelos fiscais; enum `SALDO_INICIAL`; `code String?` e `unifiedCode String?` no `FiscalProduct`
-
-**Frontend (Next.js):**
-- `src/store/fiscalClientStore.ts` — estado global do cliente fiscal (Zustand + localStorage)
-- `src/components/fiscal/` — `FiscalClientSelector`, `InitialStockImportModal`, `ColumnPickerModal`, `UnifyCodesModal`, `ProductEditModal`, `ComparisonDetailModal`, `FiscalInfoPanel`
-- `src/lib/` — `columnExport.ts` (CSV selecionável), `parseInitialStock.ts`
-- Páginas: `fiscal/` (importação), `notas`, `estoque`, `apuracao`, `sped`, `comparativo`, `relatorio-inventario`
-
-### 🔧 Decisões técnicas
-
-- **Multi-cliente**: todos os endpoints fiscais aceitam `clientId` opcional; a UI segrega por seletor global.
-- **Estorno por replay**: excluir uma NF-e recalcula saldo e custo médio reprocessando as movimentações restantes (integridade do Kardex).
-- **Exclusão sequencial**: DELETEs em lote são sequenciais para evitar race condition no custo médio.
-- **Parse → Revisão → Confirmar**: importações nunca aplicam cegamente; o usuário revisa antes de gravar.
-- **Anti-colisão**: unificação e edição respeitam a constraint unique `[companyId, clientId, code]`.
-- **Compliance vs flexibilidade**: SPED `.txt` com layout legal fixo (H001/H005/H010/H990); CSV customizável apenas para conferência interna.
-- **Matching fuzzy**: unificação por similaridade (coeficiente de Dice sobre tokens), limiar configurável a partir de 10%, com % de match exibido para auditoria.
-- **Unificação não destrutiva**: código unificado em coluna extra `unifiedCode` (Sprint 19), sem sobrescrever `code`.
-- **Documentação viva**: `FiscalInfoPanel` embute métricas, fórmulas e interpretação de resultados em cada página.
-
-### ✅ Como testar
-
-1. Selecionar cliente no seletor fiscal → importar XML de NF-e de entrada → estoque e apuração segregados.
-2. Estoque → conferir colunas COD_EST, COD_NF, Cód. Unificado, Origem, NF-e e datas.
-3. Comparativo → drill-down (👁) exibe evidências por origem (inicial, NF-es com fornecedor, ajustes).
-4. Unificar códigos → CSV da planilha → revisar % de match → aplicar → `unifiedCode` preenchido.
-5. SPED → exportar `.txt` (fixo) e CSV (selecionável).
-6. Relatório Inventário → 17 colunas com tributos das aquisições.
-7. Abrir o painel "Como funciona..." em cada página fiscal.
-
-### 🚧 Próximos passos (Fase 4 do Fiscal)
-
-- [ ] **NF-e de SAÍDA** (vendas) com débito de ICMS automático e baixa de estoque
-- [ ] Dashboard Fiscal Consolidado (créditos × débitos × saldo a pagar)
-- [ ] Conciliação automática de divergências
-- [ ] SPED completo (blocos 0, C, D, E, G, K)
-
-🎯 Sprint 29 — Conciliação Automática Banco × NF-e (Completa)
-
-Módulo Admin
-Responsável por: Gestão global do sistema
-Features: Empresas, usuários, métricas globais
-Endpoints: /admin/companies, /admin/users
-
-Módulo Bancário (Fechamento Mensal)
-Responsável por: Importação de extratos, classificação por naturezas, DRE bancário do cliente e fechamento com trava de compliance
-Features: Parser CSV multi-formato (separador, milhares BR/US, datas DD/MM vs MM/DD, ignora "Saldo do dia"), classificação automática com memória por contraparte, naturezas dinâmicas por cliente, reclassificação em lote com aprendizado, lançamento manual, autosoma, relatório por natureza com subtotais, fechar/reabrir mês, abas Extrato | DRE | Conciliação
-Endpoints: /banking/import, /banking/statement, /banking/categories, /banking/transactions, /banking/close/:id, /banking/reopen/:id
-
-Módulo de Conciliação Bancária (Banco × NF-e)
-Responsável por: Matching automático entre débitos bancários e NF-e de entrada
-Features: Motor de score (valor 60% + nome 30% + data 10%), thresholds 🟢≥80 / 🟡50–79, confirmação/descarte em lote, rastreabilidade completa (SUGESTAO/CONFIRMADO/DESCARTADO), listas de não conciliados
-Endpoints: /banking/reconcile/suggest, /banking/reconcile/confirm, /banking/reconcile
-
-Módulo de Importação de Clientes
-Responsável por: Importação em massa da carteira a partir de planilhas CSV/Excel
-Features: Upsert por razão social (anti-duplicidade), revisão pré-importação, dados contratuais (início, honorário, valores em aberto/pago/vencido)
-Endpoints: /clients/import
-
-Módulo Contábil (SCI + Ponte Bancário→Contábil)
-Responsável por: Plano de contas, lançamentos de partida dobrada, conciliação, exportação SCI e DRE oficial do cliente
-Features: Promoção de meses fechados para lançamentos contábeis (idempotente, rastreável por bankTransactionId), criação de conta com upsert + inferência de tipo/natureza, autocomplete de contas, DRE do Cliente com confronto Contábil × Bancário
-Endpoints: /accounting/accounts, /accounting/entries, /accounting/promote-from-banking, /accounting/dre, /accounting/export-sci
-
-✅ Fase 2 - BI Contábil (Concluída)
-✅ Fase 2.5 - Ciclo Bancário→Contábil (Concluída)
-Fechamento mensal bancário por cliente (Sprints 21–24)
-Importação em massa da carteira de clientes (Sprint 23)
-Ponte Bancário→Contábil com partida dobrada (Sprint 25)
-DRE oficial do Cliente com confronto gerencial (Sprint 26)
-Menu reorganizado em 7 seções + nomenclatura dos 3 DREs (Sprint 28)
-Conciliação automática Banco × NF-e com motor de score (Sprint 29)
----
-
-## Atualização: Módulo de Fechamento Mensal Bancário (Sprints 21–24)
-
-**Descrição:**
-Ciclo completo de fechamento bancário por cliente: importação do extrato, classificação por naturezas, DRE gerencial, relatório de confronto e fechamento do mês com trava de compliance.
-
-**Funcionalidades Adicionadas:**
-* Importação de extrato CSV com parser robusto: detecção automática de separador (`;`, `,`, TAB), milhares BR (`2.818,00`) e US (`2,818.00`), datas DD/MM/YYYY vs MM/DD/YY pela máscara, colunas de valor detectadas pelo conteúdo (aceita cabeçalhos sem nome), linhas "Saldo do dia" ignoradas.
-* Classificação automática em 3 camadas: regras aprendidas (memória por contraparte) → regras built-in → pendente de revisão.
-* Naturezas dinâmicas por cliente (`BankCategory`): categorias próprias agrupadas em 6 grupos DRE (Receita, Financeira, Despesa, Imposto, Sócio, Pendente), com seed automático, edição, renomeação e exclusão protegida (categoria em uso não pode ser excluída).
-* Reclassificação em lote com checkbox "Aprender p/ próximo mês"; edição manual sempre alimenta a memória.
-* DRE gerencial por categoria com exportação CSV e impressão profissional.
-* Relatório detalhado por natureza com quantidade e subtotais por grupo, para confronto com o DRE.
-* Filtro por grupo/natureza na tabela com totais filtrados no rodapé; autosoma (saldo acumulado) opcional.
-* Fechar/Reabrir mês: mês FECHADO bloqueia edição, exclusão e reimportação (trava de compliance).
-
-**Arquivos Criados/Alterados:**
-* `backend/src/banking/banking.service.ts`, `banking.controller.ts`, `banking.module.ts`
-* `frontend/src/app/dashboard/fechamento/page.tsx`
-* `frontend/src/lib/parseBankCsv.ts`
-* `prisma/schema.prisma` — modelos `BankStatement`, `BankTransaction`, `BankClassificationRule`, `BankCategory`
-
-**Decisões Técnicas:**
-* Naturezas como `String` (não enum) para permitir categorias personalizadas por cliente; grupos DRE fixos garantem que o DRE sempre feche.
-* Memória de classificação persistida em `BankClassificationRule` (pattern = contraparte normalizada), ordenada por hits.
-* Idempotência na reimportação: reimportar o mês substitui as transações anteriores.
-
----
-
-## Atualização: Importação em Massa de Clientes (Sprint 23)
-
-**Descrição:**
-Importação da carteira de clientes do escritório a partir da planilha de contratos/honorários, com revisão prévia e atualização sem duplicidade.
-
-**Funcionalidades Adicionadas:**
-* Parser de planilha CSV com detecção de colunas por cabeçalho (acentos opcionais) e datas flexíveis.
-* Modal de revisão com contagem de clientes e soma de honorários/mês antes de confirmar.
-* Upsert por razão social (case-insensitive): reimportar atualiza honorários e dados contratuais sem duplicar.
-* Novos campos no modelo `Client`: `lastPaymentDate`, `installments`, `openAmount`, `paidAmount`, `overdueAmount`.
-* Ordenação A→Z / Z→A / honorário na Carteira de Clientes.
-
-**Arquivos Criados/Alterados:**
-* `backend/src/client/client-import.service.ts`, `client-import.controller.ts`, `client-import.module.ts`
-* `frontend/src/lib/parseClientsCsv.ts`
-* `frontend/src/components/clients/ImportClientsModal.tsx`
-* `frontend/src/app/dashboard/clientes/page.tsx`
-
----
-
-## Atualização: Ponte Bancário→Contábil e DRE do Cliente (Sprints 25–26)
-
-**Descrição:**
-Fechamento do ciclo contábil: meses FECHADOS no bancário são promovidos a lançamentos contábeis de partida dobrada, e o novo "DRE do Cliente" exibe o resultado oficial com confronto automático contra o DRE bancário (gerencial).
-
-**Funcionalidades Adicionadas:**
-* Botão "Promover p/ Contábil" (visível apenas em mês FECHADO): crédito bancário → D Banco/C Receita; débito bancário → D Despesa/C Banco.
-* Idempotência por `bankTransactionId`: promover duas vezes não duplica lançamentos.
-* Criação inline de conta bancária no Plano de Contas (ex: PAGBANK) com **upsert** por `(companyId, code)` — duplo clique não gera erro; inferência automática de `type` (ATIVO/PASSIVO/PL/RECEITA/DESPESA) e `nature` (DEVEDORA/CREDORA) pelo prefixo do código.
-* Autocomplete de contas (`AccountCombobox`): filtra por código OU nome sem sensibilidade a acentos, navegação por teclado (↑↓/Enter/Esc) e botão limpar.
-* Página "DRE do Cliente" (`/dashboard/bi/dre-cliente`): KPIs contábeis, receitas/despesas por conta, status de conciliação e tabela de confronto Contábil × Bancário com diferença destacada.
-* Classificação do DRE pelo **sinal da transação bancária original**, independente da convenção do plano de contas do escritório.
-
-**Arquivos Criados/Alterados:**
-* `backend/src/accounting/accounting.service.ts` — `promoteFromBanking`, `getClientDRE`, `createAccount` (upsert)
-* `backend/src/accounting/accounting.controller.ts` — `POST /accounting/promote-from-banking`, `GET /accounting/dre`
-* `frontend/src/components/accounting/AccountCombobox.tsx`
-* `frontend/src/app/dashboard/bi/dre-cliente/page.tsx`
-* `prisma/schema.prisma` — `AccountingEntry.bankTransactionId`
-
-**Os 3 DREs do Sistema (arquitetura):**
-| DRE | Fonte | Dono dos dados | Onde |
+| DRE | 🎯 Para quem | 📚 Fonte de dados | 📍 Onde ver |
 |---|---|---|---|
-| Gerencial do escritório | `FinancialTransaction` | Escritório | BI → DRE do Escritório |
-| Bancário do cliente | `BankTransaction` + `BankCategory` | Cliente | Fechamento Mensal |
-| Contábil oficial | `AccountingEntry` | Cliente | BI → DRE do Cliente |
+| 🏢 **Do Escritório** | Diretor da Conta Certa | Transações financeiras internas | BI |
+| 💼 **Bancário do Cliente** | Gestão de caixa do cliente | Extrato + naturezas | Fechamento Mensal |
+| 📒 **Oficial do Cliente** | Contabilidade / obrigações | Lançamentos promovidos | BI → DRE do Cliente |
+
+> ✅ Os três conversam entre si por **cards de navegação cruzada**, e o Oficial
+> mostra a **diferença em R$** contra o Bancário — auditoria em tempo real.
 
 ---
 
-## Atualização: Menu Reorganizado + Nomenclatura dos DREs (Sprint 28)
+## 🏗️ Arquitetura *(para a equipe técnica)*
 
-**Descrição:**
-Reorganização da navegação em 7 seções por domínio contábil e padronização da nomenclatura dos 3 DREs, eliminando confusão entre visões.
+```mermaid
+flowchart TD
+    subgraph FE["⚛️ Frontend — Next.js 16 (App Router)"]
+        UI["React 19 + TypeScript + Tailwind<br/>Zustand (estado) • Sonner (toasts) • Axios"]
+    end
+    subgraph BE["🧠 Backend — NestJS 10"]
+        API["Controllers → Services → DTOs<br/>Guards JWT • RBAC @Roles()"]
+    end
+    subgraph DB["🗄️ PostgreSQL 15 + Prisma"]
+        T[("~35 tabelas • isolamento por companyId<br/>índices, soft delete, enums fortes")]
+    end
+    UI -->|REST + JWT| API
+    API -->|Prisma ORM| DB
+```
 
-**Funcionalidades Adicionadas:**
-* Sidebar com seções visuais: 📊 Operacional, 💼 Comercial,  Fiscal,  Bancário, 📒 Contábil, 📈 Inteligência, ⚙️ Sistema.
-* Renomeação clara: "Fechamento + DRE Bancário", "DRE do Escritório", "DRE do Cliente (Oficial)".
-* Cards de navegação cruzada nas 3 páginas de DRE (borda teal destaca o DRE atual).
-* Abas no Fechamento Mensal: Extrato | DRE | Conciliação NF-e.
-
-**Arquivos Alterados:**
-* `frontend/src/app/dashboard/layout.tsx`
-* `frontend/src/app/dashboard/bi/page.tsx`
-* `frontend/src/app/dashboard/bi/dre-cliente/page.tsx`
-* `frontend/src/app/dashboard/fechamento/page.tsx`
+### Princípios adotados
+1. **Multi-tenant single-database** — um banco, isolamento lógico por `companyId`.
+2. **Enums como fonte da verdade** — fim das "strings soltas".
+3. **Idempotência por upsert** — importar/promover 2× nunca duplica.
+4. **Revisão humana obrigatória** — imports e conciliações nunca aplicam cegamente.
+5. **Compliance primeiro** — SPED com layout legal fixo; mês fechado é imutável.
+6. **Zero dependências pesadas de gráfico** — CSS puro (‑200 KB de bundle).
 
 ---
 
-## Atualização: Conciliação Automática Banco × NF-e (Sprint 29)
+## 🗄️ Modelo de Dados (tabelas principais)
 
-**Descrição:**
-Motor de matching que cruza débitos bancários × NF-e de entrada do mesmo cliente, calcula score de confiança e sugere pares para revisão humana — reduzindo de horas para minutos o trabalho mensal de conferência.
+| Grupo | Tabelas | Destaque |
+|---|---|---|
+| Plataforma | `Company`, `User` | tenant + RBAC |
+| Gestão | `Employee`, `Client`, `ClientContract`, `ClientService` | carteira + contratos |
+| Comercial | `Proposal`, `CommercialPlan`, `ServiceItem` | motor de propostas |
+| Fiscal | `FiscalInvoice`, `FiscalProduct`, `FiscalInventoryMovement`, `FiscalIcmsApuration` | Kardex + ICMS |
+| Contábil | `AccountingAccount`, `AccountingEntry`, `AccountTemplate` | SCI 90113 |
+| Bancário | `BankStatement`, `BankTransaction`, `BankCategory`, `BankClassificationRule` | memória de aprendizado |
+| Conciliação | `BankNfeMatch` | score + rastreabilidade |
+| Operação | `Project`, `Task` | kanban multi-tenant |
 
-**Funcionalidades Adicionadas:**
-* Motor de score com pesos configuráveis: valor exato (60%), similaridade de nome por Jaccard normalizado (30%), proximidade de data ±30 dias (10%).
-* Thresholds de decisão: 🟢 ≥80% (sugestão forte), 🟡 50–79% (revisar), <50% (não sugere).
-* Aba "Conciliação NF-e" no Fechamento: cards de resumo (débitos, NF-e, conciliados, sugestões), tabela de sugestões com score, ações em lote (confirmar/descartar), listas de débitos sem NF-e e NF-e sem pagamento.
-* Rastreabilidade completa: modelo `BankNfeMatch` com status SUGESTAO/CONFIRMADO/DESCARTADO, `confirmedAt`, `confirmedBy`, `scoreBreakdown` (JSON) e constraint `@@unique([bankTransactionId, fiscalInvoiceId])` anti-duplicidade.
-* Endpoints: `POST /banking/reconcile/suggest`, `POST /banking/reconcile/confirm`, `GET /banking/reconcile`.
+---
 
-**Arquivos Criados/Alterados:**
-* `backend/src/banking/banking-reconcile.service.ts`
-* `backend/src/banking/banking.controller.ts`, `banking.module.ts`
-* `frontend/src/components/banking/ReconcileTab.tsx`
-* `prisma/schema.prisma` — modelo `BankNfeMatch` + enums `MatchStatus`, `MatchType` + relações inversas em `BankTransaction` e `FiscalInvoice`
+## 🔌 API (endpoints por módulo)
 
-**Decisões Técnicas:**
-* Conciliação apenas entre **débitos bancários** e **NF-e de ENTRADA** (compras do cliente), pois o estoque fiscal armazena notas de compra.
-* Sugestões não gravam nada até a confirmação humana (revisão obrigatória = compliance).
-* Matches confirmados persistem e não reaparecem como sugestão (status filter no motor).
+| Módulo | Principais rotas |
+|---|---|
+| Auth | `POST /auth/login` • `/auth/register` • `GET /auth/me` |
+| Clientes | `GET/POST /clients` • `POST /clients/import` • `GET /clients/metrics` |
+| Fiscal | `POST /fiscal/invoices/upload` • `GET /fiscal/inventory/balance` • `GET /fiscal/inventory/compare` • `GET /fiscal/sped` |
+| Bancário | `POST /banking/import` • `GET /banking/statement` • `POST /banking/close/:id` • `POST /banking/reopen/:id` |
+| Contábil | `POST /accounting/promote-from-banking` • `GET /accounting/dre` • `GET /accounting/export-sci` |
+| Conciliação | `POST /banking/reconcile/suggest` • `POST /banking/reconcile/confirm` |
+| BI | `GET /bi/dre` • `GET /bi/outliers` • `POST /bi/simulate-tax` |
+
+---
+
+## 📜 Jornada de Desenvolvimento (Sprints 1–30)
+
+| Fase | Sprints | Entrega | Status |
+|---|---|---|---|
+| 🏗️ Fundação | 1–7 | Auth, Dashboard, Pessoas, Clientes, Precificação, Planejamento, CSV, Toasts | 🟢 |
+| 🧾 Fiscal | 8–19 | NF-e, Kardex, ICMS, SPED, H010, unificação de códigos, manutenção c/ auditoria | 🟢 |
+| 📒 Contábil | 20 | Plano de contas SCI, lançamentos, conciliação, base histórica | 🟢 |
+| 🏦 Bancário | 21–24 | Extrato, classificação c/ memória, naturezas por cliente, fechamento c/ trava | 🟢 |
+| 🔗 Integração | 25–26 | Ponte Bancário→Contábil, DRE Oficial, autocomplete de contas | 🟢 |
+| 🎨 UX | 27–28 | Menu em 7 seções, nomenclatura dos 3 DREs, navegação cruzada | 🟢 |
+| 🤖 Inteligência | 29 | Conciliação Banco × NF-e com motor de score | 🟢 |
+| 📚 Documentação | 30 | README executivo + técnico (este arquivo) | 🟢 |
+
+### 🔧 Decisões técnicas que salvaram o produto (ADR-resumo)
+- **Parser por conteúdo, não por cabeçalho** → aceita qualquer CSV de banco.
+- **Datas pela máscara** → `01/06/2026` (BR) vs `6/1/26` (pivot) sem ambiguidade.
+- **Memória por contraparte normalizada** → "CEEE" casa com "Ceee Distribuicao".
+- **Upsert `(companyId, code)`** → criar a conta PAGBANK 2× não gera erro.
+- **Classificação do DRE pelo sinal da transação** → independente do plano de contas.
+- **Estorno por replay no Kardex** → excluir NF-e recalcula custo médio corretamente.
+
+---
+
+## 🚀 Instalação (3 passos)
+
+```bash
+# 1) Backend
+cd backend && npm i && cp .env.example .env
+npx prisma migrate deploy && npx prisma generate && npm run start:dev   # → :3001
+
+# 2) Frontend
+cd frontend && npm i && cp .env.example .env.local
+npm run dev                                                              # → :3000
+
+# 3) Acessar http://localhost:3000 e entrar com o usuário admin do seed
+```
+
+---
+
+## 🎨 Identidade Visual
+
+| 🟩 Teal `#0d9488` | 🟧 Laranja `#f97316` | ⬜ Cinza `#475569` |
+|---|---|---|
+| Cor primária (ações, sidebar) | Destaques e alertas | Textos neutros |
+
+---
+
+## 🗺️ Roadmap — onde chegamos e onde vamos
+
+```diff
+✅ FASES 1–2.5  Fundação + BI + Fiscal + Bancário + Contábil (Sprints 1–30)
+!  FASE 3 — PRODUÇÃO (próxima)
+   + Sprint 31 · Docker + docker-compose (deploy em 1 comando)
+   + Sprint 32 · Deploy em nuvem/VPS com proxy reverso
+   + Sprint 33 · CI/CD (GitHub Actions)
+   + Sprint 34 · Monitoramento (Sentry) + Backup automático
+!  FASE 4 — EXPANSÃO
+   + Relatórios PDF em todos os módulos
+   + Portal do Cliente (login CLIENTE)
+   + Consolidação multi-cliente (visão do escritório)
+   + Integrações eSocial / Sintegra • App mobile • White-label
+```
+
+---
+
+## 📖 Glossário *(para a diretoria)*
+
+| Termo | Significado simples |
+|---|---|
+| **SaaS** | Software assinado e usado pela internet, sem instalar nada |
+| **Multi-tenant** | Vários escritórios no mesmo sistema, cada um vendo só o que é seu |
+| **DRE** | "Demonstração de Resultado" — o boletim de notas financeiro do mês |
+| **NF-e** | Nota Fiscal eletrônica (o XML oficial emitido/comprado) |
+| **Kardex** | O "extrato do estoque": tudo que entrou, saiu e o custo médio |
+| **SPED** | Arquivo oficial exigido pela Receita Federal |
+| **Partidas dobradas** | Regra contábil: todo débito tem um crédito igual |
+| **Conciliação** | Conferir se o que saiu no banco bate com a nota fiscal |
+| **Score** | Nota de confiança (0–100%) que o motor dá a cada sugestão |
+
+---
+
+## 🤝 Licença & Autor
+
+> **Proprietary License** — Copyright © 2026 **Conta Certa Soluções Empresariais**.
+> Propriedade intelectual; cópia ou distribuição sem autorização são proibidas.
+
+**👨‍💻 Autor:** Marcos — Desenvolvedor Full Stack
+**Stack:** Next.js 16 • NestJS 10 • PostgreSQL • Prisma • Tailwind
+**📞 Suporte:** contato@contacerta.com.br • www.contacerta.com.br
+
+<div align="center">
+
+### Feito com ❤️ para transformar a contabilidade brasileira
+⭐ Útil para você? Dê uma estrela no repositório!
+
+</div>
