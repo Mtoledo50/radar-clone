@@ -1,19 +1,32 @@
+// =================================================================
+// banking.controller.ts — Endpoints REST do Módulo Bancário
+// Sprints 21–24 (extrato/categorias/fechamento) + 29 (conciliação)
+// =================================================================
 import {
   Controller, Get, Post, Patch, Delete,
   Body, Param, Query, Request, UseGuards,
 } from '@nestjs/common';
-import { BankingService } from './banking.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { BankingService } from './banking.service';
+import { BankingReconcileService, MatchSuggestion } from './banking-reconcile.service';
 
-/**
- * 🏦 BankingController — Sprint 21 → 24
- * 🆕 24: categories (listar/criar) + close/reopen do mês
- */
 @Controller('banking')
 @UseGuards(JwtAuthGuard)
 export class BankingController {
-  constructor(private readonly bankingService: BankingService) {}
+  // =================================================================
+  // 🆕 CONSTRUTOR: injeção de dependências (Sprint 29)
+  // O NestJS instancia e injeta os services automaticamente.
+  // =================================================================
+  constructor(
+    private readonly bankingService: BankingService,
+    private readonly reconcileService: BankingReconcileService, // 🆕 Sprint 29
+  ) {}
 
+  // =================================================================
+  // IMPORTAÇÃO E CONSULTA DO EXTRATO (Sprint 21)
+  // =================================================================
+
+  /** POST /banking/import — importa CSV já parseado no frontend */
   @Post('import')
   import(@Request() req, @Body() body: any) {
     return this.bankingService.importStatement(req.user.companyId, body.clientId ?? null, {
@@ -24,6 +37,7 @@ export class BankingController {
     });
   }
 
+  /** GET /banking/statement — extrato + categorias + resumo do mês */
   @Get('statement')
   statement(
     @Request() req,
@@ -39,13 +53,17 @@ export class BankingController {
     );
   }
 
-  /** 🆕 Sprint 24: categorias do cliente (com seed automático) */
+  // =================================================================
+  // CATEGORIAS / NATUREZAS (Sprint 24)
+  // =================================================================
+
+  /** GET /banking/categories — lista (com seed automático) */
   @Get('categories')
   categories(@Request() req, @Query('clientId') clientId?: string) {
     return this.bankingService.listCategories(req.user.companyId, clientId || null);
   }
 
-  /** 🆕 Sprint 24: criar categoria personalizada ("+ Natureza") */
+  /** POST /banking/categories — cria natureza personalizada */
   @Post('categories')
   createCategory(@Request() req, @Body() body: any) {
     return this.bankingService.createCategory(
@@ -56,23 +74,48 @@ export class BankingController {
     );
   }
 
-  /** 🆕 Sprint 24: trava de compliance */
+  /** PATCH /banking/categories/:id — renomeia/troca grupo */
+  @Patch('categories/:id')
+  updateCategory(@Request() req, @Param('id') id: string, @Body() body: any) {
+    return this.bankingService.updateCategory(req.user.companyId, id, {
+      label: body.label,
+      group: body.group,
+    });
+  }
+
+  /** DELETE /banking/categories/:id — exclui (protegido se em uso) */
+  @Delete('categories/:id')
+  deleteCategory(@Request() req, @Param('id') id: string) {
+    return this.bankingService.deleteCategory(req.user.companyId, id);
+  }
+
+  // =================================================================
+  // FECHAR / REABRIR MÊS (Sprint 24 — trava de compliance)
+  // =================================================================
+
+  /** POST /banking/close/:id — trava edição do mês */
   @Post('close/:id')
   close(@Request() req, @Param('id') id: string) {
     return this.bankingService.closeStatement(req.user.companyId, id);
   }
 
-  /** 🆕 Sprint 24: reabrir mês */
+  /** POST /banking/reopen/:id — reabre para ajustes */
   @Post('reopen/:id')
   reopen(@Request() req, @Param('id') id: string) {
     return this.bankingService.reopenStatement(req.user.companyId, id);
   }
 
+  // =================================================================
+  // TRANSAÇÕES (Sprint 22)
+  // =================================================================
+
+  /** PATCH /banking/transactions/:id — edita + aprende regra */
   @Patch('transactions/:id')
   updateTransaction(@Request() req, @Param('id') id: string, @Body() body: any) {
     return this.bankingService.updateTransaction(req.user.companyId, id, body);
   }
 
+  /** POST /banking/transactions — lançamento manual */
   @Post('transactions')
   createManual(@Request() req, @Body() body: any) {
     return this.bankingService.createManual(req.user.companyId, body.clientId ?? null, {
@@ -85,27 +128,62 @@ export class BankingController {
     });
   }
 
+  /** DELETE /banking/transactions/:id — exclui 1 transação */
   @Delete('transactions/:id')
   deleteTransaction(@Request() req, @Param('id') id: string) {
     return this.bankingService.deleteTransaction(req.user.companyId, id);
   }
 
+  /** DELETE /banking/statements/:id — exclui o mês inteiro */
   @Delete('statements/:id')
   deleteStatement(@Request() req, @Param('id') id: string) {
     return this.bankingService.deleteStatement(req.user.companyId, id);
   }
-    /** 🆕 Sprint 24.1: editar categoria (renomear/trocar grupo) */
-  @Patch('categories/:id')
-  updateCategory(@Request() req, @Param('id') id: string, @Body() body: any) {
-    return this.bankingService.updateCategory(req.user.companyId, id, {
-      label: body.label,
-      group: body.group,
-    });
+
+  // =================================================================
+  // 🆕 SPRINT 29: CONCILIAÇÃO BANCO × NF-e
+  // =================================================================
+
+  /** POST /banking/reconcile/suggest — roda o motor de matching */
+   @Post('reconcile/suggest')
+  async suggestReconcile(
+    @Request() req,
+    @Body() body: { clientId: string; year: number; month: number },
+  ): Promise<{
+    suggestions: MatchSuggestion[];
+    unmatched: { banks: any[]; invoices: any[] };
+    stats: any;
+  }> {
+    return this.reconcileService.suggest(
+      req.user.companyId,
+      body.clientId,
+      body.year,
+      body.month,
+    );
   }
 
-  /** 🆕 Sprint 24.1: excluir categoria (se não estiver em uso) */
-  @Delete('categories/:id')
-  deleteCategory(@Request() req, @Param('id') id: string) {
-    return this.bankingService.deleteCategory(req.user.companyId, id);
+  /** POST /banking/reconcile/confirm — confirma/descarta pares */
+  @Post('reconcile/confirm')
+  confirmReconcile(
+    @Request() req,
+    @Body() body: { matches: Array<{ bankTransactionId: string; fiscalInvoiceId: string; action: 'confirm' | 'discard'; score?: number; breakdown?: any }> },
+  ) {
+    return this.reconcileService.confirm(req.user.companyId, req.user.id, body.matches);
+  }
+
+  /** GET /banking/reconcile — lista matches do mês */
+  @Get('reconcile')
+  listReconcile(
+    @Request() req,
+    @Query('clientId') clientId: string,
+    @Query('year') year: string,
+    @Query('month') month: string,
+  ) {
+    return this.reconcileService.list(
+      req.user.companyId,
+      clientId,
+      parseInt(year),
+      parseInt(month),
+    );
   }
 }
