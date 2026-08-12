@@ -1382,6 +1382,8 @@ model FiscalInvoice {
   items             FiscalInvoiceItem[]
   // ✅ Relação oposta com movimentos de estoque
   movements         FiscalInventoryMovement[]
+  bankMatches       BankNfeMatch[]   // 🆕 ADICIONAR ESTA LINHA
+
 
   @@unique([companyId, accessKey])
   @@index([companyId, clientId])          // 🆕 índice para filtro por cliente
@@ -1437,7 +1439,7 @@ model FiscalInvoiceItem {
   cofinsValue       Decimal  @default(0) @db.Decimal(12, 2)
 
   createdAt         DateTime @default(now())
-
+  
   @@unique([invoiceId, itemNumber])
   @@index([productId])
   @@index([ncm])
@@ -1605,7 +1607,7 @@ model BankTransaction {
   description String        /// Texto original do banco
   counterparty String?      /// Nome extraído (após o "-")
   amount      Decimal       @db.Decimal(12, 2) /// + crédito / - débito
-
+  matches           BankNfeMatch[]
   nature       String       @default("NAO_CLASSIFICADO") // 🆕 Sprint 24: categoria livre por cliente
   classifiedBy String?      /// AUTO | MANUAL
 
@@ -1644,3 +1646,52 @@ model BankCategory {
   @@index([companyId, clientId])
   @@map("bank_categories")
 }
+
+// =================================================================
+// 🆕 SPRINT 29: CONCILIAÇÃO BANCO × NF-e
+// =================================================================
+
+enum MatchStatus {
+  SUGESTAO    /// Sugestão do motor (aguardando confirmação)
+  CONFIRMADO  /// Confirmado pelo usuário
+  DESCARTADO  /// Descartado pelo usuário
+}
+
+enum MatchType {
+  AUTO   /// Matching automático pelo motor
+  MANUAL /// Criado manualmente pelo usuário
+}
+
+model BankNfeMatch {
+  id                String      @id @default(cuid())
+  companyId         String      /// Multi-tenant
+  
+  bankTransactionId String
+  bankTransaction   BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+  
+  fiscalInvoiceId   String
+  fiscalInvoice     FiscalInvoice @relation(fields: [fiscalInvoiceId], references: [id], onDelete: Cascade)
+  
+  score             Float       /// 0–100 (confiança do match)
+  matchType         MatchType   @default(AUTO)
+  status            MatchStatus @default(SUGESTAO)
+  
+  scoreBreakdown    Json?       /// {valor: 60, nome: 30, data: 10}
+  
+  confirmedAt       DateTime?
+  confirmedBy       String?     /// userId que confirmou
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  
+  @@unique([bankTransactionId, fiscalInvoiceId])
+  @@index([companyId, status])
+  @@map("bank_nfe_matches")
+}
+
+// Adicionar relation em BankTransaction (localize o model BankTransaction e adicione):
+// matches           BankNfeMatch[]
+
+// Adicionar relation em FiscalInvoice (localize o model FiscalInvoice e adicione):
+// bankMatches       BankNfeMatch[]
+

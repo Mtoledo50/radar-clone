@@ -693,3 +693,5 @@ Implementação do módulo fiscal completo para escritórios contábeis (SaaS mu
 - [ ] Dashboard Fiscal Consolidado (créditos × débitos × saldo a pagar)
 - [ ] Conciliação automática de divergências
 - [ ] SPED completo (blocos 0, C, D, E, G, K)
+
+🎯 Sprint 29 — Conciliação Automática Banco × NF-e (Completa)
