@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
@@ -9,7 +10,8 @@ import {
   TrendingUp, TrendingDown, DollarSign, Target, Calendar,
   Building2, Loader2, AlertCircle, Download, Filter,
   ArrowUpRight, ArrowDownRight, BarChart3, Activity,
-  Scale, Landmark, AlertTriangle, CheckCircle
+  Scale, Landmark, AlertTriangle, CheckCircle,
+  BookOpen, Wallet, Building,
 } from 'lucide-react';
 
 type TabType = 'dre' | 'outliers' | 'indicators' | 'tax' | 'reform';
@@ -155,7 +157,7 @@ function DonutChartCSS({ data }: { data: CategoryTotal[] }) {
 export default function BIPage() {
   const [activeTab, setActiveTab] = useState<TabType>('dre');
   const tabs = [
-    { key: 'dre' as TabType, label: 'DRE Gerencial', icon: BarChart3 },
+    { key: 'dre' as TabType, label: 'DRE do Escritório', icon: Building },
     { key: 'outliers' as TabType, label: 'Ponto Fora da Curva', icon: AlertTriangle },
     { key: 'indicators' as TabType, label: 'Indicadores', icon: Activity },
     { key: 'tax' as TabType, label: 'Simulador Tributário', icon: Scale },
@@ -164,14 +166,46 @@ export default function BIPage() {
 
   return (
     <div className="space-y-6">
+      {/* 🆕 Sprint 28: Cabeçalho renomeado */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-            <BarChart3 className="h-8 w-8 text-teal-600" />
-            Conta Certa Insights
+            <Building className="h-8 w-8 text-teal-600" />
+            DRE do Escritório
           </h1>
-          <p className="text-slate-600 mt-1">Business Intelligence para decisões estratégicas do seu escritório.</p>
+          <p className="text-slate-600 mt-1">
+            Visão consolidada das receitas, despesas e resultado da <strong>Conta Certa</strong>
+            (não dos clientes). Fonte: transações financeiras do escritório.
+          </p>
         </div>
+      </div>
+
+      {/* 🆕 Sprint 28: Cards de navegação entre os 3 DREs */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-white rounded-xl border-2 border-teal-300 p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <Building className="h-4 w-4 text-purple-600" />
+            <span className="text-xs font-bold text-purple-700 uppercase tracking-wide">Escritório (atual)</span>
+          </div>
+          <p className="text-sm font-semibold text-slate-900">DRE do Escritório</p>
+          <p className="text-xs text-slate-500 mt-0.5">Fonte: Transações Financeiras</p>
+        </div>
+        <Link href="/dashboard/bi/dre-cliente" className="bg-white rounded-xl border border-slate-200 p-4 hover:border-teal-400 hover:shadow-sm transition-all">
+          <div className="flex items-center gap-2 mb-1">
+            <BookOpen className="h-4 w-4 text-teal-600" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Oficial</span>
+          </div>
+          <p className="text-sm font-semibold text-slate-900">DRE do Cliente</p>
+          <p className="text-xs text-slate-500 mt-0.5">Fonte: Lançamentos Contábeis</p>
+        </Link>
+        <Link href="/dashboard/fechamento" className="bg-white rounded-xl border border-slate-200 p-4 hover:border-teal-400 hover:shadow-sm transition-all">
+          <div className="flex items-center gap-2 mb-1">
+            <Wallet className="h-4 w-4 text-orange-600" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Bancário</span>
+          </div>
+          <p className="text-sm font-semibold text-slate-900">DRE do Cliente (Bancário)</p>
+          <p className="text-xs text-slate-500 mt-0.5">Fonte: Extrato + Classificação</p>
+        </Link>
       </div>
 
       <div className="flex gap-2 bg-slate-100 p-1 rounded-lg w-fit overflow-x-auto">
@@ -194,7 +228,7 @@ export default function BIPage() {
 }
 
 // =================================================================
-// 📊 ABA 1: DRE GERENCIAL
+// 📊 ABA 1: DRE DO ESCRITÓRIO
 // =================================================================
 function DreTab() {
   const [loading, setLoading] = useState(true);
@@ -249,7 +283,7 @@ function DreTab() {
 
     doc.setFontSize(18);
     doc.setTextColor(13, 148, 136);
-    doc.text('Conta Certa Insights - DRE Gerencial', 14, 20);
+    doc.text('DRE do Escritório - Conta Certa Soluções Empresariais', 14, 20);
     doc.setFontSize(11);
     doc.setTextColor(100, 116, 139);
     doc.text(`Período: ${currentPeriod}`, 14, 28);
@@ -276,7 +310,7 @@ function DreTab() {
 
     const finalY = (doc as any).lastAutoTable?.finalY || 100;
     doc.setFontSize(14);
-    doc.text('Demonstração de Resultado (Mensal)', 14, finalY + 15);
+    doc.text('Evolução Mensal do Escritório', 14, finalY + 15);
 
     autoTable(doc, {
       startY: finalY + 20,
@@ -301,8 +335,8 @@ function DreTab() {
       doc.text(`Página ${i} de ${pageCount} • Conta Certa Soluções Empresariais`, 14, 285);
     }
 
-    doc.save(`relatorio-bi-dre-${new Date().toISOString().split('T')[0]}.pdf`);
-    toast.success('Relatório DRE exportado em PDF com sucesso!');
+    doc.save(`relatorio-dre-escritorio-${new Date().toISOString().split('T')[0]}.pdf`);
+    toast.success('Relatório DRE do Escritório exportado em PDF com sucesso!');
   }
 
   if (loading && !kpis) return <div className="flex flex-col items-center justify-center min-h-[400px]"><Loader2 className="h-12 w-12 text-teal-600 animate-spin mb-4" /><p className="text-slate-600 font-medium">Carregando DRE...</p></div>;
@@ -344,7 +378,7 @@ function DreTab() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl border border-slate-200">
-          <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-bold text-slate-900">Evolução Mensal (DRE)</h3><Calendar className="h-5 w-5 text-slate-400" /></div>
+          <div className="flex items-center justify-between mb-4"><h3 className="text-lg font-bold text-slate-900">Evolução Mensal do Escritório</h3><Calendar className="h-5 w-5 text-slate-400" /></div>
           <BarChartCSS data={monthlyData} />
         </div>
         <div className="bg-white p-6 rounded-xl border border-slate-200">
@@ -411,7 +445,7 @@ function OutliersTab() {
         ['Período Analisado', 'Últimos 6 meses'],
       ],
       theme: 'striped',
-      headStyles: { fillColor: [239, 68, 68] }, // red-500
+      headStyles: { fillColor: [239, 68, 68] },
       styles: { fontSize: 11, cellPadding: 4 },
     });
 
@@ -558,7 +592,7 @@ function IndicatorsTab() {
         ['Margem do Mês', `${data.margemMes.toFixed(1)}%`],
       ],
       theme: 'striped',
-      headStyles: { fillColor: [16, 185, 129] }, // green-500
+      headStyles: { fillColor: [16, 185, 129] },
       styles: { fontSize: 11, cellPadding: 4 },
     });
 

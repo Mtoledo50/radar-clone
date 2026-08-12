@@ -26,8 +26,11 @@ import {
   FileText,
   FolderKanban,
   Receipt,
-  Landmark,        // 🆕 Sprint 25: ícone do Banco (substitui CalendarDays no Fechamento)
-  Briefcase,       // 🆕 Sprint 25: ícone Comercial
+  Landmark,
+  Briefcase,
+  BookOpen,          // 🆕 Sprint 28: DRE do Cliente (livro contábil)
+  Building,          // 🆕 Sprint 28: DRE do Escritório
+  Wallet,            // 🆕 Sprint 28: DRE do Cliente Bancário (extrato)
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
@@ -158,18 +161,18 @@ const allMenuItems: MenuItem[] = [
     ],
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 🏦 BANCÁRIO (Sprint 21-24) — 🆕 Sprint 25 movido p/ seção própria
+    // ─────────────────────────────────────────────────────────
+  // 🏦 BANCÁRIO (Sprint 21-24)
   // ─────────────────────────────────────────────────────────
   {
     id: 'fechamento',
-    title: 'Fechamento Mensal',
+    title: 'Fechamento + DRE Bancário',
     href: '/dashboard/fechamento',
-    icon: Landmark,  // 🆕 Sprint 25: ícone Banco (era CalendarDays)
+    icon: Wallet,  // 🆕 Sprint 28: ícone Carteira (extrato)
     section: 'bancario',
   },
 
-  // ─────────────────────────────────────────────────────────
+   // ─────────────────────────────────────────────────────────
   // 📒 CONTÁBIL
   // ─────────────────────────────────────────────────────────
   {
@@ -185,9 +188,9 @@ const allMenuItems: MenuItem[] = [
   },
   {
     id: 'contabil',
-    title: 'Contábil',
+    title: 'Plano de Contas',
     href: '/dashboard/contabil',
-    icon: Calculator,
+    icon: BookOpen,
     section: 'contabil',
     children: [
       { id: 'contabil-sci', title: 'Importar / Exportar SCI', href: '/dashboard/contabil' },
@@ -196,11 +199,23 @@ const allMenuItems: MenuItem[] = [
     ],
   },
 
-  // ─────────────────────────────────────────────────────────
+   // ─────────────────────────────────────────────────────────
   // 📈 INTELIGÊNCIA
   // ─────────────────────────────────────────────────────────
-    { id: 'bi', title: 'B.I. Contábil', href: '/dashboard/bi', icon: BarChart3, section: 'inteligencia' },
-  { id: 'bi-dre-cliente', title: 'DRE do Cliente', href: '/dashboard/bi/dre-cliente', icon: Landmark, section: 'inteligencia' },
+  {
+    id: 'bi',
+    title: 'DRE do Escritório',
+    href: '/dashboard/bi',
+    icon: Building,  // 🆕 Sprint 28: ícone Empresa (visão consolidada)
+    section: 'inteligencia',
+  },
+  {
+    id: 'bi-dre-cliente',
+    title: 'DRE do Cliente (Oficial)',
+    href: '/dashboard/bi/dre-cliente',
+    icon: BookOpen,  // 🆕 Sprint 28: livro contábil oficial
+    section: 'inteligencia',
+  },
   {
     id: 'ponto-fora-da-curva',
     title: 'Ponto Fora da Curva',
@@ -229,7 +244,6 @@ const allMenuItems: MenuItem[] = [
     icon: Scale,
     section: 'inteligencia',
   },
-
   // ─────────────────────────────────────────────────────────
   // ⚙️ SISTEMA (admin-only)
   // ─────────────────────────────────────────────────────────
