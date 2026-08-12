@@ -695,3 +695,157 @@ Implementação do módulo fiscal completo para escritórios contábeis (SaaS mu
 - [ ] SPED completo (blocos 0, C, D, E, G, K)
 
 🎯 Sprint 29 — Conciliação Automática Banco × NF-e (Completa)
+
+Módulo Admin
+Responsável por: Gestão global do sistema
+Features: Empresas, usuários, métricas globais
+Endpoints: /admin/companies, /admin/users
+
+Módulo Bancário (Fechamento Mensal)
+Responsável por: Importação de extratos, classificação por naturezas, DRE bancário do cliente e fechamento com trava de compliance
+Features: Parser CSV multi-formato (separador, milhares BR/US, datas DD/MM vs MM/DD, ignora "Saldo do dia"), classificação automática com memória por contraparte, naturezas dinâmicas por cliente, reclassificação em lote com aprendizado, lançamento manual, autosoma, relatório por natureza com subtotais, fechar/reabrir mês, abas Extrato | DRE | Conciliação
+Endpoints: /banking/import, /banking/statement, /banking/categories, /banking/transactions, /banking/close/:id, /banking/reopen/:id
+
+Módulo de Conciliação Bancária (Banco × NF-e)
+Responsável por: Matching automático entre débitos bancários e NF-e de entrada
+Features: Motor de score (valor 60% + nome 30% + data 10%), thresholds 🟢≥80 / 🟡50–79, confirmação/descarte em lote, rastreabilidade completa (SUGESTAO/CONFIRMADO/DESCARTADO), listas de não conciliados
+Endpoints: /banking/reconcile/suggest, /banking/reconcile/confirm, /banking/reconcile
+
+Módulo de Importação de Clientes
+Responsável por: Importação em massa da carteira a partir de planilhas CSV/Excel
+Features: Upsert por razão social (anti-duplicidade), revisão pré-importação, dados contratuais (início, honorário, valores em aberto/pago/vencido)
+Endpoints: /clients/import
+
+Módulo Contábil (SCI + Ponte Bancário→Contábil)
+Responsável por: Plano de contas, lançamentos de partida dobrada, conciliação, exportação SCI e DRE oficial do cliente
+Features: Promoção de meses fechados para lançamentos contábeis (idempotente, rastreável por bankTransactionId), criação de conta com upsert + inferência de tipo/natureza, autocomplete de contas, DRE do Cliente com confronto Contábil × Bancário
+Endpoints: /accounting/accounts, /accounting/entries, /accounting/promote-from-banking, /accounting/dre, /accounting/export-sci
+
+✅ Fase 2 - BI Contábil (Concluída)
+✅ Fase 2.5 - Ciclo Bancário→Contábil (Concluída)
+Fechamento mensal bancário por cliente (Sprints 21–24)
+Importação em massa da carteira de clientes (Sprint 23)
+Ponte Bancário→Contábil com partida dobrada (Sprint 25)
+DRE oficial do Cliente com confronto gerencial (Sprint 26)
+Menu reorganizado em 7 seções + nomenclatura dos 3 DREs (Sprint 28)
+Conciliação automática Banco × NF-e com motor de score (Sprint 29)
+---
+
+## Atualização: Módulo de Fechamento Mensal Bancário (Sprints 21–24)
+
+**Descrição:**
+Ciclo completo de fechamento bancário por cliente: importação do extrato, classificação por naturezas, DRE gerencial, relatório de confronto e fechamento do mês com trava de compliance.
+
+**Funcionalidades Adicionadas:**
+* Importação de extrato CSV com parser robusto: detecção automática de separador (`;`, `,`, TAB), milhares BR (`2.818,00`) e US (`2,818.00`), datas DD/MM/YYYY vs MM/DD/YY pela máscara, colunas de valor detectadas pelo conteúdo (aceita cabeçalhos sem nome), linhas "Saldo do dia" ignoradas.
+* Classificação automática em 3 camadas: regras aprendidas (memória por contraparte) → regras built-in → pendente de revisão.
+* Naturezas dinâmicas por cliente (`BankCategory`): categorias próprias agrupadas em 6 grupos DRE (Receita, Financeira, Despesa, Imposto, Sócio, Pendente), com seed automático, edição, renomeação e exclusão protegida (categoria em uso não pode ser excluída).
+* Reclassificação em lote com checkbox "Aprender p/ próximo mês"; edição manual sempre alimenta a memória.
+* DRE gerencial por categoria com exportação CSV e impressão profissional.
+* Relatório detalhado por natureza com quantidade e subtotais por grupo, para confronto com o DRE.
+* Filtro por grupo/natureza na tabela com totais filtrados no rodapé; autosoma (saldo acumulado) opcional.
+* Fechar/Reabrir mês: mês FECHADO bloqueia edição, exclusão e reimportação (trava de compliance).
+
+**Arquivos Criados/Alterados:**
+* `backend/src/banking/banking.service.ts`, `banking.controller.ts`, `banking.module.ts`
+* `frontend/src/app/dashboard/fechamento/page.tsx`
+* `frontend/src/lib/parseBankCsv.ts`
+* `prisma/schema.prisma` — modelos `BankStatement`, `BankTransaction`, `BankClassificationRule`, `BankCategory`
+
+**Decisões Técnicas:**
+* Naturezas como `String` (não enum) para permitir categorias personalizadas por cliente; grupos DRE fixos garantem que o DRE sempre feche.
+* Memória de classificação persistida em `BankClassificationRule` (pattern = contraparte normalizada), ordenada por hits.
+* Idempotência na reimportação: reimportar o mês substitui as transações anteriores.
+
+---
+
+## Atualização: Importação em Massa de Clientes (Sprint 23)
+
+**Descrição:**
+Importação da carteira de clientes do escritório a partir da planilha de contratos/honorários, com revisão prévia e atualização sem duplicidade.
+
+**Funcionalidades Adicionadas:**
+* Parser de planilha CSV com detecção de colunas por cabeçalho (acentos opcionais) e datas flexíveis.
+* Modal de revisão com contagem de clientes e soma de honorários/mês antes de confirmar.
+* Upsert por razão social (case-insensitive): reimportar atualiza honorários e dados contratuais sem duplicar.
+* Novos campos no modelo `Client`: `lastPaymentDate`, `installments`, `openAmount`, `paidAmount`, `overdueAmount`.
+* Ordenação A→Z / Z→A / honorário na Carteira de Clientes.
+
+**Arquivos Criados/Alterados:**
+* `backend/src/client/client-import.service.ts`, `client-import.controller.ts`, `client-import.module.ts`
+* `frontend/src/lib/parseClientsCsv.ts`
+* `frontend/src/components/clients/ImportClientsModal.tsx`
+* `frontend/src/app/dashboard/clientes/page.tsx`
+
+---
+
+## Atualização: Ponte Bancário→Contábil e DRE do Cliente (Sprints 25–26)
+
+**Descrição:**
+Fechamento do ciclo contábil: meses FECHADOS no bancário são promovidos a lançamentos contábeis de partida dobrada, e o novo "DRE do Cliente" exibe o resultado oficial com confronto automático contra o DRE bancário (gerencial).
+
+**Funcionalidades Adicionadas:**
+* Botão "Promover p/ Contábil" (visível apenas em mês FECHADO): crédito bancário → D Banco/C Receita; débito bancário → D Despesa/C Banco.
+* Idempotência por `bankTransactionId`: promover duas vezes não duplica lançamentos.
+* Criação inline de conta bancária no Plano de Contas (ex: PAGBANK) com **upsert** por `(companyId, code)` — duplo clique não gera erro; inferência automática de `type` (ATIVO/PASSIVO/PL/RECEITA/DESPESA) e `nature` (DEVEDORA/CREDORA) pelo prefixo do código.
+* Autocomplete de contas (`AccountCombobox`): filtra por código OU nome sem sensibilidade a acentos, navegação por teclado (↑↓/Enter/Esc) e botão limpar.
+* Página "DRE do Cliente" (`/dashboard/bi/dre-cliente`): KPIs contábeis, receitas/despesas por conta, status de conciliação e tabela de confronto Contábil × Bancário com diferença destacada.
+* Classificação do DRE pelo **sinal da transação bancária original**, independente da convenção do plano de contas do escritório.
+
+**Arquivos Criados/Alterados:**
+* `backend/src/accounting/accounting.service.ts` — `promoteFromBanking`, `getClientDRE`, `createAccount` (upsert)
+* `backend/src/accounting/accounting.controller.ts` — `POST /accounting/promote-from-banking`, `GET /accounting/dre`
+* `frontend/src/components/accounting/AccountCombobox.tsx`
+* `frontend/src/app/dashboard/bi/dre-cliente/page.tsx`
+* `prisma/schema.prisma` — `AccountingEntry.bankTransactionId`
+
+**Os 3 DREs do Sistema (arquitetura):**
+| DRE | Fonte | Dono dos dados | Onde |
+|---|---|---|---|
+| Gerencial do escritório | `FinancialTransaction` | Escritório | BI → DRE do Escritório |
+| Bancário do cliente | `BankTransaction` + `BankCategory` | Cliente | Fechamento Mensal |
+| Contábil oficial | `AccountingEntry` | Cliente | BI → DRE do Cliente |
+
+---
+
+## Atualização: Menu Reorganizado + Nomenclatura dos DREs (Sprint 28)
+
+**Descrição:**
+Reorganização da navegação em 7 seções por domínio contábil e padronização da nomenclatura dos 3 DREs, eliminando confusão entre visões.
+
+**Funcionalidades Adicionadas:**
+* Sidebar com seções visuais: 📊 Operacional, 💼 Comercial,  Fiscal,  Bancário, 📒 Contábil, 📈 Inteligência, ⚙️ Sistema.
+* Renomeação clara: "Fechamento + DRE Bancário", "DRE do Escritório", "DRE do Cliente (Oficial)".
+* Cards de navegação cruzada nas 3 páginas de DRE (borda teal destaca o DRE atual).
+* Abas no Fechamento Mensal: Extrato | DRE | Conciliação NF-e.
+
+**Arquivos Alterados:**
+* `frontend/src/app/dashboard/layout.tsx`
+* `frontend/src/app/dashboard/bi/page.tsx`
+* `frontend/src/app/dashboard/bi/dre-cliente/page.tsx`
+* `frontend/src/app/dashboard/fechamento/page.tsx`
+
+---
+
+## Atualização: Conciliação Automática Banco × NF-e (Sprint 29)
+
+**Descrição:**
+Motor de matching que cruza débitos bancários × NF-e de entrada do mesmo cliente, calcula score de confiança e sugere pares para revisão humana — reduzindo de horas para minutos o trabalho mensal de conferência.
+
+**Funcionalidades Adicionadas:**
+* Motor de score com pesos configuráveis: valor exato (60%), similaridade de nome por Jaccard normalizado (30%), proximidade de data ±30 dias (10%).
+* Thresholds de decisão: 🟢 ≥80% (sugestão forte), 🟡 50–79% (revisar), <50% (não sugere).
+* Aba "Conciliação NF-e" no Fechamento: cards de resumo (débitos, NF-e, conciliados, sugestões), tabela de sugestões com score, ações em lote (confirmar/descartar), listas de débitos sem NF-e e NF-e sem pagamento.
+* Rastreabilidade completa: modelo `BankNfeMatch` com status SUGESTAO/CONFIRMADO/DESCARTADO, `confirmedAt`, `confirmedBy`, `scoreBreakdown` (JSON) e constraint `@@unique([bankTransactionId, fiscalInvoiceId])` anti-duplicidade.
+* Endpoints: `POST /banking/reconcile/suggest`, `POST /banking/reconcile/confirm`, `GET /banking/reconcile`.
+
+**Arquivos Criados/Alterados:**
+* `backend/src/banking/banking-reconcile.service.ts`
+* `backend/src/banking/banking.controller.ts`, `banking.module.ts`
+* `frontend/src/components/banking/ReconcileTab.tsx`
+* `prisma/schema.prisma` — modelo `BankNfeMatch` + enums `MatchStatus`, `MatchType` + relações inversas em `BankTransaction` e `FiscalInvoice`
+
+**Decisões Técnicas:**
+* Conciliação apenas entre **débitos bancários** e **NF-e de ENTRADA** (compras do cliente), pois o estoque fiscal armazena notas de compra.
+* Sugestões não gravam nada até a confirmação humana (revisão obrigatória = compliance).
+* Matches confirmados persistem e não reaparecem como sugestão (status filter no motor).
