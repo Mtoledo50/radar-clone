@@ -828,3 +828,109 @@ INTELIGÊNCIA ─────────────
 
 SISTEMA ─────────────
 🛡️ Administração ▼
+
+---
+
+## Atualização: Módulo de Fechamento Mensal Bancário (Sprints 21–24)
+
+**Descrição:**
+Implementação do ciclo completo de fechamento bancário por cliente: importação do extrato, classificação por naturezas, DRE gerencial, relatório de confronto e fechamento do mês com trava de compliance.
+
+**Funcionalidades Adicionadas:**
+* Importação de extrato CSV com parser robusto: detecção automática de separador (`;`, `,`, TAB), milhares BR (`2.818,00`) e US (`2,818.00`), datas DD/MM/YYYY vs MM/DD/YY pela máscara, colunas de valor detectadas pelo conteúdo (aceita cabeçalhos sem nome), linhas "Saldo do dia" ignoradas.
+* Classificação automática em 3 camadas: regras aprendidas (memória por contraparte) → regras built-in → pendente de revisão.
+* Naturezas dinâmicas por cliente (`BankCategory`): cada cliente tem suas próprias categorias agrupadas em 6 grupos DRE (Receita, Financeira, Despesa, Imposto, Sócio, Pendente), com seed automático, edição, renomeação e exclusão protegida (categoria em uso não pode ser excluída).
+* Reclassificação em lote com checkbox "Aprender p/ próximo mês"; edição manual sempre alimenta a memória.
+* DRE gerencial por categoria com exportação CSV e impressão profissional.
+* Relatório detalhado por natureza com quantidade e subtotais por grupo, para confronto com o DRE.
+* Filtro por grupo/natureza na tabela de transações com totais filtrados no rodapé.
+* Fechar/Reabrir mês: mês FECHADO bloqueia edição, exclusão e reimportação (trava de compliance).
+* Autosoma (saldo acumulado) opcional por transação.
+
+**Arquivos Criados/Alterados:**
+* `backend/src/banking/banking.service.ts`, `banking.controller.ts`, `banking.module.ts`
+* `frontend/src/app/dashboard/fechamento/page.tsx`
+* `frontend/src/lib/parseBankCsv.ts`
+* `prisma/schema.prisma` — modelos `BankStatement`, `BankTransaction`, `BankClassificationRule`, `BankCategory`
+
+**Decisões Técnicas:**
+* Naturezas como `String` (não enum) para permitir categorias personalizadas por cliente; grupos DRE fixos garantem que o DRE sempre feche.
+* Memória de classificação persistida em `BankClassificationRule` (pattern = contraparte normalizada), ordenada por hits.
+* Idempotência na reimportação: reimportar o mês substitui as transações anteriores.
+
+---
+
+## Atualização: Importação em Massa de Clientes (Sprint 23)
+
+**Descrição:**
+Importação da carteira de clientes do escritório a partir da planilha de contratos/honorários, com revisão prévia e atualização sem duplicidade.
+
+**Funcionalidades Adicionadas:**
+* Parser de planilha CSV com detecção de colunas por cabeçalho (acentos opcionais) e datas flexíveis.
+* Modal de revisão com contagem de clientes e soma de honorários/mês antes de confirmar.
+* Upsert por razão social (case-insensitive): reimportar atualiza honorários e dados contratuais sem duplicar.
+* Novos campos no modelo `Client`: `lastPaymentDate`, `installments`, `openAmount`, `paidAmount`, `overdueAmount`.
+
+**Arquivos Criados/Alterados:**
+* `backend/src/client/client-import.service.ts`, `client-import.controller.ts`, `client-import.module.ts`
+* `frontend/src/lib/parseClientsCsv.ts`
+* `frontend/src/components/clients/ImportClientsModal.tsx`
+* `frontend/src/app/dashboard/clientes/page.tsx` — botão "Importar CSV" + ordenação A→Z
+
+---
+
+## Atualização: Ponte Bancário→Contábil e DRE do Cliente (Sprints 25–26)
+
+**Descrição:**
+Fechamento do ciclo contábil: meses FECHADOS no bancário são promovidos a lançamentos contábeis de partida dobrada, e o novo "DRE do Cliente" exibe o resultado oficial com confronto automático contra o DRE bancário (gerencial).
+
+**Funcionalidades Adicionadas:**
+* Botão "Promover p/ Contábil" (visível apenas em mês FECHADO): transforma cada transação classificada em lançamento contábil — crédito bancário → D Banco/C Receita; débito bancário → D Despesa/C Banco.
+* Idempotência por `bankTransactionId`: promover duas vezes não duplica lançamentos.
+* Criação inline de conta bancária no Plano de Contas (ex: PAGBANK) com **upsert** por `(companyId, code)` — duplo clique não gera erro.
+* Inferência automática de `type` (ATIVO/PASSIVO/PL/RECEITA/DESPESA) e `nature` (DEVEDORA/CREDORA) pelo prefixo do código.
+* Autocomplete de contas (`AccountCombobox`): filtra por código OU nome sem sensibilidade a acentos, navegação por teclado (↑↓/Enter/Esc) e botão limpar.
+* Página "DRE do Cliente" (`/dashboard/bi/dre-cliente`): KPIs contábeis, receitas/despesas por conta, status de conciliação e tabela de confronto Contábil × Bancário com diferença destacada.
+* Classificação do DRE pelo **sinal da transação bancária original**, independente da convenção do plano de contas do escritório.
+
+**Arquivos Criados/Alterados:**
+* `backend/src/accounting/accounting.service.ts` — `promoteFromBanking`, `getClientDRE`, `createAccount` (upsert)
+* `backend/src/accounting/accounting.controller.ts` — `POST /accounting/promote-from-banking`, `GET /accounting/dre`
+* `frontend/src/components/accounting/AccountCombobox.tsx`
+* `frontend/src/app/dashboard/bi/dre-cliente/page.tsx`
+* `prisma/schema.prisma` — `AccountingEntry.bankTransactionId`
+
+**Os 3 DREs do Sistema (arquitetura):**
+| DRE | Fonte | Dono dos dados | Onde |
+|---|---|---|---|
+| Gerencial do escritório | `FinancialTransaction` | Escritório | BI → DRE Gerencial |
+| Bancário do cliente | `BankTransaction` + `BankCategory` | Cliente | Fechamento Mensal |
+| Contábil oficial | `AccountingEntry` | Cliente | BI → DRE do Cliente |
+
+📋 Checklist da Sprint 27
+[ ] Edição 1: 3 módulos novos em "Módulos do Sistema"
+[ ] Edição 2: "Fase 2.5" no Roadmap
+[ ] Edição 3: 3 blocos "Atualização" no final do README
+[ ] README renderiza corretamente (tabelas e código íntegros)
+
+ocumento
+Conteúdo Principal
+README.md
+Documentação completa do projeto (Fases 1 + 2 + 2.5 + 3 + Arquitetura de Menu)
+Skill_Arquiteto_de_Software_SaaS_Enterprise.txt
+Padrões de qualidade, multi-tenant, decisões técnicas
+062026.csv / 072026.csv
+Extratos reais do cliente Renan (base para testes de parser)
+Contratos - Hon. mensais.xlsx
+Carteira de ~100 clientes para importação
+
+📊 Status Atual do Projeto
+
+Sprints concluídas (última homologada):
+✅ Sprint 26 — DRE do Cliente com confronto Contábil × Bancário
+✅ Sprint 27 — Documentação Enterprise (README atualizado)
+Próxima sprint da Trilha B (arquitetura já documentada no README):
+⏭️ Sprint 28 — Reorganização do Menu com as 7 seções visuais já desenhadas:
+
+  📊 OPERACIONAL • 💼 COMERCIAL • 🧾 FISCAL • 🏦 BANCÁRIO
+  📒 CONTÁBIL    • 📈 INTELIGÊNCIA • ⚙️ SISTEMA

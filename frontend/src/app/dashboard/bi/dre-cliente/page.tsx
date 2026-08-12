@@ -1,20 +1,12 @@
 'use client';
 
-/**
- * =================================================================
- * 📈 DRE do Cliente (Sprint 26)
- * =================================================================
- * DRE oficial a partir dos lançamentos contábeis promovidos
- * (source=BANCARIO) + confronto com o DRE bancário (gerencial).
- * Fecha o ciclo: Extrato → Fechamento → Contábil → BI.
- * =================================================================
- */
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import {
   BarChart3, Loader2, TrendingUp, TrendingDown, DollarSign,
   Landmark, Wallet, CheckCircle2, AlertCircle, ArrowRightLeft,
+  Building, BookOpen,
 } from 'lucide-react';
-import Link from 'next/link';
 import api from '@/lib/axios';
 
 const formatBRL = (v: number) =>
@@ -65,12 +57,41 @@ export default function DreClientePage() {
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <BarChart3 className="h-7 w-7 text-teal-600" /> DRE do Cliente
+            <BookOpen className="h-7 w-7 text-teal-600" /> DRE do Cliente (Oficial)
           </h1>
           <p className="text-slate-600 mt-1">
-            DRE oficial (contábil) com confronto do DRE bancário (gerencial).
+            DRE contábil oficial derivado dos <strong>lançamentos promovidos</strong> do extrato.
+            Confronta com o DRE bancário do mesmo mês.
           </p>
         </div>
+      </div>
+
+      {/* 🆕 Sprint 28: Cards de navegação entre os 3 DREs */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="bg-white rounded-xl border-2 border-teal-300 p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <BookOpen className="h-4 w-4 text-teal-600" />
+            <span className="text-xs font-bold text-teal-700 uppercase tracking-wide">Oficial (atual)</span>
+          </div>
+          <p className="text-sm font-semibold text-slate-900">DRE do Cliente</p>
+          <p className="text-xs text-slate-500 mt-0.5">Fonte: Lançamentos Contábeis</p>
+        </div>
+        <Link href="/dashboard/fechamento" className="bg-white rounded-xl border border-slate-200 p-4 hover:border-teal-400 hover:shadow-sm transition-all">
+          <div className="flex items-center gap-2 mb-1">
+            <Wallet className="h-4 w-4 text-orange-600" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Bancário</span>
+          </div>
+          <p className="text-sm font-semibold text-slate-900">DRE do Cliente (Bancário)</p>
+          <p className="text-xs text-slate-500 mt-0.5">Fonte: Extrato + Classificação</p>
+        </Link>
+        <Link href="/dashboard/bi" className="bg-white rounded-xl border border-slate-200 p-4 hover:border-teal-400 hover:shadow-sm transition-all">
+          <div className="flex items-center gap-2 mb-1">
+            <Building className="h-4 w-4 text-purple-600" />
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Escritório</span>
+          </div>
+          <p className="text-sm font-semibold text-slate-900">DRE do Escritório</p>
+          <p className="text-xs text-slate-500 mt-0.5">Fonte: Transações Financeiras</p>
+        </Link>
       </div>
 
       {/* Filtros */}
