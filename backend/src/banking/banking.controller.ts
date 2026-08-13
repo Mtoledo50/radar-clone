@@ -9,7 +9,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BankingService } from './banking.service';
 import { BankingReconcileService, MatchSuggestion } from './banking-reconcile.service';
-
+import { BankingReviewService } from './banking-review.service';
 @Controller('banking')
 @UseGuards(JwtAuthGuard)
 export class BankingController {
@@ -20,6 +20,8 @@ export class BankingController {
   constructor(
     private readonly bankingService: BankingService,
     private readonly reconcileService: BankingReconcileService, // 🆕 Sprint 29
+    private readonly reviewService: BankingReviewService, // 🆕 Sprint 32
+
   ) {}
 
   // =================================================================
@@ -185,5 +187,47 @@ export class BankingController {
       parseInt(year),
       parseInt(month),
     );
+  }
+
+  // =================================================================
+  // 🆕 SPRINT 32: WIZARD DE REVISÃO DE LANÇAMENTOS
+  // =================================================================
+
+  /**
+   * GET /banking/review/groups
+   * Retorna grupos de transações pendentes com sugestões
+   */
+  @Get('review/groups')
+  async getReviewGroups(
+    @Request() req,
+    @Query('clientId') clientId?: string,
+    @Query('year') year?: string,
+    @Query('month') month?: string,
+  ) {
+    return this.reviewService.getReviewGroups(
+      req.user.companyId,
+      clientId || null,
+      parseInt(year) || new Date().getFullYear(),
+      parseInt(month) || new Date().getMonth() + 1,
+    );
+  }
+
+  /**
+   * POST /banking/review/apply
+   * Aplica natureza em lote e opcionalmente aprende a regra
+   */
+  @Post('review/apply')
+  async applyReview(
+    @Request() req,
+    @Body() body: {
+      items: Array<{
+        transactionIds: string[];
+        nature: string;
+        learn: boolean;
+        counterparty?: string;
+      }>;
+    },
+  ) {
+    return this.reviewService.applyReview(req.user.companyId, body.items);
   }
 }

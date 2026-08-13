@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
@@ -25,7 +25,7 @@ import {
   ColumnDef,
   buildCsv,
   downloadCsv,
-  getSelectedKeys,
+  loadSelectedKeys,
 } from '@/lib/columnExport';
 
 // =================================================================
@@ -102,7 +102,7 @@ const EXPORT_COLUMNS: ColumnDef[] = [
   {
     key: 'status',
     label: 'Status',
-    format: (r) => STATUS_CONFIG[r.status]?.label || r.status,
+    accessor: (r) => STATUS_CONFIG[r.status]?.label || r.status,
   },
 ];
 
@@ -126,9 +126,9 @@ export default function FiscalComparativoPage() {
   // 🆕 Sprint 15: drill-down da conciliação
   const [detailTarget, setDetailTarget] = useState<CompareRow | null>(null);
 
-  useEffect(() => {
-    setExportCols(getSelectedKeys('fiscal-comparativo', EXPORT_COLUMNS));
-  }, []);
+useEffect(() => {
+  setExportCols(loadSelectedKeys('fiscal-comparativo', EXPORT_COLUMNS));
+}, []);
 
   // ---------------------------------------------------------------
   // 📥 Carrega o comparativo (reage ao cliente selecionado)
@@ -175,17 +175,23 @@ export default function FiscalComparativoPage() {
   // 📤 Exporta CSV apenas com as colunas selecionadas
   // ---------------------------------------------------------------
   const exportCsv = () => {
-    if (filtered.length === 0) {
-      toast.error('Nada para exportar.');
-      return;
-    }
-    const csv = buildCsv(filtered, EXPORT_COLUMNS, exportCols);
-    downloadCsv(
-      `comparativo-estoque-${new Date().toISOString().slice(0, 10)}.csv`,
-      csv,
-    );
-    toast.success(`${filtered.length} linha(s) exportada(s).`);
-  };
+  if (filtered.length === 0) {
+    toast.error('Nada para exportar.');
+    return;
+  }
+  // Filtra as colunas EXPORT_COLUMNS para apenas as selecionadas pelo usuário
+  const selectedColumns = EXPORT_COLUMNS.filter((c) => exportCols.includes(c.key));
+  if (selectedColumns.length === 0) {
+    toast.error('Nenhuma coluna selecionada para exportar.');
+    return;
+  }
+  const csv = buildCsv(selectedColumns, filtered);
+  downloadCsv(
+    `comparativo-estoque-${new Date().toISOString().slice(0, 10)}.csv`,
+    csv,
+  );
+  toast.success(`${filtered.length} linha(s) × ${selectedColumns.length} coluna(s) exportada(s).`);
+};
 
   // ---------------------------------------------------------------
   // 🎨 Renderização

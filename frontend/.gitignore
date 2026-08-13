@@ -1,41 +1,183 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# =================================================================
+# 🛡️ RADAR CONTA CERTA — .gitignore Enterprise (Sprint 31.1)
+# =================================================================
+# Organizado em seções por domínio. Nunca remova regras sem validar
+# com `git check-ignore -v <arquivo>` antes.
+# =================================================================
 
-# dependencies
-/node_modules
-/.pnp
+# =================================================================
+# 📦 DEPENDÊNCIAS (nunca versionar)
+# =================================================================
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+.pnpm-store/
 
-# testing
-/coverage
+# =================================================================
+# 🔐 CREDENCIAIS E SECRETs (BLOQUEIO MÁXIMO)
+# =================================================================
+# Arquivos de ambiente (NUNCA commitar senhas, JWT_SECRET, DATABASE_URL)
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+.env.test
+.env.*.local
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+frontend/.env.local
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
+# Certificados SSL/TLS e chaves privadas
 *.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.csr
+*.jks
 
-# debug
+# Credenciais de cloud e serviços
+*.credentials
+serviceAccountKey.json
+google-credentials.json
+aws-credentials.json
+
+# =================================================================
+# 🏗️ ARTEFATOS DE BUILD (recriáveis em qualquer ambiente)
+# =================================================================
+# Frontend (Next.js)
+.next/
+out/
+build/
+dist/
+frontend/dist/
+frontend/.next/
+
+# Backend (NestJS/TypeScript)
+backend/dist/
+backend/build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Prisma (cache gerado, específico do SO)
+.prisma/
+backend/node_modules/.prisma/
+
+# =================================================================
+# 🗄️ BANCO DE DADOS E BACKUPS (NUNCA versionar dados de clientes)
+# =================================================================
+*.sql
+*.dump
+*.sqlite
+*.sqlite3
+*.db
+backup_*.sql
+dump_*.sql
+pg_dump_*
+
+# =================================================================
+# 🐳 DOCKER (configs locais e volumes)
+# =================================================================
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.dev.yml
+docker-compose.prod.yml
+*.dockerignore
+# Volumes montados (dados persistentes)
+data/
+pgdata/
+postgres_data/
+
+# =================================================================
+# 📁 UPLOADS E ARQUIVOS DE USUÁRIOS
+# =================================================================
+uploads/
+backend/uploads/
+frontend/public/uploads/
+storage/
+tmp/
+temp/
+
+# =================================================================
+# 💻 CONFIGURAÇÕES DE IDE E SISTEMA (locais de cada dev)
+# =================================================================
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# =================================================================
+# 📝 LOGS E DEBUG
+# =================================================================
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+lerna-debug.log*
+backend/logs/
+*.log.*
 
-# env files (can opt-in for committing if needed)
-.env*
+# =================================================================
+# 🧪 TESTES E COBERTURA
+# =================================================================
+coverage/
+.nyc_output/
+*.lcov
+jest-coverage/
 
-# vercel
+# =================================================================
+# ☁️ PLATAFORMAS DE DEPLOY
+# =================================================================
 .vercel
+.netlify
+.aws/
+.serverless/
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# =================================================================
+# 📚 DOCUMENTAÇÃO GERADA
+# =================================================================
+docs/_build/
+docs/api/
+typedoc/
+storybook-static/
+
+# =================================================================
+# 🚫 ARQUIVOS ESPECÍFICOS DO PROJETO
+# =================================================================
+# Dados de teste/demonstração que NÃO devem subir (muito pesados)
+*.demo.json
+*.seed.json
+cypress/videos/
+cypress/screenshots/
+
+# Arquivos temporários do Prisma Studio
+prisma/*.db
+prisma/*.db-journal
+
+# =================================================================
+# ✅ EXCEÇÕES (arquivos que DEVEM ser versionados mesmo dentro
+#    de pastas ignoradas)
+# =================================================================
+!.gitkeep
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+!.vscode/extensions.json
+!.vscode/settings.json
