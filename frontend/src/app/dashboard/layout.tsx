@@ -31,6 +31,7 @@ import {
   BookOpen,          // 🆕 Sprint 28: DRE do Cliente (livro contábil)
   Building,          // 🆕 Sprint 28: DRE do Escritório
   Wallet,            // 🆕 Sprint 28: DRE do Cliente Bancário (extrato)
+  Brain,
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
@@ -198,7 +199,13 @@ const allMenuItems: MenuItem[] = [
       { id: 'contabil-plano', title: 'Plano de Contas', href: '/dashboard/contabil/plano-contas' },
     ],
   },
-
+    {
+    id: 'revisao-lancamentos',
+    title: 'Revisão Inteligente',
+    href: '/dashboard/lancamentos/revisao',
+    icon: Brain,
+    section: 'contabil',
+  },
    // ─────────────────────────────────────────────────────────
   // 📈 INTELIGÊNCIA
   // ─────────────────────────────────────────────────────────

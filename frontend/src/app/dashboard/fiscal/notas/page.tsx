@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -454,7 +454,7 @@ export default function FiscalNotasPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900">
-                {formatBRL(metrics?.totalValue)}
+                {formatBRL(metrics?.totalValue ?? 0)}
               </p>
               <p className="text-xs text-slate-500">Valor Total</p>
             </div>
@@ -468,7 +468,7 @@ export default function FiscalNotasPage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900">
-                {formatBRL(metrics?.totalIcms)}
+                {formatBRL(metrics?.totalIcms ?? 0)}
               </p>
               <p className="text-xs text-slate-500">
                 Crédito ICMS{' '}

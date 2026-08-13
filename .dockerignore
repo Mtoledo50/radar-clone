@@ -1,0 +1,21 @@
+# Diretórios que NÃO devem entrar nas imagens Docker
+**/node_modules
+**/.next
+**/dist
+**/build
+**/coverage
+**/.git
+**/.vscode
+**/.idea
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+**/*.md
+!**/README.md
+**/docker-compose*.yml
+**/Dockerfile*
+**/.dockerignore
+**/pgdata
+**/uploads
+**/backup_*.sql

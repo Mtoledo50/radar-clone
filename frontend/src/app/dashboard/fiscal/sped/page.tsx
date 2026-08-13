@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -24,7 +24,7 @@ import {
   ColumnDef,
   buildCsv,
   downloadCsv,
-  getSelectedKeys,
+  loadSelectedKeys,
 } from '@/lib/columnExport';
 
 // =================================================================
@@ -98,7 +98,7 @@ export default function FiscalSpedPage() {
   const [exportCols, setExportCols] = useState<string[]>([]);
 
   useEffect(() => {
-    setExportCols(getSelectedKeys('fiscal-sped', EXPORT_COLUMNS));
+    setExportCols(loadSelectedKeys('fiscal-sped', EXPORT_COLUMNS));
   }, []);
 
   // ---------------------------------------------------------------
@@ -165,14 +165,20 @@ export default function FiscalSpedPage() {
   // ---------------------------------------------------------------
   // 📤 Exporta CSV no client com as colunas selecionadas
   // ---------------------------------------------------------------
-  const exportCsvClient = () => {
+   const exportCsvClient = () => {
     if (!data || data.items.length === 0) {
       toast.error('Nada para exportar.');
       return;
     }
-    const csv = buildCsv(data.items, EXPORT_COLUMNS, exportCols);
+    // 🆕 Sprint 20: filtra EXPORT_COLUMNS pelas colunas selecionadas
+    const selectedColumns = EXPORT_COLUMNS.filter((c) => exportCols.includes(c.key));
+    if (selectedColumns.length === 0) {
+      toast.error('Nenhuma coluna selecionada para exportar.');
+      return;
+    }
+    const csv = buildCsv(selectedColumns, data.items);
     downloadCsv(`inventario_${year}_${String(month).padStart(2, '0')}.csv`, csv);
-    toast.success(`${data.items.length} linha(s) exportada(s).`);
+    toast.success(`${data.items.length} linha(s) × ${selectedColumns.length} coluna(s) exportada(s).`);
   };
 
   // ---------------------------------------------------------------
@@ -272,12 +278,12 @@ export default function FiscalSpedPage() {
             <div className="p-2 bg-blue-50 rounded-lg">
               <DollarSign className="h-5 w-5 text-blue-600" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-900">
-                {formatBRL(data?.totalValue)}
-              </p>
-              <p className="text-xs text-slate-500">Valor Total do Inventário</p>
-            </div>
+           <div>
+  <p className="text-2xl font-bold text-slate-900">
+    {formatBRL(data?.totalValue ?? 0)}
+  </p>
+  <p className="text-xs text-slate-500">Valor Total do Inventário</p>
+</div>
           </div>
         </div>
 

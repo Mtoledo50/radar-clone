@@ -1,4 +1,11 @@
-'use client';
+﻿'use client';
+
+// =================================================================
+// 📑 Página: Relatório de Inventário Fiscal (Sprint 13/20)
+// =================================================================
+// Layout H010 estendido (17 colunas) para SPED Fiscal e IR.
+// Regra de negócio: apenas produtos com saldo ≠ 0 E movimentações.
+// =================================================================
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -13,18 +20,18 @@ import {
 import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
 import { useFiscalClientStore } from '@/store/fiscalClientStore';
-import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
-import { ColumnDef, buildCsv, downloadCsv } from '@/lib/columnExport';
+import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel';
+import { buildCsv, downloadCsv } from '@/lib/columnExport';
 
 // =================================================================
-// 📦 Tipos (espelham o backend — Sprint 13)
+// 📦 Tipos
 // =================================================================
 interface TaxReportRow {
   code: string;
   reference: string;
   quantity: number;
+  unit: string;
   unitValue: number;
-  icmsValue: number;
   totalValue: number;
   ownershipIndicator: string;
   ownerCnpjCpf: string;
@@ -48,40 +55,39 @@ const formatBRL = (v: number) =>
 const formatQty = (v: number) => Number(v || 0).toLocaleString('pt-BR');
 
 // =================================================================
-// 📑 Colunas do relatório (layout H010 estendido — FIXAS, modelo legal)
+// 📑 17 colunas do relatório (layout H010 estendido)
 // =================================================================
-const REPORT_COLUMNS: ColumnDef[] = [
+const REPORT_COLUMNS = [
   { key: 'code', label: 'Código do Produto' },
-  { key: 'reference', label: 'Referência' },
+  { key: 'reference', label: 'Referência (Nome)' },
   { key: 'quantity', label: 'Quantidade' },
-  { key: 'unitValue', label: 'Valor Unitário' },
-  { key: 'icmsValue', label: 'Valor do ICMS' },
-  { key: 'totalValue', label: 'Valor Total' },
-  { key: 'ownershipIndicator', label: 'Indicador de propriedade/posse do item' },
-  { key: 'ownerCnpjCpf', label: 'CNPJ/CPF do proprietário/possuidor que não seja a empresa' },
-  { key: 'spedAccount', label: 'Conta Sped do Inventário' },
-  { key: 'observations', label: 'Observações do lançamento do inventário' },
-  { key: 'icmsBase', label: 'Base de ICMS' },
-  { key: 'cst', label: 'CST do ICMS' },
-  { key: 'icmsSt', label: 'Valor de ICMS ST' },
-  { key: 'ipi', label: 'Valor de IPI' },
-  { key: 'pis', label: 'Valor de PIS' },
-  { key: 'cofins', label: 'Valor de COFINS' },
-  { key: 'irValue', label: 'Valor total para fins de Imposto de Renda' },
+  { key: 'unit', label: 'Unidade' },
+  { key: 'unitValue', label: 'Valor Unitário', type: 'currency' as const },
+  { key: 'totalValue', label: 'Valor Total', type: 'currency' as const },
+  { key: 'ownershipIndicator', label: 'Indicador de Posse' },
+  { key: 'ownerCnpjCpf', label: 'CNPJ/CPF Proprietário' },
+  { key: 'spedAccount', label: 'Conta SPED' },
+  { key: 'observations', label: 'Observações' },
+  { key: 'icmsBase', label: 'Base ICMS', type: 'currency' as const },
+  { key: 'cst', label: 'CST' },
+  { key: 'icmsSt', label: 'ICMS-ST', type: 'currency' as const },
+  { key: 'ipi', label: 'IPI', type: 'currency' as const },
+  { key: 'pis', label: 'PIS', type: 'currency' as const },
+  { key: 'cofins', label: 'COFINS', type: 'currency' as const },
+  { key: 'irValue', label: 'Valor p/ IR', type: 'currency' as const },
 ];
 
 // =================================================================
-// 📄 Página: Relatório de Inventário Fiscal com Tributos
+// 🧩 Componente Principal
 // =================================================================
 export default function FiscalRelatorioInventarioPage() {
   const { selected } = useFiscalClientStore();
-
   const [rows, setRows] = useState<TaxReportRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ---------------------------------------------------------------
+  // -----------------------------------------------------------------
   // 📥 Carrega o relatório (reage ao cliente selecionado)
-  // ---------------------------------------------------------------
+  // -----------------------------------------------------------------
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -90,7 +96,7 @@ export default function FiscalRelatorioInventarioPage() {
       });
       setRows(data.rows || []);
     } catch {
-      toast.error('Erro ao carregar o relatório.');
+      toast.error('Erro ao carregar o relatório de inventário.');
     } finally {
       setLoading(false);
     }
@@ -100,30 +106,31 @@ export default function FiscalRelatorioInventarioPage() {
     load();
   }, [load]);
 
-  // Totais para os cards de resumo
-  const totalValue = rows.reduce((s, r) => s + r.totalValue, 0);
-  const totalIcms = rows.reduce((s, r) => s + r.icmsValue, 0);
+  // -----------------------------------------------------------------
+  // 🧮 Totais para os cards de resumo
+  // -----------------------------------------------------------------
+  const totalValue = rows.reduce((s, r) => s + Number(r.totalValue || 0), 0);
+  const totalIcms = rows.reduce((s, r) => s + Number(r.icmsBase || 0) * 0.18, 0);
 
-  // ---------------------------------------------------------------
-  // 📤 Exporta CSV no formato EXATO do modelo (17 colunas, ;, BOM)
-  // ---------------------------------------------------------------
+  // -----------------------------------------------------------------
+  // 📤 Exporta CSV no formato EXATO de 17 colunas (;, BOM UTF-8)
+  // -----------------------------------------------------------------
   const exportCsv = () => {
     if (rows.length === 0) {
       toast.error('Nada para exportar.');
       return;
     }
-    const allKeys = REPORT_COLUMNS.map((c) => c.key);
-    const csv = buildCsv(rows, REPORT_COLUMNS, allKeys);
+    const csv = buildCsv(REPORT_COLUMNS, rows);
     downloadCsv(
-      `relatorio-inventario-${new Date().toISOString().slice(0, 10)}.csv`,
       csv,
+      `relatorio-inventario-${new Date().toISOString().slice(0, 10)}.csv`,
     );
     toast.success(`${rows.length} linha(s) exportada(s).`);
   };
 
-  // ---------------------------------------------------------------
+  // -----------------------------------------------------------------
   // 🎨 Renderização
-  // ---------------------------------------------------------------
+  // -----------------------------------------------------------------
   return (
     <div className="space-y-6">
       {/* Cabeçalho + seletor de cliente */}
@@ -185,12 +192,12 @@ export default function FiscalRelatorioInventarioPage() {
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-50 rounded-lg">
-              <Percent className="h-5 w-5 text-green-600" />
+            <div className="p-2 bg-orange-50 rounded-lg">
+              <Percent className="h-5 w-5 text-orange-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900">{formatBRL(totalIcms)}</p>
-              <p className="text-xs text-slate-500">ICMS das Aquisições</p>
+              <p className="text-xs text-slate-500">ICMS das Aquisições (estimado)</p>
             </div>
           </div>
         </div>
@@ -206,10 +213,9 @@ export default function FiscalRelatorioInventarioPage() {
             onClick={exportCsv}
             disabled={loading || rows.length === 0}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
-            title="Exporta as 17 colunas no formato do modelo"
           >
             <FileDown className="h-4 w-4" />
-            Exportar CSV
+            Exportar CSV (17 colunas)
           </button>
         </div>
 
@@ -219,9 +225,9 @@ export default function FiscalRelatorioInventarioPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className="text-center py-10 text-slate-400">
-            <PackageSearch className="h-10 w-10 mx-auto mb-2" />
+            <ClipboardList className="h-10 w-10 mx-auto mb-2" />
             <p className="text-sm">
-              Nenhum produto com NF-e e saldo ≠ 0 para este escopo.
+              Nenhum item com NF-e importada e saldo ≠ 0 no escopo selecionado.
             </p>
           </div>
         ) : (
@@ -232,83 +238,79 @@ export default function FiscalRelatorioInventarioPage() {
                   <th className="py-2 pr-3 font-medium">Código</th>
                   <th className="py-2 pr-3 font-medium">Referência</th>
                   <th className="py-2 pr-3 font-medium text-right">Qtd</th>
-                  <th className="py-2 pr-3 font-medium text-right">Vl. Unit.</th>
-                  <th className="py-2 pr-3 font-medium text-right">Vl. ICMS</th>
-                  <th className="py-2 pr-3 font-medium text-right">Vl. Total</th>
-                  <th className="py-2 pr-3 font-medium text-center">Ind.</th>
-                  <th className="py-2 pr-3 font-medium">CNPJ Prop.</th>
+                  <th className="py-2 pr-3 font-medium">Un</th>
+                  <th className="py-2 pr-3 font-medium text-right">Valor Unit.</th>
+                  <th className="py-2 pr-3 font-medium text-right">Valor Total</th>
+                  <th className="py-2 pr-3 font-medium text-center">Posse</th>
+                  <th className="py-2 pr-3 font-medium">CNPJ/CPF</th>
                   <th className="py-2 pr-3 font-medium">Conta SPED</th>
-                  <th className="py-2 pr-3 font-medium">Obs.</th>
+                  <th className="py-2 pr-3 font-medium">Observações</th>
                   <th className="py-2 pr-3 font-medium text-right">Base ICMS</th>
                   <th className="py-2 pr-3 font-medium text-center">CST</th>
-                  <th className="py-2 pr-3 font-medium text-right">Vl. ST</th>
-                  <th className="py-2 pr-3 font-medium text-right">Vl. IPI</th>
-                  <th className="py-2 pr-3 font-medium text-right">Vl. PIS</th>
-                  <th className="py-2 pr-3 font-medium text-right">Vl. COFINS</th>
-                  <th className="py-2 font-medium text-right">Vl. p/ IR</th>
+                  <th className="py-2 pr-3 font-medium text-right">ICMS-ST</th>
+                  <th className="py-2 pr-3 font-medium text-right">IPI</th>
+                  <th className="py-2 pr-3 font-medium text-right">PIS</th>
+                  <th className="py-2 pr-3 font-medium text-right">COFINS</th>
+                  <th className="py-2 pr-3 font-medium text-right">Valor p/ IR</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.code} className="border-b border-slate-100 hover:bg-slate-50">
-                    <td className="py-3 pr-3 font-medium text-slate-800">{r.code}</td>
-                    <td className="py-3 pr-3 text-slate-600 max-w-[240px] truncate">
-                      {r.reference}
+                {rows.map((item, idx) => (
+                  <tr
+                    key={`${item.code}-${idx}`}
+                    className="border-b border-slate-100 hover:bg-slate-50"
+                  >
+                    <td className="py-3 pr-3 font-medium text-slate-800">{item.code}</td>
+                    <td className="py-3 pr-3 text-slate-600 max-w-[220px] truncate" title={item.reference}>
+                      {item.reference}
                     </td>
+                    <td className="py-3 pr-3 text-right text-slate-700">{formatQty(item.quantity)}</td>
+                    <td className="py-3 pr-3 text-slate-600">{item.unit}</td>
+                    <td className="py-3 pr-3 text-right text-slate-700">{formatBRL(item.unitValue)}</td>
                     <td className="py-3 pr-3 text-right font-semibold text-slate-800">
-                      {formatQty(r.quantity)}
+                      {formatBRL(item.totalValue)}
                     </td>
-                    <td className="py-3 pr-3 text-right text-slate-600">
-                      {formatBRL(r.unitValue)}
+                    <td className="py-3 pr-3 text-center text-slate-600">{item.ownershipIndicator}</td>
+                    <td className="py-3 pr-3 text-slate-600">{item.ownerCnpjCpf || '—'}</td>
+                    <td className="py-3 pr-3 text-slate-600">{item.spedAccount || '—'}</td>
+                    <td className="py-3 pr-3 text-slate-500 max-w-[180px] truncate" title={item.observations}>
+                      {item.observations || '—'}
                     </td>
-                    <td className="py-3 pr-3 text-right text-green-700">
-                      {formatBRL(r.icmsValue)}
-                    </td>
-                    <td className="py-3 pr-3 text-right font-semibold text-slate-800">
-                      {formatBRL(r.totalValue)}
-                    </td>
-                    <td className="py-3 pr-3 text-center text-slate-600">
-                      {r.ownershipIndicator}
-                    </td>
-                    <td className="py-3 pr-3 text-slate-400">{r.ownerCnpjCpf || '—'}</td>
-                    <td className="py-3 pr-3 text-slate-400">{r.spedAccount || '—'}</td>
-                    <td className="py-3 pr-3 text-slate-400">{r.observations || '—'}</td>
-                    <td className="py-3 pr-3 text-right text-slate-600">
-                      {formatBRL(r.icmsBase)}
-                    </td>
-                    <td className="py-3 pr-3 text-center text-slate-600">{r.cst || '—'}</td>
-                    <td className="py-3 pr-3 text-right text-slate-600">
-                      {formatBRL(r.icmsSt)}
-                    </td>
-                    <td className="py-3 pr-3 text-right text-slate-600">
-                      {formatBRL(r.ipi)}
-                    </td>
-                    <td className="py-3 pr-3 text-right text-slate-600">
-                      {formatBRL(r.pis)}
-                    </td>
-                    <td className="py-3 pr-3 text-right text-slate-600">
-                      {formatBRL(r.cofins)}
-                    </td>
-                    <td className="py-3 text-right font-semibold text-slate-800">
-                      {formatBRL(r.irValue)}
+                    <td className="py-3 pr-3 text-right text-slate-700">{formatBRL(item.icmsBase)}</td>
+                    <td className="py-3 pr-3 text-center text-slate-600">{item.cst || '—'}</td>
+                    <td className="py-3 pr-3 text-right text-slate-700">{formatBRL(item.icmsSt)}</td>
+                    <td className="py-3 pr-3 text-right text-slate-700">{formatBRL(item.ipi)}</td>
+                    <td className="py-3 pr-3 text-right text-slate-700">{formatBRL(item.pis)}</td>
+                    <td className="py-3 pr-3 text-right text-slate-700">{formatBRL(item.cofins)}</td>
+                    <td className="py-3 pr-3 text-right font-semibold text-teal-700">
+                      {formatBRL(item.irValue)}
                     </td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="bg-slate-50">
+                  <td colSpan={5} className="py-3 px-2 text-right font-bold text-slate-700">
+                    TOTAL DO INVENTÁRIO:
+                  </td>
+                  <td className="py-3 px-2 text-right font-bold text-teal-700">
+                    {formatBRL(totalValue)}
+                  </td>
+                  <td colSpan={11}></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
       </div>
 
-      {/* Nota metodológica */}
-      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600">
-        <p className="font-semibold text-slate-700 mb-1">📐 Critérios do relatório</p>
+      {/* Nota de compliance */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <p className="font-semibold mb-1">⚠️ Nota de Compliance</p>
         <p>
-          Lista apenas produtos presentes nas NF-e importadas com saldo atual ≠ 0.
-          Quantidade/valores de estoque usam custo médio ponderado; tributos
-          (ICMS, base, ST, IPI, PIS, COFINS) são a soma das aquisições.
-          Indicador de posse = 0 (mercadoria própria); CNPJ/Conta SPED/Obs. ficam
-          vazios por padrão legal.
+          O CSV exportado segue o modelo de 17 colunas para conferência interna. Para gerar o
+          Bloco H oficial do SPED Fiscal (.txt), use a página <strong>SPED Fiscal</strong>.
+          Valide o arquivo no PVA da Receita Federal antes de transmitir.
         </p>
       </div>
     </div>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -37,7 +37,7 @@ import {
   ColumnDef,
   buildCsv,
   downloadCsv,
-  getSelectedKeys,
+  loadSelectedKeys,
 } from '@/lib/columnExport';
 
 // =================================================================
@@ -217,7 +217,7 @@ export default function FiscalEstoquePage() {
   const [exportCols, setExportCols] = useState<string[]>([]);
 
   useEffect(() => {
-    setExportCols(getSelectedKeys('fiscal-estoque', EXPORT_COLUMNS));
+    setExportCols(loadSelectedKeys('fiscal-estoque', EXPORT_COLUMNS));
   }, []);
 
   // ---------------------------------------------------------------
@@ -378,7 +378,12 @@ export default function FiscalEstoquePage() {
         toast.error('Nada para exportar com os filtros atuais.');
         return;
       }
-      const csv = buildCsv(rows, EXPORT_COLUMNS, exportCols);
+      const selectedColumns = EXPORT_COLUMNS.filter((c) => exportCols.includes(c.key));
+    if (selectedColumns.length === 0) {
+      toast.error('Nenhuma coluna selecionada para exportar.');
+      return;
+    }
+    const csv = buildCsv(selectedColumns, rows);
       downloadCsv(`estoque-${new Date().toISOString().slice(0, 10)}.csv`, csv);
       toast.success(`${rows.length} linha(s) exportada(s).`);
     } catch {
@@ -444,7 +449,7 @@ export default function FiscalEstoquePage() {
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900">
-                {formatBRL(metrics?.totalValue)}
+               {formatBRL(metrics?.totalValue ?? 0)}
               </p>
               <p className="text-xs text-slate-500">Valor em Estoque</p>
             </div>

@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+output: 'standalone',   // 🆕 Sprint 31 — imagem enxuta p/ Docker
+// options here */
 };
 
 export default nextConfig;

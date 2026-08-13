@@ -809,8 +809,12 @@ function ReformTab() {
     doc.setTextColor(15, 23, 42);
     doc.text('Impacto da Reforma', 14, 45);
 
-    const impactColor = result.impacto.color === 'verde' ? [16, 185, 129] : result.impacto.color === 'vermelho' ? [239, 68, 68] : [100, 116, 139];
-    
+const impactColor: [number, number, number] = result.impacto.color === 'verde' 
+  ? [16, 185, 129] 
+  : result.impacto.color === 'vermelho' 
+    ? [239, 68, 68] 
+    : [100, 116, 139];
+        
     autoTable(doc, {
       startY: 50,
       head: [['Métrica', 'Valor']],
