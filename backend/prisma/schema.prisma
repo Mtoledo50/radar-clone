@@ -177,7 +177,9 @@ model Company {
   fiscalBalances        FiscalInventoryBalance[]
   fiscalApurations    FiscalIcmsApuration[]
   bankStatements      BankStatement[]
-
+  
+  // 🤖 Funcionário Digital (FD-1)
+  robotWorker       RobotWorker?
   
   @@map("companies")
 }
@@ -584,6 +586,13 @@ model Proposal {
   views             Int            @default(0)
   whatsappClicks    Int            @default(0)
   
+  // 🆕 SPRINT A3: Controle de Versões
+  version           Int            @default(1)        // Número da versão (1, 2, 3...)
+  isCurrent         Boolean        @default(true)     // true = versão ativa do cliente
+  originalProposalId String?                          // ID da primeira versão da cadeia (para agrupar)
+  originalProposal  Proposal?      @relation("ProposalVersions", fields: [originalProposalId], references: [id], onDelete: SetNull)
+  versions          Proposal[]     @relation("ProposalVersions") // Outras versões desta proposta
+  
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   
@@ -593,11 +602,12 @@ model Proposal {
   items             ProposalItem[]
   
   @@index([companyId])
-  @@index([slug])
+  @@index([userId])
   @@index([status])
+  @@index([originalProposalId])
+  @@index([isCurrent])
   @@map("proposals")
 }
-
 /// Itens dentro da Proposta (Substitui o JSON antigo)
 model ProposalItem {
   id                String   @id @default(uuid())
@@ -1695,3 +1705,254 @@ model BankNfeMatch {
 // Adicionar relation em FiscalInvoice (localize o model FiscalInvoice e adicione):
 // bankMatches       BankNfeMatch[]
 
+// =================================================================
+// 🤖 MÓDULO FUNCIONÁRIO DIGITAL — AURORA (Sprint FD-1 — Fundação)
+// =================================================================
+// Aurora é a funcionária digital do Radar: roda automações
+// agendadas (conciliação, classificação, lançamentos) e entrega
+// tudo pronto para revisão humana.
+//
+// ADR-025: Playwright em worker separado (futuro FD-7)
+// ADR-030: Regra de Ouro (ações LEGAL nunca AUTO)
+// ADR-031: Cálculo tributário determinístico (IA só sugere)
+// ADR-032: LGPD + cofres criptografados
+// ADR-033: Perfis de aprovação (Auxiliar confere, Contador aprova)
+// =================================================================
+
+// ─────────────────────────────────────────────────────────────────
+// STATUS DA AURORA (1 por escritório)
+// ─────────────────────────────────────────────────────────────────
+enum RobotWorkerStatus {
+  ACTIVE    /// Trabalhando normalmente
+  PAUSED    /// Em pausa ("férias" — não executa agendamentos)
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CATÁLOGO DE SKILLS (o que a Aurora sabe fazer)
+// ─────────────────────────────────────────────────────────────────
+enum SkillKey {
+  RECONCILIATION     /// Conciliação Banco × NF-e (FD-2)
+  CLASSIFICATION     /// Classificação c/ memória (FD-2)
+  ACCOUNTING_BRIDGE  /// Ponte Bancário → Contábil (FD-2)
+  MONTHLY_REPORT     /// Relatório PDF mensal (FD-2)
+  TAX_GUIDES         /// Emissão de DAS/ISS/DARF (FD-4) — futuro
+  NFSE_IMPORT        /// Importação NFS-e (FD-3) — futuro
+  BILLING            /// CNAB remessa/retorno (FD-5) — futuro
+  OBLIGATIONS        /// SPED/obrigações (FD-6) — futuro
+}
+
+// ─────────────────────────────────────────────────────────────────
+// NÍVEL DE AUTONOMIA (Pilar A — ADR-030)
+// ─────────────────────────────────────────────────────────────────
+enum AutonomyLevel {
+  AUTO       /// Executa sozinho (score ≥80%)
+  REVIEW     /// Fila de revisão (score 50–79% ou riskLevel=LEGAL)
+  MANUAL     /// Só sugere, humano sempre decide
+}
+
+// ─────────────────────────────────────────────────────────────────
+// STATUS DA EXECUÇÃO (o "ponto" da Aurora)
+// ─────────────────────────────────────────────────────────────────
+enum RunStatus {
+  RUNNING    /// Executando agora
+  SUCCESS    /// Terminou tudo certo
+  PARTIAL    /// Terminou com pendências (parte foi pra fila)
+  FAILED     /// Erro catastrófico (ver errorMessage)
+  CANCELLED  /// Cancelado pelo usuário
+}
+
+// ─────────────────────────────────────────────────────────────────
+// STATUS DA PENDÊNCIA (fila de revisão)
+// ─────────────────────────────────────────────────────────────────
+enum PendingStatus {
+  PENDING    /// Aguardando decisão humana
+  APPROVED   /// Aprovado pelo humano
+  REJECTED   /// Rejeitado pelo humano
+  EXPIRED    /// Expirou sem resposta (30 dias)
+}
+
+// ─────────────────────────────────────────────────────────────────
+// DECISÃO HUMANA (ApprovalRecord)
+// ─────────────────────────────────────────────────────────────────
+enum ApprovalDecision {
+  APPROVED   /// Aprovado
+  REJECTED   /// Rejeitado
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 🤖 A AURORA (1 instância por tenant/escritório)
+// ─────────────────────────────────────────────────────────────────
+/// Representa a funcionária digital do escritório.
+/// É criada automaticamente no primeiro acesso (lazy).
+/// companyId único = ADR-004 (multi-tenant single-database).
+model RobotWorker {
+  id        String            @id @default(cuid())
+  companyId String            @unique
+  company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name      String            @default("Aurora")
+  avatar    String            @default("🌅")       /// Emoji do avatar
+  status    RobotWorkerStatus @default(ACTIVE)
+
+  /// JSON com configurações globais da Aurora (ex.: timezone, idioma)
+  config    Json              @default("{}")
+
+  skills    RobotWorkerSkill[]
+  runs      AutomationRun[]
+
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@map("robot_workers")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 🧩 SKILL DA AURORA (1 por tipo, com cron individual)
+// ─────────────────────────────────────────────────────────────────
+/// Cada habilidade pode ser ligada/desligada e tem seu próprio cron.
+/// cronExpr usa formato POSIX cron (ex.: "0 2 * * *" = todo dia 02:00).
+/// riskLevel=LEGAL força REVIEW independente do score (Regra de Ouro).
+model RobotWorkerSkill {
+  id          String         @id @default(cuid())
+  companyId   String
+  workerId    String
+  worker      RobotWorker    @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  skillKey    SkillKey
+  enabled     Boolean        @default(false)       /// Liga/desliga pelo painel
+  cronExpr    String         @default("0 2 * * *") /// Cron POSIX
+  autonomy    AutonomyLevel  @default(REVIEW)      /// ADR-030
+
+  /// Parâmetros específicos da skill (ex.: clientId-alvo, tolerâncias)
+  params      Json           @default("{}")
+
+  lastRunAt   DateTime?
+  lastRunId   String?        /// ID do último AutomationRun
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([companyId, skillKey])   /// 1 skill por tenant por tipo
+  @@index([companyId, enabled])
+  @@map("robot_worker_skills")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 📋 EXECUÇÃO (o "ponto" da Aurora)
+// ─────────────────────────────────────────────────────────────────
+/// Cada vez que uma skill é executada (cron ou botão manual),
+/// uma linha é criada aqui. É a prova do que a Aurora fez.
+model AutomationRun {
+  id                String      @id @default(cuid())
+  companyId         String
+  workerId          String
+  worker            RobotWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  skillKey          SkillKey
+  triggerType       String      @default("CRON")    /// CRON | MANUAL | WEBHOOK
+  triggeredBy       String?     /// userId (se manual) ou "SYSTEM"
+
+  status            RunStatus   @default(RUNNING)
+
+  startedAt         DateTime    @default(now())
+  finishedAt        DateTime?
+
+  /// Métricas da execução (o que o dashboard exibe)
+  itemsProcessed    Int         @default(0)
+  itemsAutoApproved Int         @default(0)         /// score ≥80%
+  itemsPendingHuman Int         @default(0)         /// 50–79% → fila
+  itemsFailed       Int         @default(0)
+  secondsSaved      Int         @default(0)         /// métrica de marketing
+
+  errorMessage      String?     @db.Text
+
+  pendings          AutomationPending[]
+
+  @@index([companyId, startedAt])
+  @@index([companyId, status])
+  @@index([workerId])
+  @@map("automation_runs")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 🟡 FILA DE REVISÃO (human-in-the-loop — Pilar B)
+// ─────────────────────────────────────────────────────────────────
+/// Itens que a Aurora não teve confiança suficiente para decidir
+/// sozinha. O contador revisa, aprova ou rejeita.
+/// type = MATCH | CLASSIFICATION | DIVERGENCE | GUIDE_REVIEW etc.
+/// payload = JSON com os dados específicos (ids, scores, sugestões).
+model AutomationPending {
+  id         String        @id @default(cuid())
+  companyId  String
+  runId      String?
+  run        AutomationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  type       String                                  /// MATCH, CLASSIFICATION, etc.
+  confidence Float?                                  /// 0–100 (score da sugestão)
+
+  /// JSON com os dados da pendência (ex.: {bankTxId, invoiceId, breakdown})
+  payload    Json
+
+  status     PendingStatus @default(PENDING)
+  resolvedBy String?       /// userId que resolveu
+  resolvedAt DateTime?
+  notes      String?       @db.Text
+
+  createdAt  DateTime      @default(now())
+
+  @@index([companyId, status])
+  @@index([companyId, type])
+  @@index([runId])
+  @@map("automation_pendings")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 📝 TRILHA DE AUDITORIA (compliance contábil — Pilar D)
+// ─────────────────────────────────────────────────────────────────
+/// 100% das ações da Aurora (e do humano revisando) ficam aqui.
+/// É o "histórico de trabalho" auditável — exigência fiscal.
+model AutomationAudit {
+  id           String   @id @default(cuid())
+  companyId    String
+
+  actor        String   @default("AURORA")           /// AURORA | USER_<id>
+  action       String                                /// AUTO_RECONCILED, USER_APPROVED...
+
+  entity       String                                /// BankNfeMatch, AccountingEntry...
+  entityId     String                                /// ID da entidade afetada
+
+  /// Snapshot antes/depois + score + breakdown (JSON)
+  detail       Json?
+
+  robotVersion String?                               /// Versão da Aurora (ex.: "1.0.0")
+  ip           String?                               /// IP de origem (se humano)
+
+  createdAt    DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([companyId, entity, entityId])
+  @@map("automation_audits")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ✅ APROVAÇÃO HUMANA (trava de transmissão — Regra de Ouro)
+// ─────────────────────────────────────────────────────────────────
+/// Nada que gere obrigação legal, pagamento ou transmissão oficial
+/// sai sem um ApprovalRecord vinculado. Isso é nossa proteção jurídica.
+/// entityType = GUIDE | SPED | RECONCILIATION | NFSE_BATCH | PAYROLL
+model ApprovalRecord {
+  id         String   @id @default(cuid())
+  companyId  String
+
+  entityType String
+  entityId   String
+
+  decision   ApprovalDecision
+  decidedBy  String                                  /// userId
+  decidedAt  DateTime @default(now())
+  ip         String?
+  notes      String?  @db.Text
+
+  @@index([companyId, entityType, entityId])
+  @@map("approval_records")
+}
