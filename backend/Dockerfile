@@ -1,50 +1,38 @@
-# =================================================================
-# 🐳 BACKEND — NestJS (multi-stage build) — CORRIGIDO Sprint 31
-# =================================================================
+# ============================================================================
+# RADAR CONTA CERTA — Backend (NestJS 10)
+# Sprint 31 — Multi-stage build: imagem leve e reproduzível
+# ============================================================================
 
-# ---------------- Stage 1: Builder (compila como root, tudo bem) ----------------
+# ---------- ESTÁGIO 1: builder (compila tudo) ----------
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# 1) Só os manifests primeiro → aproveita o cache do Docker
+#    (não reinstala deps a cada mudança de código)
 COPY package*.json ./
-RUN npm ci --no-audit --no-fund
+COPY prisma ./prisma
 
-COPY prisma ./prisma/
-RUN npx prisma generate
+# 2) Instala TUDO (inclui dev: typescript + prisma CLI)
+RUN npm ci
 
+# 3) Código fonte + Prisma Client + build de produção
 COPY . .
+RUN npx prisma generate
 RUN npm run build
 
-# ---------------- Stage 2: Runner (produção, usuário não-root) ----------------
+# ---------- ESTÁGIO 2: runner (só o que roda) ----------
 FROM node:20-alpine AS runner
-
-# 1) Criar usuário não-root PRIMEIRO
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
-
-# 2) Criar /app e dar permissão ao nestjs (ANTES do WORKDIR)
-RUN mkdir -p /app && chown nestjs:nodejs /app
-
-# 3) WORKDIR herda o dono do diretório (nestjs)
 WORKDIR /app
-
 ENV NODE_ENV=production
-ENV PORT=3001
 
-# 4) Agora SIM troca de usuário — todos os comandos a seguir rodam como nestjs
-USER nestjs
-
-# 5) Copia package*.json (dono já é nestjs pelo WORKDIR)
-COPY --from=builder --chown=nestjs:nodejs /app/package*.json ./
-
-# 6) Instala deps de produção (AGORA funciona — /app pertence ao nestjs)
-RUN npm ci --omit=dev --no-audit --no-fund
-
-# 7) Copia artefatos compilados
-COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nestjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+# node_modules vai junto porque precisamos do Prisma CLI
+# para rodar `prisma migrate deploy` no boot (decisão Sprint 31)
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3001
 
-CMD ["node", "dist/main.js"]
+# Boot: aplica migrações pendentes → sobe o servidor
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]

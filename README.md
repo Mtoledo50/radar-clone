@@ -314,3 +314,54 @@ npm run dev                                                              # → :
 ⭐ Útil para você? Dê uma estrela no repositório!
 
 </div>
+
+---
+Atualização: Sprint A1 — Conta Certa 2.0 (Motor de Herança de Planos)
+Descrição:
+* Início do plano de expansão "Conta Certa 2.0" (pós-análise competitiva
+  de 11 vídeos do Radar Gestão Estratégica).
+* Criada camada de DOMÍNIO PURO dos planos comerciais, sem acoplamento
+  com banco/HTTP, 100% coberta por testes de unidade.
+Funcionalidades (domínio):
+* Herança automática de itens entre planos (multiplicador crescente).
+* Flag "Independente" com isolamento total (não herda e não doa).
+* Matemática central de preço: valor de referência × multiplicador,
+  % vs base e "dinheiro na mesa" (mensal/anual).
+Arquivos Criados:
+* backend/src/commercial-plans/domain/plan-inheritance.ts
+* backend/src/commercial-plans/domain/pricing-insights.ts
+* backend/src/commercial-plans/domain/__tests__/plan-inheritance.spec.ts
+Decisões Técnicas (ADR-020):
+* Herança derivada em memória (banco guarda apenas itens próprios).
+* Preços com round2 (sem erro de ponto flutuante).
+Status: Testes 6/6 verdes. Próxima sprint: A2 (migração Prisma +
+integração do motor nos endpoints existentes).
+
+-
+Atualização: Sprint 31 — Containerização (Docker Compose)
+Descrição:
+* Sistema completo empacotado em containers (Postgres + NestJS + Next.js).
+* Mesmo pacote roda local e em qualquer VPS com 1 comando.
+Arquivos Criados:
+* docker-compose.yml (raiz)
+* backend/Dockerfile + backend/.dockerignore
+* frontend/Dockerfile + frontend/.dockerignore
+* frontend/next.config.ts (+ output: "standalone")
+Decisões Técnicas:
+* Banco do Compose na porta 5433 (não conflita com Postgres local 5432).
+* Backend aplica `prisma migrate deploy` no boot (self-healing).
+* NEXT_PUBLIC_API_URL assado no build (browser fala com localhost:3001).
+Como usar:
+* `docker compose up -d --build` • `docker compose ps` • `docker compose down`
+
+---
+## 🧠 Continuidade do Projeto (Sistema de Memória)
+Para que nenhuma conversa/IA comece do zero, o projeto mantém 3 artefatos vivos:
+1. **CONTEXTO_PROJETO.md** — injeção de contexto: cole inteiro na 1ª mensagem de
+   toda conversa nova (status, stack, ADRs, roadmap, próximos passos).
+2. **CHANGELOG.md** — histórico de sprints (atualizar ao fim de cada sprint).
+3. **Skill_RadarContaCerta-Architect.txt** — skill com a memória do projeto.
+Fluxo de uma nova conversa:
+   1) Colar CONTEXTO_PROJETO.md → 2) IA confirma → 3) trabalhar no sprint atual →
+   4) atualizar CHANGELOG + README + CONTEXTO (§9) → 5) validar com o Marcos.
+Regra de ouro: nenhum sprint novo começa sem o anterior homologado.

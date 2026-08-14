@@ -432,8 +432,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                       {hasChildren && isExpanded && (
                         <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-teal-700 pl-2">
-                          {item.children.map((child) => {
-                            const childActive = isActive(child.href);
+                            {item.children?.map((child) => {
+                              const childActive = isActive(child.href);
                             return (
                               <button
                                 key={child.href}

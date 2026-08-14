@@ -251,7 +251,64 @@ export default function RevisaoManualPage() {
   // =================================================================
   // FIM: FUNÇÕES DE AUTOCOMPLETE
   // =================================================================
+  // =================================================================
+  // INÍCIO: FUNÇÕES DE SELEÇÃO E LIMPEZA (autocomplete)
+  // =================================================================
 
+  /**
+   * Usuário clicou em uma sugestão de DÉBITO.
+   * Preenche o accountId, o texto visível e fecha o dropdown.
+   */
+  function handleSelectDebit(index: number, account: AccountingAccount) {
+    const updated = [...entries];
+    const entry = updated[index];
+    entry.debitAccountId = account.id;
+    entry.debitSearch = `${account.code} - ${account.name}`;
+    entry.debitSuggestions = []; // fecha o dropdown
+    setEntries(updated);
+  }
+
+  /**
+   * Usuário clicou em uma sugestão de CRÉDITO.
+   * Mesma lógica do débito, espelhada.
+   */
+  function handleSelectCredit(index: number, account: AccountingAccount) {
+    const updated = [...entries];
+    const entry = updated[index];
+    entry.creditAccountId = account.id;
+    entry.creditSearch = `${account.code} - ${account.name}`;
+    entry.creditSuggestions = []; // fecha o dropdown
+    setEntries(updated);
+  }
+
+  /**
+   * Usuário clicou no X do campo DÉBITO.
+   * Limpa busca, sugestões E o accountId (volta ao estado PENDENTE).
+   */
+  function handleClearDebit(index: number) {
+    const updated = [...entries];
+    const entry = updated[index];
+    entry.debitSearch = '';
+    entry.debitSuggestions = [];
+    entry.debitAccountId = undefined; // importante: volta a PENDENTE
+    setEntries(updated);
+  }
+
+  /**
+   * Usuário clicou no X do campo CRÉDITO.
+   * Mesma lógica do débito, espelhada.
+   */
+  function handleClearCredit(index: number) {
+    const updated = [...entries];
+    const entry = updated[index];
+    entry.creditSearch = '';
+    entry.creditSuggestions = [];
+    entry.creditAccountId = undefined; // importante: volta a PENDENTE
+    setEntries(updated);
+  }
+  // =================================================================
+  // FIM: FUNÇÕES DE SELEÇÃO E LIMPEZA
+  // =================================================================
 
   // =================================================================
   // INÍCIO: FUNÇÕES DE SALVAMENTO
@@ -576,14 +633,18 @@ export default function RevisaoManualPage() {
                             </div>
                           </td>
 
-                          {/* COLUNA: AÇÕES */}
-                          <td className="px-6 py-4 text-center">
-                            {isComplete ? (
-                              <CheckCircle className="h-6 w-6 text-green-600 mx-auto" title="Pronto para salvar" />
-                            ) : (
-                              <AlertCircle className="h-6 w-6 text-orange-400 mx-auto" title="Preencha ambas as contas" />
-                            )}
-                          </td>
+                         {/* COLUNA: AÇÕES */}
+<td className="px-6 py-4 text-center">
+  {isComplete ? (
+    <span title="Pronto para salvar" className="inline-block">
+      <CheckCircle className="h-6 w-6 text-green-600 mx-auto" />
+    </span>
+  ) : (
+    <span title="Preencha ambas as contas" className="inline-block">
+      <AlertCircle className="h-6 w-6 text-orange-400 mx-auto" />
+    </span>
+  )}
+</td>
                         </tr>
                       );
                     })}
