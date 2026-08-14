@@ -74,16 +74,12 @@ ADR-023 Optional chaining (?.) em .map de opcionais no JSX.
 ADR-024 Sonner: action/cancel exigem onClick (usar () => {} p/ só fechar).
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
-Sprint A1 CONCLUÍDA: backend/src/commercial-plans/domain/{plan-inheritance.ts,
-pricing-insights.ts, tests/plan-inheritance.spec.ts} — 6 testes verdes.
-Sprint 31 HOMOLOGADA: Docker Compose com Postgres 5433, Backend 3001, Frontend 3000.
-  - Dockerfiles multi-stage (backend: node:20-slim + OpenSSL, frontend: standalone).
-  - Build de produção Next.js 16 zerado (13 erros TS resolvidos).
-  - ADRs criados: ADR-021 (Lucide title), ADR-022 (backup em src/), ADR-023 (optional chaining), ADR-024 (Sonner onClick).
-  - Comandos: `docker compose up -d --build` • `docker compose ps` • `docker compose logs -f backend`
-IMEDIATO: Sprint A2 = endpoint GET /commercial-plans/resolved (integra domínio A1 com banco).
-  - Colunas `isIndependent` e `order` JÁ EXISTEM no banco (não precisa migração).
-  - Preciso dos arquivos: commercial-plans.service.ts, commercial-plans.controller.ts, domain/plan-inheritance.ts, domain/pricing-insights.ts
+Sprint A1 CONCLUÍDA: domínio puro testado (6 testes verdes).
+Sprint 31 (Docker) HOMOLOGADA: ambiente estável (Postgres 5433, Backend 3001, Frontend 3000).
+Sprint A2 (Parte 1) HOMOLOGADA: endpoint GET /commercial-plans/resolved devolvendo planos com herança calculada.
+IMEDIATO: Sprint A2 (Parte 2) = testar endpoint POST /commercial-plans/insights (Dinheiro na Mesa).
+  - Arquivos já criados: pricing-insights.dto.ts (com @IsNumber), service e controller atualizados.
+  - Requer `docker compose up -d --build backend` para compilar o TS no container.
 DEPOIS: A3→A7, Fases B→E (ordem do §7).
 
 ## 10) COMANDOS ÚTEIS (PowerShell)

@@ -39,7 +39,7 @@ services:
     environment:
       DATABASE_URL: postgresql://radar:radar_pass@postgres:5432/radar_db?schema=public
       NODE_ENV: production
-      JWT_SECRET: radar-conta-certa-jwt-secret-2026  # 🆕 ADICIONADO
+      JWT_SECRET: radar-clone-super-secret-key-2026-mude-em-producao  # 🆕 ADICIONADO
       JWT_EXPIRATION: 7d
       PORT: 3001
     depends_on:

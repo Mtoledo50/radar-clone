@@ -10,7 +10,12 @@ import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceItemDto } from './dto/create-service-item.dto';
 import { resolvePlanInheritance, PlanInput } from './domain/plan-inheritance';
 import { ResolvedPlanDto, ResolvedServiceItemDto } from './dto/resolved-plan.dto';
-
+import {
+  planPriceFromReference,
+  relativePercentVsBase,
+  calcMoneyOnTable,
+} from './domain/pricing-insights';
+import { CalculatePricingInsightsDto, PlanWithInsightsDto } from './dto/pricing-insights.dto';
 /**
  * =================================================================
  * 🏢 CommercialPlansService — Gestão do Catálogo Enterprise
@@ -484,6 +489,44 @@ export class CommercialPlansService {
         allItems: r.allItemIds
           .map((id) => resolveItem(id, r.inheritedItemIds.includes(id)))
           .filter((item): item is ResolvedServiceItemDto => item !== null),
+      };
+    });
+  }
+
+    // =================================================================
+  // 💰 SPRINT A2: Planos com Insights de Preço (Dinheiro na Mesa)
+  // =================================================================
+  /**
+   * Pega os planos já resolvidos (com herança) e aplica a matemática de preço.
+   * 
+   * @param companyId - ID da empresa (multi-tenant)
+   * @param baseValue - Valor de referência para calcular os preços dos planos
+   * @param currentMonthly - (Opcional) Valor que o cliente paga hoje, para calcular a perda
+   */
+  async getPlansWithInsights(
+    companyId: string,
+    baseValue: number,
+    currentMonthly?: number,
+  ): Promise<PlanWithInsightsDto[]> {
+    // 1. Reutilizamos o motor de herança já validado na Parte 1
+    const resolvedPlans = await this.getResolvedPlans(companyId);
+
+    // 2. Enriquecemos cada plano com a matemática do domínio puro
+    return resolvedPlans.map((plan) => {
+      const calculatedPrice = planPriceFromReference(baseValue, plan.multiplier);
+      const percentVsBase = relativePercentVsBase(plan.multiplier);
+
+      let moneyOnTable = undefined;
+      // Se o usuário passou quanto o cliente paga hoje, calculamos a diferença
+      if (currentMonthly !== undefined) {
+        moneyOnTable = calcMoneyOnTable(currentMonthly, calculatedPrice);
+      }
+
+      return {
+        ...plan,
+        calculatedPrice,
+        percentVsBase,
+        moneyOnTable,
       };
     });
   }
