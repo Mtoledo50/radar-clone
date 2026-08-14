@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { X, Settings2, Lock, RotateCcw } from 'lucide-react';
 import {
   ColumnDef,
-  getSelectedKeys,
   saveSelectedKeys,
+  loadSelectedKeys, // 🔄 ADICIONADO: A função correta que aceita (context, columns)
 } from '@/lib/columnExport';
 
 /**
@@ -14,12 +14,6 @@ import {
  * =================================================================
  * Modal reutilizável que permite ao usuário escolher quais colunas
  * entram no CSV de uma determinada tela.
- *
- * 🛡️ Comportamento:
- *   - Colunas `always` aparecem travadas (cadeado)
- *   - Seleção persistida por contexto no localStorage
- *   - "Restaurar padrão" volta para todas as colunas
- *   - onApply devolve as chaves selecionadas para a página exportar
  * =================================================================
  */
 interface Props {
@@ -42,7 +36,9 @@ export default function ColumnPickerModal({
   // Carrega a seleção persistida sempre que o modal abre
   useEffect(() => {
     if (open) {
-      setSelected(getSelectedKeys(context, columns));
+      // 🔄 CORREÇÃO: Usamos loadSelectedKeys. 
+      // Ela busca no localStorage pelo 'context' e faz fallback para o padrão.
+      setSelected(loadSelectedKeys(context, columns));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, context]);

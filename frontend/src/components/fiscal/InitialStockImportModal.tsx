@@ -71,10 +71,16 @@ export default function InitialStockImportModal({ onClose, onImported }: Props) 
   // ---------------------------------------------------------------
   // 🔍 Etapa 1 → 2: processar o texto e abrir a revisão
   // ---------------------------------------------------------------
-  const handleProcess = () => {
-    let parsed: InitialStockItem[] =
+    const handleProcess = () => {
+    // 🔄 HOTFIX BUILD: Os parsers agora retornam { items, skipped }.
+    // Desestruturamos para pegar o array de itens e a métrica de linhas puladas.
+    const result =
       tab === 'paste' ? parsePastedStockText(pastedText) : parseStockCsv(csvText);
+    
+    let parsed: InitialStockItem[] = result.items;
+    const skippedCount = result.skipped ?? 0; // 🔒 Defensivo: garante número
 
+    // ... resto do código continua igual
     // Filtro de saldo zero (ruído de relatório) — opcional via toggle
     if (!includeZeros) {
       parsed = parsed.filter((i) => i.quantity !== 0);
@@ -113,6 +119,7 @@ export default function InitialStockImportModal({ onClose, onImported }: Props) 
         unit: 'UN',
         quantity: 0,
         averageCost: 0,
+        totalCost: 0, // 🆕 ADICIONE ESTA LINHA
       },
     ]);
   };
