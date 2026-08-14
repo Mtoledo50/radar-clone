@@ -420,4 +420,141 @@ export class ProposalsService {
       })
     );
   }
+    // =================================================================
+  // 🆕 SPRINT A3: Versões de Proposta
+  // =================================================================
+
+  /**
+   * Lista todas as versões de proposta para um cliente específico.
+   * Agrupa por originalProposalId (ou pelo próprio ID se for a primeira).
+   *
+   * 🧠 DECISÃO TÉCNICA:
+   * Agrupamento em memória (Map) é O(N) e simples. Para centenas de propostas
+   * por cliente é mais que suficiente. Se um dia tivermos milhares,
+   * mover para GROUP BY no SQL.
+   */
+  async getProposalsByClient(companyId: string, clientName: string) {
+    // Busca propostas cujo clientName contenha o termo (case-insensitive)
+    const proposals = await this.prisma.proposal.findMany({
+      where: {
+        companyId,
+        clientName: { contains: clientName, mode: 'insensitive' },
+      },
+      orderBy: [{ createdAt: 'desc' }, { version: 'desc' }],
+      include: {
+        items: {
+          include: {
+            commercialPlan: true,
+            serviceItem: true,
+          },
+        },
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    // Agrupa por cadeia de versão (originalProposalId ou próprio ID)
+    const grouped = new Map<string, any[]>();
+    proposals.forEach((p) => {
+      const key = p.originalProposalId || p.id;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(p);
+    });
+
+    return Array.from(grouped.entries()).map(([groupId, versions]) => {
+      const sorted = versions.sort((a, b) => b.version - a.version);
+      return {
+        groupId,
+        clientName: versions[0].clientName,
+        clientCnpj: versions[0].clientCnpj,
+        totalVersions: versions.length,
+        currentVersion: sorted.find((v) => v.isCurrent) || sorted[0],
+        allVersions: sorted,
+      };
+    });
+  }
+
+  /**
+   * Cria uma nova versão de uma proposta existente.
+   *
+   * Regras:
+   * 1. Busca a proposta original (com itens).
+   * 2. Marca a anterior como isCurrent = false.
+   * 3. Cria a nova cópia com version = anterior + 1 e isCurrent = true.
+   * 4. Duplica todos os ProposalItems.
+   * 5. Tudo em transação atômica (se algo falhar, nada é gravado).
+   */
+  async createNewVersion(proposalId: string, companyId: string, userId: string) {
+    // 1. Buscar original com itens
+    const original = await this.prisma.proposal.findFirst({
+      where: { id: proposalId, companyId },
+      include: { items: true },
+    });
+
+    if (!original) {
+      throw new Error('Proposta original não encontrada.');
+    }
+
+    const newVersion = original.version + 1;
+    const newProposalNumber = `${original.proposalNumber}-v${newVersion}`;
+    const newSlug = `${original.slug}-v${newVersion}`;
+
+    // 2. Transação atômica
+    return this.prisma.$transaction(async (tx) => {
+      // 2.1. Desmarcar a versão anterior como atual
+      await tx.proposal.update({
+        where: { id: proposalId },
+        data: { isCurrent: false },
+      });
+
+      // 2.2. Criar a nova proposta (cópia da original)
+      const newProposal = await tx.proposal.create({
+        data: {
+          companyId,
+          userId,
+          proposalNumber: newProposalNumber,
+          slug: newSlug,
+          clientName: original.clientName,
+          clientCnpj: original.clientCnpj,
+          taxRegime: original.taxRegime,
+          activity: original.activity,
+          monthlyRevenue: original.monthlyRevenue,
+          employeeCount: original.employeeCount,
+          basePrice: original.basePrice,
+          aboutOffice: original.aboutOffice,
+          differentials: original.differentials,
+          onboarding: original.onboarding,
+          commercialTerms: original.commercialTerms,
+          specificNote: original.specificNote,
+          status: 'DRAFT', // Nova versão sempre começa como rascunho
+          version: newVersion,
+          isCurrent: true,
+          originalProposalId: original.originalProposalId || original.id,
+        },
+      });
+
+      // 2.3. Duplicar os itens
+      if (original.items.length > 0) {
+        await tx.proposalItem.createMany({
+          data: original.items.map((item) => ({
+            proposalId: newProposal.id,
+            commercialPlanId: item.commercialPlanId,
+            serviceItemId: item.serviceItemId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+          })),
+        });
+      }
+
+      // 2.4. Retornar a nova proposta enriquecida
+      return tx.proposal.findUnique({
+        where: { id: newProposal.id },
+        include: {
+          items: {
+            include: { commercialPlan: true, serviceItem: true },
+          },
+        },
+      });
+    });
+  }
 }

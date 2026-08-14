@@ -75,12 +75,14 @@ ADR-024 Sonner: action/cancel exigem onClick (usar () => {} p/ só fechar).
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
 Sprint A1 CONCLUÍDA: domínio puro testado (6 testes verdes).
-Sprint 31 (Docker) HOMOLOGADA: ambiente estável (Postgres 5433, Backend 3001, Frontend 3000).
-Sprint A2 (Parte 1) HOMOLOGADA: endpoint GET /commercial-plans/resolved devolvendo planos com herança calculada.
-IMEDIATO: Sprint A2 (Parte 2) = testar endpoint POST /commercial-plans/insights (Dinheiro na Mesa).
-  - Arquivos já criados: pricing-insights.dto.ts (com @IsNumber), service e controller atualizados.
-  - Requer `docker compose up -d --build backend` para compilar o TS no container.
-DEPOIS: A3→A7, Fases B→E (ordem do §7).
+Sprint 31 (Docker) HOMOLOGADA: ambiente estável.
+Sprint A2 COMPLETA: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano validado).
+Sprint A3 HOMOLOGADA: versões de proposta (version/isCurrent/originalProposalId + endpoints de listagem e duplicação).
+IMEDIATO: Sprint A4 = Fechamento com Ganho (desconto + argumento de venda).
+  - Endpoint: POST /proposals/:id/close com desconto e cálculo de ganho vs preço cheio.
+  - Frontend: modal de fechamento com slider de desconto e "quanto você ganhou".
+DEPOIS: A5→A7, Fases B→E (ordem do §7).
+
 
 ## 10) COMANDOS ÚTEIS (PowerShell)
 docker compose up -d --build | docker compose ps | docker compose logs -f backend

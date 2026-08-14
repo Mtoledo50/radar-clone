@@ -3,16 +3,32 @@
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)  
 **Última atualização:** 14/08/2026 (pós-Sprint 31 + Sprint A1)
 
----
-## [Sprint A2 - Parte 1] 2026-08 — Integração do Motor de Herança com o Banco
+## [Sprint A3] 2026-08 — Versões de Proposta
 ### ✅ Added
-- Endpoint `GET /commercial-plans/resolved` no `CommercialPlansController`.
-- Método `getResolvedPlans(companyId)` no `CommercialPlansService`.
-- DTO `ResolvedPlanDto` e `ResolvedServiceItemDto` para tipar a resposta enriquecida.
-- Integração do domínio puro (`resolvePlanInheritance`) com queries do Prisma usando `Map` para cache O(1) de itens.
+- Migração Prisma: colunas `version`, `isCurrent`, `originalProposalId` no modelo `Proposal`.
+- Self-relation `ProposalVersions` para navegação entre versões da mesma cadeia.
+- Endpoint `GET /proposals/client/:clientId/versions` (agrupa propostas por cadeia).
+- Endpoint `POST /proposals/:id/new-version` (duplica proposta + incrementa version).
+- DTOs `ProposalVersionDto` e `ProposalVersionsResponseDto`.
 ### 🧠 Decisions
-- Separação de responsabilidades: o banco guarda apenas itens próprios; a herança é calculada em tempo real no backend (ADR-020).
-- Resposta separa `ownItems`, `inheritedItems` e `allItems` para facilitar a renderização no Frontend.
+- Agrupamento em memória (Map) por `originalProposalId` — simples e O(N).
+- Nova versão sempre nasce como `status: DRAFT` e `isCurrent: true`.
+- Versão anterior é automaticamente marcada como `isCurrent: false` (transação atômica).
+- Itens da proposta (`ProposalItem`) são duplicados na nova versão.
+### 🏁 Status
+- **HOMOLOGADO** no ambiente Docker.
+
+---
+## [Sprint A2] 2026-08 — Valor de Referência + Dinheiro na Mesa
+### ✅ Added
+- Endpoint `POST /commercial-plans/insights` no `CommercialPlansController`.
+- Método `getPlansWithInsights(companyId, baseValue, currentMonthly)` no `CommercialPlansService`.
+- DTO `CalculatePricingInsightsDto` com validação (`@IsNumber`, `@IsOptional`).
+- DTO `PlanWithInsightsDto` estendendo `ResolvedPlanDto` com `calculatedPrice`, `percentVsBase`, `moneyOnTable`.
+- Integração das funções `planPriceFromReference`, `relativePercentVsBase`, `calcMoneyOnTable` do domínio puro.
+### 🧪 Teste de Validação
+- Base R$ 2000 + Plano BLACK (multiplier 1.4) = Preço Ideal R$ 2800
+- Cliente pagando R$ 1200 → Perda Mensal R$ 1600 → Perda Anual R$ 19200
 ### 🏁 Status
 - **HOMOLOGADO** no ambiente Docker (Postgres 5433, Backend 3001, Frontend 3000).
 
