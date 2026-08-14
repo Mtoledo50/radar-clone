@@ -18,7 +18,8 @@ import { CreateCommercialPlanDto } from './dto/create-commercial-plan.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceItemDto } from './dto/create-service-item.dto';
 import { UpdateCommercialPlanDto } from './dto/update-commercial-plan.dto';
-
+import { ResolvedPlanDto } from './dto/resolved-plan.dto'; // ✅ Import correto do DTO
+import { CalculatePricingInsightsDto, PlanWithInsightsDto } from './dto/pricing-insights.dto';
 
 /**
  * Payload tipado do usuário autenticado (via JWT)
@@ -33,11 +34,6 @@ interface UserPayload {
 /**
  * =================================================================
  * 🏢 CommercialPlansController — Gestão do Catálogo
- * =================================================================
- * 🛡️ PROTEÇÃO:
- * - @UseGuards(JwtAuthGuard, RolesGuard): autenticação + autorização
- * - @Roles('ADMIN'): aplicado em operações de escrita (CUD)
- * - Leitura (GET) aberta para qualquer usuário autenticado
  * =================================================================
  */
 @Controller('commercial-plans')
@@ -57,17 +53,31 @@ export class CommercialPlansController {
     };
   }
 
-    // =================================================================
-  // 🚀 SPRINT A2: Endpoint de Planos Resolvidos
-  // =================================================================
-  @Get('resolved')
-  async getResolvedPlans(@CurrentUser() user: UserPayload) {
+  @Get('resolved') // ✅ Rota única e limpa para a Sprint A2
+  async getResolvedPlans(@CurrentUser() user: UserPayload): Promise<{ success: boolean; data: ResolvedPlanDto[] }> {
     return {
       success: true,
       data: await this.service.getResolvedPlans(user.companyId),
     };
   }
-
+  // =================================================================
+  // 💰 SPRINT A2: Endpoint de Insights de Preço (Dinheiro na Mesa)
+  // =================================================================
+  @Post('insights')
+  async getPlansWithInsights(
+    @CurrentUser() user: UserPayload,
+    @Body() dto: CalculatePricingInsightsDto,
+  ): Promise<{ success: boolean; data: PlanWithInsightsDto[] }> {
+    return {
+      success: true,
+      data: await this.service.getPlansWithInsights(
+        user.companyId,
+        dto.baseValue,
+        dto.currentMonthly,
+      ),
+    };
+  }
+  
   @Get('plans/:id')
   async getPlanById(
     @Param('id') id: string,
@@ -97,7 +107,7 @@ export class CommercialPlansController {
   async updatePlan(
     @Param('id') id: string,
     @CurrentUser() user: UserPayload,
-    @Body() dto: UpdateCommercialPlanDto, // ✅ Era CreateCommercialPlanDto
+    @Body() dto: UpdateCommercialPlanDto,
   ) {
     return {
       success: true,

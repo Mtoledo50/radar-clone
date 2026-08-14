@@ -4,6 +4,17 @@
 **Última atualização:** 14/08/2026 (pós-Sprint 31 + Sprint A1)
 
 ---
+## [Sprint A2 - Parte 1] 2026-08 — Integração do Motor de Herança com o Banco
+### ✅ Added
+- Endpoint `GET /commercial-plans/resolved` no `CommercialPlansController`.
+- Método `getResolvedPlans(companyId)` no `CommercialPlansService`.
+- DTO `ResolvedPlanDto` e `ResolvedServiceItemDto` para tipar a resposta enriquecida.
+- Integração do domínio puro (`resolvePlanInheritance`) com queries do Prisma usando `Map` para cache O(1) de itens.
+### 🧠 Decisions
+- Separação de responsabilidades: o banco guarda apenas itens próprios; a herança é calculada em tempo real no backend (ADR-020).
+- Resposta separa `ownItems`, `inheritedItems` e `allItems` para facilitar a renderização no Frontend.
+### 🏁 Status
+- **HOMOLOGADO** no ambiente Docker (Postgres 5433, Backend 3001, Frontend 3000).
 
 ## [Sprint A1] 2026-08 — Motor de Herança de Planos (Domínio Puro)
 
