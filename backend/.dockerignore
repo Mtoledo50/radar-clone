@@ -1,10 +1,6 @@
 node_modules
 .next
 dist
-build
 .env
-.env.*
-!.env.example
-*.log
+.env.local
 .git
-coverage

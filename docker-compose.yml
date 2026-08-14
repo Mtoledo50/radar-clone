@@ -1,64 +1,45 @@
-# ============================================================================
-# RADAR CONTA CERTA — Orquestrador (Sprint 31)
-# Comandos:
-#   docker compose up -d --build   → sobe tudo (1ª vez / após mudanças)
-#   docker compose ps              → status dos containers
-#   docker compose logs -f backend → logs da API
-#   docker compose down            → para tudo (preserva o banco)
-#   docker compose down -v         → para tudo + APAGA o banco do Docker
-# ============================================================================
+version: '3.8'
 
 services:
-  # ---------------- BANCO (isolado do seu Postgres local) ----------------
   postgres:
-    image: postgres:15-alpine
-    container_name: radar-postgres
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: radar
-      POSTGRES_PASSWORD: radar_secret
-      POSTGRES_DB: radar_conta_certa
+      POSTGRES_PASSWORD: radar_pass
+      POSTGRES_DB: radar_db
     ports:
-      # 5433 no host → NÃO briga com seu Postgres local (5432)
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U radar -d radar_conta_certa"]
+      test: ["CMD-SHELL", "pg_isready -U radar -d radar_db"]
       interval: 5s
-      timeout: 3s
-      retries: 10
+      timeout: 5s
+      retries: 5
 
-  # ---------------- API NESTJS ----------------
   backend:
     build: ./backend
-    container_name: radar-backend
     restart: unless-stopped
-    environment:
-      # Dentro da rede Docker, o host do banco é o NOME do serviço
-      DATABASE_URL: postgresql://radar:radar_secret@postgres:5432/radar_conta_certa?schema=public
-      JWT_SECRET: segredo-somente-para-testes-locais
-      JWT_EXPIRATION: 7d
-      PORT: 3001
-      NODE_ENV: production
     ports:
       - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://radar:radar_pass@postgres:5432/radar_db?schema=public
+      NODE_ENV: production
     depends_on:
       postgres:
-        condition: service_healthy   # só sobe quando o banco estiver pronto
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npx prisma generate && node dist/main.js"
 
-  # ---------------- FRONTEND NEXT.JS ----------------
   frontend:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:3001
-    container_name: radar-frontend
+    build: ./frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
     depends_on:
       - backend
 
 volumes:
-  pgdata:   # volume nomeado → o banco sobrevive a reinícios
+  pgdata:

@@ -296,7 +296,7 @@ export default function ProjetosPage() {
                           {project.client && (
                             <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                               <Users className="w-3 h-3" />
-                              {project.client.companyName}
+                              {project.client?.companyName ?? project.client?.name ?? '—'}
                             </p>
                           )}
                         </div>
@@ -380,7 +380,7 @@ export default function ProjetosPage() {
                 <p className="text-sm text-slate-500 mt-1">
                   Tem certeza que deseja excluir{' '}
                   <strong>{deleteConfirm.name}</strong>?
-                  {deleteConfirm.totalTasks > 0 && (
+                  {(deleteConfirm.totalTasks ?? 0) > 0 && (
                     <span className="block mt-2 text-amber-600">
                       ⚠️ Este projeto possui {deleteConfirm.totalTasks} tarefa(s)
                       vinculada(s). Todas devem ser concluídas ou removidas antes

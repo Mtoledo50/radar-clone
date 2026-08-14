@@ -1,276 +1,284 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
-import api from '@/lib/axios';
-import { Project, CreateProjectDto, ProjectStatus, TaskPriority } from '@/types/projects';
+/**
+ * =====================================================================
+ * RADAR CONTA CERTA — FRONTEND — Modal de Projeto (Criar / Editar)
+ * ---------------------------------------------------------------------
+ * Arquivo..: frontend/src/components/projects/ProjectModal.tsx
+ * Sprint...: 31 (Homologação Docker Compose)
+ *
+ * COMPATIBILIDADE:
+ *   A página projetos/page.tsx chama este modal com:
+ *     <ProjectModal open={...} onClose={...} onSave={...} project={...} />
+ *
+ *   Por isso as props são: open, onClose, onSave, project.
+ * =====================================================================
+ */
 
+import { useEffect, useState } from 'react';
+import { Loader2, X } from 'lucide-react';
+import type { CreateProjectDto, Project } from '@/types/projects';
+
+// ---------------------------------------------------------------------
+// TIPO DAS PROPS (compatível com projetos/page.tsx)
+// ---------------------------------------------------------------------
 interface ProjectModalProps {
-  open: boolean;
-  onClose: () => void;
-  onSave: (dto: CreateProjectDto) => Promise<void>;
-  project?: Project | null;
+  open: boolean;                              // Controla visibilidade
+  onClose: () => void;                        // Fecha o modal
+  onSave: (data: CreateProjectDto) => Promise<void> | void;
+  project?: Project | null;                   // Projeto em edição
 }
 
-const COLORS = [
-  '#0d9488', // Teal (padrão)
-  '#f97316', // Laranja
-  '#3b82f6', // Azul
-  '#8b5cf6', // Roxo
-  '#ec4899', // Rosa
-  '#ef4444', // Vermelho
-  '#22c55e', // Verde
-  '#64748b', // Cinza
+// ---------------------------------------------------------------------
+// CLASSE CSS PADRÃO DOS INPUTS (identidade visual Conta Certa)
+// ---------------------------------------------------------------------
+const inputClass =
+  'w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-900 ' +
+  'placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 ' +
+  'focus:border-transparent transition-all bg-white';
+
+// Opções fixas dos selects (iguais aos filtros da página)
+const STATUS_OPTIONS = [
+  { value: 'PLANNING', label: 'Planejamento' },
+  { value: 'ACTIVE', label: 'Ativo' },
+  { value: 'ON_HOLD', label: 'Pausado' },
+  { value: 'COMPLETED', label: 'Concluído' },
+  { value: 'CANCELLED', label: 'Cancelado' },
 ];
 
-export default function ProjectModal({ open, onClose, onSave, project }: ProjectModalProps) {
-  const [saving, setSaving] = useState(false);
-  const [clients, setClients] = useState<{ id: string; companyName: string }[]>([]);
-  const [form, setForm] = useState<CreateProjectDto>({
+const PRIORITY_OPTIONS = [
+  { value: 'LOW', label: 'Baixa' },
+  { value: 'MEDIUM', label: 'Média' },
+  { value: 'HIGH', label: 'Alta' },
+  { value: 'URGENT', label: 'Urgente' },
+];
+
+// ---------------------------------------------------------------------
+// COMPONENTE PRINCIPAL
+// ---------------------------------------------------------------------
+export default function ProjectModal({
+  open,
+  onClose,
+  onSave,
+  project,
+}: ProjectModalProps) {
+  // --- ESTADO DO FORMULÁRIO ---
+  const [form, setForm] = useState({
     name: '',
     description: '',
+    color: '#0d9488',
     status: 'PLANNING',
     priority: 'MEDIUM',
-    clientId: '',
-    startDate: '',
     dueDate: '',
-    color: '#0d9488',
+    budget: '',
   });
+  const [loading, setLoading] = useState(false);
 
+  // --- SINCRONIZA O FORMULÁRIO quando o modal abre para editar ---
   useEffect(() => {
-    if (open) {
-      fetchClients();
-      if (project) {
-        setForm({
-          name: project.name,
-          description: project.description || '',
-          status: project.status,
-          priority: project.priority,
-          clientId: project.clientId || '',
-          startDate: project.startDate ? project.startDate.split('T')[0] : '',
-          dueDate: project.dueDate ? project.dueDate.split('T')[0] : '',
-          color: project.color || '#0d9488',
-        });
-      } else {
-        setForm({
-          name: '',
-          description: '',
-          status: 'PLANNING',
-          priority: 'MEDIUM',
-          clientId: '',
-          startDate: '',
-          dueDate: '',
-          color: '#0d9488',
-        });
-      }
-    }
-  }, [open, project]);
-
-  const fetchClients = async () => {
-    try {
-      const { data } = await api.get('/clients');
-      setClients(data.slice(0, 50));
-    } catch {
-      // Silencioso - clientes são opcionais
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await onSave({
-        ...form,
-        clientId: form.clientId || undefined,
-        startDate: form.startDate || undefined,
-        dueDate: form.dueDate || undefined,
+    if (project) {
+      setForm({
+        name: project.name ?? '',
+        description: project.description ?? '',
+        color: project.color ?? '#0d9488',
+        status: project.status ?? 'PLANNING',
+        priority: project.priority ?? 'MEDIUM',
+        dueDate: project.dueDate ? project.dueDate.split('T')[0] : '',
+        budget: project.budget != null ? String(project.budget) : '',
       });
-    } catch {
-      // Erro já tratado pelo toast no parent
-    } finally {
-      setSaving(false);
+    } else {
+      setForm({
+        name: '',
+        description: '',
+        color: '#0d9488',
+        status: 'PLANNING',
+        priority: 'MEDIUM',
+        dueDate: '',
+        budget: '',
+      });
     }
-  };
+  }, [project, open]);
 
+  // Se o modal está fechado, não renderiza nada
   if (!open) return null;
 
+  // --- ENVIO DO FORMULÁRIO ---
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const payload: CreateProjectDto = {
+        name: form.name,
+        description: form.description || undefined,
+        color: form.color,
+        status: form.status,
+        priority: form.priority,
+        dueDate: form.dueDate || undefined,
+        budget: form.budget !== '' ? Number(form.budget) : undefined,
+      };
+
+      await onSave(payload);
+      // O modal só fecha após onSave (a página controla isso via onClose)
+    } catch (error) {
+      // Erros de API são tratados pela página
+      console.error('Erro ao salvar projeto:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // RENDERIZAÇÃO
+  // ---------------------------------------------------------------------
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <h2 className="text-lg font-semibold text-slate-800">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
+        {/* Cabeçalho fixo */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10 rounded-t-2xl">
+          <h2 className="text-xl font-bold text-slate-900">
             {project ? 'Editar Projeto' : 'Novo Projeto'}
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
+            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {/* Nome */}
+        {/* Formulário */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 flex-1">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              Nome do projeto *
+              Nome do Projeto *
             </label>
             <input
               type="text"
               required
-              maxLength={120}
               value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Ex: Fechamento Mensal Julho"
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className={inputClass}
+              placeholder="Ex: Implantação de ERP — Cliente X"
             />
           </div>
 
-          {/* Descrição */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
               Descrição
             </label>
             <textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
               rows={3}
-              maxLength={1000}
-              value={form.description || ''}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, description: e.target.value }))
-              }
+              className={inputClass}
               placeholder="Descreva o escopo do projeto..."
-              className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
             />
           </div>
 
-          {/* Cliente + Prioridade */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Cliente
+                Cor de Identificação
               </label>
-              <select
-                value={form.clientId || ''}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, clientId: e.target.value }))
-                }
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-              >
-                <option value="">Sem cliente</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.companyName}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={form.color}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  className="w-12 h-10 rounded-lg border border-slate-200 cursor-pointer"
+                />
+                <input
+                  type="text"
+                  value={form.color}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                  placeholder="#0d9488"
+                />
+              </div>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Prioridade
+                Prazo (Due Date)
               </label>
-              <select
-                value={form.priority}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, priority: e.target.value as TaskPriority }))
-                }
-                className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-              >
-                <option value="LOW">Baixa</option>
-                <option value="MEDIUM">Média</option>
-                <option value="HIGH">Alta</option>
-                <option value="URGENT">Urgente</option>
-              </select>
+              <input
+                type="date"
+                value={form.dueDate}
+                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                className={inputClass}
+              />
             </div>
           </div>
 
-          {/* Status + Datas */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Status
               </label>
               <select
                 value={form.status}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, status: e.target.value as ProjectStatus }))
-                }
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                className={inputClass}
               >
-                <option value="PLANNING">Planejamento</option>
-                <option value="ACTIVE">Ativo</option>
-                <option value="ON_HOLD">Pausado</option>
-                <option value="COMPLETED">Concluído</option>
-                <option value="CANCELLED">Cancelado</option>
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Início
+                Prioridade
               </label>
-              <input
-                type="date"
-                value={form.startDate || ''}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, startDate: e.target.value }))
-                }
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Prazo
-              </label>
-              <input
-                type="date"
-                value={form.dueDate || ''}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, dueDate: e.target.value }))
-                }
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
+              <select
+                value={form.priority}
+                onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                className={inputClass}
+              >
+                {PRIORITY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {/* Cor */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Cor de identificação
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Orçamento (R$)
             </label>
-            <div className="flex gap-2">
-              {COLORS.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setForm((f) => ({ ...f, color }))}
-                  className={`w-8 h-8 rounded-full transition-transform ${
-                    form.color === color
-                      ? 'ring-2 ring-offset-2 ring-teal-500 scale-110'
-                      : 'hover:scale-105'
-                  }`}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-            </div>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.budget}
+              onChange={(e) => setForm({ ...form, budget: e.target.value })}
+              className={inputClass}
+              placeholder="0,00"
+            />
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+          {/* Rodapé fixo */}
+          <div className="flex justify-end gap-3 pt-6 border-t border-slate-200 sticky bottom-0 bg-white mt-auto">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              className="px-5 py-2.5 text-slate-700 font-medium hover:bg-slate-100 rounded-lg transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50"
+              disabled={loading}
+              className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
-              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-              {project ? 'Salvar Alterações' : 'Criar Projeto'}
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {loading ? 'Salvando...' : project ? 'Atualizar' : 'Criar Projeto'}
             </button>
           </div>
         </form>
