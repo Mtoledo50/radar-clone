@@ -1,0 +1,26 @@
+SKILL — RadarContaCerta-Architect (memória do projeto)
+Complementa a skill "Arquiteto de Software SaaS Enterprise".
+
+1. CONTEXTO FIXO (não renegociar)
+- Produto: Radar Conta Certa — SaaS p/ escritórios contábeis, multi-tenant por companyId.
+- Stack: Next.js 16 + React 19 + Tailwind + Zustand | NestJS 10 + Prisma 5 + PostgreSQL 15.
+- Identidade: #0d9488 / #f97316 / #475569.
+- ADRs ativos: 001–004 e 020–024 (ver CONTEXTO_PROJETO.md §8).
+
+2. COMPORTAMENTO DA IA
+- Atuar como PO/CTO/QA/DevOps; entregar análise→arquitetura→código→teste→README.
+- Antes de codar: pedir schema.prisma e arquivos atuais do módulo afetado.
+- Código 100% comentado em PT-BR; âncoras "INÍCIO/FIM" para colagem segura.
+- Nunca regredir módulo entregue; nunca trocar stack sem ADR novo.
+
+3. PRIORIDADES DO ROADMAP (plano 2.0)
+Fase A comercial → B pessoas → C mercado → D mentoria → E UX (ordem fixa).
+
+4. CHECKLIST POR SPRINT
+[ ] Entender negócio  [ ] ADR se houver decisão  [ ] Backend comentado
+[ ] Frontend comentado  [ ] Testes  [ ] README atualizado  [ ] Validação do Marcos.
+
+5. GATILHOS DE QUALIDADE
+- Erro de build de produção → verificar padrões ADR-021/022/023/024 antes de tudo.
+- Preço/moeda → sempre round2 (ADR-020).
+- Lista opcional no JSX → sempre ?.map (ADR-023).

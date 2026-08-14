@@ -1,116 +1,64 @@
-# =================================================================
-# 🐳 RADAR CONTA CERTA — Docker Compose (Sprint 31)
-# =================================================================
-# Uso:
-#   docker compose up -d --build    # primeira vez (compila ~3-4min)
-#   docker compose up -d            # vezes seguintes
-#   docker compose logs -f          # acompanhar logs
-#   docker compose down             # parar (mantém dados)
-#   docker compose down -v          # ⚠️ APAGA o banco
-# =================================================================
-
-# version: '3.8'
+# ============================================================================
+# RADAR CONTA CERTA — Orquestrador (Sprint 31)
+# Comandos:
+#   docker compose up -d --build   → sobe tudo (1ª vez / após mudanças)
+#   docker compose ps              → status dos containers
+#   docker compose logs -f backend → logs da API
+#   docker compose down            → para tudo (preserva o banco)
+#   docker compose down -v         → para tudo + APAGA o banco do Docker
+# ============================================================================
 
 services:
-  # =================================================================
-  # 🗄️ POSTGRES 16 (Alpine — leve e seguro)
-  # =================================================================
+  # ---------------- BANCO (isolado do seu Postgres local) ----------------
   postgres:
-    image: postgres:16-alpine
+    image: postgres:15-alpine
     container_name: radar-postgres
-    restart: always
-    ports:
-      - "5434:5432"    # Mantém compatibilidade com seu dev local
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: radar_user
-      POSTGRES_PASSWORD: radar_password
-      POSTGRES_DB: radar_db
+      POSTGRES_USER: radar
+      POSTGRES_PASSWORD: radar_secret
+      POSTGRES_DB: radar_conta_certa
+    ports:
+      # 5433 no host → NÃO briga com seu Postgres local (5432)
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U radar_user -d radar_db"]
+      test: ["CMD-SHELL", "pg_isready -U radar -d radar_conta_certa"]
       interval: 5s
       timeout: 3s
       retries: 10
-    networks:
-      - radar-network
 
-  # =================================================================
-  # 🔧 MIGRATE (one-shot) — versiona o banco ANTES do backend subir
-  # =================================================================
-  migrate:
-    build:
-      context: ./backend
-      target: builder
-    container_name: radar-migrate
-    command: sh -c "npx prisma migrate deploy"
-    environment:
-      DATABASE_URL: postgresql://radar_user:radar_password@postgres:5432/radar_db
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - radar-network
-
-  # =================================================================
-  # 🧠 BACKEND (NestJS 10)
-  # =================================================================
+  # ---------------- API NESTJS ----------------
   backend:
-    build:
-      context: ./backend
-      target: runner
+    build: ./backend
     container_name: radar-backend
-    restart: always
-    ports:
-      - "3001:3001"
+    restart: unless-stopped
     environment:
-      # ⚠️ Dentro da rede Docker, usa o NOME DO SERVIÇO (postgres), não localhost
-      DATABASE_URL: postgresql://radar_user:radar_password@postgres:5432/radar_db
-      JWT_SECRET: ${JWT_SECRET:-troque_por_uma_chave_forte_em_producao}
+      # Dentro da rede Docker, o host do banco é o NOME do serviço
+      DATABASE_URL: postgresql://radar:radar_secret@postgres:5432/radar_conta_certa?schema=public
+      JWT_SECRET: segredo-somente-para-testes-locais
       JWT_EXPIRATION: 7d
       PORT: 3001
       NODE_ENV: production
-    volumes:
-      - uploads:/app/uploads
+    ports:
+      - "3001:3001"
     depends_on:
       postgres:
-        condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
-    networks:
-      - radar-network
+        condition: service_healthy   # só sobe quando o banco estiver pronto
 
-  # =================================================================
-  # ⚛️ FRONTEND (Next.js 16 — standalone output)
-  # =================================================================
+  # ---------------- FRONTEND NEXT.JS ----------------
   frontend:
     build:
       context: ./frontend
-      target: runner
       args:
-        # Em produção, troque para: https://api.contacerta.com.br
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+        NEXT_PUBLIC_API_URL: http://localhost:3001
     container_name: radar-frontend
-    restart: always
+    restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      NODE_ENV: production
     depends_on:
       - backend
-    networks:
-      - radar-network
 
-# =================================================================
-# 💾 VOLUMES PERSISTENTES
-# =================================================================
 volumes:
-  postgres_data:
-  uploads:
-
-# =================================================================
-# 🌐 REDE INTERNA
-# =================================================================
-networks:
-  radar-network:
-    driver: bridge
+  pgdata:   # volume nomeado → o banco sobrevive a reinícios

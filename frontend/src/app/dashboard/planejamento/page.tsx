@@ -15,12 +15,16 @@
  * 3. Feedback Visual: Notificações Toast elegantes (Sonner) para todas as ações.
  * 4. Exportação: Geração de CSV com suporte a UTF-8 + BOM (acentos corretos no Excel).
  * 5. Visualização: Barras de progresso animadas e cards de métricas em tempo real.
+ * 
+ * CORREÇÃO APLICADA:
+ * - Função exportToCSV implementada diretamente no arquivo (linha 30-60)
+ * - Remove dependência de arquivo externo que estava quebrando o build
+ * - Garante compatibilidade com TypeScript strict mode do Next.js 16
  */
 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/axios';
-import { exportToCSV } from '@/lib/exportToCSV';
 import { toast } from 'sonner';
 import {
   Target, CheckCircle, Clock, Calendar, Plus, Search,
@@ -28,7 +32,84 @@ import {
 } from 'lucide-react';
 
 // =================================================================
-// 1. DEFINIÇÃO DE TIPOS (TypeScript)
+// 1. FUNÇÃO DE EXPORTAÇÃO CSV (Implementação Inline)
+// =================================================================
+/**
+ * Exporta dados para CSV com suporte a UTF-8 + BOM
+ * @param data - Array de objetos a serem exportados
+ * @param filename - Nome do arquivo (sem extensão .csv)
+ * 
+ * POR QUE INLINE?
+ * O arquivo exportToCSV.ts não foi encontrado no projeto, causando erro de build.
+ * Esta implementação resolve o problema e mantém a funcionalidade completa.
+ * 
+ * DECISÃO TÉCNICA (ADR-002):
+ * Usamos BOM (\uFEFF) no início do arquivo para forçar o Excel a reconhecer UTF-8,
+ * evitando quebras de acentos em palavras como "Contábil", "Financeiro", etc.
+ */
+function exportToCSV(data: any[], filename: string): void {
+  // Validação: se não há dados, não gera arquivo
+  if (!data || data.length === 0) {
+    toast.warning('Nenhum dado disponível para exportar');
+    return;
+  }
+
+  // Extrai os cabeçalhos (keys) do primeiro objeto
+  const headers = Object.keys(data[0]);
+
+  // Constrói as linhas do CSV
+  const csvRows = data.map((row) => {
+    return headers
+      .map((header) => {
+        let value = row[header];
+        
+        // Formata datas para padrão brasileiro (DD/MM/YYYY)
+        if (header.toLowerCase().includes('date') && value) {
+          value = new Date(value).toLocaleDateString('pt-BR');
+        }
+        
+        // Escapa aspas duplas e envolve o valor em aspas se necessário
+        const stringValue = String(value ?? '');
+        const needsQuotes = stringValue.includes(',') || 
+                           stringValue.includes('"') || 
+                           stringValue.includes('\n');
+        
+        if (needsQuotes) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      })
+      .join(',');
+  });
+
+  // Monta o conteúdo final com cabeçalhos + dados
+  const csvContent = [
+    headers.join(','), // Linha de cabeçalhos
+    ...csvRows          // Linhas de dados
+  ].join('\n');
+
+  // Adiciona BOM (Byte Order Mark) para UTF-8 compatível com Excel
+  const BOM = '\uFEFF';
+  const finalContent = BOM + csvContent;
+
+  // Cria o blob e dispara o download
+  const blob = new Blob([finalContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  
+  // Gera nome do arquivo com data atual
+  const date = new Date().toISOString().split('T')[0];
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}_${date}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+// =================================================================
+// 2. DEFINIÇÃO DE TIPOS (TypeScript)
 // =================================================================
 // Garante que os dados trafeguem com a estrutura correta, evitando erros de 'undefined'
 
@@ -49,7 +130,7 @@ interface Metrics {
 }
 
 // =================================================================
-// 2. COMPONENTE PRINCIPAL
+// 3. COMPONENTE PRINCIPAL
 // =================================================================
 export default function PlanejamentoPage() {
   const { user } = useAuthStore();
@@ -85,7 +166,7 @@ export default function PlanejamentoPage() {
     "focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-white";
 
   // =================================================================
-  // 3. CICLO DE VIDA: CARREGAMENTO INICIAL
+  // 4. CICLO DE VIDA: CARREGAMENTO INICIAL
   // =================================================================
   useEffect(() => { 
     loadData(); 
@@ -113,7 +194,7 @@ export default function PlanejamentoPage() {
   }
 
   // =================================================================
-  // 4. LÓGICA DE NEGÓCIO E MANIPULAÇÃO DE DADOS
+  // 5. LÓGICA DE NEGÓCIO E MANIPULAÇÃO DE DADOS
   // =================================================================
 
   // Filtra a lista em tempo real conforme o usuário digita na busca
@@ -195,7 +276,10 @@ export default function PlanejamentoPage() {
           }
         },
       },
-      cancel: { label: 'Cancelar' },
+      cancel: { 
+        label: 'Cancelar', 
+        onClick: () => {} // Ação vazia: apenas fecha o toast
+      },
       style: { 
         background: '#ffffff', 
         color: '#0f172a', 
@@ -213,6 +297,7 @@ export default function PlanejamentoPage() {
       return;
     }
     
+    // ✅ CORREÇÃO: Chamada com 2 argumentos (dados e nome do arquivo)
     exportToCSV(dataToExport, 'planejamento_estrategico_conta_certa');
     toast.success(`${dataToExport.length} meta(s) exportada(s) com sucesso!`);
   }
@@ -227,7 +312,7 @@ export default function PlanejamentoPage() {
   }
 
   // =================================================================
-  // 5. RENDERIZAÇÃO CONDICIONAL (Estados de Carregamento e Erro)
+  // 6. RENDERIZAÇÃO CONDICIONAL (Estados de Carregamento e Erro)
   // =================================================================
   if (loading) {
     return (
@@ -254,7 +339,7 @@ export default function PlanejamentoPage() {
   }
 
   // =================================================================
-  // 6. RENDERIZAÇÃO: TELA PRINCIPAL
+  // 7. RENDERIZAÇÃO: TELA PRINCIPAL
   // =================================================================
   return (
     <div className="space-y-6">
@@ -515,7 +600,7 @@ export default function PlanejamentoPage() {
 }
 
 // =================================================================
-// 7. COMPONENTES AUXILIARES
+// 8. COMPONENTES AUXILIARES
 // =================================================================
 
 /**
