@@ -8,6 +8,8 @@ import { CreateCommercialPlanDto } from './dto/create-commercial-plan.dto';
 import { UpdateCommercialPlanDto } from './dto/update-commercial-plan.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceItemDto } from './dto/create-service-item.dto';
+import { resolvePlanInheritance, PlanInput } from './domain/plan-inheritance';
+import { ResolvedPlanDto, ResolvedServiceItemDto } from './dto/resolved-plan.dto';
 
 /**
  * =================================================================
@@ -395,6 +397,94 @@ export class CommercialPlansService {
       }
 
       return results;
+    });
+  }
+
+  // =================================================================
+  //  SPRINT A2: Planos Resolvidos (Herança + Dinheiro na Mesa)
+  // =================================================================
+  /**
+   * Busca os planos, aplica o motor de herança (domínio A1) e devolve
+   * a estrutura enriquecida para o Frontend.
+   * 
+   * 🧠 DECISÃO TÉCNICA (Performance):
+   * Usamos um Map (itemMap) para cachear os itens em memória O(1).
+   * Isso evita que tenhamos que fazer N queries adicionais ou loops
+   * aninhados complexos para resolver os IDs retornados pelo domínio.
+   */
+  async getResolvedPlans(companyId: string): Promise<ResolvedPlanDto[]> {
+    // 1. Buscar dados brutos do banco (mesma query do getPlans)
+    const dbPlans = await this.prisma.commercialPlan.findMany({
+      where: { companyId, deletedAt: null },
+      orderBy: { multiplier: 'asc' },
+      include: {
+        planItems: {
+          include: {
+            serviceItem: {
+              include: { category: true },
+            },
+          },
+        },
+      },
+    });
+
+    // 2. Mapear para a interface do Domínio (PlanInput)
+    const domainPlans: PlanInput[] = dbPlans.map((p) => ({
+      id: p.id,
+      name: p.name,
+      multiplier: p.multiplier,
+      independent: p.isIndependent, // 🔄 DB usa isIndependent, Domínio usa independent
+      ownItemIds: p.planItems.map((pi) => pi.serviceItemId),
+    }));
+
+    // 3.  Aplicar o Motor de Herança (Sprint A1)
+    const resolvedDomainPlans = resolvePlanInheritance(domainPlans);
+
+    // 4. Criar um "Dicionário" (Map) de itens para lookup rápido O(1)
+    const itemMap = new Map<string, ResolvedServiceItemDto>();
+    dbPlans.forEach((p) => {
+      p.planItems.forEach((pi) => {
+        itemMap.set(pi.serviceItemId, {
+          id: pi.serviceItem.id,
+          name: pi.serviceItem.name,
+          categoryId: pi.serviceItem.categoryId,
+          categoryName: pi.serviceItem.category.name,
+          isInherited: false, // Default, será sobrescrito no passo 5
+        });
+      });
+    });
+
+    // 5. Montar o DTO final enriquecido
+    return resolvedDomainPlans.map((r) => {
+      // Helper para buscar item e marcar se é herdado
+      const resolveItem = (id: string, isInherited: boolean): ResolvedServiceItemDto | null => {
+        const item = itemMap.get(id);
+        if (!item) return null; // Segurança: item pode ter sido deletado
+        return { ...item, isInherited };
+      };
+
+      return {
+        id: r.id,
+        name: r.name,
+        multiplier: r.multiplier,
+        isIndependent: r.independent,
+        order: r.order,
+        badge: (dbPlans.find((p) => p.id === r.id) as any)?.badge,
+        color: (dbPlans.find((p) => p.id === r.id) as any)?.color,
+        description: (dbPlans.find((p) => p.id === r.id) as any)?.description,
+        
+        ownItems: r.ownItemIds
+          .map((id) => resolveItem(id, false))
+          .filter((item): item is ResolvedServiceItemDto => item !== null),
+          
+        inheritedItems: r.inheritedItemIds
+          .map((id) => resolveItem(id, true))
+          .filter((item): item is ResolvedServiceItemDto => item !== null),
+          
+        allItems: r.allItemIds
+          .map((id) => resolveItem(id, r.inheritedItemIds.includes(id)))
+          .filter((item): item is ResolvedServiceItemDto => item !== null),
+      };
     });
   }
 }

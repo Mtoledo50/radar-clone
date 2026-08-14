@@ -1,44 +1,133 @@
-# Changelog — Radar Conta Certa
-Formato: Keep a Changelog. Sprints 1–30 reconstruídos da documentação do projeto.
+# 📋 CHANGELOG — Radar Conta Certa
 
-## [Sprint A1 — Plano 2.0] 2026-08
-### Added
-- Domínio puro de herança de planos e matemática de preço (3 arquivos + 6 testes).
-### Decisions
-- ADR-020 (herança em memória, independente isolado, round2).
+**Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)  
+**Última atualização:** 14/08/2026 (pós-Sprint 31 + Sprint A1)
 
-## [Sprint 31] 2026-08 — Containerização
-### Added
-- docker-compose.yml (postgres 5433, backend 3001, frontend 3000, volume pgdata).
-- backend/Dockerfile (multi-stage + `prisma migrate deploy` no boot), backend/.dockerignore.
-- frontend/Dockerfile (standalone), frontend/.dockerignore, next.config `output: "standalone"`.
-### Fixed (erros TS do build de produção)
-- revisao/page.tsx: +handleSelectDebit/Credit e handleClearDebit/Credit.
-- revisao/page.tsx: Lucide `title` → wrapper `<span title>` (ADR-021).
+---
+
+## [Sprint A1] 2026-08 — Motor de Herança de Planos (Domínio Puro)
+
+### ✅ Added
+- Camada de domínio puro para herança de planos comerciais (`backend/src/commercial-plans/domain/`).
+- Função `resolvePlanInheritance(plans, items)`: calcula itens herdados em memória com multiplicador crescente.
+- Função `calculatePricingInsights(resolvedPlans, baseValue)`: valor de referência, % vs base, dinheiro na mesa (mensal/anual).
+- Flag `isIndependent`: planos marcados não herdam e não doam itens.
+- Ordenação por `multiplier` (menor → maior) para derivar cadeia de herança.
+- 6 testes unitários verdes (`backend/src/commercial-plans/domain/tests/plan-inheritance.spec.ts`).
+
+### 🧠 Decisions
+- **ADR-020:** Herança derivada em memória (banco guarda apenas itens próprios de cada plano).
+- Preços com `round2` (sem erro de ponto flutuante).
+- Domínio puro sem dependência de Prisma/HTTP (testável e reutilizável).
+
+###  Arquivos Criados
+- `backend/src/commercial-plans/domain/plan-inheritance.ts`
+- `backend/src/commercial-plans/domain/pricing-insights.ts`
+- `backend/src/commercial-plans/domain/tests/plan-inheritance.spec.ts`
+
+---
+
+## [Sprint 31] 2026-08 — Containerização (Docker Compose)
+
+### ✅ Added
+- `docker-compose.yml` na raiz: Postgres 5433, Backend 3001, Frontend 3000, volume `pgdata`.
+- `backend/Dockerfile`: multi-stage com `node:20-slim` + OpenSSL (resolve incompatibilidade Prisma/Alpine).
+- `backend/.dockerignore`: exclui `node_modules`, `.env`, `dist`.
+- `frontend/Dockerfile`: multi-stage com `output: "standalone"` do Next.js.
+- `frontend/.dockerignore`: exclui `node_modules`, `.next`, `.env.local`.
+- `frontend/next.config.ts`: adicionado `output: "standalone"`.
+- Comando de boot do backend: `npx prisma migrate deploy && node dist/main.js` (self-healing).
+
+###  Fixed (Erros de Build de Produção)
+- `revisao/page.tsx`: adicionadas funções `handleSelectDebit/Credit` e `handleClearDebit/Credit`.
+- `revisao/page.tsx`: Lucide `title` → wrapper `<span title>` (ADR-021).
 - Removido `layout copy.tsx` (backup quebrava o build; ADR-022).
-- layout.tsx: `item.children?.map` (ADR-023).
-- planejamento/page.tsx: Sonner cancel com `onClick` (ADR-024).
+- `layout.tsx`: `item.children?.map` com optional chaining (ADR-023).
+- `planejamento/page.tsx`: Sonner `cancel` com `onClick={() => {}}` (ADR-024).
+- `columnExport.ts`: interface `ColumnDef` adicionada propriedade `always?: boolean`.
+- `parseInitialStock.ts`: interface `InitialStockItem` alinhada com modal (`description`, `averageCost`, `unit`, `ncm`, `totalCost`).
+- `login/page.tsx`: envolvido em `<Suspense>` para satisfazer `useSearchParams()` no Next.js 16.
+
+### 🧠 Decisions
+- Postgres do Docker na porta **5433** (não conflita com Postgres local 5432).
+- Backend aplica `prisma migrate deploy` no boot (self-healing).
+- `NEXT_PUBLIC_API_URL` embutido no build (browser fala com `localhost:3001`).
+- Troca de base Alpine para Debian-slim no backend (Prisma exige glibc + OpenSSL).
+
+###  Arquivos Criados/Alterados
+- `docker-compose.yml`
+- `backend/Dockerfile`, `backend/.dockerignore`
+- `frontend/Dockerfile`, `frontend/.dockerignore`
+- `frontend/next.config.ts`
+- `frontend/src/lib/columnExport.ts`
+- `frontend/src/lib/parseInitialStock.ts`
+- `frontend/src/components/fiscal/ColumnPickerModal.tsx`
+- `frontend/src/components/fiscal/InitialStockImportModal.tsx`
+- `frontend/src/app/login/page.tsx`
+
+---
 
 ## [Sprints 26–30] 2026 — Hardening e UX
-- Soft deletes, validações de DTO, índices, empty states, confirmações Sonner,
-  paginação/otimizações, tendências de propostas.
 
-## [Sprints 22–25] 2026 — Módulos operacionais (vantagem competitiva)
-- Fiscal (NF-e/estoque/ICMS/SPED) • Bancário (extrato/conciliação) •
-  Operações (projetos/tarefas) • SCI/contábil.
+### ✅ Added
+- Soft deletes em entidades críticas (preserva histórico contábil).
+- Validações de DTO com `class-validator`.
+- Índices compostos no Prisma (performance).
+- Empty states em todas as telas.
+- Confirmações Sonner em ações destrutivas.
+- Paginação e otimizações de queries.
+- Tendências de propostas (gráfico de evolução).
 
-## [Sprints 18–21] 2026 — Ciclo comercial v1
-- Carteira de Clientes (MRR/Churn/Ticket) • Propostas (wizard, link público,
-  tracking) • PDF/Excel de propostas • Regras de horas + calculadora.
+---
 
-## [Sprints 13–17] 2026 — BI e administração
-- DRE gerencial • Ponto fora da curva • Simulador tributário •
-  Planos comerciais v1 (multiplicadores) • Painel Admin.
+## [Sprints 22–25] 2026 — Módulos Operacionais (Vantagem Competitiva)
 
-## [Sprints 8–12] 2026 — Identidade e módulos de gestão
-- Rebranding Conta Certa + Sonner • Precificação • Planejamento •
-  Minha Empresa • CSV UTF-8+BOM (ADR-002).
+### ✅ Added
+- **Fiscal:** NF-e de entrada, estoque Kardex, apuração ICMS, SPED Bloco H.
+- **Bancário:** extrato CSV, classificação com memória, naturezas por cliente, fechamento com trava.
+- **Operações:** projetos e tarefas (Kanban multi-tenant).
+- **Contábil:** plano de contas SCI 90113, lançamentos, conciliação, exportação SCI.
+
+---
+
+## [Sprints 18–21] 2026 — Ciclo Comercial v1
+
+### ✅ Added
+- Carteira de Clientes (MRR/Churn/Ticket).
+- Propostas (wizard 5 passos, link público, tracking).
+- PDF/Excel de propostas.
+- Regras de horas + calculadora de precificação.
+
+---
+
+## [Sprints 13–17] 2026 — BI e Administração
+
+### ✅ Added
+- DRE gerencial.
+- Ponto fora da curva (anomalias estatísticas).
+- Simulador tributário (Simples × Presumido × Real).
+- Planos comerciais v1 (multiplicadores).
+- Painel Admin (visão geral + catálogo).
+
+---
+
+## [Sprints 8–12] 2026 — Identidade e Módulos de Gestão
+
+### ✅ Added
+- Rebranding Conta Certa + Sonner (toasts).
+- Precificação por horas + margem.
+- Planejamento estratégico (OKRs, metas).
+- Minha Empresa (perfil do escritório).
+- CSV UTF-8+BOM (ADR-002).
+
+---
 
 ## [Sprints 1–7] 2026 — Fundação
-- Monorepo • Auth multi-tenant JWT+refresh • Frontend Next.js+Zustand •
-- Dashboard executivo (gráficos CSS, ADR-001) • Pessoas/Turnover • Clientes.
+
+### ✅ Added
+- Monorepo (backend/ + frontend/).
+- Auth multi-tenant JWT+refresh.
+- Frontend Next.js+Zustand.
+- Dashboard executivo (gráficos CSS, ADR-001).
+- Pessoas/Turnover.
+- Clientes (CRUD + importação em massa).

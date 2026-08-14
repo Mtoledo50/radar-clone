@@ -57,6 +57,17 @@ export class CommercialPlansController {
     };
   }
 
+    // =================================================================
+  // 🚀 SPRINT A2: Endpoint de Planos Resolvidos
+  // =================================================================
+  @Get('resolved')
+  async getResolvedPlans(@CurrentUser() user: UserPayload) {
+    return {
+      success: true,
+      data: await this.service.getResolvedPlans(user.companyId),
+    };
+  }
+
   @Get('plans/:id')
   async getPlanById(
     @Param('id') id: string,
