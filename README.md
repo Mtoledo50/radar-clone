@@ -1,6 +1,6 @@
 # 🎯 RADAR CONTA CERTA
 
-### O cérebro digital do escritório contábil
+**O cérebro digital do escritório contábil**
 
 <div align="center">
 
@@ -9,91 +9,75 @@
 ![NestJS](https://img.shields.io/badge/NestJS-10-red?style=for-the-badge)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge)
 ![Prisma](https://img.shields.io/badge/Prisma-5-2d3748?style=for-the-badge)
-![Sprints](https://img.shields.io/badge/Sprints_Entregues-30-f97316?style=for-the-badge)
+![Sprints Entregues](https://img.shields.io/badge/Sprints_Entregues-31-f97316?style=for-the-badge)
 
-**Um SaaS que transforma 4 horas de trabalho manual em 15 minutos** —
-importando extratos e notas fiscais, classificando sozinho, conciliando com inteligência
-e entregando DREs prontos para o cliente e para a diretoria.
+Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando extratos e notas fiscais, classificando sozinho, conciliando com inteligência e entregando DREs prontos para o cliente e para a diretoria.
 
-[Para Diretores](#-resumo-executivo-para-quem-não-programa) •
-[Mapa do Sistema](#️-mapa-do-sistema) •
-[Jornada das Sprints](#-jornada-de-desenvolvimento-sprints-130) •
-[Arquitetura](#️-arquitetura-para-a-equipe-técnica) •
-[Roadmap](#️-roadmap-onde-chegamos-e-onde-vamos)
+[Para Diretores](#-resumo-executivo-para-quem-não-programa) • [Mapa do Sistema](#️-mapa-do-sistema) • [Jornada das Sprints](#-jornada-de-desenvolvimento-sprints-131) • [Arquitetura](#️-arquitetura-para-a-equipe-técnica) • [Roadmap](#️-roadmap-onde-chegamos-e-onde-vamos)
 
 </div>
 
 ---
 
-## 📌 Resumo Executivo *(para quem não programa)*
+## 📌 Resumo Executivo (para quem não programa)
 
-> 💡 **Em uma frase:** o Radar Conta Certa é um sistema na nuvem (SaaS) que
-> **automatiza a rotina contábil de ponta a ponta** — do extrato do banco ao relatório
-> final do cliente — com segurança, rastreabilidade e inteligência artificial de regras.
+💡 **Em uma frase:** o Radar Conta Certa é um sistema na nuvem (SaaS) que automatiza a rotina contábil de ponta a ponta — do extrato do banco ao relatório final do cliente — com segurança, rastreabilidade e inteligência artificial de regras.
 
 ### 😫 Antes (como é hoje nos escritórios)
 
 | Atividade | Tempo mensal | Risco |
-|---|---|---|
+|-----------|--------------|-------|
 | Digitar extrato bancário planilha por planilha | 2–4 h por cliente | Erros de digitação |
 | Classificar cada lançamento "na mão" | 1–2 h por cliente | Inconsistência |
 | Conferir Pix × Nota Fiscal olho a olho | 1–3 h por cliente | Pagamentos esquecidos |
 | Montar DRE no Excel | 1 h por cliente | Fórmulas quebradas |
 
-### 🤖 Com o Radar Conta Certa
+###  Com o Radar Conta Certa
 
 | Atividade | Tempo | Como |
-|---|---|---|
-| Importar extrato | **10 segundos** | 1 clique no CSV do banco |
-| Classificar lançamentos | **automático** | O sistema aprende com o contador |
-| Conferir Banco × NF-e | **automático** | Motor de score com confiança % |
-| DRE pronto p/ cliente | **1 clique** | Exporta CSV / imprime profissional |
+|-----------|-------|------|
+| Importar extrato | 10 segundos | 1 clique no CSV do banco |
+| Classificar lançamentos | automático | O sistema aprende com o contador |
+| Conferir Banco × NF-e | automático | Motor de score com confiança % |
+| DRE pronto p/ cliente | 1 clique | Exporta CSV / imprime profissional |
 
 ### 🔢 Resultados reais medidos (cliente-piloto: Academia do Renan)
 
-```diff
-+ 74 transações importadas e classificadas em segundos (junho/2026)
-+ DRE fechado: Receita R$ 9.404,71 × Despesas R$ 10.832,75 (bate com o banco)
-+ Julho/2026: 90% classificado SOZINHO pela memória de aprendizado
-+ Conciliação Banco × NF-e com sugestões de 80–90% de confiança
-```
+- ✅ +74 transações importadas e classificadas em segundos (junho/2026)
+- ✅ DRE fechado: Receita R$ 9.404,71 × Despesas R$ 10.832,75 (bate com o banco)
+- ✅ Julho/2026: 90% classificado SOZINHO pela memória de aprendizado
+- ✅ Conciliação Banco × NF-e com sugestões de 80–90% de confiança
 
 ---
 
 ## 🗺️ Mapa do Sistema
+┌─────────────────────────────────────────────────────────────┐
+│ OPERACIONAL │
+│ Dashboard → Pessoas & Turnover → Clientes & CRM → Projetos │
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ COMERCIAL │
+│ Precificação → Propostas & Planos → Motor de Herança (A1) │
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ FISCAL │
+│ NF-e de Entrada → Estoque Kardex → Apuração ICMS → SPED │
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ BANCÁRIO │
+│ Extrato CSV → Classificação c/ Memória → DRE Bancário │
+│ → Fechamento do Mês → Conciliação Banco × NF-e │
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ CONTÁBIL │
+│ Plano de Contas SCI → Lançamentos → Ponte Bancário→Contábil│
+│ → DRE Oficial do Cliente → Exportação SCI │
+└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ INTELIGÊNCIA (BI) │
+│ DRE do Escritório → Ponto Fora da Curva → Simulador Trib. │
+└─────────────────────────────────────────────────────────────┘
 
-```mermaid
-flowchart LR
-    subgraph OPERACIONAL["📊 Operacional"]
-        DASH[Dashboard] --> PESSOAS[Pessoas & Turnover]
-        DASH --> CLIENTES[Clientes & CRM]
-        DASH --> PROJ[Projetos & Tarefas]
-    end
-    subgraph COMERCIAL["💼 Comercial"]
-        PRECO[Precificação] --> PROP[Propostas & Planos]
-    end
-    subgraph FISCAL["🧾 Fiscal"]
-        NFE[NF-e de Entrada] --> EST[Estoque Kardex]
-        EST --> ICMS[Apuração ICMS]
-        ICMS --> SPED[SPED Bloco H]
-    end
-    subgraph BANCARIO["🏦 Bancário"]
-        EXT[Extrato CSV] --> CLASS[Classificação c/ Memória]
-        CLASS --> DREB[DRE Bancário]
-        DREB --> FECHA[Fechamento do Mês]
-    end
-    subgraph CONTABIL["📒 Contábil"]
-        FECHA -->|promoção| DOB[Partidas Dobradas]
-        DOB --> DREO[DRE Oficial]
-        NFE --> CONC[Conciliação Banco × NF-e]
-        FECHA --> CONC
-    end
-    subgraph BI["📈 Inteligência"]
-        DREE[DRE do Escritório]
-        OUT[Ponto Fora da Curva]
-        SIM[Simulador Tributário]
-    end
-```
 
 ---
 
@@ -101,7 +85,7 @@ flowchart LR
 
 ### 🔐 Segurança & Plataforma
 - [x] Login com JWT + refresh token e proteção de rotas
-- [x] **Multi-tenant**: cada escritório vê APENAS os seus dados (`companyId`)
+- [x] Multi-tenant: cada escritório vê APENAS os seus dados (`companyId`)
 - [x] Papéis de acesso (Super Admin, Admin, Gerente, Usuário, Cliente)
 - [x] Módulos liberados por plano de assinatura (`allowedModules`)
 
@@ -110,258 +94,205 @@ flowchart LR
 - [x] Gráficos nativos em CSS puro (zero dependências pesadas)
 
 ### 👥 Pessoas & Clientes
-- [x] CRUD de colaboradores + **Turnover automático** por setor
+- [x] CRUD de colaboradores + Turnover automático por setor
 - [x] Carteira de clientes com honorários, status e ticket médio
-- [x] **Importação em massa** da carteira (~100 clientes de uma planilha) sem duplicar
+- [x] Importação em massa da carteira (~100 clientes de uma planilha) sem duplicar
 
-### 💰 Comercial
-- [x] Precificação por horas + margem • Planos e propostas com link público
+### 💼 Comercial
+- [x] Precificação por horas + margem
+- [x] Planos e propostas com link público
+- [x] **Motor de Herança de Planos** (Sprint A1): planos herdam itens automaticamente
 - [x] CRM com funil, motivos de perda e taxa de conversão
 
-### 🧾 Fiscal *(Sprints 8–19)*
+### 🧾 Fiscal (Sprints 8–20)
 - [x] Upload de NF-e em lote com parser próprio de XML
-- [x] **Estoque Kardex** com custo médio por replay e saldo inicial importado
-- [x] Apuração de ICMS mensal + **SPED Bloco H** (layout legal fixo)
+- [x] Estoque Kardex com custo médio por replay e saldo inicial importado
+- [x] Apuração de ICMS mensal + SPED Bloco H (layout legal fixo)
 - [x] Relatório H010 com 17 colunas e tributos (ICMS/ST/IPI/PIS/COFINS)
 - [x] Manutenção manual de produtos com trilha de auditoria (ajustes)
 
-### 🏦 Bancário *(Sprints 21–24)*
+### 🏦 Bancário (Sprints 21–24)
 - [x] Importação de extrato CSV com parser à prova de erros (milhares BR/US, datas)
-- [x] **Classificação com memória**: o sistema aprende cada correção do contador
-- [x] **Naturezas personalizadas por cliente** (cada empresa tem o seu DRE)
+- [x] Classificação com memória: o sistema aprende cada correção do contador
+- [x] Naturezas personalizadas por cliente (cada empresa tem o seu DRE)
 - [x] DRE gerencial, relatório por natureza com subtotais, autosoma
-- [x] **Fechamento do mês com trava de compliance** (fechou, não mexe)
+- [x] Fechamento do mês com trava de compliance (fechou, não mexe)
 
-### 📒 Contábil *(Sprints 20, 25–26)*
+### 📒 Contábil (Sprints 20, 25–26)
 - [x] Plano de contas (padrão SCI 90113) + lançamentos de partida dobrada
-- [x] **Ponte Bancário → Contábil**: 1 clique transforma o mês em escrituração
+- [x] Ponte Bancário → Contábil: 1 clique transforma o mês em escrituração
 - [x] Exportação para o sistema SCI
-- [x] **DRE Oficial do Cliente** com confronto Contábil × Bancário
+- [x] DRE Oficial do Cliente com confronto Contábil × Bancário
 
-### 🔗 Conciliação Inteligente *(Sprint 29)*
-- [x] Motor que cruza **débitos do banco × NF-e de entrada** com score de confiança
-- [x] Sugestões 🟢 ≥80% / 🟡 50–79% com revisão humana obrigatória
+### 🔗 Conciliação Inteligente (Sprint 29)
+- [x] Motor que cruza débitos do banco × NF-e de entrada com score de confiança
+- [x] Sugestões  ≥80% / 🟡 50–79% com revisão humana obrigatória
 
-### 📈 BI & Inteligência
-- [x] DRE do Escritório • Ponto Fora da Curva (anomalias estatísticas)
-- [x] Simulador Simples Nacional × Presumido × Real • Reforma Tributária (EC 132/23)
-- [x] Exportação **PDF profissional** e CSV compatível com Excel (UTF-8 + BOM)
+###  BI & Inteligência
+- [x] DRE do Escritório
+- [x] Ponto Fora da Curva (anomalias estatísticas)
+- [x] Simulador Simples Nacional × Presumido × Real
+- [x] Reforma Tributária (EC 132/23)
+- [x] Exportação PDF profissional e CSV compatível com Excel (UTF-8 + BOM)
+
+###  Containerização (Sprint 31)
+- [x] Docker Compose: 1 comando para subir tudo (Postgres + Backend + Frontend)
+- [x] Ambiente isolado para testes (banco virgem na porta 5433)
+- [x] Build de produção otimizado (Next.js standalone + NestJS multi-stage)
 
 ---
 
 ## 🏆 O Diferencial: os 3 DREs
 
 | DRE | 🎯 Para quem | 📚 Fonte de dados | 📍 Onde ver |
-|---|---|---|---|
-| 🏢 **Do Escritório** | Diretor da Conta Certa | Transações financeiras internas | BI |
+|-----|--------------|-------------------|-------------|
+|  **Do Escritório** | Diretor da Conta Certa | Transações financeiras internas | BI |
 | 💼 **Bancário do Cliente** | Gestão de caixa do cliente | Extrato + naturezas | Fechamento Mensal |
 | 📒 **Oficial do Cliente** | Contabilidade / obrigações | Lançamentos promovidos | BI → DRE do Cliente |
 
-> ✅ Os três conversam entre si por **cards de navegação cruzada**, e o Oficial
-> mostra a **diferença em R$** contra o Bancário — auditoria em tempo real.
+✅ Os três conversam entre si por cards de navegação cruzada, e o Oficial mostra a diferença em R$ contra o Bancário — auditoria em tempo real.
 
 ---
 
-## 🏗️ Arquitetura *(para a equipe técnica)*
+## ️ Arquitetura (para a equipe técnica)
+┌─────────────────────────────────────────────────────────┐
+│ Frontend — Next.js 16 (App Router) │
+│ React 19 + TypeScript + Tailwind │
+│ Zustand (estado) • Sonner (toasts) • Axios │
+──────────────────────┬──────────────────────────────────┘
+│ HTTP/REST + JWT
+▼
+┌─────────────────────────────────────────────────────────┐
+│ Backend — NestJS 10 │
+│ Controllers → Services → DTOs │
+│ Guards JWT • RBAC @Roles() │
+└──────────────────────┬──────────────────────────────────┘
+│ Prisma ORM
+▼
+┌─────────────────────────────────────────────────────────┐
+│ PostgreSQL 15 + Prisma │
+│ ~35 tabelas • isolamento por companyId │
+│ índices, soft delete, enums fortes │
+└─────────────────────────────────────────────────────────┘
 
-```mermaid
-flowchart TD
-    subgraph FE["⚛️ Frontend — Next.js 16 (App Router)"]
-        UI["React 19 + TypeScript + Tailwind<br/>Zustand (estado) • Sonner (toasts) • Axios"]
-    end
-    subgraph BE["🧠 Backend — NestJS 10"]
-        API["Controllers → Services → DTOs<br/>Guards JWT • RBAC @Roles()"]
-    end
-    subgraph DB["🗄️ PostgreSQL 15 + Prisma"]
-        T[("~35 tabelas • isolamento por companyId<br/>índices, soft delete, enums fortes")]
-    end
-    UI -->|REST + JWT| API
-    API -->|Prisma ORM| DB
-```
 
 ### Princípios adotados
-1. **Multi-tenant single-database** — um banco, isolamento lógico por `companyId`.
-2. **Enums como fonte da verdade** — fim das "strings soltas".
-3. **Idempotência por upsert** — importar/promover 2× nunca duplica.
-4. **Revisão humana obrigatória** — imports e conciliações nunca aplicam cegamente.
-5. **Compliance primeiro** — SPED com layout legal fixo; mês fechado é imutável.
-6. **Zero dependências pesadas de gráfico** — CSS puro (‑200 KB de bundle).
+- **Multi-tenant single-database** — um banco, isolamento lógico por `companyId`.
+- **Enums como fonte da verdade** — fim das "strings soltas".
+- **Idempotência por upsert** — importar/promover 2× nunca duplica.
+- **Revisão humana obrigatória** — imports e conciliações nunca aplicam cegamente.
+- **Compliance primeiro** — SPED com layout legal fixo; mês fechado é imutável.
+- **Zero dependências pesadas de gráfico** — CSS puro (‑200 KB de bundle).
 
 ---
 
-## 🗄️ Modelo de Dados (tabelas principais)
+##  Instalação
 
-| Grupo | Tabelas | Destaque |
-|---|---|---|
-| Plataforma | `Company`, `User` | tenant + RBAC |
-| Gestão | `Employee`, `Client`, `ClientContract`, `ClientService` | carteira + contratos |
-| Comercial | `Proposal`, `CommercialPlan`, `ServiceItem` | motor de propostas |
-| Fiscal | `FiscalInvoice`, `FiscalProduct`, `FiscalInventoryMovement`, `FiscalIcmsApuration` | Kardex + ICMS |
-| Contábil | `AccountingAccount`, `AccountingEntry`, `AccountTemplate` | SCI 90113 |
-| Bancário | `BankStatement`, `BankTransaction`, `BankCategory`, `BankClassificationRule` | memória de aprendizado |
-| Conciliação | `BankNfeMatch` | score + rastreabilidade |
-| Operação | `Project`, `Task` | kanban multi-tenant |
+### 🐳 Com Docker (Recomendado para Desenvolvimento)
 
----
-
-## 🔌 API (endpoints por módulo)
-
-| Módulo | Principais rotas |
-|---|---|
-| Auth | `POST /auth/login` • `/auth/register` • `GET /auth/me` |
-| Clientes | `GET/POST /clients` • `POST /clients/import` • `GET /clients/metrics` |
-| Fiscal | `POST /fiscal/invoices/upload` • `GET /fiscal/inventory/balance` • `GET /fiscal/inventory/compare` • `GET /fiscal/sped` |
-| Bancário | `POST /banking/import` • `GET /banking/statement` • `POST /banking/close/:id` • `POST /banking/reopen/:id` |
-| Contábil | `POST /accounting/promote-from-banking` • `GET /accounting/dre` • `GET /accounting/export-sci` |
-| Conciliação | `POST /banking/reconcile/suggest` • `POST /banking/reconcile/confirm` |
-| BI | `GET /bi/dre` • `GET /bi/outliers` • `POST /bi/simulate-tax` |
-
----
-
-## 📜 Jornada de Desenvolvimento (Sprints 1–30)
-
-| Fase | Sprints | Entrega | Status |
-|---|---|---|---|
-| 🏗️ Fundação | 1–7 | Auth, Dashboard, Pessoas, Clientes, Precificação, Planejamento, CSV, Toasts | 🟢 |
-| 🧾 Fiscal | 8–19 | NF-e, Kardex, ICMS, SPED, H010, unificação de códigos, manutenção c/ auditoria | 🟢 |
-| 📒 Contábil | 20 | Plano de contas SCI, lançamentos, conciliação, base histórica | 🟢 |
-| 🏦 Bancário | 21–24 | Extrato, classificação c/ memória, naturezas por cliente, fechamento c/ trava | 🟢 |
-| 🔗 Integração | 25–26 | Ponte Bancário→Contábil, DRE Oficial, autocomplete de contas | 🟢 |
-| 🎨 UX | 27–28 | Menu em 7 seções, nomenclatura dos 3 DREs, navegação cruzada | 🟢 |
-| 🤖 Inteligência | 29 | Conciliação Banco × NF-e com motor de score | 🟢 |
-| 📚 Documentação | 30 | README executivo + técnico (este arquivo) | 🟢 |
-
-### 🔧 Decisões técnicas que salvaram o produto (ADR-resumo)
-- **Parser por conteúdo, não por cabeçalho** → aceita qualquer CSV de banco.
-- **Datas pela máscara** → `01/06/2026` (BR) vs `6/1/26` (pivot) sem ambiguidade.
-- **Memória por contraparte normalizada** → "CEEE" casa com "Ceee Distribuicao".
-- **Upsert `(companyId, code)`** → criar a conta PAGBANK 2× não gera erro.
-- **Classificação do DRE pelo sinal da transação** → independente do plano de contas.
-- **Estorno por replay no Kardex** → excluir NF-e recalcula custo médio corretamente.
-
----
-
-## 🚀 Instalação (3 passos)
+**Pré-requisitos:** Docker Desktop instalado e rodando.
 
 ```bash
-# 1) Backend
-cd backend && npm i && cp .env.example .env
-npx prisma migrate deploy && npx prisma generate && npm run start:dev   # → :3001
+# 1. Clonar o repositório
+git clone https://github.com/seu-usuario/radar-conta-certa.git
+cd radar-conta-certa
 
-# 2) Frontend
-cd frontend && npm i && cp .env.example .env.local
-npm run dev                                                              # → :3000
+# 2. Subir tudo com 1 comando (Postgres + Backend + Frontend)
+docker compose up -d --build
 
-# 3) Acessar http://localhost:3000 e entrar com o usuário admin do seed
-```
+# 3. Verificar se os 3 containers estão Up
+docker compose ps
 
----
+# 4. Acessar http://localhost:3000
+# Login: admin@demo.com / Senha: 123456
 
-## 🎨 Identidade Visual
+Portas:
+Frontend: http://localhost:3000
+Backend API: http://localhost:3001
+Postgres (Docker): localhost:5433 (banco virgem para testes)
+Postgres (Local): localhost:5432 (seus dados reais — intocado)
+Comandos úteis:
 
-| 🟩 Teal `#0d9488` | 🟧 Laranja `#f97316` | ⬜ Cinza `#475569` |
-|---|---|---|
-| Cor primária (ações, sidebar) | Destaques e alertas | Textos neutros |
+docker compose logs -f backend    # Ver logs do backend em tempo real
+docker compose restart backend    # Reiniciar apenas o backend
+docker compose down -v            # Derrubar tudo e apagar o banco virgem
 
----
+💻 Local (Desenvolvimento Tradicional)
 
-## 🗺️ Roadmap — onde chegamos e onde vamos
+# 1. Backend
+cd backend
+npm install
+cp .env.example .env
+npx prisma migrate deploy
+npx prisma generate
+npm run start:dev   # → http://localhost:3001
 
-```diff
-✅ FASES 1–2.5  Fundação + BI + Fiscal + Bancário + Contábil (Sprints 1–30)
-!  FASE 3 — PRODUÇÃO (próxima)
-   + Sprint 31 · Docker + docker-compose (deploy em 1 comando)
-   + Sprint 32 · Deploy em nuvem/VPS com proxy reverso
-   + Sprint 33 · CI/CD (GitHub Actions)
-   + Sprint 34 · Monitoramento (Sentry) + Backup automático
-!  FASE 4 — EXPANSÃO
-   + Relatórios PDF em todos os módulos
-   + Portal do Cliente (login CLIENTE)
-   + Consolidação multi-cliente (visão do escritório)
-   + Integrações eSocial / Sintegra • App mobile • White-label
-```
+# 2. Frontend
+cd ../frontend
+npm install
+cp .env.example .env.local
+npm run dev         # → http://localhost:3000
 
----
+# 3. Acessar http://localhost:3000
+# Login: admin@demo.com / Senha: 123456
 
-## 📖 Glossário *(para a diretoria)*
+🎨 Identidade Visual
+🟩 Teal #0d9488
+🟧 Laranja #f97316
+⬜ Cinza #475569
+Cor primária (ações, sidebar)
+Destaques e alertas
+Textos neutros
 
-| Termo | Significado simples |
-|---|---|
-| **SaaS** | Software assinado e usado pela internet, sem instalar nada |
-| **Multi-tenant** | Vários escritórios no mesmo sistema, cada um vendo só o que é seu |
-| **DRE** | "Demonstração de Resultado" — o boletim de notas financeiro do mês |
-| **NF-e** | Nota Fiscal eletrônica (o XML oficial emitido/comprado) |
-| **Kardex** | O "extrato do estoque": tudo que entrou, saiu e o custo médio |
-| **SPED** | Arquivo oficial exigido pela Receita Federal |
-| **Partidas dobradas** | Regra contábil: todo débito tem um crédito igual |
-| **Conciliação** | Conferir se o que saiu no banco bate com a nota fiscal |
-| **Score** | Nota de confiança (0–100%) que o motor dá a cada sugestão |
 
----
+🗺️ Roadmap — onde chegamos e onde vamos
+✅ FASES 1–2.5 — Fundação + BI + Fiscal + Bancário + Contábil (Sprints 1–30)
+Auth multi-tenant, Dashboard, Pessoas, Clientes, Precificação, Planejamento
+Fiscal (NF-e, Kardex, ICMS, SPED), Bancário (extrato, conciliação)
+Contábil (plano de contas, lançamentos, DRE oficial)
+BI (DRE do escritório, ponto fora da curva, simulador tributário)
+Conciliação Banco × NF-e com motor de score
+✅ FASE 3 — PRODUÇÃO (Sprint 31 + A1)
+Sprint 31: Docker + docker-compose (deploy em 1 comando)
+Sprint A1: Motor de Herança de Planos (domínio puro)
+Sprint A2: Valor de Referência + Dinheiro na Mesa (PRÓXIMA)
+Sprint 32: Deploy em nuvem/VPS com proxy reverso
+Sprint 33: CI/CD (GitHub Actions)
+Sprint 34: Monitoramento (Sentry) + Backup automático
+🚧 FASE 4 — EXPANSÃO COMERCIAL (Plano Conta Certa 2.0)
+A3: Versões de Proposta
+A4: Fechamento com Ganho
+A5: White-label (cores do logo/site do cliente)
+A6: PDF v2 + PNG
+A7: Dashboard de Desempenho
+📋 FASE 5 — PESSOAS & MERCADO
+B1–B5: Tipos contratuais, distribuição por setor, entrevista de desligamento (IA)
+C1–C4: Benchmark de softwares, serviços extras, indicadores com fórmula, score 0–100
+FASE 6 — MENTORIA & UX
+D1–D3: Visão de Futuro, checklist, ranking de níveis
+E1–E3: Command palette, boas-vindas/"onde parou", notificações
 
-## 🤝 Licença & Autor
 
-> **Proprietary License** — Copyright © 2026 **Conta Certa Soluções Empresariais**.
-> Propriedade intelectual; cópia ou distribuição sem autorização são proibidas.
+📖 Glossário (para a diretoria)
+Termo                                       Significado simples
+SaaS                                        Software assinado e usado pela internet, sem instalar nada
+Multi-tenant                                Vários escritórios no mesmo sistema, cada um vendo só o que é seu
+DRE                                         "Demonstração de Resultado" — o boletim de notas financeiro do mês
+NF-e                                        Nota Fiscal eletrônica (o XML oficial emitido/comprado)
+Kardex                                      O "extrato do estoque": tudo que entrou, saiu e o custo médio
+SPED                                        Arquivo oficial exigido pela Receita Federal
+Partidas dobradas                           Regra contábil: todo débito tem um crédito igual
+Conciliação                                 Conferir se o que saiu no banco bate com a nota fiscal
+Score                                       Nota de confiança (0–100%) que o motor dá a cada sugestão
 
-**👨‍💻 Autor:** Marcos — Desenvolvedor Full Stack
-**Stack:** Next.js 16 • NestJS 10 • PostgreSQL • Prisma • Tailwind
-**📞 Suporte:** contato@contacerta.com.br • www.contacerta.com.br
-
+Licença & Autor
+Proprietary License — Copyright © 2026 Conta Certa Soluções Empresariais.
+Propriedade intelectual; cópia ou distribuição sem autorização são proibidas.
+👨‍💻 Autor: Marcos — Desenvolvedor Full Stack
+📞 Suporte: contato@contacerta.com.br • www.contacerta.com.br
 <div align="center">
 
-### Feito com ❤️ para transformar a contabilidade brasileira
+Feito com ❤️ para transformar a contabilidade brasileira
 ⭐ Útil para você? Dê uma estrela no repositório!
-
 </div>
-
----
-Atualização: Sprint A1 — Conta Certa 2.0 (Motor de Herança de Planos)
-Descrição:
-* Início do plano de expansão "Conta Certa 2.0" (pós-análise competitiva
-  de 11 vídeos do Radar Gestão Estratégica).
-* Criada camada de DOMÍNIO PURO dos planos comerciais, sem acoplamento
-  com banco/HTTP, 100% coberta por testes de unidade.
-Funcionalidades (domínio):
-* Herança automática de itens entre planos (multiplicador crescente).
-* Flag "Independente" com isolamento total (não herda e não doa).
-* Matemática central de preço: valor de referência × multiplicador,
-  % vs base e "dinheiro na mesa" (mensal/anual).
-Arquivos Criados:
-* backend/src/commercial-plans/domain/plan-inheritance.ts
-* backend/src/commercial-plans/domain/pricing-insights.ts
-* backend/src/commercial-plans/domain/__tests__/plan-inheritance.spec.ts
-Decisões Técnicas (ADR-020):
-* Herança derivada em memória (banco guarda apenas itens próprios).
-* Preços com round2 (sem erro de ponto flutuante).
-Status: Testes 6/6 verdes. Próxima sprint: A2 (migração Prisma +
-integração do motor nos endpoints existentes).
-
--
-Atualização: Sprint 31 — Containerização (Docker Compose)
-Descrição:
-* Sistema completo empacotado em containers (Postgres + NestJS + Next.js).
-* Mesmo pacote roda local e em qualquer VPS com 1 comando.
-Arquivos Criados:
-* docker-compose.yml (raiz)
-* backend/Dockerfile + backend/.dockerignore
-* frontend/Dockerfile + frontend/.dockerignore
-* frontend/next.config.ts (+ output: "standalone")
-Decisões Técnicas:
-* Banco do Compose na porta 5433 (não conflita com Postgres local 5432).
-* Backend aplica `prisma migrate deploy` no boot (self-healing).
-* NEXT_PUBLIC_API_URL assado no build (browser fala com localhost:3001).
-Como usar:
-* `docker compose up -d --build` • `docker compose ps` • `docker compose down`
-
----
-## 🧠 Continuidade do Projeto (Sistema de Memória)
-Para que nenhuma conversa/IA comece do zero, o projeto mantém 3 artefatos vivos:
-1. **CONTEXTO_PROJETO.md** — injeção de contexto: cole inteiro na 1ª mensagem de
-   toda conversa nova (status, stack, ADRs, roadmap, próximos passos).
-2. **CHANGELOG.md** — histórico de sprints (atualizar ao fim de cada sprint).
-3. **Skill_RadarContaCerta-Architect.txt** — skill com a memória do projeto.
-Fluxo de uma nova conversa:
-   1) Colar CONTEXTO_PROJETO.md → 2) IA confirma → 3) trabalhar no sprint atual →
-   4) atualizar CHANGELOG + README + CONTEXTO (§9) → 5) validar com o Marcos.
-Regra de ouro: nenhum sprint novo começa sem o anterior homologado.
+```
