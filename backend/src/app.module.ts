@@ -34,6 +34,9 @@ import { ProjectsModule } from './projects/projects.module';
 import { FiscalModule } from './fiscal/fiscal.module';
 import { BankingModule } from './banking/banking.module';
 import { ClientImportModule } from './client/client-import.module';
+// 🆕 Digital Employee (FD-1) — Aurora
+import { DigitalEmployeeModule } from './digital-employee/digital-employee.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -70,6 +73,10 @@ import { ClientImportModule } from './client/client-import.module';
     FiscalModule,
     BankingModule,
     ClientImportModule,
+    
+    // 🆕 Digital Employee (FD-1) — Aurora
+    ScheduleModule.forRoot(),
+    DigitalEmployeeModule,
   ],
 })
 export class AppModule {}

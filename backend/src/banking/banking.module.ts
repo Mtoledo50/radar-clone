@@ -15,5 +15,7 @@ import { BankingReviewService } from './banking-review.service'; // 🆕 Sprint 
     BankingReconcileService,
     BankingReviewService, // 🆕 Sprint 32
   ],
+    exports: [BankingReconcileService], // 🆕 ADICIONE ESTA LINHA
+
 })
 export class BankingModule {}
