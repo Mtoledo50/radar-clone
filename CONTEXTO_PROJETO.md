@@ -91,3 +91,37 @@ npm run test -- --testPathPattern=plan-inheritance (backend)
 ## 11) INSTRUÇÃO PARA A NOVA IA
 Leia este arquivo, confirme com "Yes", e continue EXATAMENTE do §9.
 Não reimplementar sprints concluídos; não mudar stack; seguir método do §1.
+
+### 🤖 FUNCIONÁRIO DIGITAL AURORA (Sprint FD-1 concluída em 15/08/2026)
+
+**Status atual:** Backend 100% funcional (orquestador + auditoria + 1ª skill)
+**Próximo passo:** Dashboard frontend (Passo 4/6 em andamento)
+**Cliente-piloto:** Academia do Renan
+
+#### Módulos entregues
+- [x] **FD-1 Fundação**: 6 tabelas Prisma, módulo NestJS completo, endpoint "Rodar agora"
+- [x] **ReconciliationSkill**: reusa motor da Sprint 29, auto-aprova score ≥80%, fila 50-79%
+- [x] **Auditoria completa**: toda ação registrada em `automation_audits`
+
+#### Em desenvolvimento (FD-1 frontend)
+- [ ] Dashboard da Aurora (header + KPIs + timeline + fila + skills + audit)
+
+#### Próximas fases (FD-2 a FD-9)
+- [ ] **FD-2**: ClassificationSkill + AccountingBridgeSkill + Relatórios PDF mensais
+- [ ] **FD-3**: Importação automática NFS-e (e-mail + portal + OCR)
+- [ ] **FD-4**: Emissão de guias (DAS/ISS/DARF) com memória de cálculo
+- [ ] **FD-5**: Faturamento CNAB 240/400 + régua de cobrança
+- [ ] **FD-6**: SPED/obrigações + certificado A1 criptografado
+- [ ] **FD-7**: Integração com Domínio/Questor/Sage
+- [ ] **FD-8**: Legalização (cofre de senhas, procurações, eCAC)
+- [ ] **FD-9**: DP (integração leve com folha existente — NÃO construir do zero)
+
+#### Regras inegociáveis (Regra de Ouro)
+- A automação **prepara, calcula, organiza e recomenda**
+- O humano **aprova** tudo que gera obrigação legal, pagamento ou transmissão
+- Ações com `riskLevel = LEGAL` **sempre** passam por aprovação, mesmo com score 100%
+
+#### Stack utilizada (FD-1)
+- Backend: NestJS 10 + `@nestjs/schedule` + `cron` + Prisma
+- Worker RPA: Playwright (em fases futuras)
+- Cofres: AES-256-GCM (chave em env, nunca em código)

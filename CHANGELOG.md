@@ -2,6 +2,41 @@
 
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)  
 **Última atualização:** 14/08/2026 (pós-Sprint 31 + Sprint A1)
+## [FD-1] - 2026-08-15 - Aurora nasce! Fundação do Funcionário Digital
+
+### Added
+- **Migração `fd1_foundation_robot_worker`**: 6 tabelas novas
+  - `robot_workers` (1 por tenant)
+  - `robot_worker_skills` (4 skills padrão)
+  - `automation_runs` (histórico de execuções)
+  - `automation_pendings` (fila de revisão humana)
+  - `automation_audits` (trilha de compliance)
+  - `approval_records` (trava de transmissão)
+- **Módulo `digital-employee`** no backend:
+  - `DigitalEmployeeService` (lazy create + CRUD)
+  - `DigitalEmployeeController` (7 endpoints REST)
+  - `AutomationAuditService` (Pilar D)
+  - `BaseSkill` (esqueleto do pipeline universal - Pilar B)
+  - `ReconciliationSkill` (reusa BankingReconcileService)
+  - `JobRunnerService` (executor de skills)
+  - `SchedulerService` (agendador cron)
+- **Integração com BankingModule**: `BankingReconcileService` exportado
+- **Endpoint `POST /digital-employee/skills/:skillKey/run`**: botão "Rodar agora"
+
+### Architecture Decisions
+- **ADR-030**: Regra de Ouro (ações LEGAL nunca AUTO)
+- **ADR-031**: Cálculo tributário determinístico (IA só sugere)
+- **ADR-032**: LGPD + cofres criptografados (futuro)
+- **ADR-033**: Perfis de aprovação (futuro)
+
+### Validated
+- ✅ Login com usuário admin@aurora.com
+- ✅ Lazy create da Aurora (1ª chamada)
+- ✅ Skill RECONCILIATION executa via botão manual
+- ✅ AutomationRun criado com métricas (duration: 3ms)
+- ✅ Auditoria registrada (SKILL_FINISHED:RECONCILIATION)
+- ✅ Multi-tenant isolado (companyId = 00000000-...)
+
 
 ## [Sprint A3] 2026-08 — Versões de Proposta
 ### ✅ Added
