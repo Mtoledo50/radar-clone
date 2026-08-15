@@ -277,17 +277,26 @@ frontend/src/app/dashboard/funcionario-digital/
 
 ## ✅ Status atual e próximos passos
 
-- [x] **FD-0 (parcial):** escopo das 9 funções, arquitetura, modelo de dados, ADRs
-- [ ] **FD-0 (final):** respostas do questionário de descoberta (ERP, bancos, prefeituras, certificados)
-- [ ] **FD-1:** migração Prisma + orquestrador + painel + auditoria ← **PRÓXIMA**
-- [ ] FD-2 em diante: ver roadmap
+- [x] **FD-0 (Descoberta):** escopo das 9 funções, arquitetura, modelo de dados, ADRs
+- [x] **FD-1 Fundação (Backend):** migration Prisma + módulo NestJS + orquestrador + auditoria + 1ª skill (RECONCILIATION) — **CONCLUÍDA em 15/08/2026**
+- [ ] **FD-1 Fundação (Frontend):** dashboard da Aurora ← **EM ANDAMENTO (Passo 4/6)**
+- [ ] FD-2 Conciliação completa + Relatórios
+- [ ] FD-3 a FD-9: ver roadmap
+
+### ✅ Validações FD-1 concluídas
+- Migração aplicada com sucesso em banco Docker e local
+- Login JWT + lazy create da Aurora
+- Botão "Rodar agora" dispara RECONCILIATION com métricas
+- Auditoria 100% das ações registrada
+- Multi-tenant isolado por companyId
+
+### 🚀 Próxima entrega imediata
+Passo 4/6 — Dashboard frontend da Aurora em `frontend/src/app/dashboard/funcionario-digital/`
 
 > O FDR roda **sobre o Radar Conta Certa** (Sprints 1–A3 homologadas) e
 > **reutiliza** os motores existentes: score de conciliação, memória de
 > classificação, parser CSV, parser XML NF-e, ponte Bancário→Contábil,
 > exportação SCI, SPED Bloco H, BI e exportação PDF/CSV.
-
----
 
 ## 📖 Glossário (para a diretoria)
 
