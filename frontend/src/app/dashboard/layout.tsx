@@ -220,6 +220,14 @@ const allMenuItems: MenuItem[] = [
     icon: Bot,
     section: 'inteligencia',
   },
+  // 🆕 FD-2 final (18/08/2026): Relatórios mensais gerados pela Aurora
+  {
+    id: 'relatorios-mensais',
+    title: 'Relatórios Mensais',
+    href: '/dashboard/funcionario-digital/relatorios',
+    icon: FileText,
+    section: 'inteligencia',
+  },
   {
     id: 'bi',
     title: 'DRE do Escritório',

@@ -14,6 +14,7 @@ import {
   Param,
   Query,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -143,6 +144,64 @@ export class DigitalEmployeeController {
       req.user.companyId,
       skillKey as any,
       req.user.id,
+    );
+  }
+  // =================================================================
+  // 📊 RELATÓRIOS MENSAIS (FD-2 final)
+  // =================================================================
+
+  /**
+   * GET /digital-employee/reports
+   * Lista todos os relatórios mensais do tenant (para a tabela da UI).
+   * Suporta filtros: ?period=2026-07&clientId=xxx&status=READY
+   */
+  @Get('reports')
+  async listReports(
+    @Request() req,
+    @Query('period') period?: string,
+    @Query('clientId') clientId?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.digitalEmployeeService.listReports(
+      req.user.companyId,
+      period,
+      clientId,
+      status,
+    );
+  }
+
+  /**
+   * GET /digital-employee/reports/:id/download
+   * Baixa o PDF do relatório (stream do arquivo físico).
+   */
+  @Get('reports/:id/download')
+  async downloadReport(
+    @Request() req,
+    @Param('id') id: string,
+    @Res() res,
+  ) {
+    return this.digitalEmployeeService.downloadReport(
+      req.user.companyId,
+      id,
+      res,
+    );
+  }
+
+  /**
+   * POST /digital-employee/reports/generate
+   * Gera o relatório de 1 cliente específico (botão "Gerar agora" da UI).
+   */
+  @Post('reports/generate')
+  async generateReport(
+    @Request() req,
+    @Body() body: { clientId: string; year?: number; month?: number },
+  ) {
+    return this.digitalEmployeeService.generateReportForClient(
+      req.user.companyId,
+      req.user.id,
+      body.clientId,
+      body.year,
+      body.month,
     );
   }
 }
