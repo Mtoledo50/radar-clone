@@ -1,6 +1,6 @@
 # 🧠 CONTEXTO_PROJETO.md — Radar Conta Certa
 > Arquivo de injeção de contexto. Cole INTEIRO no início de toda conversa nova.
-> Última atualização: 14/08/2026 (pós-Sprint 31 + Sprint A1 do plano 2.0).
+> Última atualização: 17/08/2026 (pós-Sprint FD-2 parcial — Aurora autônoma com crons ativos).
 
 ## 1) PERSONAS E MÉTODO DE TRABALHO
 - Usuário: Marcos (autodeclarado "junior dos juniores"), dono do produto.
@@ -29,6 +29,8 @@
 - Projeto: C:\radar-clone (pastas backend/ e frontend/).
 - Postgres LOCAL na porta 5432 = dados REAIS (não tocar).
 - Docker Compose: postgres 5433 / backend 3001 / frontend 3000 (banco virgem p/ testes).
+- Estado atual (17/08): backend .env aponta p/ 5432 (dados reais); o frontend Docker
+  segura a porta 3000 → Next dev sobe na 3002 (CORS multi-origem 3000/3002 no main.ts).
 - Docker Desktop já teve daemon.json corrompido (\x00); resolvido com reset completo
   (wsl --shutdown + remoção de .docker/AppData + reboot).
 
@@ -38,7 +40,8 @@ Clientes • Carteira de Clientes (MRR/Churn/Ticket) • Precificação (horas, 
 calculadora, planos START/PRIME/BLACK, propostas c/ link público + tracking + PDF/Excel) •
 Planejamento (metas/KPIs/ações) • Minha Empresa • BI (DRE gerencial, ponto fora da
 curva, simulador tributário) • Fiscal (NF-e/estoque/ICMS/SPED) • Bancário (extrato,
-conciliação) • Operações (projetos/tarefas) • Admin • Exportação CSV UTF-8+BOM.
+conciliação) • Operações (projetos/tarefas) • Admin • Exportação CSV UTF-8+BOM •
+🤖 Funcionário Digital Aurora (conciliação/classificação/ponte + dashboard + auditoria + crons).
 
 ## 6) ANÁLISE COMPETITIVA (11 vídeos — Radar Gestão Estratégica)
 - ELES vencem em: herança entre planos; proposta white-label (cores do logo/site);
@@ -78,60 +81,83 @@ ADR-032 LGPD: cofres de credenciais AES-256-GCM (implementação em FD-8).
 ADR-033 Perfis de aprovação por tipo de tarefa (Auxiliar/Analista/Supervisor/Contador).
 ADR-034 Arquivos estruturais (app.module.ts, schema.prisma): entregar sempre o delta.
 
-9) STATUS ATUAL E PRÓXIMOS PASSOS
-Sprint A1 CONCLUÍDA: domínio puro testado (6 testes verdes).
-Sprint 31 (Docker) HOMOLOGADA: ambiente estável.
-Sprint A2 COMPLETA: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano validado).
-Sprint A3 HOMOLOGADA: versões de proposta (version/isCurrent/originalProposalId + endpoints de listagem e duplicação).
-IMEDIATO: Sprint A4 = Fechamento com Ganho (desconto + argumento de venda).
-  - Endpoint: POST /proposals/:id/close com desconto e cálculo de ganho vs preço cheio.
-  - Frontend: modal de fechamento com slider de desconto e "quanto você ganhou".
-DEPOIS: A5→A7, Fases B→E (ordem do §7).
-Sprint FD-1 CONCLUÍDA (15/08/2026): Funcionário Digital Aurora — fundação completa
-(6 tabelas, módulo digital-employee, orquestrador, auditoria, ReconciliationSkill e
-dashboard em /dashboard/funcionario-digital).
-IMEDIATO: FD-2 = ClassificationSkill + AccountingBridgeSkill + crons em produção controlada.
-DEPOIS: FD-3→FD-9 (ver FUNCIONARIO_DIGITAL.md) • A4→A7 e Fases B→E (ordem do §7).
+## 9) STATUS ATUAL E PRÓXIMOS PASSOS
+<!-- Reorganizado em 17/08/2026: histórico unificado + UM par IMEDIATO/DEPOIS,
+     separando as trilhas Comercial e Aurora (antes havia IMEDIATO duplicado). -->
 
+### 9.1) Histórico concluído (as duas trilhas)
+- Sprint 31 (Docker) HOMOLOGADA: ambiente estável.
+- Sprint A1 CONCLUÍDA: domínio puro testado (6 testes verdes).
+- Sprint A2 COMPLETA: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano validado).
+- Sprint A3 HOMOLOGADA: versões de proposta (version/isCurrent/originalProposalId +
+  endpoints de listagem e duplicação).
+- Sprint FD-1 CONCLUÍDA (15/08): fundação da Aurora (6 tabelas, módulo digital-employee,
+  orquestrador, auditoria, ReconciliationSkill, dashboard + item de menu).
+- Sprint FD-2 PARCIAL CONCLUÍDA (17/08): ClassificationSkill + AccountingBridgeSkill +
+  crons sincronizados com toggles (produção controlada).
+
+### 9.2) IMEDIATO (próxima sessão)
+Trilha Aurora (prioridade):
+  1. FD-2 final: MonthlyReportSkill (PDF mensal) + UI de aprovação de pendências (notas, ADR-033).
+  2. Teste com dados reais (Academia do Renan, banco 5432) esperando itemsProcessed > 0.
+  3. Docs: preencher CHANGELOG.md (hoje vazio) + criar FUNCIONARIO_DIGITAL.md.
+Trilha Comercial (ao fechar a Aurora):
+  4. Sprint A4 = Fechamento com Ganho:
+     - Endpoint: POST /proposals/:id/close com desconto e cálculo de ganho vs preço cheio.
+     - Frontend: modal de fechamento com slider de desconto e "quanto você ganhou".
+
+### 9.3) DEPOIS (ordem fixa)
+- Aurora: FD-3→FD-9 (dossiê no §12).
+- Comercial: A5→A7, depois Fases B→E (ordem do §7).
 
 ## 10) COMANDOS ÚTEIS (PowerShell)
 docker compose up -d --build | docker compose ps | docker compose logs -f backend
 npm run test -- --testPathPattern=plan-inheritance (backend)
+<!-- Aurora: login + disparo manual de skill (botão "Rodar agora" via API) -->
+$login = Invoke-RestMethod -Uri http://localhost:3001/auth/login -Method POST -ContentType "application/json" -Body '{"email":"admin@aurora.com","password":"123456"}'
+$token = $login.token
+Invoke-RestMethod -Uri http://localhost:3001/digital-employee/skills/RECONCILIATION/run -Method POST -Headers @{ Authorization = "Bearer $token" }
 
 ## 11) INSTRUÇÃO PARA A NOVA IA
 Leia este arquivo, confirme com "Yes", e continue EXATAMENTE do §9.
-Não reimplementar sprints concluídos; não mudar stack; seguir método do §1.
+Não reimplementar sprints concluídas; não mudar stack; seguir método do §1.
 
-### 🤖 FUNCIONÁRIO DIGITAL AURORA (Sprint FD-1 concluída em 15/08/2026)
+## 12) FUNCIONÁRIO DIGITAL AURORA — DOSSIÊ
+<!-- Seção numerada criada em 17/08 para organizar o bloco que antes ficava
+     solto após o §11. Checklist atualizado ao estado real. -->
+Nome: AURORA = Automação Unificada de Rotinas e Obrigações, com Revisão e Auditoria 🌅
+(o "JARVIS contábil": acorda às 02:00 e prepara tudo; nunca decide sozinha o que é legal).
 
-**Status atual:** Backend 100% funcional (orquestador + auditoria + 1ª skill)
-**Próximo passo:** Dashboard frontend (Passo 4/6 em andamento)
-**Cliente-piloto:** Academia do Renan
+### Status atual (17/08/2026)
+- [x] FD-1 Fundação: 6 tabelas Prisma + módulo NestJS completo + endpoint "Rodar agora"
+- [x] Dashboard /dashboard/funcionario-digital + item de menu 🤖 (seção INTELIGÊNCIA)
+- [x] ReconciliationSkill: reusa motor da Sprint 29 (≥80% auto, 50–79% fila 🟡)
+- [x] ClassificationSkill: memória de aprendizado via BankingService.classify
+- [x] AccountingBridgeSkill: ponte via AccountingService.promoteFromBanking
+- [x] Crons ↔ toggles: ON agenda, OFF desagenda; boot registra as skills ligadas
+- [x] Auditoria completa (automation_audits) + ApprovalRecord (trava de transmissão)
+- [ ] MonthlyReportSkill (PDF mensal)
+- [ ] UI de aprovação de pendências
+- [ ] Teste com dados reais (Academia do Renan)
 
-#### Módulos entregues
-- [x] **FD-1 Fundação**: 6 tabelas Prisma, módulo NestJS completo, endpoint "Rodar agora"
-- [x] **ReconciliationSkill**: reusa motor da Sprint 29, auto-aprova score ≥80%, fila 50-79%
-- [x] **Auditoria completa**: toda ação registrada em `automation_audits`
+Cliente-piloto: Academia do Renan.
 
-#### Em desenvolvimento (FD-1 frontend)
-- [ ] Dashboard da Aurora (header + KPIs + timeline + fila + skills + audit)
+### Fases FD-2 final → FD-9
+- FD-2 final: MonthlyReportSkill + UI de pendências + teste com dados reais
+- FD-3: Importação automática NFS-e (e-mail + portal + OCR)
+- FD-4: Emissão de guias (DAS/ISS/DARF) com memória de cálculo
+- FD-5: Faturamento CNAB 240/400 + régua de cobrança
+- FD-6: SPED/obrigações + certificado A1 criptografado
+- FD-7: Integração com Domínio/Questor/Sage
+- FD-8: Legalização (cofre de senhas, procurações, eCAC) — AES-256-GCM (ADR-032)
+- FD-9: DP (integração leve com folha existente — NÃO construir do zero)
 
-#### Próximas fases (FD-2 a FD-9)
-- [ ] **FD-2**: ClassificationSkill + AccountingBridgeSkill + Relatórios PDF mensais
-- [ ] **FD-3**: Importação automática NFS-e (e-mail + portal + OCR)
-- [ ] **FD-4**: Emissão de guias (DAS/ISS/DARF) com memória de cálculo
-- [ ] **FD-5**: Faturamento CNAB 240/400 + régua de cobrança
-- [ ] **FD-6**: SPED/obrigações + certificado A1 criptografado
-- [ ] **FD-7**: Integração com Domínio/Questor/Sage
-- [ ] **FD-8**: Legalização (cofre de senhas, procurações, eCAC)
-- [ ] **FD-9**: DP (integração leve com folha existente — NÃO construir do zero)
+### Regras inegociáveis (Regra de Ouro — ADR-030)
+- A automação prepara, calcula, organiza e recomenda
+- O humano aprova tudo que gera obrigação legal, pagamento ou transmissão
+- Ações com riskLevel = LEGAL sempre passam por aprovação, mesmo com score 100%
 
-#### Regras inegociáveis (Regra de Ouro)
-- A automação **prepara, calcula, organiza e recomenda**
-- O humano **aprova** tudo que gera obrigação legal, pagamento ou transmissão
-- Ações com `riskLevel = LEGAL` **sempre** passam por aprovação, mesmo com score 100%
-
-#### Stack utilizada (FD-1)
-- Backend: NestJS 10 + `@nestjs/schedule` + `cron` + Prisma
-- Worker RPA: Playwright (em fases futuras)
-- Cofres: AES-256-GCM (chave em env, nunca em código)
+### Stack utilizada (FD)
+- Backend: NestJS 10 + @nestjs/schedule + cron + Prisma (módulo digital-employee)
+- Frontend: /dashboard/funcionario-digital (Next.js 16 + Zustand + Axios)
+- RPA (fases futuras): Playwright • Cofres: AES-256-GCM (chave em env, nunca em código)
