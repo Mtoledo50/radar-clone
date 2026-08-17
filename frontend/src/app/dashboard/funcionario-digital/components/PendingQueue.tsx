@@ -3,7 +3,7 @@
 // =================================================================
 import { AlertCircle, Check, X } from 'lucide-react';
 import { useState } from 'react';
-
+import Link from 'next/link';
 interface Props {
   pendings: any[];
   onResolve: (id: string, decision: 'APPROVED' | 'REJECTED', notes?: string) => void;
@@ -19,9 +19,17 @@ export function PendingQueue({ pendings, onResolve }: Props) {
           <AlertCircle className="w-5 h-5 text-orange-600" />
           <h2 className="font-semibold text-gray-900">Fila de revisão 🟡</h2>
         </div>
-        <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full font-medium">
-          {pendings.length} pendências
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs bg-orange-200 text-orange-800 px-2 py-0.5 rounded-full font-medium">
+            {pendings.length} pendências
+          </span>
+          <Link
+            href="/dashboard/funcionario-digital/aprovacoes"
+            className="text-xs font-medium text-teal-700 hover:text-teal-900 underline"
+          >
+            Abrir central →
+          </Link>
+        </div>
       </div>
 
       <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">

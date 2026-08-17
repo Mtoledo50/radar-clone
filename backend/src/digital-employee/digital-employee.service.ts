@@ -1,7 +1,7 @@
 // =================================================================
 // INÍCIO: backend/src/digital-employee/digital-employee.service.ts
 // =================================================================
-// DigitalEmployeeService — Lógica de negócio da Aurora (Sprint FD-1).
+// DigitalEmployeeService — Lógica de negócio da Aurora (Sprint FD-1/FD-2).
 //
 // Responsabilidades:
 //  - Criar a Aurora sob demanda (lazy) — 1 por tenant (ADR-004)
@@ -9,7 +9,8 @@
 //  - Agregar KPIs do dashboard
 //  - Gerenciar skills (ligar/desligar, cron)
 //  - Listar runs, pendências e auditoria
-//  - Resolver pendências (aprovar/rejeitar) + ApprovalRecord
+//  - Resolver pendências (aprovar/rejeitar) + ApprovalRecord + AUDITORIA
+//    + efeito colateral seguro para CLASSIFICATION (FD-2 final)
 // =================================================================
 import {
   Injectable,
@@ -20,6 +21,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SkillKey, ApprovalDecision } from '@prisma/client';
 import { JobRunnerService } from './orchestrator/job-runner.service';
 import { SchedulerService } from './orchestrator/scheduler.service';
+import { AutomationAuditService } from './audit/automation-audit.service'; // 🆕 FD-2 final
+
 // -----------------------------------------------------------------
 // Configuração das skills padrão da Aurora.
 // Quando o worker é criado, fazemos o "seed" destas 4 skills
@@ -38,10 +41,11 @@ const DEFAULT_SKILLS: Array<{
 
 @Injectable()
 export class DigitalEmployeeService {
-   constructor(
+  constructor(
     private readonly prisma: PrismaService,
     private readonly jobRunner: JobRunnerService,
     private readonly scheduler: SchedulerService, // 🆕 FD-2: sincroniza toggle ↔ cron
+    private readonly audit: AutomationAuditService, // 🆕 FD-2 final: auditoria das decisões humanas
   ) {}
 
   // =================================================================
@@ -194,7 +198,7 @@ export class DigitalEmployeeService {
     return worker.skills;
   }
 
-   /**
+  /**
    * Atualiza uma skill (ligar/desligar + cron).
    * 🆕 FD-2: o toggle agora SINCRONIZA o cron em tempo real:
    *    ON  → scheduler.registerCron (Aurora passa a acordar sozinha)
@@ -264,9 +268,19 @@ export class DigitalEmployeeService {
 
   /**
    * Resolve uma pendência: aprova ou rejeita.
-   * Sempre cria um ApprovalRecord (trava de transmissão — Regra de Ouro).
    *
+   * 🆕 FD-2 final (Central de Aprovações):
+   *  - Auditoria da decisão humana (USER_APPROVED / USER_REJECTED)
+   *  - Efeito colateral SEGURO: CLASSIFICATION aprovada aplica a natureza
+   *    sugerida na transação (se ela existir no tenant); MATCH continua
+   *    sendo confirmado na tela de Conciliação (motor da Sprint 29).
+   *  - Sempre cria ApprovalRecord (trava de transmissão — Regra de Ouro).
+   *
+   * @param companyId - Tenant (valida posse)
    * @param userId - quem decidiu (auditoria)
+   * @param pendingId - ID da pendência
+   * @param decision - APPROVED ou REJECTED
+   * @param notes - nota opcional do contador (alimenta memória futura)
    */
   async resolvePending(
     companyId: string,
@@ -283,10 +297,12 @@ export class DigitalEmployeeService {
       throw new BadRequestException('Esta pendência já foi resolvida.');
     }
 
-    // Transação atômica: atualiza pendência + cria ApprovalRecord juntos
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Atualiza a pendência para o status final
-      const updated = await tx.automationPending.update({
+    // -----------------------------------------------------------------
+    // Transação atômica: pendência + ApprovalRecord + efeito colateral
+    // -----------------------------------------------------------------
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // 1. Atualiza a pendência para o status final (APPROVED/REJECTED)
+      const resolved = await tx.automationPending.update({
         where: { id: pendingId },
         data: {
           status: decision === 'APPROVED' ? 'APPROVED' : 'REJECTED',
@@ -308,8 +324,67 @@ export class DigitalEmployeeService {
         },
       });
 
-      return updated;
+      // 3. 🆕 Efeito colateral seguro por tipo de pendência
+      //
+      //    CLASSIFICATION aprovada → aplica a natureza sugerida na
+      //    transação bancária correspondente (se ela existir no tenant).
+      //    Se a transação não existir (ex.: dado de teste), simplesmente
+      //    ignora — não é erro, é tolerância.
+      //
+      //    MATCH → a confirmação efetiva continua na tela de Conciliação
+      //    (motor de score da Sprint 29). Aqui apenas registramos a
+      //    decisão para compliance e auditoria.
+      if (decision === 'APPROVED' && pending.type === 'CLASSIFICATION') {
+        const payload = (pending.payload || {}) as {
+          transactionId?: string;
+          suggestedNature?: string;
+        };
+
+        if (payload?.transactionId && payload?.suggestedNature) {
+          // Só aplica se a transação existir no tenant (tolerante a testes)
+          const exists = await tx.bankTransaction.findFirst({
+            where: { id: payload.transactionId, companyId },
+          });
+
+          if (exists) {
+            await tx.bankTransaction.update({
+              where: { id: payload.transactionId },
+              data: { nature: payload.suggestedNature },
+            });
+          }
+        }
+      }
+
+      return resolved;
     });
+
+    // -----------------------------------------------------------------
+    // 4. 🆕 Auditoria da decisão humana (fora da transação — fire-and-forget)
+    //
+    //    Registra USER_APPROVED:<tipo> ou USER_REJECTED:<tipo> na trilha
+    //    de compliance. A nota vai no detail para histórico completo.
+    //    Se der erro aqui, não deve quebrar a resolução já persistida.
+    // -----------------------------------------------------------------
+    try {
+      await this.audit.log({
+        companyId,
+        actor: `USER_${userId}`,
+        action: `USER_${decision}:${pending.type}`,
+        entity: 'AutomationPending',
+        entityId: pendingId,
+        detail: { notes: notes || null, type: pending.type },
+      });
+    } catch (auditError) {
+      // Log do erro de auditoria NÃO deve quebrar o fluxo principal.
+      // A resolução já foi persistida na transação acima.
+      console.error(
+        `[resolvePending] Falha ao registrar auditoria da decisão ${decision} ` +
+          `na pendência ${pendingId}:`,
+        auditError?.message,
+      );
+    }
+
+    return updated;
   }
 
   // =================================================================
@@ -327,10 +402,10 @@ export class DigitalEmployeeService {
       take: safeLimit,
     });
   }
-    // =================================================================
+
+  // =================================================================
   // ▶️ DISPARO MANUAL — Botão "Rodar agora"
   // =================================================================
-
   /**
    * Dispara uma skill sob demanda (usada pelo botão "Rodar agora").
    * Wrapper sobre o JobRunnerService para manter a API coesa.
@@ -339,11 +414,7 @@ export class DigitalEmployeeService {
    * @param skillKey - Qual skill executar (RECONCILIATION, CLASSIFICATION...)
    * @param userId - Quem disparou (auditoria)
    */
-  async runSkillNow(
-    companyId: string,
-    skillKey: string,
-    userId: string,
-  ) {
+  async runSkillNow(companyId: string, skillKey: string, userId: string) {
     return this.jobRunner.runSkill(companyId, skillKey as any, 'MANUAL', userId);
   }
 }
