@@ -445,33 +445,23 @@ E1–E3: Command palette, boas-vindas/"onde parou", notificações
 ⏳ FD-9: DP leve (integração com folha existente — NÃO construir do zero)
 
 📖 Glossário (para a diretoria)
-Termo
-Significado simples
-SaaS
-Software assinado e usado pela internet, sem instalar nada
-Multi-tenant
-Vários escritórios no mesmo sistema, cada um vendo só o que é seu
-DRE
-"Demonstração de Resultado" — o boletim de notas financeiro do mês
-NF-e
-Nota Fiscal eletrônica (o XML oficial emitido/comprado)
-Kardex
-O "extrato do estoque": tudo que entrou, saiu e o custo médio
-SPED
-Arquivo oficial exigido pela Receita Federal
-Partidas dobradas
-Regra contábil: todo débito tem um crédito igual
-Conciliação
-Conferir se o que saiu no banco bate com a nota fiscal
-Score
-Nota de confiança (0–100%) que o motor dá a cada sugestão
-Aurora
-Funcionária digital que executa rotinas automaticamente (FD-1/FD-2)
-Regra de Ouro
-Automação prepara; humano aprova ações legais (ADR-030)
+Termo               Significado simples
+SaaS                Software assinado e usado pela internet, sem instalar nada
+Multi-tenant        Vários escritórios no mesmo sistema, cada um vendo só o que é seu
+DRE                 "Demonstração de Resultado" — o boletim de notas financeiro do mês
+NF-e                Nota Fiscal eletrônica (o XML oficial emitido/comprado)
+Kardex              O "extrato do estoque": tudo que entrou, saiu e o custo médio
+SPED                Arquivo oficial exigido pela Receita Federal
+Partidas dobradas   Regra contábil: todo débito tem um crédito igual
+Conciliação         Conferir se o que saiu no banco bate com a nota fiscal
+Score               Nota de confiança (0–100%) que o motor dá a cada sugestão
+Aurora              Funcionária digital que executa rotinas automaticamente (FD-1/FD-2)
+Regra de Ouro       Automação prepara; humano aprova ações legais (ADR-030)
+
 📄 Licença & Autor
 Proprietary License — Copyright © 2026 Conta Certa Soluções Empresariais.
 Propriedade intelectual; cópia ou distribuição sem autorização são proibidas.
+
 👨‍💻 Autor: Marcos — Desenvolvedor Full Stack
 📞 Suporte: contato@contacerta.com.br • www.contacerta.com.br
 <div align="center">
