@@ -82,38 +82,21 @@ ADR-033 Perfis de aprovação por tipo de tarefa (Auxiliar/Analista/Supervisor/C
 ADR-034 Arquivos estruturais (app.module.ts, schema.prisma): entregar sempre o delta.
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
-
-### ✅ Concluído
-- **Sprint A1**: domínio puro testado (6 testes verdes)
-- **Sprint 31 (Docker)**: ambiente estável
-- **Sprint A2**: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano validado)
-- **Sprint A3**: versões de proposta (version/isCurrent/originalProposalId + endpoints)
-- **FD-1 Fundação**: 6 tabelas + dashboard + menu lateral + crons ↔ toggles
-- **FD-2 Parcial**: 3 skills (RECONCILIATION, CLASSIFICATION, ACCOUNTING_BRIDGE) + Central de Aprovações
-- **Entrega C**: Aurora em produção controlada com dados reais
-
-### 🎯 Entrega C — Aurora operacional (17/08/2026)
-- **98 clientes reais** importados do CSV de honorários
-- **18 transações bancárias** criadas (seed de demonstração)
-- **CLASSIFICATION**: 18 items processados, 18 auto-aprovados, 540 segundos salvos
-- **RECONCILIATION**: executada (sem NF-e - comportamento esperado)
-- **ACCOUNTING_BRIDGE**: executada (skipped - mês não fechado - trava funcionando)
-- **Auditoria completa** registrada
-
-### 🚀 IMEDIATO
-Escolher entre:
-- **Opção A**: MonthlyReportSkill (PDF mensal automático dos clientes)
-- **Opção B**: Seed de NF-e + fechamento bancário para testar RECONCILIATION + ACCOUNTING_BRIDGE com dados reais
-
-### 📋 DEPOIS
-- FD-3: Importação automática NFS-e (e-mail + portal + OCR)
-- FD-4: Emissão de guias (DAS/ISS/DARF) com memória de cálculo
-- FD-5: Faturamento CNAB 240/400 + régua de cobrança
-- FD-6: SPED/obrigações + certificado A1 criptografado
-- FD-7: Integração com Domínio/Questor/Sage
-- FD-8: Legalização (cofre de senhas, procurações, eCAC)
-- FD-9: DP leve (integração com folha existente)
-- A4→A7 e Fases B→E (ordem do §7)
+Sprint A1 CONCLUÍDA: backend/src/commercial-plans/domain/{plan-inheritance.ts,
+pricing-insights.ts, tests/plan-inheritance.spec.ts} — 6 testes verdes.
+Sprints F4/F5 (enriquecimento Fiscal) CONCLUÍDAS E HOMOLOGADAS: modal de
+detalhe com Base ICMS (total + por item); listagem de notas com coluna
+"Produtos" (A–Z, tooltip), ordenação server-side "Produto (A–Z)" (agregação
+Prisma _min) e busca por nome de produto. Arquivos: invoice.service.ts,
+invoice.controller.ts, notas/page.tsx. Zero migrações Prisma.
+Sprint 31 (Docker Compose) EM HOMOLOGAÇÃO: arquivos criados (docker-compose.yml,
+Dockerfiles, .dockerignore, next.config standalone); erros TS de produção já
+corrigidos (4 funções autocomplete revisao/page.tsx; Lucide title; layout copy.tsx
+removido; children?.map; Sonner onClick). AGUARDANDO: `docker compose ps` com 3 Up.
+IMEDIATO APÓS HOMOLOGAR: Sprint A2 = migração Prisma (CommercialPlan.independent,
+order) + endpoint GET /commercial-plans/resolved. PRECISO do schema atual:
+`Select-String -Path "prisma\schema.prisma" -Pattern "model CommercialPlan|model Proposal" -Context 0,30`
+DEPOIS: A3→A7, Fases B→E (ordem do §7).
 
 ## 10) COMANDOS ÚTEIS (PowerShell)
 docker compose up -d --build | docker compose ps | docker compose logs -f backend

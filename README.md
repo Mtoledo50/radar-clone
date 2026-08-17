@@ -114,12 +114,15 @@ Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando e
 - [x] **Motor de Herança de Planos** (Sprint A1): planos herdam itens automaticamente
 - [x] CRM com funil, motivos de perda e taxa de conversão
 
-### 🧾 Fiscal (Sprints 8–20)
-- [x] Upload de NF-e em lote com parser próprio de XML
-- [x] Estoque Kardex com custo médio por replay e saldo inicial importado
-- [x] Apuração de ICMS mensal + SPED Bloco H (layout legal fixo)
-- [x] Relatório H010 com 17 colunas e tributos (ICMS/ST/IPI/PIS/COFINS)
-- [x] Manutenção manual de produtos com trilha de auditoria (ajustes)
+🧾 Fiscal (Sprints 8–20 + F4/F5)
+[x] Upload de NF-e em lote com parser próprio de XML
+[x] Estoque Kardex com custo médio por replay e saldo inicial importado
+[x] Apuração de ICMS mensal + SPED Bloco H (layout legal fixo)
+[x] Relatório H010 com 17 colunas e tributos (ICMS/ST/IPI/PIS/COFINS)
+[x] Manutenção manual de produtos com trilha de auditoria (ajustes)
+[x] 🆕 Base de ICMS total e por item no modal de detalhe da NF-e (F4)
+[x] 🆕 Coluna "Produtos" na listagem + ordenação A–Z e busca pelo nome
+    do produto (F5)
 
 ### 🏦 Bancário (Sprints 21–24)
 - [x] Importação de extrato CSV com parser à prova de erros (milhares BR/US, datas)

@@ -17,6 +17,7 @@ import {
   Trash2,
   UserPlus,
   AlertTriangle,
+  ArrowUpDown,
 } from 'lucide-react';
 import api from '@/lib/axios';
 import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
@@ -51,6 +52,8 @@ interface InvoiceRow {
   clientId: string | null; // 🆕 Sprint 8/9: nota vinculada a cliente?
   supplier: { id: string; name: string; cnpj: string };
   _count: { items: number };
+  // 🆕 Sprint F5: descrições dos produtos da nota, já em ordem A–Z
+  items: { description: string }[];
 }
 
 interface InvoiceItem {
@@ -64,6 +67,7 @@ interface InvoiceItem {
   quantity: number;
   unitValue: number;
   totalValue: number;
+  icmsBase: number;      // 🆕 Sprint F4: base de cálculo do ICMS por item
   icmsValue: number;
   productMatchStatus: string;
   product?: { id: string; code: string; description: string } | null;
@@ -76,6 +80,7 @@ interface InvoiceDetail extends InvoiceRow {
   ipiValue: number;
   pisValue: number;
   cofinsValue: number;
+  icmsBase: number;      // 🆕 Sprint F4: base total de ICMS da nota
   items: InvoiceItem[];
 }
 
@@ -116,14 +121,15 @@ function StatusBadge({ status }: { status: string }) {
 // 📄 Página: Notas Fiscais (consulta + detalhe + gestão em lote)
 // =================================================================
 // Sprint 8: seletor de cliente (filtro global persistido em localStorage).
-// Sprint 9: seleção múltipla + atribuir cliente + excluir com estorno
-//   (recalcula saldo + custo médio por replay das movimentações restantes).
+// Sprint 9: seleção múltipla + atribuir cliente + excluir com estorno.
+// Sprint F4: Base ICMS total e por item no modal de detalhe.
+// Sprint F5: coluna "Produtos" na listagem + ordenação "Produto (A–Z)".
 //
 // 🛡️ Regras de negócio:
 //   - Seleção múltipla é apenas "da página atual" (não cross-page) — UX
 //     segura que evita ações em itens invisíveis.
 //   - Exclusão é SEQUENCIAL (não paralela): cada DELETE recalcula
-//     estoque e custo médio. Ordem preserva integrididade do Kardex.
+//     estoque e custo médio. Ordem preserva integridade do Kardex.
 //   - Atribuir cliente em lote também atualiza as movimentações e
 //     produtos vinculados (via transação atômica no backend).
 // =================================================================
@@ -146,6 +152,9 @@ export default function FiscalNotasPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // 🆕 Sprint F5: ordenação da listagem ('emission' padrão | 'product' A–Z)
+  const [sortBy, setSortBy] = useState<'emission' | 'product'>('emission');
+
   // 🆕 Sprint 9: seleção múltipla (apenas página atual)
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
@@ -167,8 +176,6 @@ export default function FiscalNotasPage() {
   // ---------------------------------------------------------------
   // 📊 Carrega KPIs (reage a período + cliente selecionado)
   // ---------------------------------------------------------------
-  // 🆕 Sprint 8: clientId filtra os KPIs por cliente
-  // ---------------------------------------------------------------
   const loadMetrics = useCallback(async () => {
     try {
       const params: any = {};
@@ -183,7 +190,7 @@ export default function FiscalNotasPage() {
   }, [startDate, endDate, selected.id]);
 
   // ---------------------------------------------------------------
-  // 📋 Carrega listagem paginada (reage a página, busca e cliente)
+  // 📋 Carrega listagem paginada (reage a página, busca, cliente e ordenação)
   // ---------------------------------------------------------------
   const loadInvoices = useCallback(async () => {
     setLoading(true);
@@ -194,6 +201,7 @@ export default function FiscalNotasPage() {
           limit: 10,
           search: search || undefined,
           clientId: selected.id || undefined, // 🆕 Sprint 8
+          sortBy, // 🆕 Sprint F5: 'emission' | 'product'
         },
       });
       setInvoices(data.data || []);
@@ -203,13 +211,10 @@ export default function FiscalNotasPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, selected.id]);
+  }, [page, search, selected.id, sortBy]);
 
   // ---------------------------------------------------------------
   // 🧹 Limpa seleção ao trocar página/cliente (UX segura)
-  // ---------------------------------------------------------------
-  // Evita o risco de o usuário executar uma ação em lote em itens
-  // que não estão mais visíveis após paginação ou troca de cliente.
   // ---------------------------------------------------------------
   useEffect(() => {
     setSelectedIds([]);
@@ -242,12 +247,6 @@ export default function FiscalNotasPage() {
 
   // ---------------------------------------------------------------
   // 🔗 Atribuir cliente em lote (Sprint 9)
-  // ---------------------------------------------------------------
-  // Fluxo:
-  //   1. Abre o modal e carrega a lista de clientes do escritório
-  //   2. Usuário seleciona o cliente de destino
-  //   3. PATCH /fiscal/invoices/assign-client em transação atômica
-  //      atualiza: nota + movimentações + produtos (sem cliente)
   // ---------------------------------------------------------------
   const openAssignModal = async () => {
     setAssignClientId('');
@@ -287,17 +286,6 @@ export default function FiscalNotasPage() {
 
   // ---------------------------------------------------------------
   // 🗑️ Excluir com estorno (Sprint 9) — individual ou em lote
-  // ---------------------------------------------------------------
-  // 🛡️ Decisão técnica: exclusão SEQUENCIAL (não paralela).
-  // Motivo: cada DELETE recalcula o estoque do(s) produto(s) afetado(s)
-  // por replay das movimentações restantes. Paralelizar poderia causar
-  // race condition no cálculo do custo médio ponderado.
-  //
-  // Fluxo:
-  //   1. askDelete(id?) — define se é exclusão individual (id passado)
-  //      ou em lote (null → usa selectedIds)
-  //   2. Modal de confirmação destrutiva
-  //   3. Loop sequencial de DELETE com estorno de estoque
   // ---------------------------------------------------------------
   const askDelete = (id?: string) => {
     setDeleteTargetId(id || null);
@@ -494,21 +482,40 @@ export default function FiscalNotasPage() {
       </div>
 
       {/* ================================================================
-          Busca + barra de ações em lote + tabela
+          Busca + ordenação + barra de ações em lote + tabela
           ================================================================ */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <div className="relative mb-4">
-          <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Buscar por número, chave de acesso ou fornecedor..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
+        {/* 🆕 Sprint F5: busca + seletor de ordenação lado a lado */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="relative flex-1">
+            <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Buscar por número, chave de acesso ou fornecedor..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </div>
+          {/* 🆕 Sprint F5: ordenação da listagem (server-side) */}
+          <div className="relative">
+            <ArrowUpDown className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value as 'emission' | 'product');
+                setPage(1); // volta p/ página 1 ao reordenar (UX previsível)
+              }}
+              className="pl-9 pr-8 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+              title="Ordenação da lista de notas"
+            >
+              <option value="emission">Mais recentes</option>
+              <option value="product">Produto (A–Z)</option>
+            </select>
+          </div>
         </div>
 
         {/* ============================================================
@@ -577,6 +584,8 @@ export default function FiscalNotasPage() {
                   </th>
                   <th className="py-2 pr-4 font-medium">NF-e</th>
                   <th className="py-2 pr-4 font-medium">Fornecedor</th>
+                  {/* 🆕 Sprint F5: coluna de produtos da nota (A–Z) */}
+                  <th className="py-2 pr-4 font-medium">Produtos</th>
                   <th className="py-2 pr-4 font-medium">Emissão</th>
                   <th className="py-2 pr-4 font-medium text-center">Itens</th>
                   <th className="py-2 pr-4 font-medium text-right">Total</th>
@@ -603,9 +612,7 @@ export default function FiscalNotasPage() {
                     </td>
                     <td className="py-3 pr-4 font-medium text-slate-800">
                       #{inv.number} / s{inv.series}
-                      {/* 🆕 Sprint 8: indicador visual de nota vinculada a cliente
-                          (bolinha teal) — ajuda a identificar rapidamente notas
-                          que pertencem a um cliente específico vs. legadas */}
+                      {/* 🆕 Sprint 8: indicador visual de nota vinculada a cliente */}
                       {inv.clientId && (
                         <span
                           className="ml-2 inline-block w-2 h-2 rounded-full bg-teal-500"
@@ -614,6 +621,26 @@ export default function FiscalNotasPage() {
                       )}
                     </td>
                     <td className="py-3 pr-4 text-slate-600">{inv.supplier?.name}</td>
+                    {/* 🆕 Sprint F5: 1º produto (A–Z) + badge "+N" com tooltip completo */}
+                    <td className="py-3 pr-4 text-slate-600 max-w-[240px]">
+                      {inv.items && inv.items.length > 0 ? (
+                        <>
+                          <p
+                            className="truncate"
+                            title={inv.items.map((it) => it.description).join('\n')}
+                          >
+                            {inv.items[0]?.description}
+                          </p>
+                          {inv.items.length > 1 && (
+                            <span className="text-xs text-teal-600 font-medium">
+                              +{inv.items.length - 1} produto(s)
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="py-3 pr-4 text-slate-600">{formatDate(inv.emissionDate)}</td>
                     <td className="py-3 pr-4 text-center text-slate-600">{inv._count?.items}</td>
                     <td className="py-3 pr-4 text-right font-semibold text-slate-800">
@@ -681,12 +708,9 @@ export default function FiscalNotasPage() {
           MODAL DE DETALHE DA NOTA
           ================================================================
           Exibe cabeçalho + totais + itens com impostos detalhados.
-
-          🛡️ Correção de NaN (Sprint 9+):
-          Os campos `pisValue`, `cofinsValue`, `ipiValue`, `totalValue` e
-          `icmsValue` podem vir do backend como objetos Decimal do Prisma
-          (não Number puro). A dupla proteção `Number(x ?? 0)` garante
-          que a aritmética no frontend funcione corretamente.
+          🆕 Sprint F4: card "Base ICMS" no resumo e por item.
+          🛡️ Correção de NaN (Sprint 9+): proteção Number(x ?? 0) contra
+          objetos Decimal do Prisma.
           ================================================================ */}
       {(detail || loadingDetail) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -715,12 +739,18 @@ export default function FiscalNotasPage() {
                     </button>
                   </div>
 
-                  {/* Totais da nota — com proteção Number() contra Decimal do Prisma */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-slate-100">
+                  {/* Totais da nota — 🆕 Sprint F4: card "Base ICMS" (grid de 5) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-5 border-b border-slate-100">
                     <div>
                       <p className="text-xs text-slate-500">Total da Nota</p>
                       <p className="font-semibold text-slate-800">
                         {formatBRL(Number(detail.totalValue ?? 0))}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500">Base ICMS</p>
+                      <p className="font-semibold text-blue-700">
+                        {formatBRL(Number(detail.icmsBase ?? 0))}
                       </p>
                     </div>
                     <div>
@@ -776,6 +806,10 @@ export default function FiscalNotasPage() {
                                 {Number(item.quantity).toLocaleString('pt-BR')} ×{' '}
                                 {formatBRL(Number(item.unitValue ?? 0))}
                               </p>
+                              {/* 🆕 Sprint F4: base de cálculo do ICMS por item */}
+                              <p className="text-xs text-blue-700">
+                                Base ICMS {formatBRL(Number(item.icmsBase ?? 0))}
+                              </p>
                               <p className="text-xs text-green-700">
                                 ICMS {formatBRL(Number(item.icmsValue ?? 0))}
                               </p>
@@ -794,10 +828,6 @@ export default function FiscalNotasPage() {
 
       {/* ================================================================
           🆕 MODAL: ATRIBUIR CLIENTE (Sprint 9)
-          ================================================================
-          Vincula notas + movimentos + produtos (ainda sem cliente) a um
-          cliente do escritório. Útil para migrar notas legadas que foram
-          importadas sem cliente selecionado.
           ================================================================ */}
       {assignOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -865,14 +895,6 @@ export default function FiscalNotasPage() {
 
       {/* ================================================================
           🆕 MODAL: CONFIRMAÇÃO DE EXCLUSÃO (Sprint 9)
-          ================================================================
-          Modal destrutivo com explicação clara do que acontece:
-          - A(s) nota(s) será(ão) removida(s)
-          - O estoque será revertido (saldo + custo médio recalculados)
-          - Ação IRREVERSÍVEL
-
-          Suporta tanto exclusão individual (deleteTargetId setado) quanto
-          em lote (deleteTargetId null → usa selectedIds).
           ================================================================ */}
       {deleteOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
