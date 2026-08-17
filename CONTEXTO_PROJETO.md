@@ -72,6 +72,11 @@ ADR-021 Ícones Lucide: tooltip via <span title> wrapper (title não existe no t
 ADR-022 Proibido arquivo de backup dentro de src/ (quebra next build).
 ADR-023 Optional chaining (?.) em .map de opcionais no JSX.
 ADR-024 Sonner: action/cancel exigem onClick (usar () => {} p/ só fechar).
+ADR-030 Regra de Ouro: ações riskLevel=LEGAL nunca são AUTO (aprovação humana sempre).
+ADR-031 Cálculo tributário determinístico no backend; IA apenas sugere/classifica.
+ADR-032 LGPD: cofres de credenciais AES-256-GCM (implementação em FD-8).
+ADR-033 Perfis de aprovação por tipo de tarefa (Auxiliar/Analista/Supervisor/Contador).
+ADR-034 Arquivos estruturais (app.module.ts, schema.prisma): entregar sempre o delta.
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
 Sprint A1 CONCLUÍDA: domínio puro testado (6 testes verdes).
@@ -82,6 +87,11 @@ IMEDIATO: Sprint A4 = Fechamento com Ganho (desconto + argumento de venda).
   - Endpoint: POST /proposals/:id/close com desconto e cálculo de ganho vs preço cheio.
   - Frontend: modal de fechamento com slider de desconto e "quanto você ganhou".
 DEPOIS: A5→A7, Fases B→E (ordem do §7).
+Sprint FD-1 CONCLUÍDA (15/08/2026): Funcionário Digital Aurora — fundação completa
+(6 tabelas, módulo digital-employee, orquestrador, auditoria, ReconciliationSkill e
+dashboard em /dashboard/funcionario-digital).
+IMEDIATO: FD-2 = ClassificationSkill + AccountingBridgeSkill + crons em produção controlada.
+DEPOIS: FD-3→FD-9 (ver FUNCIONARIO_DIGITAL.md) • A4→A7 e Fases B→E (ordem do §7).
 
 
 ## 10) COMANDOS ÚTEIS (PowerShell)

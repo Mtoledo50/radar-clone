@@ -3,6 +3,31 @@
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)  
 **Última atualização:** 14/08/2026 (pós-Sprint 31 + Sprint A1)
 ## [FD-1] - 2026-08-15 - Aurora nasce! Fundação do Funcionário Digital
+## [Sprint FD-1] 2026-08-15 — Aurora: Fundação do Funcionário Digital 🌅
+
+### ✅ Added (Backend)
+- **Migração `fd1_foundation_robot_worker`**: 6 tabelas (`robot_workers`, `robot_worker_skills`, `automation_runs`, `automation_pendings`, `automation_audits`, `approval_records`) + 6 enums (`SkillKey`, `AutonomyLevel`, `RunStatus`, `TriggerType`, `PendingStatus`, `ApprovalDecision`).
+- **Módulo `digital-employee`** completo: `DigitalEmployeeService` (lazy create + KPIs), `DigitalEmployeeController` (8 endpoints JWT), DTOs, `AutomationAuditService` (Pilar D), `JobRunnerService` (executor com métricas), `SchedulerService` (esqueleto cron desligado por segurança), `BaseSkill` (classe abstrata — Pilar B) e `ReconciliationSkill` (reusa `BankingReconcileService` da Sprint 29).
+- **Endpoint `POST /digital-employee/skills/:skillKey/run`** — botão "Rodar agora" (disparo manual fora do cron).
+- **Integração com BankingModule**: `BankingReconcileService` agora é exportado para ser reutilizado.
+- **CORS multi-origem** no `main.ts`: aceita `localhost:3000`, `localhost:3002` e variantes IP (comma-separated via `FRONTEND_URL`).
+
+### ✅ Added (Frontend)
+- **Dashboard `/dashboard/funcionario-digital`**: header com avatar 🌅 + status ACTIVE/PAUSED + botão pausa; 4 KPI cards (runs hoje, auto-aprovados, pendências 🟡, tempo economizado); timeline de runs; fila de revisão humana; painel de skills com toggle on/off + botão ▶; trilha de auditoria.
+- **Hook Zustand `useDigitalEmployee`**: gerencia estado + chamadas API + optimistic updates + refresh automático a cada 30s.
+- **6 componentes isolados**: `EmployeeHeader`, `KpiCards`, `RunsTimeline`, `PendingQueue`, `SkillsPanel`, `AuditTrail`.
+- **Item no menu lateral** (`layout.tsx`): 🤖 Funcionário Digital na seção INTELIGÊNCIA (topo da seção).
+- **Axios instance `@/lib/axios`**: interceptor injeta JWT automaticamente + trata 401 globalmente.
+
+### 🧠 Decisions (ADRs)
+- **ADR-030** Regra de Ouro: ações `riskLevel=LEGAL` nunca são AUTO (aprovação humana sempre, independente do score).
+- **ADR-031** Cálculo tributário determinístico no backend; IA apenas sugere/classifica.
+- **ADR-032** LGPD: cofres de credenciais AES-256-GCM (implementação em FD-8).
+- **ADR-033** Perfis de aprovação por tipo de tarefa (Auxiliar/Analista/Supervisor/Contador).
+- **ADR-034** Arquivos estruturais (`app.module.ts`, `schema.prisma`): entregar sempre o **delta**, nunca substituição total.
+
+### 🏁 Status
+HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ • run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ • dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
 ### Added
 - **Migração `fd1_foundation_robot_worker`**: 6 tabelas novas

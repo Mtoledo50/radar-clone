@@ -32,6 +32,7 @@ import {
   Building,          // 🆕 Sprint 28: DRE do Escritório
   Wallet,            // 🆕 Sprint 28: DRE do Cliente Bancário (extrato)
   Brain,
+  Bot,               // 🆕 FD-1: Funcionário Digital (Aurora)
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
@@ -209,6 +210,16 @@ const allMenuItems: MenuItem[] = [
    // ─────────────────────────────────────────────────────────
   // 📈 INTELIGÊNCIA
   // ─────────────────────────────────────────────────────────
+
+  // 🆕 FD-1 (15/08/2026): Funcionário Digital Aurora — topo da seção
+  // por ser a feature mais nova e importante de Inteligência.
+  {
+    id: 'funcionario-digital',
+    title: 'Funcionário Digital',
+    href: '/dashboard/funcionario-digital',
+    icon: Bot,
+    section: 'inteligencia',
+  },
   {
     id: 'bi',
     title: 'DRE do Escritório',
