@@ -26,8 +26,8 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
  *   GET    /fiscal/invoices                 → listagem paginada
  *   GET    /fiscal/invoices/metrics         → KPIs do período
  *   GET    /fiscal/invoices/:id             → detalhe da nota
- *   PATCH  /fiscal/invoices/assign-client   → 🆕 vincular notas a cliente
- *   DELETE /fiscal/invoices/:id             → 🆕 excluir com estorno
+ *   PATCH  /fiscal/invoices/assign-client   → vincular notas a cliente
+ *   DELETE /fiscal/invoices/:id             → excluir com estorno
  *
  * ⚠️ Ordem das rotas: rotas literais ('upload', 'metrics',
  *    'assign-client') DEVEM vir ANTES de ':id' para não conflitarem.
@@ -41,7 +41,6 @@ export class InvoiceController {
   /**
    * POST /fiscal/invoices/upload
    * Upload em lote de XMLs (até 50, 5MB cada).
-   * 🆕 Sprint 9: duplicatas não bloqueiam o lote (status DUPLICATE).
    */
   @Post('upload')
   @UseInterceptors(
@@ -63,7 +62,11 @@ export class InvoiceController {
     );
   }
 
-  /** GET /fiscal/invoices — listagem paginada com busca e filtro de cliente */
+  /**
+   * GET /fiscal/invoices — listagem paginada
+   * 🆕 Sprint F5: query param `sortBy` ('emission' padrão | 'product' A–Z).
+   * Whitelist segura: qualquer valor inválido vira 'emission'.
+   */
   @Get()
   findAll(
     @Request() req,
@@ -71,12 +74,14 @@ export class InvoiceController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('clientId') clientId?: string,
+    @Query('sortBy') sortBy?: string,
   ) {
     return this.invoiceService.findAll(req.user.companyId, {
       page: Number(page) || 1,
       limit: Math.min(Number(limit) || 50, 100),
       search,
       clientId,
+      sortBy: sortBy === 'product' ? 'product' : 'emission',
     });
   }
 
@@ -97,10 +102,7 @@ export class InvoiceController {
 
   /**
    * PATCH /fiscal/invoices/assign-client
-   * 🆕 Sprint 9: vincula (ou desvincula) notas a um cliente, em lote.
-   * Body: { invoiceIds: string[], clientId: string | null }
-   *
-   * ⚠️ Declarada ANTES de @Get(':id') e @Delete(':id').
+   * Vincula (ou desvincula) notas a um cliente, em lote.
    */
   @Patch('assign-client')
   assignClient(@Request() req, @Body() body: any) {
@@ -121,7 +123,7 @@ export class InvoiceController {
 
   /**
    * DELETE /fiscal/invoices/:id
-   * 🆕 Sprint 9: exclui a nota e reverte o estoque (estorno + recálculo).
+   * Exclui a nota e reverte o estoque (estorno + recálculo).
    */
   @Delete(':id')
   remove(@Request() req, @Param('id') id: string) {

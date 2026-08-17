@@ -180,7 +180,8 @@ model Company {
   
   // 🤖 Funcionário Digital (FD-1)
   robotWorker       RobotWorker?
-  
+    // 📊 Relatórios Mensais (FD-2 final)
+  monthlyReports  MonthlyReport[]
   @@map("companies")
 }
 
@@ -334,7 +335,9 @@ model Client {
   fiscalMovements       FiscalInventoryMovement[]
   fiscalApurations      FiscalIcmsApuration[]
   bankStatements        BankStatement[]
-    
+    // 📊 Relatórios mensais do cliente
+  monthlyReports  MonthlyReport[]
+
   @@index([userId])
   @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
   @@map("clients")
@@ -1867,6 +1870,7 @@ model AutomationRun {
   errorMessage      String?     @db.Text
 
   pendings          AutomationPending[]
+  monthlyReports    MonthlyReport[]   // 🆕 FD-2 final: relatórios gerados por este run
 
   @@index([companyId, startedAt])
   @@index([companyId, status])
@@ -1955,4 +1959,55 @@ model ApprovalRecord {
 
   @@index([companyId, entityType, entityId])
   @@map("approval_records")
+}
+// =================================================================
+// 📊 RELATÓRIOS MENSAIS (MonthlyReportSkill — FD-2 final)
+// =================================================================
+// PDF mensal gerado pela Aurora para cada cliente ativo.
+// Contém: resumo financeiro, métricas do mês, atividades da Aurora.
+// Arquivo físico em: backend/uploads/reports/{companyId}/{YYYY-MM}/{clientId}.pdf
+// =================================================================
+
+/// Status de geração do relatório
+enum ReportStatus {
+  GENERATING   /// Em produção
+  READY        /// Pronto para download
+  FAILED       /// Falhou (ver errorMessage)
+}
+
+/// Registro de um relatório mensal gerado (1 por cliente/mês)
+model MonthlyReport {
+  id          String        @id @default(cuid())
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  clientId    String
+  client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  /// Período do relatório (ex.: "2026-07")
+  period      String
+
+  /// Caminho relativo do PDF (a partir de backend/uploads/)
+  pdfPath     String?
+
+  /// Resumo em JSON (total honorários, transações, tempo economizado, etc.)
+  summary     Json?
+
+  status      ReportStatus  @default(GENERATING)
+  errorMessage String?      @db.Text
+
+  /// Vínculo com o AutomationRun que gerou (opcional — geração manual não tem run)
+  runId       String?
+  run         AutomationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  /// Quem gerou (userId se manual, null se cron)
+  generatedBy String?
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([companyId, clientId, period])  /// 1 relatório por cliente/mês/tenant
+  @@index([companyId, period])
+  @@index([clientId])
+  @@map("monthly_reports")
 }

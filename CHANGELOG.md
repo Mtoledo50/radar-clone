@@ -161,7 +161,29 @@ dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 - **HOMOLOGADO** no ambiente Docker (Postgres 5433, Backend 3001, Frontend 3000).
 
 ---
-
+[Sprints F4–F5 — Enriquecimento Fiscal] 2026-08
+Added
+- F4: card "Base ICMS" no modal de detalhe da nota (total da nota) e linha
+  "Base ICMS" por item — exibindo dados que o parser já extraía (`vBC` por
+  item e no `ICMSTot`) e o schema já persistia. Zero migrações.
+- F5: coluna "Produtos" na listagem de notas (1º produto em A–Z + badge
+  "+N produto(s)" com tooltip listando todos).
+- F5: seletor "Ordenar por: Mais recentes | Produto (A–Z)" — ordenação
+  server-side compatível com paginação.
+- F5: busca da listagem agora encontra notas pelo NOME DO PRODUTO
+  (ex.: digitar "TRIANGLE" acha a nota #8338).
+Changed
+- `invoice.service.ts` → `findAll`: retorna descrições dos itens ordenadas
+  A–Z; novo filtro `sortBy`; busca inclui `items.description`.
+- `invoice.controller.ts` → whitelist segura de `sortBy`.
+- `notas/page.tsx` → coluna nova + seletor + tipos atualizados.
+Decisions
+- Ordenação por produto via agregação Prisma
+  (`orderBy: { items: { _min: { description: 'asc' } } }`) — notas sem
+  itens vêm por último (NULLS LAST).
+- CSOSN 102/103 (Simples) não trazem `<vBC>` por item no XML: base
+  exibida como R$ 0,00 nesses casos (comportamento fiscal correto).
+  
 ## [Sprint A1] 2026-08 — Motor de Herança de Planos (Domínio Puro)
 
 ### ✅ Added
