@@ -82,21 +82,31 @@ ADR-033 Perfis de aprovação por tipo de tarefa (Auxiliar/Analista/Supervisor/C
 ADR-034 Arquivos estruturais (app.module.ts, schema.prisma): entregar sempre o delta.
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
-Sprint A1 CONCLUÍDA: backend/src/commercial-plans/domain/{plan-inheritance.ts,
-pricing-insights.ts, tests/plan-inheritance.spec.ts} — 6 testes verdes.
-Sprints F4/F5 (enriquecimento Fiscal) CONCLUÍDAS E HOMOLOGADAS: modal de
-detalhe com Base ICMS (total + por item); listagem de notas com coluna
-"Produtos" (A–Z, tooltip), ordenação server-side "Produto (A–Z)" (agregação
-Prisma _min) e busca por nome de produto. Arquivos: invoice.service.ts,
-invoice.controller.ts, notas/page.tsx. Zero migrações Prisma.
-Sprint 31 (Docker Compose) EM HOMOLOGAÇÃO: arquivos criados (docker-compose.yml,
-Dockerfiles, .dockerignore, next.config standalone); erros TS de produção já
-corrigidos (4 funções autocomplete revisao/page.tsx; Lucide title; layout copy.tsx
-removido; children?.map; Sonner onClick). AGUARDANDO: `docker compose ps` com 3 Up.
-IMEDIATO APÓS HOMOLOGAR: Sprint A2 = migração Prisma (CommercialPlan.independent,
-order) + endpoint GET /commercial-plans/resolved. PRECISO do schema atual:
-`Select-String -Path "prisma\schema.prisma" -Pattern "model CommercialPlan|model Proposal" -Context 0,30`
-DEPOIS: A3→A7, Fases B→E (ordem do §7).
+
+### ✅ Concluído
+- Sprint A1: domínio puro testado (6 testes verdes).
+- Sprint 31 (Docker): ambiente estável.
+- Sprint A2: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano).
+- Sprint A3: versões de proposta.
+- FD-1 Fundação: 6 tabelas + dashboard + menu + crons ↔ toggles.
+- FD-2 COMPLETA: 4 skills (RECONCILIATION, CLASSIFICATION, ACCOUNTING_BRIDGE,
+  MONTHLY_REPORT) + Central de Aprovações + aba Relatórios Mensais.
+- Entrega C: Aurora em produção controlada c/ dados reais
+  (98 clientes importados do CSV de honorários; CLASSIFICATION 18/18 auto-aprovadas).
+- MonthlyReportSkill homologada (18/08): 99 PDFs + endpoints + UI.
+
+### 🚧 Notas técnicas (dívida consciente)
+- Postgres 18 local: `radar_user` sem CREATEDB → migrations via SQL manual + GRANT.
+- Backend: jspdf 2.5.2 / autotable 3.8.2 pinados (CommonJS).
+- Schema: @@unique([companyId, companyName]) em Client aplicado.
+
+### 🚀 IMEDIATO (escolher 1)
+- FD-3: Importação automática NFS-e (e-mail + portal + OCR).
+- FD-4: Emissão de guias DAS/ISS/DARF com memória de cálculo.
+- A4: Fechamento com Ganho (plano comercial 2.0).
+
+### 📋 DEPOIS
+- FD-5→FD-9; A5→A7; Fases B→E (ordem do §7).
 
 ## 10) COMANDOS ÚTEIS (PowerShell)
 docker compose up -d --build | docker compose ps | docker compose logs -f backend

@@ -66,7 +66,39 @@ export class MonthlyReportSkill extends BaseSkill {
     const target = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const year = context.params?.year ?? target.getFullYear();
     const month = context.params?.month ?? target.getMonth() + 1;
-    const period = `${year}-${String(month).padStart(2, '0')}`;
+     const period = `${year}-${String(month).padStart(2, '0')}`;
+
+    // -----------------------------------------------------------------
+    // 🎯 MODO MANUAL (PASSO 3): se params.clientId vier, gera SOMENTE
+    //    para aquele cliente (botão "Gerar agora" da UI)
+    // -----------------------------------------------------------------
+    if (context.params?.clientId) {
+      const client = await this.prisma.client.findFirst({
+        where: { id: context.params.clientId, companyId },
+      });
+      if (!client) {
+        return {
+          itemsProcessed: 0, itemsAutoApproved: 0, itemsPendingHuman: 0,
+          itemsFailed: 1, secondsSaved: 0,
+          detail: { period, error: 'Cliente não encontrado neste tenant' },
+        };
+      }
+      try {
+        await this.generateForClient(companyId, client, year, month, period, runId);
+        return {
+          itemsProcessed: 1, itemsAutoApproved: 1, itemsPendingHuman: 0,
+          itemsFailed: 0, secondsSaved: SECONDS_PER_REPORT,
+          detail: { period, clientId: client.id },
+        };
+      } catch (error: any) {
+        await this.markFailed(companyId, client.id, period, runId, error?.message);
+        return {
+          itemsProcessed: 0, itemsAutoApproved: 0, itemsPendingHuman: 0,
+          itemsFailed: 1, secondsSaved: 0,
+          detail: { period, error: error?.message },
+        };
+      }
+    }
 
     // 2) COLETAR: clientes ATIVOS do tenant
     const clients = await this.prisma.client.findMany({

@@ -82,6 +82,11 @@ Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando e
 │ INTELIGÊNCIA (BI) │
 │ DRE do Escritório → Ponto Fora da Curva → Simulador Trib. │
 └─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ 🤖 FUNCIONÁRIO DIGITAL (AURORA)                             │
+│ Mesa de trabalho → Aprovações → Auditoria → Relatórios      │
+│ 4 skills: Conciliação • Classificação • Ponte • PDF mensal  │
+└─────────────────────────────────────────────────────────────┘
 ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ 🤖 FUNCIONÁRIO DIGITAL AURORA │

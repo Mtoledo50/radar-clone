@@ -3,6 +3,34 @@
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 **Última atualização:** 17/08/2026 (pós-Sprint FD-2 parcial)
+## [FD-2 Final — MonthlyReportSkill] 2026-08-18 — Pacote mensal da Aurora 📊
+
+### ✅ Added
+- Model `MonthlyReport` + enum `ReportStatus` (GENERATING/READY/FAILED), unique por (companyId, clientId, period).
+- `MonthlyReportSkill`: PDF mensal profissional por cliente ativo (jspdf 2.5 + autotable 3.8).
+  - Pipeline: COLETAR (extratos do mês) → INTERPRETAR (receitas/despesas/saldo + por natureza + top 10) → EXECUTAR (PDF) → REGISTRAR (MonthlyReport + auditoria).
+  - Modo manual via `params.clientId` (botão "Gerar agora").
+  - Resiliência: cliente sem movimentação recebe PDF "sem movimentações"; erro não aborta o lote.
+  - Cron `0 8 5 * *` (dia 5 às 08:00).
+- Storage local: `backend/uploads/reports/{companyId}/{period}/{clientId}.pdf`.
+- Endpoints: `GET /digital-employee/reports`, `GET .../reports/:id/download`, `POST .../reports/generate`.
+- Página `/dashboard/funcionario-digital/relatorios`: tabela com 99 relatórios, filtros (período/status/busca), botões ⬇️ Baixar, ▶️ Gerar agora e "Gerar mês anterior".
+- Item de menu "Relatórios Mensais" na seção Inteligência.
+
+### 🧠 Decisions
+- ADR-035 (proposto): PDFs no backend com jspdf+autotable (mesma stack do FE); storage local (S3 na FD-7).
+- Pin de versões no backend: jspdf 2.5.2 + autotable 3.8.2 (v4/v5 são ESM-first e quebram `require` do NestJS); `autoTable` via `require(...).default`.
+- Migration aplicada via SQL manual (`psql` superuser) + `GRANT` para `radar_user` (usuário do app sem permissão CREATEDB p/ shadow database).
+- Frontend usa `api` (axios c/ interceptor JWT) — padrão do projeto (elimina 401 de token manual).
+
+### 📊 Resultados reais (produção controlada, 18/08/2026)
+- 99 PDFs gerados em lote (`itemsProcessed: 99`).
+- Geração manual validada (`itemsProcessed: 1`, `secondsSaved: 3600`).
+- Download validado via endpoint e via UI; caso "sem movimentações" validado.
+
+### 🏁 Status
+HOMOLOGADO em ambiente local (Postgres 5432, dados reais).
+
 ## [Entrega C] 2026-08-17 — Aurora em produção controlada com dados reais 🎉
 
 ### ✅ Added

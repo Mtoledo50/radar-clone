@@ -22,7 +22,9 @@ import { SkillKey, ApprovalDecision } from '@prisma/client';
 import { JobRunnerService } from './orchestrator/job-runner.service';
 import { SchedulerService } from './orchestrator/scheduler.service';
 import { AutomationAuditService } from './audit/automation-audit.service'; // 🆕 FD-2 final
-
+import * as fs from 'fs';
+import * as path from 'path';
+import { MonthlyReportSkill } from './skills/monthly-report.skill';
 // -----------------------------------------------------------------
 // Configuração das skills padrão da Aurora.
 // Quando o worker é criado, fazemos o "seed" destas 4 skills
@@ -46,6 +48,7 @@ export class DigitalEmployeeService {
     private readonly jobRunner: JobRunnerService,
     private readonly scheduler: SchedulerService, // 🆕 FD-2: sincroniza toggle ↔ cron
     private readonly audit: AutomationAuditService, // 🆕 FD-2 final: auditoria das decisões humanas
+    private readonly monthlyReportSkill: MonthlyReportSkill,
   ) {}
 
   // =================================================================
@@ -416,6 +419,148 @@ export class DigitalEmployeeService {
    */
   async runSkillNow(companyId: string, skillKey: string, userId: string) {
     return this.jobRunner.runSkill(companyId, skillKey as any, 'MANUAL', userId);
+  }
+  // =================================================================
+  // 📊 RELATÓRIOS MENSAIS (FD-2 final)
+  // =================================================================
+
+  /**
+   * Lista todos os relatórios do tenant, com filtros opcionais.
+   * Ordena por período decrescente (mais recente primeiro).
+   */
+  async listReports(
+    companyId: string,
+    period?: string,
+    clientId?: string,
+    status?: string,
+  ) {
+    const where: any = { companyId };
+    if (period) where.period = period;
+    if (clientId) where.clientId = clientId;
+    if (status) where.status = status;
+
+    const reports = await this.prisma.monthlyReport.findMany({
+      where,
+      include: {
+        client: {
+          select: {
+            id: true,
+            companyName: true,
+            cnpj: true,
+            serviceType: true,
+            monthlyFee: true,
+          },
+        },
+      },
+      orderBy: { period: 'desc' },
+    });
+
+    return { value: reports, count: reports.length };
+  }
+
+  /**
+   * Faz o download do PDF do relatório (stream direto do filesystem).
+   * Retorna 404 se o relatório não pertencer ao tenant ou o arquivo não existir.
+   */
+  async downloadReport(companyId: string, id: string, res: any) {
+    const report = await this.prisma.monthlyReport.findFirst({
+      where: { id, companyId },
+    });
+    if (!report || !report.pdfPath) {
+      return res.status(404).json({ message: 'Relatório não encontrado' });
+    }
+
+    const filePath = path.join(process.cwd(), 'uploads', report.pdfPath);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'Arquivo PDF não encontrado no disco' });
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="relatorio-${report.period}-${report.clientId.slice(0, 8)}.pdf"`,
+    );
+    const stream = fs.createReadStream(filePath);
+    stream.pipe(res);
+  }
+
+  /**
+   * Gera o relatório de 1 cliente específico (modo manual da skill).
+   * Reutiliza a MonthlyReportSkill com params.clientId.
+   */
+  async generateReportForClient(
+    companyId: string,
+    userId: string,
+    clientId: string,
+    year?: number,
+    month?: number,
+  ) {
+    // Cria um run de auditoria para este disparo manual
+    const worker = await this.prisma.robotWorker.findFirst({
+      where: { companyId },
+    });
+    if (!worker) {
+      throw new Error('RobotWorker não encontrado para o tenant');
+    }
+
+    const run = await this.prisma.automationRun.create({
+      data: {
+        companyId,
+        workerId: worker.id,
+        skillKey: 'MONTHLY_REPORT',
+        triggerType: 'MANUAL',
+        triggeredBy: userId,
+        status: 'RUNNING',
+      },
+    });
+
+    try {
+      const result = await this.monthlyReportSkill.execute({
+        companyId,
+        runId: run.id,
+        skillKey: 'MONTHLY_REPORT',   // 🆕 exigido pelo SkillContext
+        triggeredBy: userId,          // 🆕 exigido pelo SkillContext
+        params: { clientId, year, month },
+      });
+
+      await this.prisma.automationRun.update({
+        where: { id: run.id },
+        data: {
+          status: result.itemsFailed > 0 ? 'PARTIAL' : 'SUCCESS',
+          finishedAt: new Date(),
+          itemsProcessed: result.itemsProcessed,
+          itemsAutoApproved: result.itemsAutoApproved,
+          itemsPendingHuman: result.itemsPendingHuman,
+          itemsFailed: result.itemsFailed,
+          secondsSaved: result.secondsSaved,
+        },
+      });
+
+      await this.audit.log({
+        companyId,
+        actor: `USER_${userId}`,
+        action: 'SKILL_FINISHED:MONTHLY_REPORT',
+        entity: 'AutomationRun',
+        entityId: run.id,
+        detail: { ...result, period: result.detail?.period },
+      });
+
+      return {
+        runId: run.id,
+        status: result.itemsFailed > 0 ? 'PARTIAL' : 'SUCCESS',
+        result,
+      };
+    } catch (error: any) {
+      await this.prisma.automationRun.update({
+        where: { id: run.id },
+        data: {
+          status: 'FAILED',
+          finishedAt: new Date(),
+          errorMessage: error.message,
+        },
+      });
+      throw error;
+    }
   }
 }
 // =================================================================
