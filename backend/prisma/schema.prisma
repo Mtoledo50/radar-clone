@@ -336,7 +336,7 @@ model Client {
   bankStatements        BankStatement[]
     
   @@index([userId])
-  @@index([companyId])
+  @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
   @@map("clients")
 }
 
