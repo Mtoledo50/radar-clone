@@ -32,7 +32,7 @@ Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando e
 | Conferir Pix × Nota Fiscal olho a olho | 1–3 h por cliente | Pagamentos esquecidos |
 | Montar DRE no Excel | 1 h por cliente | Fórmulas quebradas |
 
-###  Com o Radar Conta Certa
+### ✅ Com o Radar Conta Certa
 
 | Atividade | Tempo | Como |
 |-----------|-------|------|
@@ -55,29 +55,39 @@ Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando e
 │ OPERACIONAL │
 │ Dashboard → Pessoas & Turnover → Clientes & CRM → Projetos │
 └─────────────────────────────────────────────────────────────┘
+↓
 ┌─────────────────────────────────────────────────────────────┐
 │ COMERCIAL │
 │ Precificação → Propostas & Planos → Motor de Herança (A1) │
 └─────────────────────────────────────────────────────────────┘
+↓
 ┌─────────────────────────────────────────────────────────────┐
 │ FISCAL │
 │ NF-e de Entrada → Estoque Kardex → Apuração ICMS → SPED │
 └─────────────────────────────────────────────────────────────┘
+↓
 ┌─────────────────────────────────────────────────────────────┐
 │ BANCÁRIO │
 │ Extrato CSV → Classificação c/ Memória → DRE Bancário │
 │ → Fechamento do Mês → Conciliação Banco × NF-e │
 └─────────────────────────────────────────────────────────────┘
+↓
 ┌─────────────────────────────────────────────────────────────┐
 │ CONTÁBIL │
 │ Plano de Contas SCI → Lançamentos → Ponte Bancário→Contábil│
 │ → DRE Oficial do Cliente → Exportação SCI │
 └─────────────────────────────────────────────────────────────┘
+↓
 ┌─────────────────────────────────────────────────────────────┐
 │ INTELIGÊNCIA (BI) │
 │ DRE do Escritório → Ponto Fora da Curva → Simulador Trib. │
 └─────────────────────────────────────────────────────────────┘
-
+↓
+┌─────────────────────────────────────────────────────────────┐
+│ 🤖 FUNCIONÁRIO DIGITAL AURORA │
+│ Conciliação → Classificação → Ponte Contábil → Relatórios │
+│ (Execução automática + Revisão humana obrigatória) │
+└─────────────────────────────────────────────────────────────┘
 
 ---
 
@@ -126,73 +136,224 @@ Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando e
 
 ### 🔗 Conciliação Inteligente (Sprint 29)
 - [x] Motor que cruza débitos do banco × NF-e de entrada com score de confiança
-- [x] Sugestões  ≥80% / 🟡 50–79% com revisão humana obrigatória
+- [x] Sugestões ≥80% / 🟡 50–79% com revisão humana obrigatória
 
-###  BI & Inteligência
+### 📈 BI & Inteligência
 - [x] DRE do Escritório
 - [x] Ponto Fora da Curva (anomalias estatísticas)
 - [x] Simulador Simples Nacional × Presumido × Real
 - [x] Reforma Tributária (EC 132/23)
 - [x] Exportação PDF profissional e CSV compatível com Excel (UTF-8 + BOM)
 
-###  Containerização (Sprint 31)
+### 🐳 Containerização (Sprint 31)
 - [x] Docker Compose: 1 comando para subir tudo (Postgres + Backend + Frontend)
 - [x] Ambiente isolado para testes (banco virgem na porta 5433)
 - [x] Build de produção otimizado (Next.js standalone + NestJS multi-stage)
 
 ---
 
-## 🏆 O Diferencial: os 3 DREs
+## 🤖 Funcionário Digital Aurora (Sprints FD-1 e FD-2)
 
-| DRE | 🎯 Para quem | 📚 Fonte de dados | 📍 Onde ver |
-|-----|--------------|-------------------|-------------|
-|  **Do Escritório** | Diretor da Conta Certa | Transações financeiras internas | BI |
-| 💼 **Bancário do Cliente** | Gestão de caixa do cliente | Extrato + naturezas | Fechamento Mensal |
-| 📒 **Oficial do Cliente** | Contabilidade / obrigações | Lançamentos promovidos | BI → DRE do Cliente |
+> **AURORA** = **A**utomação **U**nificada de **R**otinas e **O**brigações, com **R**evisão e **A**uditoria
 
-✅ Os três conversam entre si por cards de navegação cruzada, e o Oficial mostra a diferença em R$ contra o Bancário — auditoria em tempo real.
+A Aurora é a funcionária digital que acorda às 02:00 da manhã e executa rotinas contábeis automaticamente sobre o Radar Conta Certa, reaproveitando os motores existentes (classificação com memória, conciliação, ponte bancário→contábil).
 
----
+### 🎯 O que ela faz (hoje, FD-2 parcial)
 
-## ️ Arquitetura (para a equipe técnica)
+| Skill | O que faz | Quando executa | Status |
+|-------|-----------|----------------|--------|
+| **RECONCILIATION** | Concilia Banco × NF-e com score de confiança | Todo dia 02:00 | ✅ FD-1 |
+| **CLASSIFICATION** | Classifica transações usando memória de aprendizado | Todo dia 02:30 | ✅ FD-2 |
+| **ACCOUNTING_BRIDGE** | Promove lançamentos bancários para a contabilidade | Todo dia 03:00 | ✅ FD-2 |
+
+### 🛡️ Regra de Ouro (ADR-030)
+
+> **A automação prepara, calcula, organiza e recomenda.**  
+> **O humano aprova tudo que gera obrigação legal, pagamento ou transmissão.**
+
+- Score **≥80%**: Aurora executa sozinha (auto-aprovação)
+- Score **50–79%**: Aurora enfileira para revisão humana 🟡
+- Score **<50%**: Aurora ignora (deixa para o contador decidir)
+- **`riskLevel = LEGAL`**: SEMPRE passa por aprovação humana, independente do score
+
+### 📊 Dashboard da Aurora
+
+Acesse `/dashboard/funcionario-digital` para ver:
+
+- **Header da Aurora**: avatar 🌅, status (ACTIVE/PAUSED), botão de pausa/retoma
+- **4 KPIs em tempo real**: runs hoje, itens auto-aprovados, pendências 🟡, tempo economizado
+- **Timeline de runs**: histórico de execuções com métricas (itens processados, duração)
+- **Fila de revisão 🟡**: pendências aguardando aprovação humana com notas
+- **Painel de skills**: ligar/desligar individualmente, botão "Rodar agora"
+- **Trilha de auditoria**: 100% das ações registradas com timestamp e responsável
+
+### 🏗️ Arquitetura Técnica
+
 ┌─────────────────────────────────────────────────────────┐
-│ Frontend — Next.js 16 (App Router) │
-│ React 19 + TypeScript + Tailwind │
-│ Zustand (estado) • Sonner (toasts) • Axios │
-──────────────────────┬──────────────────────────────────┘
-│ HTTP/REST + JWT
-▼
-┌─────────────────────────────────────────────────────────┐
-│ Backend — NestJS 10 │
-│ Controllers → Services → DTOs │
-│ Guards JWT • RBAC @Roles() │
+│ SchedulerService (cron jobs) │
+│ - Registra skills ligadas no boot │
+│ - Sincroniza toggle ON/OFF em tempo real │
 └──────────────────────┬──────────────────────────────────┘
-│ Prisma ORM
-▼
+│ dispara
+↓
 ┌─────────────────────────────────────────────────────────┐
-│ PostgreSQL 15 + Prisma │
-│ ~35 tabelas • isolamento por companyId │
-│ índices, soft delete, enums fortes │
+│ JobRunnerService (executor) │
+│ - Cria AutomationRun │
+│ - Executa skill │
+│ - Atualiza métricas (itemsProcessed, secondsSaved) │
+└──────────────────────┬──────────────────────────────────┘
+│ usa
+↓
+┌─────────────────────────────────────────────────────────┐
+│ Skills (ReconciliationSkill, ClassificationSkill, etc) │
+│ - Reaproveitam motores existentes │
+│ - Adaptadores isolam variações de retorno │
+│ - Respeitam a Regra de Ouro (ADR-030) │
+└──────────────────────┬──────────────────────────────────┘
+│ registra
+↓
+┌─────────────────────────────────────────────────────────┐
+│ AutomationAuditService (Pilar D - compliance) │
+│ - 100% das ações auditadas │
+│ - Trilha completa: quem, quando, o quê, resultado │
 └─────────────────────────────────────────────────────────┘
 
 
-### Princípios adotados
-- **Multi-tenant single-database** — um banco, isolamento lógico por `companyId`.
-- **Enums como fonte da verdade** — fim das "strings soltas".
-- **Idempotência por upsert** — importar/promover 2× nunca duplica.
-- **Revisão humana obrigatória** — imports e conciliações nunca aplicam cegamente.
-- **Compliance primeiro** — SPED com layout legal fixo; mês fechado é imutável.
-- **Zero dependências pesadas de gráfico** — CSS puro (‑200 KB de bundle).
+### 📁 Estrutura de Dados (6 tabelas + 6 enums)
 
----
+```prisma
+model RobotWorker {
+  id        String   @id @default(cuid())
+  companyId String   @unique
+  name      String
+  avatar    String
+  status    String   // ACTIVE | PAUSED
+  skills    RobotWorkerSkill[]
+  runs      AutomationRun[]
+}
 
-##  Instalação
+model RobotWorkerSkill {
+  id         String   @id @default(cuid())
+  companyId  String
+  workerId   String
+  skillKey   String   // RECONCILIATION | CLASSIFICATION | ACCOUNTING_BRIDGE
+  enabled    Boolean  @default(false)
+  cronExpr   String   // "0 2 * * *"
+  lastRunAt  DateTime?
+}
 
-### 🐳 Com Docker (Recomendado para Desenvolvimento)
+model AutomationRun {
+  id                String   @id @default(cuid())
+  workerId          String
+  skillKey          String
+  status            String   // RUNNING | SUCCESS | PARTIAL | FAILED
+  itemsProcessed    Int      @default(0)
+  itemsAutoApproved Int      @default(0)
+  itemsPendingHuman Int      @default(0)
+  secondsSaved      Int      @default(0)
+  startedAt         DateTime @default(now())
+  finishedAt        DateTime?
+}
 
-**Pré-requisitos:** Docker Desktop instalado e rodando.
+model AutomationPending {
+  id         String   @id @default(cuid())
+  companyId  String
+  runId      String?
+  type       String   // CLASSIFICATION | RECONCILIATION | ACCOUNTING_BRIDGE
+  confidence Float?
+  payload    Json
+  status     String   @default("PENDING")
+  resolvedBy String?
+  resolvedAt DateTime?
+  notes      String?
+}
 
-```bash
+model AutomationAudit {
+  id        String   @id @default(cuid())
+  companyId String
+  actor     String   // AURORA | USER_xxx
+  action    String   // SKILL_FINISHED:RECONCILIATION
+  entity    String   // AutomationRun | AutomationPending
+  entityId  String
+  detail    Json?
+  createdAt DateTime @default(now())
+}
+
+model ApprovalRecord {
+  id         String   @id @default(cuid())
+  companyId  String
+  entityType String
+  entityId   String
+  decision   String   // APPROVED | REJECTED
+  decidedBy  String
+  notes      String?
+  createdAt  DateTime @default(now())
+}
+
+🚀 Como testar a Aurora
+# 1. Login
+$login = Invoke-RestMethod -Uri "http://localhost:3001/auth/login" `
+  -Method POST -ContentType "application/json" `
+  -Body '{"email":"admin@aurora.com","password":"123456"}'
+$token = $login.token
+
+# 2. Disparar skill manualmente (botão "Rodar agora")
+Invoke-RestMethod -Uri "http://localhost:3001/digital-employee/skills/RECONCILIATION/run" `
+  -Method POST -Headers @{ Authorization = "Bearer $token" }
+
+# 3. Ver dashboard
+Invoke-RestMethod -Uri "http://localhost:3001/digital-employee/dashboard" `
+  -Headers @{ Authorization = "Bearer $token" }
+
+  📈 Status Atual (17/08/2026)
+✅ FD-1 Fundação: 6 tabelas, módulo NestJS, dashboard frontend, menu lateral
+✅ FD-2 Parcial: 3 skills (RECONCILIATION, CLASSIFICATION, ACCOUNTING_BRIDGE) + crons ativos
+🚧 FD-2 Final: MonthlyReportSkill (PDF mensal) + UI de aprovação de pendências
+⏳ FD-3 a FD-9: NFS-e automática, guias, CNAB, SPED, integrações, legalização, DP
+
+🏆 O Diferencial: os 3 DREs
+DRE                                 🎯 Para quem             📚 Fonte de dados
+📍 Onde ver                         🏢 Do Escritório         Diretor da Conta Certa
+Transações financeiras internas BI  💼 Bancário do Cliente   Gestão de caixa do cliente
+Extrato + naturezas                  Fechamento Mensal        📒 Oficial do Cliente
+Contabilidade / obrigações          Lançamentos promovidos      BI → DRE do Cli
+
+✅ Os três conversam entre si por cards de navegação cruzada, e o Oficial mostra a diferença em R$ contra o Bancário — auditoria em tempo real.
+
+
+🏗️ Arquitetura (para a equipe técnica)
+┌─────────────────────────────────────────────────────────┐
+│ Frontend — Next.js 16 (App Router)                      │
+│ React 19 + TypeScript + Tailwind                        │
+│ Zustand (estado) • Sonner (toasts) • Axios              │
+└──────────────────────┬──────────────────────────────────┘
+                       │ HTTP/REST + JWT
+                       ↓
+┌─────────────────────────────────────────────────────────┐
+│ Backend — NestJS 10                                     │
+│ Controllers → Services → DTOs                           │
+│ Guards JWT • RBAC @Roles()                              │
+└──────────────────────┬──────────────────────────────────┘
+                       │ Prisma ORM
+                       ↓
+┌─────────────────────────────────────────────────────────┐
+│ PostgreSQL 15 + Prisma                                  │
+│ ~35 tabelas • isolamento por companyId                  │
+│ índices, soft delete, enums fortes                      │
+└─────────────────────────────────────────────────────────┘
+
+Princípios adotados
+Multi-tenant single-database — um banco, isolamento lógico por companyId.
+Enums como fonte da verdade — fim das "strings soltas".
+Idempotência por upsert — importar/promover 2× nunca duplica.
+Revisão humana obrigatória — imports e conciliações nunca aplicam cegamente.
+Compliance primeiro — SPED com layout legal fixo; mês fechado é imutável.
+Zero dependências pesadas de gráfico — CSS puro (‑200 KB de bundle).
+
+🚀 Instalação
+🐳 Com Docker (Recomendado para Desenvolvimento)
+Pré-requisitos: Docker Desktop instalado e rodando.
+
 # 1. Clonar o repositório
 git clone https://github.com/seu-usuario/radar-conta-certa.git
 cd radar-conta-certa
@@ -268,24 +429,47 @@ A7: Dashboard de Desempenho
 📋 FASE 5 — PESSOAS & MERCADO
 B1–B5: Tipos contratuais, distribuição por setor, entrevista de desligamento (IA)
 C1–C4: Benchmark de softwares, serviços extras, indicadores com fórmula, score 0–100
-FASE 6 — MENTORIA & UX
+🧠 FASE 6 — MENTORIA & UX
 D1–D3: Visão de Futuro, checklist, ranking de níveis
 E1–E3: Command palette, boas-vindas/"onde parou", notificações
-
+🤖 FASE 7 — FUNCIONÁRIO DIGITAL AURORA (FD-1 → FD-9)
+✅ FD-1 Fundação: 6 tabelas, módulo NestJS, dashboard, menu lateral
+✅ FD-2 Parcial: RECONCILIATION + CLASSIFICATION + ACCOUNTING_BRIDGE + crons ativos
+🚧 FD-2 Final: MonthlyReportSkill (PDF mensal) + UI de aprovação de pendências
+⏳ FD-3: NFS-e automática (e-mail + portal + OCR)
+⏳ FD-4: Emissão de guias (DAS/ISS/DARF) com memória de cálculo
+⏳ FD-5: Faturamento CNAB 240/400 + régua de cobrança
+⏳ FD-6: SPED/obrigações + certificado A1 criptografado
+⏳ FD-7: Integração com Domínio/Questor/Sage
+⏳ FD-8: Legalização (cofre de senhas, procurações, eCAC)
+⏳ FD-9: DP leve (integração com folha existente — NÃO construir do zero)
 
 📖 Glossário (para a diretoria)
-Termo                                       Significado simples
-SaaS                                        Software assinado e usado pela internet, sem instalar nada
-Multi-tenant                                Vários escritórios no mesmo sistema, cada um vendo só o que é seu
-DRE                                         "Demonstração de Resultado" — o boletim de notas financeiro do mês
-NF-e                                        Nota Fiscal eletrônica (o XML oficial emitido/comprado)
-Kardex                                      O "extrato do estoque": tudo que entrou, saiu e o custo médio
-SPED                                        Arquivo oficial exigido pela Receita Federal
-Partidas dobradas                           Regra contábil: todo débito tem um crédito igual
-Conciliação                                 Conferir se o que saiu no banco bate com a nota fiscal
-Score                                       Nota de confiança (0–100%) que o motor dá a cada sugestão
-
-Licença & Autor
+Termo
+Significado simples
+SaaS
+Software assinado e usado pela internet, sem instalar nada
+Multi-tenant
+Vários escritórios no mesmo sistema, cada um vendo só o que é seu
+DRE
+"Demonstração de Resultado" — o boletim de notas financeiro do mês
+NF-e
+Nota Fiscal eletrônica (o XML oficial emitido/comprado)
+Kardex
+O "extrato do estoque": tudo que entrou, saiu e o custo médio
+SPED
+Arquivo oficial exigido pela Receita Federal
+Partidas dobradas
+Regra contábil: todo débito tem um crédito igual
+Conciliação
+Conferir se o que saiu no banco bate com a nota fiscal
+Score
+Nota de confiança (0–100%) que o motor dá a cada sugestão
+Aurora
+Funcionária digital que executa rotinas automaticamente (FD-1/FD-2)
+Regra de Ouro
+Automação prepara; humano aprova ações legais (ADR-030)
+📄 Licença & Autor
 Proprietary License — Copyright © 2026 Conta Certa Soluções Empresariais.
 Propriedade intelectual; cópia ou distribuição sem autorização são proibidas.
 👨‍💻 Autor: Marcos — Desenvolvedor Full Stack
@@ -295,4 +479,4 @@ Propriedade intelectual; cópia ou distribuição sem autorização são proibid
 Feito com ❤️ para transformar a contabilidade brasileira
 ⭐ Útil para você? Dê uma estrela no repositório!
 </div>
-```
+

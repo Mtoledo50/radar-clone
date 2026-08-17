@@ -1,96 +1,128 @@
 # 📋 CHANGELOG — Radar Conta Certa
 
-**Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)  
-**Última atualização:** 14/08/2026 (pós-Sprint 31 + Sprint A1)
-## [FD-1] - 2026-08-15 - Aurora nasce! Fundação do Funcionário Digital
+Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
+**Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
+**Última atualização:** 17/08/2026 (pós-Sprint FD-2 parcial)
+
+---
+
+## [Sprint FD-2 parcial] 2026-08-17 — Aurora: 3 skills + crons autônomos 🌅
+
+### ✅ Added (Backend)
+- **`ClassificationSkill`**: classifica transações `NAO_CLASSIFICADO` reaproveitando
+  a memória de aprendizado da Sprint 22 (`BankingService.classify`). Régua:
+  score ≥ 80% → auto-aprova; 50–79% → fila 🟡; < 50% → ignora. Adaptador isolado
+  (`normalizeSuggestion`) protege contra variações de retorno do motor.
+- **`AccountingBridgeSkill`**: promove o mês bancário anterior para a escrituração
+  contábil via `AccountingService.promoteFromBanking`. Trata graciosamente meses
+  sem fechamento (`skipped: true` sem quebrar o run). Idempotente.
+- **Crons sincronizados com toggles** (`SchedulerService.onModuleInit` + `DigitalEmployeeService.updateSkill`):
+  skill ligada = cron registrado; skill desligada = cron removido; boot registra
+  todas as skills ligadas de todos os workers ACTIVE.
+- **Exports dos módulos**: `BankingModule` passa a exportar `BankingService`;
+  `AccountingModule` passa a exportar `AccountingService` (injeção nas skills).
+
+### ✅ Added (Frontend)
+- Toggle de skills no dashboard da Aurora agora tem **efeito real no cron**
+  (antes só persistia no banco; agora acorda/dorme a Aurora em tempo real).
+
+### 🏁 Status
+HOMOLOGADO em banco local (5432): as 3 skills executam via botão "Rodar agora"
+com status SUCCESS; tratamento gracioso de casos de borda (sem transações / sem
+fechamento) validado; crons ativos em produção controlada.
+
+---
+
 ## [Sprint FD-1] 2026-08-15 — Aurora: Fundação do Funcionário Digital 🌅
 
 ### ✅ Added (Backend)
-- **Migração `fd1_foundation_robot_worker`**: 6 tabelas (`robot_workers`, `robot_worker_skills`, `automation_runs`, `automation_pendings`, `automation_audits`, `approval_records`) + 6 enums (`SkillKey`, `AutonomyLevel`, `RunStatus`, `TriggerType`, `PendingStatus`, `ApprovalDecision`).
-- **Módulo `digital-employee`** completo: `DigitalEmployeeService` (lazy create + KPIs), `DigitalEmployeeController` (8 endpoints JWT), DTOs, `AutomationAuditService` (Pilar D), `JobRunnerService` (executor com métricas), `SchedulerService` (esqueleto cron desligado por segurança), `BaseSkill` (classe abstrata — Pilar B) e `ReconciliationSkill` (reusa `BankingReconcileService` da Sprint 29).
-- **Endpoint `POST /digital-employee/skills/:skillKey/run`** — botão "Rodar agora" (disparo manual fora do cron).
-- **Integração com BankingModule**: `BankingReconcileService` agora é exportado para ser reutilizado.
-- **CORS multi-origem** no `main.ts`: aceita `localhost:3000`, `localhost:3002` e variantes IP (comma-separated via `FRONTEND_URL`).
+- **Migração `fd1_foundation_robot_worker`**: 6 tabelas (`robot_workers`,
+  `robot_worker_skills`, `automation_runs`, `automation_pendings`,
+  `automation_audits`, `approval_records`) + 6 enums (`SkillKey`,
+  `AutonomyLevel`, `RunStatus`, `TriggerType`, `PendingStatus`, `ApprovalDecision`).
+- **Módulo `digital-employee`** completo:
+  - `DigitalEmployeeService` (lazy create + KPIs agregados + CRUD)
+  - `DigitalEmployeeController` (8 endpoints JWT)
+  - `AutomationAuditService` (Pilar D — trilha de compliance 100%)
+  - `JobRunnerService` (executor com métricas e status tracking)
+  - `SchedulerService` (esqueleto cron — desligado por segurança na FD-1)
+  - `BaseSkill` (classe abstrata — Pilar B, pipeline universal)
+  - `ReconciliationSkill` (reusa `BankingReconcileService` da Sprint 29)
+- **Endpoint `POST /digital-employee/skills/:skillKey/run`** — botão "Rodar agora"
+  (disparo manual fora do cron).
+- **Integração com BankingModule**: `BankingReconcileService` exportado.
+- **CORS multi-origem** no `main.ts`: aceita `localhost:3000`, `localhost:3002`
+  e variantes IP (comma-separated via env `FRONTEND_URL`).
 
 ### ✅ Added (Frontend)
-- **Dashboard `/dashboard/funcionario-digital`**: header com avatar 🌅 + status ACTIVE/PAUSED + botão pausa; 4 KPI cards (runs hoje, auto-aprovados, pendências 🟡, tempo economizado); timeline de runs; fila de revisão humana; painel de skills com toggle on/off + botão ▶; trilha de auditoria.
-- **Hook Zustand `useDigitalEmployee`**: gerencia estado + chamadas API + optimistic updates + refresh automático a cada 30s.
-- **6 componentes isolados**: `EmployeeHeader`, `KpiCards`, `RunsTimeline`, `PendingQueue`, `SkillsPanel`, `AuditTrail`.
-- **Item no menu lateral** (`layout.tsx`): 🤖 Funcionário Digital na seção INTELIGÊNCIA (topo da seção).
-- **Axios instance `@/lib/axios`**: interceptor injeta JWT automaticamente + trata 401 globalmente.
+- **Dashboard `/dashboard/funcionario-digital`**: header com avatar 🌅 + status
+  ACTIVE/PAUSED + botão pausa; 4 KPI cards (runs hoje, auto-aprovados,
+  pendências 🟡, tempo economizado); timeline de runs; fila de revisão humana;
+  painel de skills com toggle on/off + botão ▶; trilha de auditoria.
+- **Hook Zustand `useDigitalEmployee`**: gerencia estado + chamadas API +
+  optimistic updates + refresh automático a cada 30s.
+- **6 componentes isolados**: `EmployeeHeader`, `KpiCards`, `RunsTimeline`,
+  `PendingQueue`, `SkillsPanel`, `AuditTrail`.
+- **Item no menu lateral** (`layout.tsx`): 🤖 Funcionário Digital na seção
+  INTELIGÊNCIA (topo da seção).
+- **Axios instance `@/lib/axios`**: interceptor injeta JWT automaticamente +
+  trata 401 globalmente (redireciona para `/login`).
 
 ### 🧠 Decisions (ADRs)
-- **ADR-030** Regra de Ouro: ações `riskLevel=LEGAL` nunca são AUTO (aprovação humana sempre, independente do score).
-- **ADR-031** Cálculo tributário determinístico no backend; IA apenas sugere/classifica.
+- **ADR-030** Regra de Ouro: ações `riskLevel=LEGAL` nunca são AUTO (aprovação
+  humana sempre, independente do score).
+- **ADR-031** Cálculo tributário determinístico no backend; IA apenas
+  sugere/classifica.
 - **ADR-032** LGPD: cofres de credenciais AES-256-GCM (implementação em FD-8).
-- **ADR-033** Perfis de aprovação por tipo de tarefa (Auxiliar/Analista/Supervisor/Contador).
-- **ADR-034** Arquivos estruturais (`app.module.ts`, `schema.prisma`): entregar sempre o **delta**, nunca substituição total.
+- **ADR-033** Perfis de aprovação por tipo de tarefa
+  (Auxiliar/Analista/Supervisor/Contador).
+- **ADR-034** Arquivos estruturais (`app.module.ts`, `schema.prisma`): entregar
+  sempre o **delta**, nunca substituição total.
 
 ### 🏁 Status
-HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ • run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ • dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
+HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ •
+run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
+dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
-### Added
-- **Migração `fd1_foundation_robot_worker`**: 6 tabelas novas
-  - `robot_workers` (1 por tenant)
-  - `robot_worker_skills` (4 skills padrão)
-  - `automation_runs` (histórico de execuções)
-  - `automation_pendings` (fila de revisão humana)
-  - `automation_audits` (trilha de compliance)
-  - `approval_records` (trava de transmissão)
-- **Módulo `digital-employee`** no backend:
-  - `DigitalEmployeeService` (lazy create + CRUD)
-  - `DigitalEmployeeController` (7 endpoints REST)
-  - `AutomationAuditService` (Pilar D)
-  - `BaseSkill` (esqueleto do pipeline universal - Pilar B)
-  - `ReconciliationSkill` (reusa BankingReconcileService)
-  - `JobRunnerService` (executor de skills)
-  - `SchedulerService` (agendador cron)
-- **Integração com BankingModule**: `BankingReconcileService` exportado
-- **Endpoint `POST /digital-employee/skills/:skillKey/run`**: botão "Rodar agora"
-
-### Architecture Decisions
-- **ADR-030**: Regra de Ouro (ações LEGAL nunca AUTO)
-- **ADR-031**: Cálculo tributário determinístico (IA só sugere)
-- **ADR-032**: LGPD + cofres criptografados (futuro)
-- **ADR-033**: Perfis de aprovação (futuro)
-
-### Validated
-- ✅ Login com usuário admin@aurora.com
-- ✅ Lazy create da Aurora (1ª chamada)
-- ✅ Skill RECONCILIATION executa via botão manual
-- ✅ AutomationRun criado com métricas (duration: 3ms)
-- ✅ Auditoria registrada (SKILL_FINISHED:RECONCILIATION)
-- ✅ Multi-tenant isolado (companyId = 00000000-...)
-
+---
 
 ## [Sprint A3] 2026-08 — Versões de Proposta
+
 ### ✅ Added
 - Migração Prisma: colunas `version`, `isCurrent`, `originalProposalId` no modelo `Proposal`.
 - Self-relation `ProposalVersions` para navegação entre versões da mesma cadeia.
 - Endpoint `GET /proposals/client/:clientId/versions` (agrupa propostas por cadeia).
 - Endpoint `POST /proposals/:id/new-version` (duplica proposta + incrementa version).
 - DTOs `ProposalVersionDto` e `ProposalVersionsResponseDto`.
+
 ### 🧠 Decisions
 - Agrupamento em memória (Map) por `originalProposalId` — simples e O(N).
 - Nova versão sempre nasce como `status: DRAFT` e `isCurrent: true`.
 - Versão anterior é automaticamente marcada como `isCurrent: false` (transação atômica).
 - Itens da proposta (`ProposalItem`) são duplicados na nova versão.
+
 ### 🏁 Status
 - **HOMOLOGADO** no ambiente Docker.
 
 ---
+
 ## [Sprint A2] 2026-08 — Valor de Referência + Dinheiro na Mesa
+
 ### ✅ Added
 - Endpoint `POST /commercial-plans/insights` no `CommercialPlansController`.
 - Método `getPlansWithInsights(companyId, baseValue, currentMonthly)` no `CommercialPlansService`.
 - DTO `CalculatePricingInsightsDto` com validação (`@IsNumber`, `@IsOptional`).
 - DTO `PlanWithInsightsDto` estendendo `ResolvedPlanDto` com `calculatedPrice`, `percentVsBase`, `moneyOnTable`.
 - Integração das funções `planPriceFromReference`, `relativePercentVsBase`, `calcMoneyOnTable` do domínio puro.
+
 ### 🧪 Teste de Validação
 - Base R$ 2000 + Plano BLACK (multiplier 1.4) = Preço Ideal R$ 2800
 - Cliente pagando R$ 1200 → Perda Mensal R$ 1600 → Perda Anual R$ 19200
+
 ### 🏁 Status
 - **HOMOLOGADO** no ambiente Docker (Postgres 5433, Backend 3001, Frontend 3000).
+
+---
 
 ## [Sprint A1] 2026-08 — Motor de Herança de Planos (Domínio Puro)
 
@@ -107,7 +139,7 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 - Preços com `round2` (sem erro de ponto flutuante).
 - Domínio puro sem dependência de Prisma/HTTP (testável e reutilizável).
 
-###  Arquivos Criados
+### 📁 Arquivos Criados
 - `backend/src/commercial-plans/domain/plan-inheritance.ts`
 - `backend/src/commercial-plans/domain/pricing-insights.ts`
 - `backend/src/commercial-plans/domain/tests/plan-inheritance.spec.ts`
@@ -125,7 +157,7 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 - `frontend/next.config.ts`: adicionado `output: "standalone"`.
 - Comando de boot do backend: `npx prisma migrate deploy && node dist/main.js` (self-healing).
 
-###  Fixed (Erros de Build de Produção)
+### 🔧 Fixed (Erros de Build de Produção)
 - `revisao/page.tsx`: adicionadas funções `handleSelectDebit/Credit` e `handleClearDebit/Credit`.
 - `revisao/page.tsx`: Lucide `title` → wrapper `<span title>` (ADR-021).
 - Removido `layout copy.tsx` (backup quebrava o build; ADR-022).
@@ -141,7 +173,7 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 - `NEXT_PUBLIC_API_URL` embutido no build (browser fala com `localhost:3001`).
 - Troca de base Alpine para Debian-slim no backend (Prisma exige glibc + OpenSSL).
 
-###  Arquivos Criados/Alterados
+### 📁 Arquivos Criados/Alterados
 - `docker-compose.yml`
 - `backend/Dockerfile`, `backend/.dockerignore`
 - `frontend/Dockerfile`, `frontend/.dockerignore`
