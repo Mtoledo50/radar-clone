@@ -19,7 +19,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { SkillKey, ApprovalDecision } from '@prisma/client';
 import { JobRunnerService } from './orchestrator/job-runner.service';
-
+import { SchedulerService } from './orchestrator/scheduler.service';
 // -----------------------------------------------------------------
 // Configuração das skills padrão da Aurora.
 // Quando o worker é criado, fazemos o "seed" destas 4 skills
@@ -38,9 +38,10 @@ const DEFAULT_SKILLS: Array<{
 
 @Injectable()
 export class DigitalEmployeeService {
-  constructor(
+   constructor(
     private readonly prisma: PrismaService,
-    private readonly jobRunner: JobRunnerService, // 🆕 FD-3
+    private readonly jobRunner: JobRunnerService,
+    private readonly scheduler: SchedulerService, // 🆕 FD-2: sincroniza toggle ↔ cron
   ) {}
 
   // =================================================================
@@ -193,9 +194,11 @@ export class DigitalEmployeeService {
     return worker.skills;
   }
 
-  /**
+   /**
    * Atualiza uma skill (ligar/desligar + cron).
-   * Valida posse: a skill deve pertencer ao worker do tenant.
+   * 🆕 FD-2: o toggle agora SINCRONIZA o cron em tempo real:
+   *    ON  → scheduler.registerCron (Aurora passa a acordar sozinha)
+   *    OFF → scheduler.unregisterCron (Aurora dorme)
    */
   async updateSkill(
     companyId: string,
@@ -207,13 +210,26 @@ export class DigitalEmployeeService {
     });
     if (!skill) throw new NotFoundException('Skill não encontrada.');
 
-    return this.prisma.robotWorkerSkill.update({
+    // 1. Persiste a mudança no banco
+    const updated = await this.prisma.robotWorkerSkill.update({
       where: { id: skillId },
       data: {
         ...(data.enabled !== undefined ? { enabled: data.enabled } : {}),
         ...(data.cronExpr ? { cronExpr: data.cronExpr } : {}),
       },
     });
+
+    // 2. 🆕 Sincroniza o cron com o estado final do toggle
+    const finalEnabled = data.enabled !== undefined ? data.enabled : skill.enabled;
+    const finalCron = data.cronExpr || skill.cronExpr;
+
+    if (finalEnabled) {
+      this.scheduler.registerCron(companyId, updated.skillKey, finalCron);
+    } else {
+      this.scheduler.unregisterCron(companyId, updated.skillKey);
+    }
+
+    return updated;
   }
 
   // =================================================================

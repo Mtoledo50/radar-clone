@@ -27,18 +27,28 @@ export class SchedulerService implements OnModuleInit {
     private readonly jobRunner: JobRunnerService,
   ) {}
 
-  async onModuleInit() {
-    // Por segurança na FD-1, NÃO registramos crons automáticos ainda.
-    // O agendamento será ativado manualmente pela UI ou pelo endpoint
-    // "Rodar agora". Na FD-2 ligamos os crons após validação em dev.
-    this.logger.log('SchedulerService inicializado (modo FD-1: crons desabilitados por segurança).');
-    this.logger.log('Use POST /digital-employee/skills/:skillKey/run para disparar manualmente.');
-  }
+    async onModuleInit() {
+    // 🆕 FD-2 (17/08): produção controlada — ao subir, agenda os crons
+    // de todas as skills que estiverem LIGADAS (enabled=true).
+    // Skills desligadas permanecem sem cron (segurança).
+    const workers = await this.prisma.robotWorker.findMany({
+      where: { status: 'ACTIVE' },
+      include: { skills: { where: { enabled: true } } },
+    });
 
-  /**
-   * Registra um cron para uma skill específica.
-   * Método público para ser chamado quando o usuário liga a skill pela UI.
-   */
+    let count = 0;
+    for (const worker of workers) {
+      for (const skill of worker.skills) {
+        this.registerCron(worker.companyId, skill.skillKey, skill.cronExpr);
+        count++;
+      }
+    }
+
+    this.logger.log(
+      `SchedulerService inicializado: ${count} cron(s) ativo(s). ` +
+      'Use POST /digital-employee/skills/:skillKey/run para disparo manual.',
+    );
+  }
   registerCron(companyId: string, skillKey: string, cronExpr: string): void {
     const jobName = `aurora:${companyId}:${skillKey}`;
 
