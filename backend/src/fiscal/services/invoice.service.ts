@@ -15,11 +15,11 @@ import { XmlParserService, ParsedInvoice } from './xml-parser.service';
  * 🆕 Sprint 8: clientId • 🆕 Sprint 9: lote resiliente + estorno replay
  * 🆕 Sprint F4: Base ICMS persistida (parser + schema)
  * 🆕 Sprint F5: coluna "Produtos" + ordenação + busca por produto
+ * 🆕 Sprint F6 (auditoria tributária): persiste alíquotas REAIS do XML
+ *     (ipiBase, ipiRate, pisBase, pisRate, cofinsBase, cofinsRate)
  *
  * 🧠 ADR-025 (Sprint F5 hotfix): ordenação "Produto (A–Z)" feita na
- * camada de aplicação (localeCompare pt-BR), sem agregação de relação
- * do Prisma — compatível com qualquer versão do Prisma/Postgres e com
- * colação independente de acentos/caixa.
+ * camada de aplicação (localeCompare pt-BR).
  * =================================================================
  */
 @Injectable()
@@ -174,6 +174,8 @@ export class InvoiceService {
           data: { currentStock: newStock, averageCost: newAvg },
         });
 
+        // 🆕 Sprint F6: grava TODAS as alíquotas auditáveis do XML
+        // (ipiBase, ipiRate, pisBase, pisRate, cofinsBase, cofinsRate)
         itemRows.push({
           itemNumber: item.itemNumber,
           productId: product.id,
@@ -188,13 +190,27 @@ export class InvoiceService {
           unitValue: item.unitValue,
           totalValue: item.totalValue,
           discount: item.discount,
+
+          // ICMS
           icmsBase: item.icmsBase,
           icmsRate: item.icmsRate,
           icmsValue: item.icmsValue,
           icmsStBase: item.icmsStBase,
           icmsStValue: item.icmsStValue,
+
+          // 🆕 Sprint F6: IPI com base + alíquota
+          ipiBase: item.ipiBase,
+          ipiRate: item.ipiRate,
           ipiValue: item.ipiValue,
+
+          // 🆕 Sprint F6: PIS com base + alíquota
+          pisBase: item.pisBase,
+          pisRate: item.pisRate,
           pisValue: item.pisValue,
+
+          // 🆕 Sprint F6: COFINS com base + alíquota
+          cofinsBase: item.cofinsBase,
+          cofinsRate: item.cofinsRate,
           cofinsValue: item.cofinsValue,
         });
 
@@ -213,7 +229,7 @@ export class InvoiceService {
         });
       }
 
-      // 5. Nota + itens
+      // 5. Nota + itens (criação em cascade)
       const invoice = await tx.fiscalInvoice.create({
         data: {
           companyId,
@@ -254,21 +270,6 @@ export class InvoiceService {
   // =================================================================
   // 📋 LISTAGEM PAGINADA (Sprint F5 + hotfix ADR-025)
   // =================================================================
-
-  /**
-   * Lista notas com fornecedor, contagem e descrições dos PRODUTOS
-   * (já em A–Z) para a coluna "Produtos".
-   *
-   * sortBy:
-   *  - 'emission' (padrão): mais recentes primeiro (SQL direto).
-   *  - 'product': 🧠 ADR-025 — ordenação na aplicação:
-   *      1) query LEVE (id + itens ordenados) respeitando os filtros;
-   *      2) rankeia pelo 1º produto com localeCompare('pt-BR');
-   *      3) fatia a página e busca as linhas completas só da fatia;
-   *      4) notas sem itens vão para o FINAL.
-   *    ⚡ Escala: ótimo p/ centenas/milhares de notas; se um dia tiver
-   *    100k+, evoluir para coluna desnormalizada `firstProductName`.
-   */
   async findAll(
     companyId: string,
     filters: {
@@ -289,33 +290,27 @@ export class InvoiceService {
           { number: { contains: search } },
           { accessKey: { contains: search } },
           { supplier: { name: { contains: search, mode: 'insensitive' } } },
-          // 🆕 Sprint F5: busca também pelo nome do produto
           { items: { some: { description: { contains: search, mode: 'insensitive' } } } },
         ],
       }),
     };
 
-    // Include compartilhado pelas duas rotas de ordenação
     const listInclude = {
       supplier: { select: { id: true, name: true, cnpj: true } },
       _count: { select: { items: true } },
-      // 🆕 Sprint F5: descrições já ordenadas A–Z (coluna + tooltip)
       items: {
         select: { description: true },
         orderBy: { description: 'asc' as const },
       },
     };
 
-    // Converte Decimal → Number (JSON limpo p/ frontend)
     const toRow = (i: any) => ({
       ...i,
       totalValue: Number(i.totalValue),
       icmsValue: Number(i.icmsValue),
     });
 
-    // ---------------------------------------------------------------
     // ROTA 1 (padrão): mais recentes primeiro — SQL direto
-    // ---------------------------------------------------------------
     if (sortBy !== 'product') {
       const [invoices, total] = await Promise.all([
         this.prisma.fiscalInvoice.findMany({
@@ -334,11 +329,7 @@ export class InvoiceService {
       };
     }
 
-    // ---------------------------------------------------------------
-    // ROTA 2: Produto (A–Z) — 🧠 ADR-025 (ordenação na aplicação)
-    // ---------------------------------------------------------------
-
-    // 1) Query LEVE: só id + itens (descrições já A–Z), respeitando filtros
+    // ROTA 2: Produto (A–Z) — ADR-025 (ordenação na aplicação)
     const light = await this.prisma.fiscalInvoice.findMany({
       where,
       select: {
@@ -350,17 +341,15 @@ export class InvoiceService {
       },
     });
 
-    // 2) Rankeia pelo 1º produto (A–Z, sem sensibilidade a caixa/acento)
     const ranked = light
       .map((i) => ({ id: i.id, first: i.items[0]?.description ?? null }))
       .sort((a, b) => {
         if (a.first === null && b.first === null) return 0;
-        if (a.first === null) return 1; // sem itens → final da lista
+        if (a.first === null) return 1;
         if (b.first === null) return -1;
         return a.first.localeCompare(b.first, 'pt-BR', { sensitivity: 'base' });
       });
 
-    // 3) Paginação SOBRE o ranking + busca só as linhas da página
     const total = ranked.length;
     const pageIds = ranked
       .slice((page - 1) * limit, page * limit)
@@ -371,7 +360,6 @@ export class InvoiceService {
       include: listInclude,
     });
 
-    // 4) Preserva a ordem do ranking (IN não garante ordem)
     const pos = new Map(pageIds.map((id, idx) => [id, idx]));
     invoices.sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0));
 
@@ -382,13 +370,15 @@ export class InvoiceService {
   }
 
   // =================================================================
-  // 🔍 DETALHE DA NOTA
+  // 🔍 DETALHE DA NOTA (🆕 F6: retorna alíquotas para auditoria no modal)
   // =================================================================
   async findOne(id: string, companyId: string) {
     const invoice = await this.prisma.fiscalInvoice.findFirst({
       where: { id, companyId },
       include: {
         supplier: true,
+        // 🆕 F6: include sem select = devolve todos os campos do item
+        // (incluindo ipiBase/ipiRate/pisBase/pisRate/cofinsBase/cofinsRate)
         items: { include: { product: true } },
       },
     });
@@ -474,8 +464,13 @@ export class InvoiceService {
   }
 
   // =================================================================
-  // 🔗 VINCULAR NOTAS ANTIGAS A UM CLIENTE (Sprint 9)
+  // 🔗 VINCULAR NOTAS ANTIGAS A UM CLIENTE (Sprint 9) — CORRIGIDO
   // =================================================================
+  /**
+   * Atualiza o clientId de notas + movimentações já existentes.
+   * 🛡️ NÃO cria itens (isso é feito no persistInvoice).
+   * Apenas troca o vínculo do cliente para auditoria multi-cliente.
+   */
   async assignClient(
     companyId: string,
     data: { invoiceIds: string[]; clientId: string | null },
@@ -496,25 +491,32 @@ export class InvoiceService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      // Atualiza o clientId das notas
       const updatedInvoices = await tx.fiscalInvoice.updateMany({
         where: { companyId, id: { in: invoiceIds } },
         data: { clientId },
       });
 
+      // Atualiza o clientId das movimentações (Kardex)
       await tx.fiscalInventoryMovement.updateMany({
         where: { companyId, invoiceId: { in: invoiceIds } },
         data: { clientId },
       });
 
+      // Atualiza o clientId dos produtos criados a partir dessas notas
+      // (apenas os que ainda não têm cliente — sem sobrescrever)
       const items = await tx.fiscalInvoiceItem.findMany({
         where: { invoiceId: { in: invoiceIds }, productId: { not: null } },
         select: { productId: true },
       });
-      const productIds = items.map((i) => i.productId).filter(Boolean) as string[];
+      const productIds = [...new Set(items.map((i) => i.productId).filter(Boolean))];
 
       if (productIds.length > 0) {
         await tx.fiscalProduct.updateMany({
-          where: { companyId, id: { in: productIds }, clientId: null },
+          where: {
+            id: { in: productIds },
+            clientId: null, // só preenche se ainda está sem cliente
+          },
           data: { clientId },
         });
       }
