@@ -1,5 +1,24 @@
 ﻿'use client';
 
+/**
+ * =================================================================
+ * 📄 Página: Notas Fiscais (NF-e de Entrada)
+ * =================================================================
+ * Sprint 8: seletor de cliente fiscal (segregação de notas)
+ * Sprint 9: seleção múltipla + atribuir cliente + excluir c/ estorno
+ * Sprint F4: Base ICMS total e por item no modal de detalhe
+ * Sprint F5: coluna "Produtos" na listagem + ordenação A–Z
+ * Sprint F6 (auditoria tributária): tabela Base × Alíquota = Valor
+ *   para ICMS, IPI, PIS e COFINS, com selo de conferência (✓ OK / ⚠ diverge)
+ *   e explicação automática do erro + resultado esperado
+ *
+ * 🛡️ Regras de negócio (mantidas):
+ *   - Seleção múltipla é apenas "da página atual" (não cross-page)
+ *   - Exclusão é SEQUENCIAL (cada DELETE recalcula Kardex + custo médio)
+ *   - Atribuir cliente em lote também atualiza movimentações + produtos
+ * =================================================================
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
@@ -20,12 +39,14 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import api from '@/lib/axios';
-import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel'; // 🆕 Sprint 20
-import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector'; // 🆕 Sprint 8
-import { useFiscalClientStore } from '@/store/fiscalClientStore'; // 🆕 Sprint 8
+import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel';
+import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
+import TaxAuditTable from '@/components/fiscal/TaxAuditTable'; // 🆕 Sprint F6
+import { useFiscalClientStore } from '@/store/fiscalClientStore';
 
 // =================================================================
 // 📦 Tipos do frontend (espelham o backend)
+// 🆕 Sprint F6: alíquotas REAIS no InvoiceItem para auditoria
 // =================================================================
 interface InvoiceMetrics {
   totalInvoices: number;
@@ -49,10 +70,9 @@ interface InvoiceRow {
   status: string;
   totalValue: number;
   icmsValue: number;
-  clientId: string | null; // 🆕 Sprint 8/9: nota vinculada a cliente?
+  clientId: string | null;
   supplier: { id: string; name: string; cnpj: string };
   _count: { items: number };
-  // 🆕 Sprint F5: descrições dos produtos da nota, já em ordem A–Z
   items: { description: string }[];
 }
 
@@ -67,8 +87,27 @@ interface InvoiceItem {
   quantity: number;
   unitValue: number;
   totalValue: number;
-  icmsBase: number;      // 🆕 Sprint F4: base de cálculo do ICMS por item
+
+  // ICMS
+  icmsBase: number;
+  icmsRate: number;
   icmsValue: number;
+  icmsStBase: number;
+  icmsStValue: number;
+
+  // 🆕 Sprint F6: IPI/PIS/COFINS com base + alíquota
+  ipiBase: number;
+  ipiRate: number;
+  ipiValue: number;
+
+  pisBase: number;
+  pisRate: number;
+  pisValue: number;
+
+  cofinsBase: number;
+  cofinsRate: number;
+  cofinsValue: number;
+
   productMatchStatus: string;
   product?: { id: string; code: string; description: string } | null;
 }
@@ -80,7 +119,7 @@ interface InvoiceDetail extends InvoiceRow {
   ipiValue: number;
   pisValue: number;
   cofinsValue: number;
-  icmsBase: number;      // 🆕 Sprint F4: base total de ICMS da nota
+  icmsBase: number;
   items: InvoiceItem[];
 }
 
@@ -118,26 +157,10 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 // =================================================================
-// 📄 Página: Notas Fiscais (consulta + detalhe + gestão em lote)
-// =================================================================
-// Sprint 8: seletor de cliente (filtro global persistido em localStorage).
-// Sprint 9: seleção múltipla + atribuir cliente + excluir com estorno.
-// Sprint F4: Base ICMS total e por item no modal de detalhe.
-// Sprint F5: coluna "Produtos" na listagem + ordenação "Produto (A–Z)".
-//
-// 🛡️ Regras de negócio:
-//   - Seleção múltipla é apenas "da página atual" (não cross-page) — UX
-//     segura que evita ações em itens invisíveis.
-//   - Exclusão é SEQUENCIAL (não paralela): cada DELETE recalcula
-//     estoque e custo médio. Ordem preserva integridade do Kardex.
-//   - Atribuir cliente em lote também atualiza as movimentações e
-//     produtos vinculados (via transação atômica no backend).
+// 📄 Componente principal
 // =================================================================
 export default function FiscalNotasPage() {
-  // =================================================================
-  // 🆕 Sprint 8: cliente selecionado (OBRIGATÓRIO dentro do componente)
-  // Zustand + localStorage — sobrevive ao refresh da página.
-  // =================================================================
+  // 🆕 Sprint 8: cliente selecionado (persistido via Zustand + localStorage)
   const { selected } = useFiscalClientStore();
 
   // KPIs e filtro de período
@@ -152,19 +175,15 @@ export default function FiscalNotasPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  // 🆕 Sprint F5: ordenação da listagem ('emission' padrão | 'product' A–Z)
+  // Sprint F5: ordenação ('emission' padrão | 'product' A–Z)
   const [sortBy, setSortBy] = useState<'emission' | 'product'>('emission');
 
-  // 🆕 Sprint 9: seleção múltipla (apenas página atual)
+  // Sprint 9: seleção múltipla
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  // 🆕 Sprint 9: modal atribuir cliente em lote
   const [assignOpen, setAssignOpen] = useState(false);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [assignClientId, setAssignClientId] = useState('');
   const [assigning, setAssigning] = useState(false);
-
-  // 🆕 Sprint 9: modal de confirmação de exclusão (individual ou lote)
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -181,7 +200,7 @@ export default function FiscalNotasPage() {
       const params: any = {};
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
-      if (selected.id) params.clientId = selected.id; // 🆕 Sprint 8
+      if (selected.id) params.clientId = selected.id;
       const { data } = await api.get('/fiscal/invoices/metrics', { params });
       setMetrics(data);
     } catch {
@@ -190,7 +209,7 @@ export default function FiscalNotasPage() {
   }, [startDate, endDate, selected.id]);
 
   // ---------------------------------------------------------------
-  // 📋 Carrega listagem paginada (reage a página, busca, cliente e ordenação)
+  // 📋 Carrega listagem paginada
   // ---------------------------------------------------------------
   const loadInvoices = useCallback(async () => {
     setLoading(true);
@@ -200,8 +219,8 @@ export default function FiscalNotasPage() {
           page,
           limit: 10,
           search: search || undefined,
-          clientId: selected.id || undefined, // 🆕 Sprint 8
-          sortBy, // 🆕 Sprint F5: 'emission' | 'product'
+          clientId: selected.id || undefined,
+          sortBy,
         },
       });
       setInvoices(data.data || []);
@@ -213,9 +232,6 @@ export default function FiscalNotasPage() {
     }
   }, [page, search, selected.id, sortBy]);
 
-  // ---------------------------------------------------------------
-  // 🧹 Limpa seleção ao trocar página/cliente (UX segura)
-  // ---------------------------------------------------------------
   useEffect(() => {
     setSelectedIds([]);
   }, [page, selected.id, search]);
@@ -229,7 +245,7 @@ export default function FiscalNotasPage() {
   }, [loadInvoices]);
 
   // ---------------------------------------------------------------
-  // ☑️ Seleção múltipla (Sprint 9)
+  // ☑️ Seleção múltipla
   // ---------------------------------------------------------------
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -237,7 +253,6 @@ export default function FiscalNotasPage() {
     );
   };
 
-  // "Selecionar tudo" considera apenas a PÁGINA ATUAL (UX previsível)
   const allPageSelected =
     invoices.length > 0 && invoices.every((i) => selectedIds.includes(i.id));
 
@@ -246,7 +261,7 @@ export default function FiscalNotasPage() {
   };
 
   // ---------------------------------------------------------------
-  // 🔗 Atribuir cliente em lote (Sprint 9)
+  // 🔗 Atribuir cliente em lote
   // ---------------------------------------------------------------
   const openAssignModal = async () => {
     setAssignClientId('');
@@ -285,7 +300,7 @@ export default function FiscalNotasPage() {
   };
 
   // ---------------------------------------------------------------
-  // 🗑️ Excluir com estorno (Sprint 9) — individual ou em lote
+  // 🗑️ Excluir com estorno (individual ou em lote)
   // ---------------------------------------------------------------
   const askDelete = (id?: string) => {
     setDeleteTargetId(id || null);
@@ -293,7 +308,6 @@ export default function FiscalNotasPage() {
   };
 
   const confirmDelete = async () => {
-    // Se deleteTargetId tem valor, é individual; caso contrário, em lote
     const ids = deleteTargetId ? [deleteTargetId] : selectedIds;
     if (ids.length === 0) return;
 
@@ -301,7 +315,7 @@ export default function FiscalNotasPage() {
     let ok = 0;
     let fail = 0;
 
-    // SEQUENCIAL — mantém integridade do Kardex (cada DELETE recalcula)
+    // SEQUENCIAL — mantém integridade do Kardex
     for (const id of ids) {
       try {
         await api.delete(`/fiscal/invoices/${id}`);
@@ -337,7 +351,6 @@ export default function FiscalNotasPage() {
     }
   };
 
-  // Quantidade de notas que serão excluídas no modal (UX clara)
   const deleteCount = deleteTargetId ? 1 : selectedIds.length;
 
   // ---------------------------------------------------------------
@@ -345,9 +358,7 @@ export default function FiscalNotasPage() {
   // ---------------------------------------------------------------
   return (
     <div className="space-y-6">
-      {/* ================================================================
-          Cabeçalho + seletor de cliente
-          ================================================================ */}
+      {/* Cabeçalho + seletor de cliente */}
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -358,17 +369,12 @@ export default function FiscalNotasPage() {
             Consulte, vincule a clientes e exclua NF-e importadas.
           </p>
         </div>
-
-        {/* 🆕 Sprint 8: seletor de cliente (estado global persistido) */}
         <FiscalClientSelector />
       </div>
 
-      {/* 🆕 Sprint 20: documentação viva da página */}
       <FiscalInfoPanel page="notas" />
 
-      {/* ================================================================
-          Aviso contextual: cliente selecionado
-          ================================================================ */}
+      {/* Aviso contextual: cliente selecionado */}
       {selected.id && (
         <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
           <div className="p-1.5 bg-teal-100 rounded-lg">
@@ -382,9 +388,7 @@ export default function FiscalNotasPage() {
         </div>
       )}
 
-      {/* ================================================================
-          Filtro de período (datas inicial e final)
-          ================================================================ */}
+      {/* Filtro de período */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-wrap items-end gap-4">
         <div>
           <label className="block text-xs font-medium text-slate-500 mb-1">De</label>
@@ -417,9 +421,7 @@ export default function FiscalNotasPage() {
         )}
       </div>
 
-      {/* ================================================================
-          Cards de KPI (filtrados por período + cliente)
-          ================================================================ */}
+      {/* Cards de KPI */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="flex items-center gap-3">
@@ -481,11 +483,8 @@ export default function FiscalNotasPage() {
         </div>
       </div>
 
-      {/* ================================================================
-          Busca + ordenação + barra de ações em lote + tabela
-          ================================================================ */}
+      {/* Busca + ordenação + ações em lote + tabela */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        {/* 🆕 Sprint F5: busca + seletor de ordenação lado a lado */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -500,14 +499,13 @@ export default function FiscalNotasPage() {
               className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
-          {/* 🆕 Sprint F5: ordenação da listagem (server-side) */}
           <div className="relative">
             <ArrowUpDown className="h-4 w-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               value={sortBy}
               onChange={(e) => {
                 setSortBy(e.target.value as 'emission' | 'product');
-                setPage(1); // volta p/ página 1 ao reordenar (UX previsível)
+                setPage(1);
               }}
               className="pl-9 pr-8 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
               title="Ordenação da lista de notas"
@@ -518,10 +516,7 @@ export default function FiscalNotasPage() {
           </div>
         </div>
 
-        {/* ============================================================
-            🆕 Sprint 9: barra de ações em lote
-            Aparece apenas quando há ao menos uma nota selecionada.
-            ============================================================ */}
+        {/* Barra de ações em lote */}
         {selectedIds.length > 0 && (
           <div className="mb-4 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-medium text-teal-900">
@@ -539,7 +534,7 @@ export default function FiscalNotasPage() {
               <button
                 onClick={() => askDelete()}
                 className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                title="Excluir com estorno de estoque (recalcula saldo + custo médio)"
+                title="Excluir com estorno de estoque"
               >
                 <Trash2 className="h-4 w-4" />
                 Excluir
@@ -572,7 +567,6 @@ export default function FiscalNotasPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left text-slate-500">
-                  {/* 🆕 Sprint 9: checkbox "selecionar tudo da página" */}
                   <th className="py-2 pr-2 w-8">
                     <input
                       type="checkbox"
@@ -584,7 +578,6 @@ export default function FiscalNotasPage() {
                   </th>
                   <th className="py-2 pr-4 font-medium">NF-e</th>
                   <th className="py-2 pr-4 font-medium">Fornecedor</th>
-                  {/* 🆕 Sprint F5: coluna de produtos da nota (A–Z) */}
                   <th className="py-2 pr-4 font-medium">Produtos</th>
                   <th className="py-2 pr-4 font-medium">Emissão</th>
                   <th className="py-2 pr-4 font-medium text-center">Itens</th>
@@ -612,7 +605,6 @@ export default function FiscalNotasPage() {
                     </td>
                     <td className="py-3 pr-4 font-medium text-slate-800">
                       #{inv.number} / s{inv.series}
-                      {/* 🆕 Sprint 8: indicador visual de nota vinculada a cliente */}
                       {inv.clientId && (
                         <span
                           className="ml-2 inline-block w-2 h-2 rounded-full bg-teal-500"
@@ -621,7 +613,6 @@ export default function FiscalNotasPage() {
                       )}
                     </td>
                     <td className="py-3 pr-4 text-slate-600">{inv.supplier?.name}</td>
-                    {/* 🆕 Sprint F5: 1º produto (A–Z) + badge "+N" com tooltip completo */}
                     <td className="py-3 pr-4 text-slate-600 max-w-[240px]">
                       {inv.items && inv.items.length > 0 ? (
                         <>
@@ -661,7 +652,6 @@ export default function FiscalNotasPage() {
                         >
                           <Eye className="h-4 w-4" />
                         </button>
-                        {/* 🆕 Sprint 9: exclusão individual com estorno */}
                         <button
                           onClick={() => askDelete(inv.id)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
@@ -705,16 +695,11 @@ export default function FiscalNotasPage() {
       </div>
 
       {/* ================================================================
-          MODAL DE DETALHE DA NOTA
-          ================================================================
-          Exibe cabeçalho + totais + itens com impostos detalhados.
-          🆕 Sprint F4: card "Base ICMS" no resumo e por item.
-          🛡️ Correção de NaN (Sprint 9+): proteção Number(x ?? 0) contra
-          objetos Decimal do Prisma.
+          MODAL DE DETALHE DA NOTA — 🆕 Sprint F6: auditoria tributária
           ================================================================ */}
       {(detail || loadingDetail) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             {loadingDetail ? (
               <div className="flex justify-center py-16">
                 <Loader2 className="h-6 w-6 text-teal-600 animate-spin" />
@@ -722,6 +707,7 @@ export default function FiscalNotasPage() {
             ) : (
               detail && (
                 <>
+                  {/* Cabeçalho do modal */}
                   <div className="flex items-center justify-between p-5 border-b border-slate-200 sticky top-0 bg-white">
                     <div>
                       <h3 className="font-bold text-slate-900">
@@ -739,7 +725,7 @@ export default function FiscalNotasPage() {
                     </button>
                   </div>
 
-                  {/* Totais da nota — 🆕 Sprint F4: card "Base ICMS" (grid de 5) */}
+                  {/* Totais da nota */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-5 border-b border-slate-100">
                     <div>
                       <p className="text-xs text-slate-500">Total da Nota</p>
@@ -775,15 +761,29 @@ export default function FiscalNotasPage() {
                     </div>
                   </div>
 
+                  {/* ================================================================
+                      🆕 Sprint F6: Itens com AUDITORIA TRIBUTÁRIA
+                      Cada item renderiza o componente TaxAuditTable que faz:
+                      - Tabela Base × Alíquota = Valor por ICMS/IPI/PIS/COFINS
+                      - Selo ✓ OK (bate) / ⚠ diverge
+                      - Linha explicativa com erro + resultado esperado
+                      ================================================================ */}
                   <div className="p-5">
-                    <h4 className="text-sm font-bold text-slate-700 mb-3">
+                    <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
                       Itens da Nota ({detail.items.length})
+                      <span className="text-xs font-normal text-slate-500">
+                        (com auditoria tributária base × alíquota)
+                      </span>
                     </h4>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {detail.items.map((item) => (
-                        <div key={item.id} className="border border-slate-200 rounded-lg p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
+                        <div
+                          key={item.id}
+                          className="border border-slate-200 rounded-lg p-3 bg-slate-50/50"
+                        >
+                          {/* Cabeçalho do item */}
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-slate-800">
                                 {item.itemNumber}. {item.description}
                               </p>
@@ -791,7 +791,6 @@ export default function FiscalNotasPage() {
                                 NCM {item.ncm} • CFOP {item.cfop} •{' '}
                                 {item.csosn ? `CSOSN ${item.csosn}` : `CST ${item.cst || '-'}`}
                               </p>
-                              {/* Vínculo com o catálogo (se match foi feito) */}
                               {item.product && (
                                 <p className="text-xs text-teal-600 mt-0.5">
                                   → {item.product.code}: {item.product.description}
@@ -806,15 +805,11 @@ export default function FiscalNotasPage() {
                                 {Number(item.quantity).toLocaleString('pt-BR')} ×{' '}
                                 {formatBRL(Number(item.unitValue ?? 0))}
                               </p>
-                              {/* 🆕 Sprint F4: base de cálculo do ICMS por item */}
-                              <p className="text-xs text-blue-700">
-                                Base ICMS {formatBRL(Number(item.icmsBase ?? 0))}
-                              </p>
-                              <p className="text-xs text-green-700">
-                                ICMS {formatBRL(Number(item.icmsValue ?? 0))}
-                              </p>
                             </div>
                           </div>
+
+                          {/* 🆕 Sprint F6: auditoria tributária isolada em componente */}
+                          <TaxAuditTable item={item} />
                         </div>
                       ))}
                     </div>
@@ -827,7 +822,7 @@ export default function FiscalNotasPage() {
       )}
 
       {/* ================================================================
-          🆕 MODAL: ATRIBUIR CLIENTE (Sprint 9)
+          MODAL: ATRIBUIR CLIENTE (Sprint 9)
           ================================================================ */}
       {assignOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -870,7 +865,6 @@ export default function FiscalNotasPage() {
                 </select>
               </div>
 
-              {/* Info-box: o que será vinculado (transparência) */}
               <div className="bg-slate-50 rounded-lg p-3 text-xs text-slate-600">
                 <p className="font-medium text-slate-700 mb-1">O que será vinculado:</p>
                 <ul className="list-disc list-inside space-y-0.5">
@@ -894,7 +888,7 @@ export default function FiscalNotasPage() {
       )}
 
       {/* ================================================================
-          🆕 MODAL: CONFIRMAÇÃO DE EXCLUSÃO (Sprint 9)
+          MODAL: CONFIRMAÇÃO DE EXCLUSÃO (Sprint 9)
           ================================================================ */}
       {deleteOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
