@@ -49,20 +49,12 @@ com revisão humana obrigatória para ações legais. **Não é um SaaS paralelo
 
 ## 5. Skills ativas
 
-| Skill | Cron | Status | Motor reaproveitado |
+| Skill | Cron | Status | Métricas reais (17/08/2026) |
 |---|---|---|---|
-| RECONCILIATION — Conciliação Banco × NF-e | `0 2 * * *` | ✅ FD-1 | `BankingReconcileService` (Sprint 29) |
-| CLASSIFICATION — Classificação c/ memória | `30 2 * * *` | ✅ FD-2 | `BankingService.classify` (Sprint 22) |
-| ACCOUNTING_BRIDGE — Ponte Bancário → Contábil | `0 3 * * *` | ✅ FD-2 | `AccountingService.promoteFromBanking` |
-| MONTHLY_REPORT — Relatório mensal PDF | `0 8 5 * *` | 🚧 próxima sessão | `jspdf` + BI existente |
-
-### 🧩 Padrão de Adaptadores (usado em todas as skills)
-
-Cada skill isola a chamada ao motor existente em um método `private`
-(`normalizeSuggestion`, `callPromote`, etc.). Se a assinatura do motor mudar,
-ajusta-se **APENAS o adaptador** — o resto da skill permanece intacto.
-Isso protege o código contra variações de retorno sem duplicar lógica.
-
+| RECONCILIATION — Conciliação Banco × NF-e | `0 2 * * *` | ✅ FD-1 | Executada (sem NF-e disponível) |
+| CLASSIFICATION — Classificação c/ memória | `30 2 * * *` | ✅ FD-2 | **18 items processados, 18 auto-aprovados, 540s salvos** |
+| ACCOUNTING_BRIDGE — Ponte Bancário → Contábil | `0 3 * * *` | ✅ FD-2 | Executada (skipped - mês não fechado) |
+| MONTHLY_REPORT — Relatório mensal PDF | `0 8 5 * *` | 🚧 próxima sessão | Pendente |
 ---
 
 ## 6. Regra de Ouro (ADR-030)
@@ -154,6 +146,7 @@ Dashboard atualiza em tempo real (refresh 30s)
 Teste com dados reais da Academia do Renan (itemsProcessed > 0)
 - [x] UI de aprovação de pendências (Central de Aprovações + ApprovalRecord + auditoria humana)Geração de PDF mensal (MonthlyReportSkill)
 
+"167567",45992,7,82,78.72,574,0,"33268254000144","01.1.2.11.001","",574,"51",51,0,3.75,17.32,0.00
 
 ---
 

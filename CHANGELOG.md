@@ -3,7 +3,25 @@
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 **Última atualização:** 17/08/2026 (pós-Sprint FD-2 parcial)
+## [Entrega C] 2026-08-17 — Aurora em produção controlada com dados reais 🎉
 
+### ✅ Added
+- **Importação de 98 clientes reais** do CSV de honorários (planilha "Contratos - Hon. mensais.csv")
+- **Seed de demonstração** com 18 transações bancárias distribuídas em 3 clientes
+- **Memória de aprendizado** com 4 regras (CEEE, TARIFA, PIX RECEBIDO, ALUGUEL)
+- **Execução real das 3 skills** em produção controlada:
+  - `CLASSIFICATION`: 18 items processados, 18 auto-aprovados (100%), 540 segundos salvos
+  - `RECONCILIATION`: executada (sem NF-e para cruzar - comportamento esperado)
+  - `ACCOUNTING_BRIDGE`: executada (skipped - mês não fechado - trava de compliance funcionando)
+- **Auditoria completa** registrada no `automation_audits`
+
+### 🧠 Decisions
+- Uso de `findFirst + create/update` em vez de `upsert` (contorno de constraint única)
+- Seed de dados para validar pipeline sem depender de importação manual
+- Trava de compliance funcionando: ACCOUNTING_BRIDGE só executa em meses fechados
+
+### 🏁 Status
+HOMOLOGADO em produção controlada: Aurora processou dados reais, decidiu com autonomia (régua 80/50), respeitou travas de compliance e registrou auditoria completa.
 ---
 ## [Sprint FD-2] 2026-08-17 — Aurora: Central de Aprovações + decisões auditadas 🟡
 
