@@ -81,41 +81,39 @@ ADR-032 LGPD: cofres de credenciais AES-256-GCM (implementação em FD-8).
 ADR-033 Perfis de aprovação por tipo de tarefa (Auxiliar/Analista/Supervisor/Contador).
 ADR-034 Arquivos estruturais (app.module.ts, schema.prisma): entregar sempre o delta.
 
-## 9) STATUS ATUAL E PRÓXIMOS PASSOS
-<!-- Reorganizado em 17/08/2026: histórico unificado + UM par IMEDIATO/DEPOIS,
-     separando as trilhas Comercial e Aurora (antes havia IMEDIATO duplicado). -->
+9) STATUS ATUAL E PRÓXIMOS PASSOS
 
-### 9.1) Histórico concluído (as duas trilhas)
-- Sprint 31 (Docker) HOMOLOGADA: ambiente estável.
-- Sprint A1 CONCLUÍDA: domínio puro testado (6 testes verdes).
-- Sprint A2 COMPLETA: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano validado).
-- Sprint A3 HOMOLOGADA: versões de proposta (version/isCurrent/originalProposalId +
-  endpoints de listagem e duplicação).
-- Sprint FD-1 CONCLUÍDA (15/08): fundação da Aurora (6 tabelas, módulo digital-employee,
-  orquestrador, auditoria, ReconciliationSkill, dashboard + item de menu).
-- Sprint FD-2 PARCIAL CONCLUÍDA (17/08): ClassificationSkill + AccountingBridgeSkill +
-  crons sincronizados com toggles (produção controlada).
+### ✅ Concluído
+- **Sprint A1**: domínio puro testado (6 testes verdes)
+- **Sprint 31 (Docker)**: ambiente estável
+- **Sprint A2**: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano validado)
+- **Sprint A3**: versões de proposta (version/isCurrent/originalProposalId + endpoints)
+- **FD-1 Fundação**: 6 tabelas + dashboard + menu lateral + crons ↔ toggles
+- **FD-2 Parcial**: 3 skills (RECONCILIATION, CLASSIFICATION, ACCOUNTING_BRIDGE) + Central de Aprovações
+- **Entrega C**: Aurora em produção controlada com dados reais
 
-### 9.2) IMEDIATO (próxima sessão)
-Trilha Aurora (prioridade):
-  1. FD-2 final: MonthlyReportSkill (PDF mensal) + UI de aprovação de pendências (notas, ADR-033).
-  2. Teste com dados reais (Academia do Renan, banco 5432) esperando itemsProcessed > 0.
-  3. Docs: preencher CHANGELOG.md (hoje vazio) + criar FUNCIONARIO_DIGITAL.md.
-Trilha Comercial (ao fechar a Aurora):
-  4. Sprint A4 = Fechamento com Ganho:
-     - Endpoint: POST /proposals/:id/close com desconto e cálculo de ganho vs preço cheio.
-     - Frontend: modal de fechamento com slider de desconto e "quanto você ganhou".
+### 🎯 Entrega C — Aurora operacional (17/08/2026)
+- **98 clientes reais** importados do CSV de honorários
+- **18 transações bancárias** criadas (seed de demonstração)
+- **CLASSIFICATION**: 18 items processados, 18 auto-aprovados, 540 segundos salvos
+- **RECONCILIATION**: executada (sem NF-e - comportamento esperado)
+- **ACCOUNTING_BRIDGE**: executada (skipped - mês não fechado - trava funcionando)
+- **Auditoria completa** registrada
 
-### 9.3) DEPOIS (ordem fixa)
-- Aurora: FD-3→FD-9 (dossiê no §12).
-- Comercial: A5→A7, depois Fases B→E (ordem do §7).
+### 🚀 IMEDIATO
+Escolher entre:
+- **Opção A**: MonthlyReportSkill (PDF mensal automático dos clientes)
+- **Opção B**: Seed de NF-e + fechamento bancário para testar RECONCILIATION + ACCOUNTING_BRIDGE com dados reais
 
-### 🤖 Trilha Aurora (atualizado em 17/08/2026)
-- FD-1 ✅ fundação + dashboard + menu lateral.
-- FD-2 ✅ 3 skills (RECONCILIATION, CLASSIFICATION, ACCOUNTING_BRIDGE) + crons ↔ toggles.
-- FD-2 final ✅ Central de Aprovações (fila 🟡 + modal + ApprovalRecord + auditoria humana).
-- IMEDIATO: teste com dados reais da Academia do Renan • MonthlyReportSkill (PDF).
-- DEPOIS: FD-3→FD-9 (ver FUNCIONARIO_DIGITAL.md) • A4→A7 e Fases B→E (§7).
+### 📋 DEPOIS
+- FD-3: Importação automática NFS-e (e-mail + portal + OCR)
+- FD-4: Emissão de guias (DAS/ISS/DARF) com memória de cálculo
+- FD-5: Faturamento CNAB 240/400 + régua de cobrança
+- FD-6: SPED/obrigações + certificado A1 criptografado
+- FD-7: Integração com Domínio/Questor/Sage
+- FD-8: Legalização (cofre de senhas, procurações, eCAC)
+- FD-9: DP leve (integração com folha existente)
+- A4→A7 e Fases B→E (ordem do §7)
 
 ## 10) COMANDOS ÚTEIS (PowerShell)
 docker compose up -d --build | docker compose ps | docker compose logs -f backend
