@@ -1,3 +1,25 @@
+## [Sprint FD-1] 2026-08-15 — Aurora: Fundação do Funcionário Digital 🌅
+
+### ✅ Added
+- Migração `fd1_foundation_robot_worker`: 6 tabelas + 6 enums.
+- Módulo `digital-employee`: service (lazy create + KPIs), controller (8 endpoints JWT),
+  `AutomationAuditService`, `JobRunnerService`, `SchedulerService`, `BaseSkill` (Pilar B)
+  e `ReconciliationSkill` (reusa `BankingReconcileService`).
+- Endpoint `POST /digital-employee/skills/:skillKey/run` (botão "Rodar agora").
+- Dashboard `/dashboard/funcionario-digital` (header 🌅, 4 KPIs, timeline, fila 🟡,
+  skills c/ toggle, auditoria; refresh 30s) + item no menu (seção INTELIGÊNCIA).
+- CORS multi-origem no `main.ts` (3000/3002).
+
+### 🧠 Decisions
+ADR-030 Regra de Ouro (LEGAL nunca é AUTO) • ADR-031 cálculo determinístico
+(IA só sugere) • ADR-032 cofres AES-256-GCM (FD-8) • ADR-033 perfis de aprovação •
+ADR-034 arquivos estruturais: sempre delta, nunca substituição total.
+
+### 🏁 Status
+HOMOLOGADO em banco local (5432): login, lazy create, run MANUAL (3ms),
+auditoria `SKILL_FINISHED:RECONCILIATION` e dashboard com dados reais.
+
+
 🤖 Funcionário Digital Radar — Protótipo Visual + Catálogo de Funções
 Perfeito, Marcos. Antes de qualquer código, vamos ver o produto e listar o que ele vai saber fazer. Este é o nosso "blueprint" — se você aprovar, a Sprint FD-1 nasce exatamente daqui.
 1. 🖥️ Como ficaria a tela — /dashboard/funcionario-digital
@@ -1687,3 +1709,77 @@ Requisitos de segurança
 Cronograma por fases
 Perguntas técnicas para validar com seu ERP
 Se desejar, eu já começo criando o PRD da Fase 1: Funcionário Digital para Conciliação Bancária.
+
+# 🤖 FUNCIONARIO_DIGITAL.md — Aurora, a Funcionária Digital
+
+> Sprint FD-1 concluída em 15/08/2026 • Cliente-piloto: Academia do Renan
+
+## O que é
+Funcionária digital que executa rotinas contábeis SOBRE o Radar Conta Certa,
+com revisão humana obrigatória para ações legais (Regra de Ouro — ADR-030).
+
+## Stack
+- Backend: NestJS 10 + @nestjs/schedule + cron + Prisma (módulo `digital-employee`)
+- Frontend: `/dashboard/funcionario-digital` (Next.js 16 + Zustand + Axios)
+- RPA (fases futuras): Playwright • Cofres: AES-256-GCM (ADR-032)
+
+## Modelo de dados (6 tabelas)
+`robot_workers` • `robot_worker_skills` • `automation_runs` •
+`automation_pendings` • `automation_audits` • `approval_records`
+
+## Skills
+| Skill | Cron | Status |
+|---|---|---|
+| RECONCILIATION — Conciliação Banco × NF-e | `0 2 * * *` | ✅ FD-1 |
+| CLASSIFICATION — Classificação c/ memória | `30 2 * * *` | 🚧 FD-2 |
+| ACCOUNTING_BRIDGE — Ponte Bancário → Contábil | `0 3 * * *` | 🚧 FD-2 |
+| MONTHLY_REPORT — Relatório mensal PDF | `0 8 5 * *` | 🚧 FD-2 |
+
+## Regra de Ouro
+A automação prepara, calcula, organiza e recomenda. O humano aprova tudo que
+gera obrigação legal, pagamento ou transmissão. `riskLevel=LEGAL` nunca é AUTO.
+
+## Roadmap
+FD-2 conciliação completa + relatórios • FD-3 NFS-e (e-mail/OCR) • FD-4 guias
+(DAS/ISS/DARF) • FD-5 CNAB 240/400 • FD-6 SPED + cert. A1 • FD-7 integração
+Domínio/Questor/Sage • FD-8 legalização (cofres) • FD-9 DP leve.
+
+# 🤖 FUNCIONARIO_DIGITAL.md — Aurora, a Funcionária Digital
+
+> Sprint FD-1 concluída em 15/08/2026 • Cliente-piloto: Academia do Renan
+
+## 🌅 O nome
+**AURORA** — **A**utomação **U**nificada de **R**otinas e **O**brigações,
+com **R**evisão e **A**uditoria. Como o JARVIS do escritório contábil:
+a aurora é o primeiro raio de luz — ela chega às 02:00 e prepara tudo.
+Mas nunca decide sozinha o que gera obrigação legal (Regra de Ouro).
+
+## O que é
+Funcionária digital que executa rotinas contábeis SOBRE o Radar Conta Certa,
+com revisão humana obrigatória para ações legais (ADR-030).
+
+## Stack
+- Backend: NestJS 10 + @nestjs/schedule + cron + Prisma (módulo `digital-employee`)
+- Frontend: `/dashboard/funcionario-digital` (Next.js 16 + Zustand + Axios)
+- RPA (fases futuras): Playwright • Cofres: AES-256-GCM (ADR-032)
+
+## Modelo de dados (6 tabelas)
+`robot_workers` • `robot_worker_skills` • `automation_runs` •
+`automation_pendings` • `automation_audits` • `approval_records`
+
+## Skills
+| Skill | Cron | Status |
+|---|---|---|
+| RECONCILIATION — Conciliação Banco × NF-e | `0 2 * * *` | ✅ FD-1 |
+| CLASSIFICATION — Classificação c/ memória | `30 2 * * *` | 🚧 FD-2 (nesta sessão) |
+| ACCOUNTING_BRIDGE — Ponte Bancário → Contábil | `0 3 * * *` | 🚧 FD-2 (nesta sessão) |
+| MONTHLY_REPORT — Relatório mensal PDF | `0 8 5 * *` | 🚧 FD-2 |
+
+## Regra de Ouro
+A automação prepara, calcula, organiza e recomenda. O humano aprova tudo que
+gera obrigação legal, pagamento ou transmissão. `riskLevel=LEGAL` nunca é AUTO.
+
+## Roadmap
+FD-2 conciliação completa + relatórios • FD-3 NFS-e (e-mail/OCR) • FD-4 guias
+(DAS/ISS/DARF) • FD-5 CNAB 240/400 • FD-6 SPED + cert. A1 • FD-7 integração
+Domínio/Questor/Sage • FD-8 legalização (cofres) • FD-9 DP leve (cérebro completo).

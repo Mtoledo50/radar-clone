@@ -2,31 +2,48 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { json, urlencoded } from 'express';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     // 🆕 Sprint 10: aumenta limite para suportar importação de planilhas grandes
     bodyParser: true,
   });
-  
+
   // 🆕 Aumenta limite de payload para 10MB (importação de estoque inicial com 700+ itens)
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
-  
+
+  // 🔓 CORS: aceita múltiplas origens (dev + produção)
+  // Lê do env FRONTEND_URL (comma-separated) ou usa fallback com portas dev
+  const frontendUrlEnv = process.env.FRONTEND_URL || '';
+  const allowedOrigins = frontendUrlEnv
+    ? frontendUrlEnv.split(',').map((u) => u.trim()).filter(Boolean)
+    : [
+        'http://localhost:3000',  // Next.js dev (padrão)
+        'http://localhost:3002',  // Next.js dev (fallback quando 3000 ocupado)
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3002',
+      ];
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
 
-   // 🛡️ Habilita validação global de DTOs
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true, // Remove campos não definidos no DTO (Segurança)
-    forbidNonWhitelisted: true, // Rejeita requests com campos extras
-    transform: true, // Transforma strings em
+  // 🛡️ Habilita validação global de DTOs
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,          // Remove campos não definidos no DTO (Segurança)
+      forbidNonWhitelisted: true, // Rejeita requests com campos extras
+      transform: true,          // Transforma strings em tipos corretos
     }),
   );
 
   await app.listen(3001);
-  console.log('🚀 Backend rodando em http://localhost:3001');
+  console.log(`🚀 Backend rodando em http://localhost:3001`);
+  console.log(`🔓 CORS habilitado para: ${allowedOrigins.join(', ')}`);
 }
 
 bootstrap();
