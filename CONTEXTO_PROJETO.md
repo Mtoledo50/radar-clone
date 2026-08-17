@@ -110,6 +110,13 @@ Trilha Comercial (ao fechar a Aurora):
 - Aurora: FD-3→FD-9 (dossiê no §12).
 - Comercial: A5→A7, depois Fases B→E (ordem do §7).
 
+### 🤖 Trilha Aurora (atualizado em 17/08/2026)
+- FD-1 ✅ fundação + dashboard + menu lateral.
+- FD-2 ✅ 3 skills (RECONCILIATION, CLASSIFICATION, ACCOUNTING_BRIDGE) + crons ↔ toggles.
+- FD-2 final ✅ Central de Aprovações (fila 🟡 + modal + ApprovalRecord + auditoria humana).
+- IMEDIATO: teste com dados reais da Academia do Renan • MonthlyReportSkill (PDF).
+- DEPOIS: FD-3→FD-9 (ver FUNCIONARIO_DIGITAL.md) • A4→A7 e Fases B→E (§7).
+
 ## 10) COMANDOS ÚTEIS (PowerShell)
 docker compose up -d --build | docker compose ps | docker compose logs -f backend
 npm run test -- --testPathPattern=plan-inheritance (backend)

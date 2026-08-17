@@ -432,6 +432,13 @@ C1–C4: Benchmark de softwares, serviços extras, indicadores com fórmula, sco
 🧠 FASE 6 — MENTORIA & UX
 D1–D3: Visão de Futuro, checklist, ranking de níveis
 E1–E3: Command palette, boas-vindas/"onde parou", notificações
+
+🤖 FASE 7 — FUNCIONÁRIO DIGITAL AURORA (FD-1 → FD-9)
+FD-1 fundação ✅ • 
+FD-2 completa ✅ (3 skills + crons + Central de Aprovações) •
+FD-3 NFS-e automática • FD-4 guias • FD-5 CNAB • FD-6 SPED + cert. A1 •
+FD-7 integrações • FD-8 legalização • FD-9 DP leve
+
 🤖 FASE 7 — FUNCIONÁRIO DIGITAL AURORA (FD-1 → FD-9)
 ✅ FD-1 Fundação: 6 tabelas, módulo NestJS, dashboard, menu lateral
 ✅ FD-2 Parcial: RECONCILIATION + CLASSIFICATION + ACCOUNTING_BRIDGE + crons ativos

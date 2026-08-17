@@ -145,10 +145,14 @@ ClassificationSkill executa com tratamento gracioso (0 itens = esperado em empre
 AccountingBridgeSkill trata ausência de fechamento (skipped: true, sem quebrar)
 Crons ↔ toggles: ON agenda, OFF desagenda, boot registra as skills ligadas
 Dashboard atualiza em tempo real (refresh 30s)
+### ✅ Validações FD-2 final (17/08/2026)
+- Central de Aprovações: aprovar com nota → toast + fila zerada
+- Auditoria humana: `USER_APPROVED:CLASSIFICATION` com nota no detail
+- Efeito colateral tolerante: transação inexistente não quebra a aprovação
+
 🚧 Próximas validações (FD-2 final)
 Teste com dados reais da Academia do Renan (itemsProcessed > 0)
-UI de aprovação de pendências (ApprovalRecord + notas)
-Geração de PDF mensal (MonthlyReportSkill)
+- [x] UI de aprovação de pendências (Central de Aprovações + ApprovalRecord + auditoria humana)Geração de PDF mensal (MonthlyReportSkill)
 
 
 ---
