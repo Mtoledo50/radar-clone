@@ -5,6 +5,26 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Última atualização:** 17/08/2026 (pós-Sprint FD-2 parcial)
 
 ---
+## [Sprint FD-2] 2026-08-17 — Aurora: Central de Aprovações + decisões auditadas 🟡
+
+### ✅ Added
+- **Central de Aprovações** `/dashboard/funcionario-digital/aprovacoes`:
+  filtros (tipo + busca), dossiê por tipo (CLASSIFICATION/MATCH), modal de revisão
+  com nota, aprovação/rejeição direta ou com nota, toasts Sonner.
+- Link "Abrir central →" no card "Fila de revisão 🟡" do dashboard da Aurora.
+- **Efeito colateral seguro**: CLASSIFICATION aprovada aplica a natureza sugerida
+  na transação (tolerante se a transação não existir).
+- **Auditoria da decisão humana**: `USER_APPROVED:<tipo>` / `USER_REJECTED:<tipo>`
+  com a nota no `detail`.
+
+### 🧠 Decisions
+- Aprovar/rejeitar SEMPRE cria `ApprovalRecord` (trava de transmissão — Regra de Ouro).
+- MATCH aprovada na Central apenas registra a decisão; a confirmação efetiva
+  permanece na tela de Conciliação (motor de score da Sprint 29).
+
+### 🏁 Status
+HOMOLOGADO em banco local (5432): pendência de teste aprovada com nota →
+toast de sucesso + fila zerada + auditoria `USER_APPROVED:CLASSIFICATION`.
 
 ## [Sprint FD-2 parcial] 2026-08-17 — Aurora: 3 skills + crons autônomos 🌅
 
