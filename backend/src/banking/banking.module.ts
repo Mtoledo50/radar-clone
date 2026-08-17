@@ -15,7 +15,6 @@ import { BankingReviewService } from './banking-review.service'; // 🆕 Sprint 
     BankingReconcileService,
     BankingReviewService, // 🆕 Sprint 32
   ],
-    exports: [BankingReconcileService], // 🆕 ADICIONE ESTA LINHA
-
+  exports: [BankingReconcileService, BankingService], // 🆕 FD-2: BankingService para a ClassificationSkill
 })
 export class BankingModule {}
