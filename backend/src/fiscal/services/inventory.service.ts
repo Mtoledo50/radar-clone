@@ -1080,4 +1080,146 @@ export class InventoryService {
       data: { deletedAt: new Date() },
     });
   }
+  // =================================================================
+  // 📥 IMPORTAÇÃO DE CATÁLOGO PERMANENTE (Sprint F8 — ADR-043)
+  // =================================================================
+
+  /**
+   * POST /fiscal/inventory/import-catalog
+   *
+   * Importa catálogo permanente do cliente (descrição + código) a partir
+   * de planilha CSV. Produtos existentes recebem o unifiedCode; novos são
+   * criados com estoque 0 (sem quantidade).
+   *
+   * 🆕 Sprint F8 — ADR-043:
+   *   - Upsert por (companyId, clientId, unifiedCode)
+   *   - Produtos novos: currentStock: 0, averageCost: 0, code: AUTO-{hash}
+   *   - Normalização robusta (trim + uppercase + sem acentos + sem pontuação final)
+   *   - Conflitos (mesma descrição → 2 códigos diferentes) → fila de revisão
+   *
+   * @returns { created, updated, skipped, conflicts[] }
+   */
+  async importCatalog(
+    companyId: string,
+    clientId: string | null,
+    items: { description: string; code: string }[],
+  ) {
+    if (!items || items.length === 0) {
+      throw new BadRequestException('Nenhum item para importar.');
+    }
+
+    // Normaliza descrição para comparação (trim + uppercase + sem acentos + sem pontuação final)
+    const normalizeDesc = (s: string) =>
+      (s || '')
+        .trim()
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // remove acentos
+        .replace(/[^\w\s]/g, '') // remove pontuação
+        .replace(/\s+/g, ' ') // colapsa espaços
+        .trim();
+
+    // Detecta conflitos: mesma descrição → códigos diferentes
+    const descToCodes = new Map<string, Set<string>>();
+    for (const item of items) {
+      const norm = normalizeDesc(item.description);
+      if (!descToCodes.has(norm)) descToCodes.set(norm, new Set());
+      descToCodes.get(norm)!.add(item.code.trim());
+    }
+
+    const conflicts: { description: string; codes: string[] }[] = [];
+    const validItems: { description: string; code: string; normDesc: string }[] = [];
+
+    for (const [norm, codes] of descToCodes.entries()) {
+      if (codes.size > 1) {
+        // Conflito: mesma descrição → múltiplos códigos
+        const originalDesc = items.find((i) => normalizeDesc(i.description) === norm)?.description || norm;
+        conflicts.push({ description: originalDesc, codes: Array.from(codes) });
+      } else {
+        // Válido: pega o primeiro item com essa descrição normalizada
+        const item = items.find((i) => normalizeDesc(i.description) === norm)!;
+        validItems.push({
+          description: item.description,
+          code: item.code.trim(),
+          normDesc: norm,
+        });
+      }
+    }
+
+    let created = 0;
+    let updated = 0;
+    let skipped = 0;
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of validItems) {
+        // Tenta casar por unifiedCode (código da planilha)
+        const existingByCode = await tx.fiscalProduct.findFirst({
+          where: {
+            companyId,
+            clientId: clientId || null,
+            unifiedCode: item.code,
+            deletedAt: null,
+          },
+        });
+
+        if (existingByCode) {
+          // Já existe com esse unifiedCode → pula (idempotente)
+          if (existingByCode.description === item.description) {
+            skipped++;
+            continue;
+          }
+          // Descrição diferente mas mesmo código → atualiza descrição
+          await tx.fiscalProduct.update({
+            where: { id: existingByCode.id },
+            data: { description: item.description },
+          });
+          updated++;
+          continue;
+        }
+
+        // Tenta casar por descrição normalizada (produto sem unifiedCode)
+        const allProducts = await tx.fiscalProduct.findMany({
+          where: {
+            companyId,
+            clientId: clientId || null,
+            deletedAt: null,
+          },
+          select: { id: true, description: true, unifiedCode: true },
+        });
+
+        const existingByDesc = allProducts.find(
+          (p) => normalizeDesc(p.description) === item.normDesc && !p.unifiedCode,
+        );
+
+        if (existingByDesc) {
+          // Existe mas sem unifiedCode → adiciona o unifiedCode
+          await tx.fiscalProduct.update({
+            where: { id: existingByDesc.id },
+            data: { unifiedCode: item.code },
+          });
+          updated++;
+          continue;
+        }
+
+        // Não existe → cria novo produto com estoque 0
+        const autoCode = `AUTO-${item.code.slice(0, 6)}-${Date.now().toString(36).slice(-4)}`;
+        await tx.fiscalProduct.create({
+          data: {
+            companyId,
+            clientId: clientId || null,
+            code: autoCode,
+            unifiedCode: item.code,
+            description: item.description,
+            ncm: '00000000', // NCM genérico (preencher depois)
+            unit: 'UN',
+            averageCost: 0,
+            currentStock: 0,
+          },
+        });
+        created++;
+      }
+    });
+
+    return { created, updated, skipped, conflicts };
+  }
 }

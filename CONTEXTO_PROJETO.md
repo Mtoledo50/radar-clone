@@ -134,13 +134,17 @@ ADR-041 Ponte Bancário→Contábil idempotente: `bankTransactionId` como chave;
 ADR-042 Conciliação Banco×NF-e apenas em DÉBITOS bancários c/ NF-e de ENTRADA
         (estoque armazena notas de compra) (commit d61b657 — Sprint 29).
 
-## 9) STATUS ATUAL E PRÓXIMOS PASSOS
+9) STATUS ATUAL E PRÓXIMOS PASSOS
+Sprint A1 CONCLUÍDA: domínio puro testado (6 testes verdes).
+Sprint 31 (Docker) HOMOLOGADA: ambiente estável (Postgres 5433, Backend 3001, Frontend 3000).
+Sprint A2 COMPLETA: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano validado).
+Sprint A3 HOMOLOGADA: versões de proposta (version/isCurrent/originalProposalId + endpoints de listagem e duplicação).
+Sprint F6 HOMOLOGADA: auditoria tributária de NF-e (parser captura todas as alíquotas; modal exibe Base × Alíquota = Valor com explicação automática de divergências).
+IMEDIATO: Sprint F7 = Endpoint consolidado GET /fiscal/invoices/tax-rates-by-product (tabela de alíquotas médias por NCM/produto para análise de padrões tributários).
+DEPOIS: A4→A7, Fases B→E (ordem do §7).
 
-### ✅ Concluído
-- Sprint A1: domínio puro testado (6 testes verdes).
-- Sprint 31 (Docker): ambiente estável.
-- Sprint A2: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano).
-- Sprint A3: versões de proposta.
+
+
 - FD-1 Fundação: 6 tabelas + dashboard + menu + crons ↔ toggles.
 - FD-2 COMPLETA: 4 skills + Central de Aprovações + Relatórios Mensais (99 PDFs) + UI.
 - FD-3a COMPLETA (18/08): NFS-e ABRASF + NfseImportSkill + upload/lista + UI.

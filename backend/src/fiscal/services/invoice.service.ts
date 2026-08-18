@@ -116,18 +116,25 @@ export class InvoiceService {
       const itemRows: any[] = [];
       const movements: any[] = [];
 
-      for (const item of parsed.items) {
+           for (const item of parsed.items) {
+        // 🆕 Sprint F8 (ADR-044): matching estendido — tenta code, EAN e descrição normalizada
+        
+        // 1) Tenta casar por código do fornecedor
         let product = item.supplierCode
           ? await tx.fiscalProduct.findFirst({
               where: {
                 companyId,
                 clientId: clientId || null,
                 deletedAt: null,
-                code: item.supplierCode,
+                OR: [
+                  { code: item.supplierCode },
+                  { unifiedCode: item.supplierCode }, // 🆕 Sprint F8: também busca em unifiedCode
+                ],
               },
             })
           : null;
 
+        // 2) Se não achou, tenta por EAN
         if (!product && item.ean) {
           product = await tx.fiscalProduct.findFirst({
             where: {
@@ -139,25 +146,41 @@ export class InvoiceService {
           });
         }
 
-        const matched = !!product;
+        // 3) 🆕 Sprint F8 (ADR-044): se ainda não achou, tenta por descrição normalizada
+        if (!product && item.description) {
+          const normalizeDesc = (s: string) =>
+            (s || '')
+              .trim()
+              .toUpperCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '') // remove acentos
+              .replace(/[^\w\s]/g, '') // remove pontuação
+              .replace(/\s+/g, ' ') // colapsa espaços
+              .trim();
 
-        if (!product) {
-          product = await tx.fiscalProduct.create({
-            data: {
+          const normItemDesc = normalizeDesc(item.description);
+          
+          // Busca todos os produtos do cliente e compara normalizado
+          const allProducts = await tx.fiscalProduct.findMany({
+            where: {
               companyId,
               clientId: clientId || null,
-              code:
-                item.supplierCode ||
-                `AUTO-${parsed.accessKey.slice(-6)}-${item.itemNumber}`,
-              ean: item.ean,
-              description: item.description,
-              ncm: item.ncm,
-              unit: item.unit,
-              averageCost: item.unitValue,
-              currentStock: 0,
+              deletedAt: null,
             },
+            select: { id: true, description: true },
           });
+
+          const match = allProducts.find(
+            (p) => normalizeDesc(p.description) === normItemDesc,
+          );
+          if (match) {
+            product = await tx.fiscalProduct.findUnique({ where: { id: match.id } });
+          }
         }
+
+        const matched = !!product;
+
+        // ... (resto do código permanece igual: criação de produto se não achou, cálculo de custo médio, etc.)
 
         // 4. Custo médio ponderado móvel (exigência fiscal)
         const currentStock = Number(product.currentStock);
