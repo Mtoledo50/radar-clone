@@ -121,6 +121,7 @@ ADR-036 NFS-e: parser ABRASF 2.0 c/ adaptadores municipais; não reconhecido →
 ADR-037 Origem do documento (MANUAL|EMAIL|PORTAL|OCR) é atributo `source`.
 ADR-038 Memória de cálculo auditável: toda guia preserva steps/sources/lawRef em JSON;
 o contador reproduz a conta (FD-4).
+ADR-039 IMAP como coletor de NFS-e (FD-3b); `source: 'EMAIL'` no upsert (ADR-037).
 
 ### 🆕 Recém-Documentados — Inferidos do código+commits (038–042)
 ADR-038 Parser CSV bancário multi-formato: detecta separador (;, TAB), milhares
@@ -165,17 +166,13 @@ DEPOIS: A4→A7, Fases B→E (ordem do §7).
 - Postgres 18 local: radar_user sem CREATEDB → SQL manual + GRANT + resolve.
 - Backend: jspdf 2.5.2 / autotable 3.8.2 pinados; fast-xml-parser p/ NFS-e.
 - FD-3b (IMAP) e FD-3c (portal/OCR) adiados; `source` já preparado (ADR-037).
-
 ### 🚀 IMEDIATO (escolher 1)
-- FD-3b: Monitoramento IMAP (caixa nfse@...) — coleta sem intervenção humana.
 - FD-5: Cobrança CNAB remessa/retorno (SkillKey BILLING já reservada).
 - A4: Fechamento com Ganho (plano comercial 2.0).
+- FD-3b real: configurar credenciais IMAP no .env e testar com caixa Gmail/Outlook.
 
 ### 📋 DEPOIS
 - FD-6→FD-9; A5→A7; Fases B→E (ordem do §7).
-
-### 📋 DEPOIS
-- FD-5→FD-9; A5→A7; Fases B→E (ordem do §7).
 
 ## 10) COMANDOS ÚTEIS (PowerShell)
 docker compose up -d --build | docker compose ps | docker compose logs -f backend
