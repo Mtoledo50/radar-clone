@@ -5,3 +5,8 @@ backups/
 backend/migration.sql
 backend/migration_nfse.sql
 teste-download.pdf
+
+# Aurora: artefatos locais
+backend/uploads/
+backups/
+teste-download.pdf

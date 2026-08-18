@@ -124,6 +124,9 @@ o contador reproduz a conta (FD-4).
 ADR-039 IMAP como coletor de NFS-e (FD-3b); `source: 'EMAIL'` no upsert (ADR-037).
 
 ### 🆕 Recém-Documentados — Inferidos do código+commits (038–042)
+ADR-038 Memória de cálculo auditável: toda guia preserva steps/sources/lawRef em JSON.
+ADR-039 IMAP como coletor de NFS-e (FD-3b); source='EMAIL' no upsert (ADR-037).
+
 ADR-038 Parser CSV bancário multi-formato: detecta separador (;, TAB), milhares
         BR/US e datas DD/MM vs MM/DD pela máscara (commit a74e37e — Sprint 21).
 ADR-039 Naturezas dinâmicas por cliente: `BankCategory` é String (não enum);

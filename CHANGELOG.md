@@ -2,6 +2,73 @@
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
+
+## [Sprint FD — Funcionário Digital] 2026-08-17/18 — Aurora: 7 skills, NFS-e, guias e relatórios
+
+### ✅ Added
+- FD-1 Fundação: tabelas RobotWorker/RobotWorkerSkill/AutomationRun/AutomationPending/
+  AutomationAudit/ApprovalRecord + dashboard da Aurora + menu + crons ↔ toggles.
+- FD-2: skills RECONCILIATION, CLASSIFICATION, ACCOUNTING_BRIDGE + Central de
+  Aprovações (régua 80/50 — ADR-030).
+- FD-2 final: MONTHLY_REPORT — PDF mensal por cliente (jspdf+autotable no backend,
+  ADR-035) + endpoints reports (list/download/generate) + aba "Relatórios Mensais".
+- FD-3a: NFSE_IMPORT — parser ABRASF 2.0 (4/4 testes), model FiscalServiceInvoice,
+  inbox/processed/failed, upload+lista, aba "NFS-e" c/ modal de XML original (ADR-036/037).
+- FD-3b: NFSE_EMAIL_COLLECT — coletor IMAP (imapflow+mailparser), cron */30,
+  SKIP gracioso sem credenciais, source EMAIL (ADR-039).
+- FD-4: TAX_GUIDES — domínio puro Simples Nacional (Anexo III) + ISS (5/5 testes),
+  model TaxGuide c/ memória de cálculo (ADR-038), endpoints calculate/list/patch/pdf,
+  PDF imprimível da guia + aba "Guias de Imposto" c/ aprovação humana.
+
+### 🧠 Decisions
+- ADR-030 Regra de Ouro (LEGAL nunca AUTO); ADR-031 cálculo determinístico;
+  ADR-033 perfis de aprovação; ADR-034 deltas em arquivos estruturais.
+- ADR-035 PDFs no backend (jspdf 2.5.2 / autotable 3.8.2 pinados).
+- ADR-036 ABRASF c/ adaptadores; ADR-037 source como atributo; ADR-038 memória de
+  cálculo; ADR-039 IMAP como coletor.
+
+### 📊 Resultados reais (produção controlada, Postgres local 5432)
+- 98 clientes reais importados; CLASSIFICATION 18/18 auto; 99 PDFs mensais;
+- NFS-e com fila 🟡 e vínculo por CNPJ; guias ACGS 2026-07: ISS R$ 420 + DAS R$ 660
+  com passo a passo auditável; 602h economizadas.
+
+### 🏁 Status
+HOMOLOGADO localmente. Teste IMAP real pendente (requer caixa de e-mail).
+
+## [Sprint F6] 2026-08 — Auditoria Tributária de NF-e (Base × Alíquota)
+
+### ✅ Added
+- **Parser de XML NF-e 4.0** com captura completa de alíquotas reais:
+  - ICMS: `vBC`, `pICMS`, `vICMS` (tratando CST 51 diferimento, CST 60 ST retido, ICMSSN)
+  - IPI: `vBC`, `pIPI`, `vIPI`, `CST` (formatos percentual, por unidade e IPINT isento)
+  - PIS: `vBC`, `pPIS`, `vPIS`, `CST` (formatos PISAliq, PISQtde, PISNT, PISOutr)
+  - COFINS: `vBC`, `pCOFINS`, `vCOFINS`, `CST` (formatos COFINSAliq, COFINSQtde, COFINSNT, COFINSOutr)
+- **Service de persistência** gravando 6 novas colunas em `FiscalInvoiceItem`:
+  - `ipiBase`, `ipiRate` (IPI com base + alíquota)
+  - `pisBase`, `pisRate` (PIS com base + alíquota)
+  - `cofinsBase`, `cofinsRate` (COFINS com base + alíquota)
+- **Componente `TaxAuditTable`** com tabela de auditoria por item:
+  - 4 linhas (ICMS/IPI/PIS/COFINS) com Base × Alíquota = Valor
+  - Selo ✓ OK (verde, bate) ou ⚠ diverge (âmbar, com diferença em R$)
+  - **Linha explicativa automática** quando diverge:
+    - Diagnóstico do erro (campo ausente, parser antigo, redução de base)
+    - Resultado esperado (calculado ou implícito)
+- **Tolerância de arredondamento** de R$ 0,02 (padrão fiscal brasileiro)
+
+### 🧠 Decisions
+- **ADR-031**: Cálculo tributário determinístico. O parser apenas extrai; a auditoria (base × alíquota) é feita no frontend (componente isolado). Tolerância R$ 0,02.
+- **ADR-032**: Reimportação necessária para notas antigas. Notas importadas antes da Sprint F6 têm alíquotas zeradas; o parser novo captura apenas em novos uploads.
+
+### 🛠️ Fixed
+- Parser antigo capturava apenas `vIPI`, `vPIS`, `vCOFINS` (valores), sem base/alíquota → auditoria impossível.
+- Parser não tratava CST 51 (diferimento) → alíquota efetiva calculada incorretamente.
+- Parser não tratava IPI por unidade (qUnid × vUnid) → alíquota zerada.
+- Parser não tratava PIS/COFINS por quantidade (qBCProd × vAliqProd) → base zerada.
+
+### 🏁 Status
+- **HOMOLOGADO** no ambiente Docker (Postgres 5433, Backend 3001, Frontend 3000).
+- Testado com NF-e reais (Blutrade, SEIWA BUSSAN) — auditoria detecta divergências de cálculo automaticamente.
+
 ## [FD-3b] 2026-08-18 — Coleta IMAP de NFS-e (Aurora)
 
 ### ✅ Added
