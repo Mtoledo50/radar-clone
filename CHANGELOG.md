@@ -2,7 +2,34 @@
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
-**Última atualização:** 17/08/2026 (pós-Sprint FD-2 parcial)
+**Última atualização:** 18/08/2026 (pós-Sprints F4–F7 do Fiscal — Enriquecimento e Auditoria)
+## [FD-4] 2026-08-18 — Guias de imposto com memória de cálculo (Aurora)
+
+### ✅ Added
+- Domínio puro `backend/src/tax/domain/`: `simples-nacional.ts` (Anexo III,
+  alíquota efetiva por RBT12) e `iss.ts` (ISS próprio × retido); 5/5 testes verdes.
+- Model `TaxGuide` + enums `TaxGuideType` (DAS/ISS/DARF) e `TaxGuideStatus`
+  (DRAFT/APPROVED/TRANSMITTED/REJECTED); idempotência @@unique([companyId, clientId, period, type]).
+- `TaxGuidesService`: lê NFS-e da FD-3a, calcula ISS+DAS e upserta guias com
+  `memory` JSON (steps, sources, lawRef) — ADR-038.
+- Endpoints: GET /digital-employee/tax-guides, POST .../calculate,
+  PATCH .../:id (aprovação), GET .../:id/pdf.
+- PDF imprimível da guia (jspdf+autotable, ADR-035): faixa teal, box valor+vencimento,
+  resumo, memória passo a passo, referência legal e rodapé de compliance.
+- Página `/dashboard/funcionario-digital/guias`: KPIs, filtros, tabela,
+  modal de memória, Aprovar e Imprimir. Item de menu "Guias de Imposto".
+
+### 🧠 Decisions
+- ADR-038: memória de cálculo auditável — o contador vê a conta, não só o resultado.
+- Regra de Ouro: Aurora calcula e prepara; humano aprova e transmite no portal oficial.
+- ISS retido pelo tomador não gera guia, mas entra na memória p/ conferência.
+
+### 📊 Resultados reais (produção controlada, 18/08/2026)
+- ACGS 2026-07: ISS R$ 420,00 (3 próprias + 1 retida) + DAS R$ 660,00 (faixa 1, 6%).
+- PDF validado no viewer + impressão + aprovação na UI.
+
+### 🏁 Status
+HOMOLOGADO em ambiente local.
 ## [FD-3a] 2026-08-18 — NFS-e: importação de notas de serviço (Aurora)
 
 ### ✅ Added
@@ -219,29 +246,91 @@ dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 - **HOMOLOGADO** no ambiente Docker (Postgres 5433, Backend 3001, Frontend 3000).
 
 ---
-[Sprints F4–F5 — Enriquecimento Fiscal] 2026-08
-Added
-- F4: card "Base ICMS" no modal de detalhe da nota (total da nota) e linha
+
+## [Sprints F6–F7 — Auditoria Tributária e Impressão Fiscal] 2026-08-18
+
+### ✅ Added
+- **F6**: componente `TaxAuditTable` — auditoria tributária por item no modal
+  de detalhe da NF-e: tabela Base × Alíquota = Valor para ICMS, IPI, PIS e
+  COFINS, com selo **✓ OK** / **⚠ diverge** e explicação automática do
+  valor esperado quando há divergência (cross-check determinístico).
+- **F6.1**: selo destacado **"Qtd: N UN"** por item + resumo
+  "X itens • Y unidades" no cabeçalho do modal. Unidade de medida vem do
+  produto catalogado (`item.product.unit`) com fallback seguro para `UN`.
+- **F7**: botão 🖨️ **Imprimir** no modal de detalhe da NF-e:
+  - Impressão direta ou "Salvar como PDF" via diálogo nativo do navegador.
+  - Layout A4 otimizado: imprime **somente o modal** (dashboard/sidebar
+    ficam de fora).
+  - Chave de acesso (44 dígitos) em destaque no rodapé fiscal (exigência legal).
+  - Cada item com `break-inside: avoid` — nunca cortado entre páginas.
+  - Botões de ação (Imprimir/Fechar) somem no papel via classe `print-hidden`.
+- **F7 (arquitetura)**: modal renderizado via `createPortal(document.body)` —
+  vira irmão do root do Next, permitindo que o CSS `@media print` esconda
+  tudo exceto o backdrop do modal.
+
+### 🔧 Changed
+- `notas/page.tsx`: tipos `InvoiceItem` e `InvoiceDetail` ganham
+  `ipiBase`, `ipiRate`, `pisBase`, `pisRate`, `cofinsBase`, `cofinsRate`
+  (necessários para a auditoria); `product` ganha `unit?: string`.
+- `notas/page.tsx`: modal migra para `createPortal` + `<style>` injetado
+  com CSS de impressão (ADR-026 revisado — sem `globals.css`).
+
+### 🧠 Decisions
+- **ADR-026**: impressão fiscal sem `globals.css`/jsPDF. Modal via
+  `createPortal(document.body)` + `<style>` com `@media print` injetado;
+  CSS esconde todos os filhos diretos do `body` exceto o backdrop do modal.
+  PDF gerado pelo diálogo nativo do navegador (Ctrl+P → "Salvar como PDF").
+- Auditoria determinística no frontend (Base × Alíquota = Valor):
+  tolerância de R$ 0,01 para arredondamentos fiscais. Sem IA, sem heurística.
+- CSOSN 102/103 (Simples Nacional): base ICMS por item R$ 0,00 no XML
+  (comportamento fiscal correto — grupo `ICMSSN102` não possui tag `vBC`).
+  Tabela de auditoria mostra "—" nesses casos.
+
+### 📁 Arquivos
+- `frontend/src/components/fiscal/TaxAuditTable.tsx` (novo — F6)
+- `frontend/src/app/dashboard/fiscal/notas/page.tsx` (F6.1 + F7)
+
+### 🏁 Status
+HOMOLOGADO em ambiente local (Postgres 5432, dados reais). Zero migrações.
+
+---
+
+## [Sprints F4–F5 — Enriquecimento Fiscal] 2026-08
+
+### ✅ Added
+- **F4**: card "Base ICMS" no modal de detalhe da nota (total da nota) e linha
   "Base ICMS" por item — exibindo dados que o parser já extraía (`vBC` por
   item e no `ICMSTot`) e o schema já persistia. Zero migrações.
-- F5: coluna "Produtos" na listagem de notas (1º produto em A–Z + badge
+- **F5**: coluna "Produtos" na listagem de notas (1º produto em A–Z + badge
   "+N produto(s)" com tooltip listando todos).
-- F5: seletor "Ordenar por: Mais recentes | Produto (A–Z)" — ordenação
+- **F5**: seletor "Ordenar por: Mais recentes | Produto (A–Z)" — ordenação
   server-side compatível com paginação.
-- F5: busca da listagem agora encontra notas pelo NOME DO PRODUTO
+- **F5**: busca da listagem agora encontra notas pelo NOME DO PRODUTO
   (ex.: digitar "TRIANGLE" acha a nota #8338).
-Changed
+
+### 🔧 Changed
 - `invoice.service.ts` → `findAll`: retorna descrições dos itens ordenadas
   A–Z; novo filtro `sortBy`; busca inclui `items.description`.
 - `invoice.controller.ts` → whitelist segura de `sortBy`.
 - `notas/page.tsx` → coluna nova + seletor + tipos atualizados.
-Decisions
+
+### 🧠 Decisions
+-- - **ADR-025**: ordenação "Produto (A–Z)" na camada de aplicação...
++ - ### Decisions
 - Ordenação por produto via agregação Prisma
   (`orderBy: { items: { _min: { description: 'asc' } } }`) — notas sem
   itens vêm por último (NULLS LAST).
++ - **ADR-028** (ex-"ADR-025" da conversa): ordenação A–Z na aplicação
++   (renumerado: ADR-025 original = RBAC @Roles(), confirmado pelo commit aff3652).
++   (renumerado: ADR-025 original = RBAC @Roles(), conforme READMEv1)
+  + `localeCompare('pt-BR')` + paginação sobre ranking. Sem agregação de
+  relação do Prisma (`orderBy: items._min` retornava 500 no ambiente local).
+  Notas sem itens vão para o final da lista.
 - CSOSN 102/103 (Simples) não trazem `<vBC>` por item no XML: base
   exibida como R$ 0,00 nesses casos (comportamento fiscal correto).
-  
+
+---
+
 ## [Sprint A1] 2026-08 — Motor de Herança de Planos (Domínio Puro)
 
 ### ✅ Added

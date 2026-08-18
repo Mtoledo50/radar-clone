@@ -23,6 +23,7 @@ import { ClassificationSkill } from './skills/classification.skill';
 import { AccountingBridgeSkill } from './skills/accounting-bridge.skill';
 import { MonthlyReportSkill } from './skills/monthly-report.skill';
 import { NfseImportSkill } from './skills/nfse-import.skill';
+import { TaxModule } from '../tax/tax.module';
 import { BankingModule } from '../banking/banking.module';
 import { AccountingModule } from '../accounting/accounting.module';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,8 +31,9 @@ import { BankingReconcileService } from '../banking/banking-reconcile.service';
 import { BankingService } from '../banking/banking.service';
 import { AccountingService } from '../accounting/accounting.service';
 
+
 @Module({
-  imports: [ScheduleModule.forRoot(), BankingModule, AccountingModule],
+  imports: [ScheduleModule.forRoot(), BankingModule, AccountingModule, TaxModule],
   controllers: [DigitalEmployeeController],
   providers: [
     DigitalEmployeeService,

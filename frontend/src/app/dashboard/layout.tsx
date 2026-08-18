@@ -236,6 +236,14 @@ const allMenuItems: MenuItem[] = [
     icon: Receipt,
     section: 'inteligencia',
   },
+    // 🆕 FD-4 (18/08/2026): Guias de imposto (DAS/ISS) calculadas pela Aurora
+  {
+    id: 'guias-imposto',
+    title: 'Guias de Imposto',
+    href: '/dashboard/funcionario-digital/guias',
+    icon: Scale,
+    section: 'inteligencia',
+  },
   {
     id: 'bi',
     title: 'DRE do Escritório',

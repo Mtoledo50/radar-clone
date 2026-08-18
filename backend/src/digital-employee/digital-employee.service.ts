@@ -25,6 +25,7 @@ import { AutomationAuditService } from './audit/automation-audit.service'; // �
 import * as fs from 'fs';
 import * as path from 'path';
 import { MonthlyReportSkill } from './skills/monthly-report.skill';
+import { TaxGuidesService } from '../tax/tax-guides.service';
 // -----------------------------------------------------------------
 // Configuração das skills padrão da Aurora.
 // Quando o worker é criado, fazemos o "seed" destas 4 skills
@@ -49,6 +50,7 @@ export class DigitalEmployeeService {
     private readonly scheduler: SchedulerService, // 🆕 FD-2: sincroniza toggle ↔ cron
     private readonly audit: AutomationAuditService, // 🆕 FD-2 final: auditoria das decisões humanas
     private readonly monthlyReportSkill: MonthlyReportSkill,
+    private readonly taxGuidesService: TaxGuidesService,
   ) {}
 
   // =================================================================
@@ -596,6 +598,100 @@ export class DigitalEmployeeService {
       take: 200,
     });
     return { value: items, count: items.length };
+  }
+  // =================================================================
+  // 🧾 GUIAS DE IMPOSTO (FD-4)
+  // =================================================================
+
+  async listTaxGuides(
+    companyId: string,
+    period?: string,
+    type?: string,
+    status?: string,
+  ) {
+    return this.taxGuidesService.list(companyId, period, type, status);
+  }
+
+  async calculateTaxGuides(
+    companyId: string,
+    period: string,
+    userId: string,
+  ) {
+    // Cria run de auditoria
+    const worker = await this.prisma.robotWorker.findFirst({ where: { companyId } });
+    if (!worker) throw new Error('Aurora não inicializada para este tenant');
+
+    const run = await this.prisma.automationRun.create({
+      data: {
+        companyId,
+        workerId: worker.id,
+        skillKey: 'TAX_GUIDES',
+        triggerType: 'MANUAL',
+        triggeredBy: userId,
+        status: 'RUNNING',
+      },
+    });
+
+    try {
+      const result = await this.taxGuidesService.calcForPeriod(
+        companyId,
+        period,
+        run.id,
+      );
+
+      const status = result.warnings > 0 ? 'PARTIAL' : 'SUCCESS';
+      await this.prisma.automationRun.update({
+        where: { id: run.id },
+        data: {
+          status,
+          finishedAt: new Date(),
+          itemsProcessed: result.processed,
+          itemsAutoApproved: result.created + result.updated - result.warnings,
+          itemsPendingHuman: result.warnings,
+          itemsFailed: 0,
+          secondsSaved: result.processed * 900, // ~15min/guia economizados
+        },
+      });
+
+      return { runId: run.id, status, result, period };
+    } catch (e: any) {
+      await this.prisma.automationRun.update({
+        where: { id: run.id },
+        data: { status: 'FAILED', finishedAt: new Date(), errorMessage: e?.message },
+      });
+      throw e;
+    }
+  }
+    async updateTaxGuide(
+    companyId: string,
+    id: string,
+    status: string,
+    userId: string,
+  ) {
+    const guide = await this.prisma.taxGuide.findFirst({
+      where: { id, companyId },
+    });
+    if (!guide) throw new Error('Guia não encontrada');
+
+    const updated = await this.prisma.taxGuide.update({
+      where: { id },
+      data: { status: status as any },
+    });
+
+    // Auditoria da ação humana (Regra de Ouro: LEGAL sempre registrado)
+    await this.audit.log({
+      companyId,
+      actor: `USER_${userId}`,
+      action: 'USER_TAX_GUIDE_UPDATE',
+      entity: 'TaxGuide',
+      entityId: id,
+      detail: { from: guide.status, to: status, type: guide.type, period: guide.period },
+    });
+
+    return updated;
+  }
+    async taxGuidePdf(companyId: string, id: string) {
+    return this.taxGuidesService.generatePdf(companyId, id);
   }
 }
 // =================================================================

@@ -233,6 +233,88 @@ export class DigitalEmployeeController {
   async listNfse(@Request() req, @Query('status') status?: string) {
     return this.digitalEmployeeService.listNfse(req.user.companyId, status);
   }
+    // =================================================================
+  // 🧾 GUIAS DE IMPOSTO (FD-4)
+  // =================================================================
+
+  /**
+   * GET /digital-employee/tax-guides
+   * Lista guias de imposto do tenant (para a UI).
+   */
+  @Get('tax-guides')
+  async listTaxGuides(
+    @Request() req,
+    @Query('period') period?: string,
+    @Query('type') type?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.digitalEmployeeService.listTaxGuides(
+      req.user.companyId,
+      period,
+      type,
+      status,
+    );
+  }
+
+  /**
+   * POST /digital-employee/tax-guides/calculate
+   * Calcula ISS + DAS para todos os clientes com NFS-e no período.
+   * Body: { period: "YYYY-MM" }
+   */
+  @Post('tax-guides/calculate')
+  async calculateTaxGuides(
+    @Request() req,
+    @Body() body: { period?: string },
+  ) {
+    // Default: mês anterior
+    const period =
+      body.period ||
+      (() => {
+        const d = new Date();
+        d.setUTCMonth(d.getUTCMonth() - 1);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      })();
+    return this.digitalEmployeeService.calculateTaxGuides(
+      req.user.companyId,
+      period,
+      req.user.id,
+    );
+  }
+    /**
+   * PATCH /digital-employee/tax-guides/:id
+   * Atualiza o status da guia (DRAFT → APPROVED → TRANSMITTED).
+   * Body: { status: 'DRAFT' | 'APPROVED' | 'TRANSMITTED' | 'REJECTED' }
+   */
+  @Patch('tax-guides/:id')
+  async updateTaxGuide(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() body: { status: string },
+  ) {
+    return this.digitalEmployeeService.updateTaxGuide(
+      req.user.companyId,
+      id,
+      body.status,
+      req.user.id,
+    );
+  }
+  /**
+   * GET /digital-employee/tax-guides/:id/pdf
+   * Gera e retorna o PDF da guia (para imprimir/arquivar).
+   */
+  @Get('tax-guides/:id/pdf')
+  async taxGuidePdf(@Request() req, @Param('id') id: string, @Res() res) {
+    const buf = await this.digitalEmployeeService.taxGuidePdf(
+      req.user.companyId,
+      id,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="guia-${id}.pdf"`,
+    );
+    res.send(buf);
+  }
 }
 // =================================================================
 // FIM: backend/src/digital-employee/digital-employee.controller.ts
