@@ -1,0 +1,7 @@
+
+# Aurora: artefatos locais (nunca commitar)
+backend/uploads/
+backups/
+backend/migration.sql
+backend/migration_nfse.sql
+teste-download.pdf
