@@ -204,6 +204,35 @@ export class DigitalEmployeeController {
       body.month,
     );
   }
+  // =================================================================
+  // 📥 NFS-e (FD-3a)
+  // =================================================================
+
+  /**
+   * POST /digital-employee/nfse/upload
+   * Recebe o XML da NFS-e e salva na caixa de entrada da Aurora.
+   * Body: { xml: string, clientId?: string }
+   */
+  @Post('nfse/upload')
+  async uploadNfse(
+    @Request() req,
+    @Body() body: { xml: string; clientId?: string },
+  ) {
+    return this.digitalEmployeeService.saveNfseToInbox(
+      req.user.companyId,
+      body.xml,
+      body.clientId,
+    );
+  }
+
+  /**
+   * GET /digital-employee/nfse
+   * Lista as NFS-e importadas do tenant (para a aba da UI).
+   */
+  @Get('nfse')
+  async listNfse(@Request() req, @Query('status') status?: string) {
+    return this.digitalEmployeeService.listNfse(req.user.companyId, status);
+  }
 }
 // =================================================================
 // FIM: backend/src/digital-employee/digital-employee.controller.ts

@@ -768,13 +768,30 @@ export default function FiscalNotasPage() {
                       - Selo ✓ OK (bate) / ⚠ diverge
                       - Linha explicativa com erro + resultado esperado
                       ================================================================ */}
-                  <div className="p-5">
-                    <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                      Itens da Nota ({detail.items.length})
-                      <span className="text-xs font-normal text-slate-500">
-                        (com auditoria tributária base × alíquota)
-                      </span>
-                    </h4>
+                                   <div className="p-5">
+                    {/* 🆕 Sprint F6.1: resumo de itens + unidades totais */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                      <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                        Itens da Nota ({detail.items.length})
+                        <span className="text-xs font-normal text-slate-500">
+                          (com auditoria tributária base × alíquota)
+                        </span>
+                      </h4>
+                      {/* Badge com total de unidades da nota */}
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
+                        <Receipt className="h-3.5 w-3.5 text-teal-700" />
+                        <span className="text-xs font-semibold text-teal-900">
+                          {detail.items.length} {detail.items.length === 1 ? 'item' : 'itens'} •{' '}
+                          {Number(
+                            detail.items.reduce(
+                              (acc, it) => acc + Number(it.quantity ?? 0),
+                              0,
+                            ),
+                          ).toLocaleString('pt-BR')}{' '}
+                          unidades
+                        </span>
+                      </div>
+                    </div>
                     <div className="space-y-3">
                       {detail.items.map((item) => (
                         <div
@@ -797,7 +814,12 @@ export default function FiscalNotasPage() {
                                 </p>
                               )}
                             </div>
-                            <div className="text-right text-sm">
+                                                       <div className="text-right text-sm space-y-1">
+                              {/* 🆕 Sprint F6.1: selo de quantidade destacado */}
+                              <span className="inline-block px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs font-semibold text-blue-800">
+                                Qtd: {Number(item.quantity ?? 0).toLocaleString('pt-BR')}{' '}
+                                {item.product?.unit ?? 'UN'}
+                              </span>
                               <p className="font-semibold text-slate-800">
                                 {formatBRL(Number(item.totalValue ?? 0))}
                               </p>

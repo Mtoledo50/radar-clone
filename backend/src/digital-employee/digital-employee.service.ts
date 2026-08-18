@@ -562,6 +562,41 @@ export class DigitalEmployeeService {
       throw error;
     }
   }
+  // =================================================================
+  // 📥 NFS-e (FD-3a)
+  // =================================================================
+
+  /**
+   * Salva o XML na caixa de entrada da Aurora.
+   * Nome do arquivo carrega tenant + clientId opcional:
+   *   {companyId}_{clientId|auto}_{timestamp}.xml
+   */
+  async saveNfseToInbox(companyId: string, xml: string, clientId?: string) {
+    if (!xml || typeof xml !== 'string' || xml.trim().length < 10) {
+      throw new BadRequestException('XML vazio ou inválido');
+    }
+    const dir = path.join(process.cwd(), 'uploads', 'nfse-inbox');
+    fs.mkdirSync(dir, { recursive: true });
+    const safeClient = clientId || 'auto';
+    const file = `${companyId}_${safeClient}_${Date.now()}.xml`;
+    fs.writeFileSync(path.join(dir, file), xml, 'utf-8');
+    return { saved: file };
+  }
+
+  /**
+   * Lista NFS-e do tenant (com cliente vinculado, se houver).
+   */
+  async listNfse(companyId: string, status?: string) {
+    const where: any = { companyId };
+    if (status) where.status = status;
+    const items = await this.prisma.fiscalServiceInvoice.findMany({
+      where,
+      include: { client: { select: { id: true, companyName: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    return { value: items, count: items.length };
+  }
 }
 // =================================================================
 // FIM: backend/src/digital-employee/digital-employee.service.ts

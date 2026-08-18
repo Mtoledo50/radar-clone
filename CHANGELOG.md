@@ -3,6 +3,36 @@
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 **Última atualização:** 17/08/2026 (pós-Sprint FD-2 parcial)
+## [FD-3a] 2026-08-18 — NFS-e: importação de notas de serviço (Aurora)
+
+### ✅ Added
+- Model `FiscalServiceInvoice` (NFS-e) + enums `NfseDirection` (EMITIDA/RECEBIDA) e
+  `NfseStatus` (IMPORTED/REVIEW/ACCOUNTED/REJECTED); idempotência por
+  @@unique([companyId, issuerCnpj, number, series]).
+- Parser ABRASF 2.0 (`backend/src/fiscal/nfse/nfse.parser.ts`): puro, tolerante a
+  variações municipais; 4/4 testes verdes (válido, sem tomador, malformado, sem número).
+- `NfseImportSkill` (5ª skill): processa `uploads/nfse-inbox/` → upsert → move para
+  `nfse-processed/` ou `nfse-failed/`; vínculo por clientId explícito ou CNPJ
+  (emissor=EMITIDA / tomador=RECEBIDA); sem vínculo → REVIEW (fila 🟡).
+- Endpoints: `POST /digital-employee/nfse/upload` e `GET /digital-employee/nfse`.
+- Página `/dashboard/funcionario-digital/nfse`: KPIs, filtros, tabela com destaque 🟡,
+  "Enviar XML", "Reprocessar caixa" e modal "XML original".
+- Item de menu "NFS-e" na seção Inteligência; cron `0 9 * * *` (autonomia REVIEW).
+
+### 🧠 Decisions
+- ADR-036: parser ABRASF com adaptadores; não reconhecido → rawXml + REVIEW (nunca descarta).
+- ADR-037: origem (`source`: MANUAL|EMAIL|PORTAL|OCR) é atributo, não arquitetura —
+  coletores futuros (FD-3b/c) despejam na mesma inbox.
+- `fast-xml-parser` para parsing XML no backend.
+- Migrations locais via SQL manual + `migrate resolve` (radar_user sem CREATEDB).
+
+### 📊 Resultados reais (produção controlada, 18/08/2026)
+- 2 XMLs semeados: 1 IMPORTED (vínculo automático ACGS por CNPJ) + 1 REVIEW (órfão → 🟡).
+- UI homologada: KPIs, filtros, tabela, modal XML e menu.
+
+### 🏁 Status
+HOMOLOGADO em ambiente local (Postgres 5432, dados reais).
+
 ## [FD-2 Final — MonthlyReportSkill] 2026-08-18 — Pacote mensal da Aurora 📊
 
 ### ✅ Added

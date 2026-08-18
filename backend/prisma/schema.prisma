@@ -177,6 +177,7 @@ model Company {
   fiscalBalances        FiscalInventoryBalance[]
   fiscalApurations    FiscalIcmsApuration[]
   bankStatements      BankStatement[]
+  fiscalServiceInvoices FiscalServiceInvoice[]   // 🆕 FD-3a
   
   // 🤖 Funcionário Digital (FD-1)
   robotWorker       RobotWorker?
@@ -335,8 +336,9 @@ model Client {
   fiscalMovements       FiscalInventoryMovement[]
   fiscalApurations      FiscalIcmsApuration[]
   bankStatements        BankStatement[]
-    // 📊 Relatórios mensais do cliente
+  // 📊 Relatórios mensais do cliente
   monthlyReports  MonthlyReport[]
+  fiscalServiceInvoices FiscalServiceInvoice[]   // 🆕 FD-3a
 
   @@index([userId])
   @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
@@ -1577,6 +1579,79 @@ model FiscalIcmsApuration {
   @@index([companyId, clientId, year])          // 🆕 índice
   @@index([companyId, year])
   @@map("fiscal_icms_apurations")
+}
+// =================================================================
+// 📥 NFS-e — NOTA FISCAL DE SERVIÇOS (FD-3a)
+// =================================================================
+// Serviços ≠ mercadorias: NFS-e gera ISS + receita de serviço.
+// Foco inicial: EMITIDAS (cliente prestou o serviço).
+// Padrão: ABRASF 2.0 com adaptadores por município (ADR-036).
+// Origem (source) é atributo, não arquitetura: MANUAL hoje,
+// EMAIL/PORTAL/OCR amanhã despejam na mesma fila (ADR-037).
+// =================================================================
+
+enum NfseDirection {
+  EMITIDA    /// Cliente prestou o serviço (receita + ISS a pagar)
+  RECEBIDA   /// Cliente contratou serviço (despesa)
+}
+
+enum NfseStatus {
+  IMPORTED   /// Importada, aguardando revisão
+  REVIEW     /// Na fila 🟡 (divergência ou campo não reconhecido)
+  ACCOUNTED  /// Promovida ao contábil/financeiro
+  REJECTED   /// Rejeitada pelo humano
+}
+
+/// NFS-e processada (1 por emissor + número + série)
+model FiscalServiceInvoice {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  /// Cliente dono do documento (null = não vinculado ainda)
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  // ── Identificação da NFS-e ─────────────────────────────────────
+  number           String             /// Número na prefeitura
+  series           String   @default("")
+  verificationCode String?            /// Código de verificação (autenticidade)
+  emissionDate     DateTime
+  competenceDate   DateTime?          /// Competência do ISS
+
+  // ── Partes ─────────────────────────────────────────────────────
+  issuerCnpj String                  /// Prestador do serviço
+  issuerName String
+  takerCnpj  String?                  /// Tomador do serviço
+  takerName  String?
+
+  // ── Valores ────────────────────────────────────────────────────
+  serviceValue Decimal  @db.Decimal(12, 2)  /// Valor do serviço
+  deductions   Decimal  @default(0) @db.Decimal(12, 2)
+  issBase      Decimal  @default(0) @db.Decimal(12, 2)
+  issRate      Decimal  @default(0) @db.Decimal(5, 2)  /// % (ex: 3.5)
+  issValue     Decimal  @default(0) @db.Decimal(12, 2)
+  issRetained  Boolean  @default(false)     /// ISS retido pelo tomador?
+
+  // ── Serviço ────────────────────────────────────────────────────
+  serviceCode        String?  /// Código LC 116/03 (ex: "01.01")
+  serviceDescription String?  @db.Text
+  municipalityCode   String?  /// IBGE do município de prestação
+
+  // ── Processamento (Pilar B: nunca descarta) ───────────────────
+  direction NfseDirection @default(EMITIDA)
+  source    String        @default("MANUAL") /// MANUAL | EMAIL | PORTAL | OCR
+  status    NfseStatus    @default(IMPORTED)
+  rawXml    String?       @db.Text           /// XML original p/ auditoria/reparse
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, issuerCnpj, number, series])  /// idempotência: 2× não duplica
+  @@index([companyId, clientId])
+  @@index([companyId, status])
+  @@index([companyId, emissionDate])
+  @@map("fiscal_service_invoices")
 }
 
 // =================================================================
