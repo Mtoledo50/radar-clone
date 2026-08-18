@@ -1878,6 +1878,7 @@ enum SkillKey {
   MONTHLY_REPORT     /// Relatório PDF mensal (FD-2)
   TAX_GUIDES         /// Emissão de DAS/ISS/DARF (FD-4) — futuro
   NFSE_IMPORT        /// Importação NFS-e (FD-3) — futuro
+  NFSE_EMAIL_COLLECT /// Coleta IMAP de NFS-e (FD-3b) 🆕
   BILLING            /// CNAB remessa/retorno (FD-5) — futuro
   OBLIGATIONS        /// SPED/obrigações (FD-6) — futuro
 }

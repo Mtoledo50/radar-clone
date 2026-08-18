@@ -30,6 +30,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { BankingReconcileService } from '../banking/banking-reconcile.service';
 import { BankingService } from '../banking/banking.service';
 import { AccountingService } from '../accounting/accounting.service';
+import { NfseEmailCollectSkill } from './skills/nfse-email-collect.skill';
 
 
 @Module({
@@ -89,6 +90,16 @@ import { AccountingService } from '../accounting/accounting.service';
         new NfseImportSkill(prisma, audit),
       inject: [PrismaService, AutomationAuditService],
     },
+      // SKILL 7 — Coleta IMAP de NFS-e (FD-3b) 🆕
+    {
+      provide: NfseEmailCollectSkill,
+      useFactory: (
+        prisma: PrismaService,
+        audit: AutomationAuditService,
+        importSkill: NfseImportSkill,
+      ) => new NfseEmailCollectSkill(prisma, audit, importSkill),
+      inject: [PrismaService, AutomationAuditService, NfseImportSkill],
+    },
   ],
   exports: [DigitalEmployeeService, JobRunnerService],
 })
@@ -100,6 +111,8 @@ export class DigitalEmployeeModule implements OnModuleInit {
     private readonly accountingBridgeSkill: AccountingBridgeSkill,
     private readonly monthlyReportSkill: MonthlyReportSkill,
     private readonly nfseImportSkill: NfseImportSkill, // 🆕 FD-3a
+    private readonly nfseEmailCollectSkill: NfseEmailCollectSkill, // 🆕 FD-3b
+
   ) {}
 
   onModuleInit() {
@@ -108,7 +121,11 @@ export class DigitalEmployeeModule implements OnModuleInit {
     this.jobRunner.registerSkill(this.accountingBridgeSkill);
     this.jobRunner.registerSkill(this.monthlyReportSkill);
     this.jobRunner.registerSkill(this.nfseImportSkill); // 🆕
+    this.jobRunner.registerSkill(this.nfseEmailCollectSkill); // 🆕
+
   }
+
+  
 }
 // =================================================================
 // FIM: digital-employee.module.ts

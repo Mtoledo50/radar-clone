@@ -2,6 +2,29 @@
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
+## [FD-3b] 2026-08-18 — Coleta IMAP de NFS-e (Aurora)
+
+### ✅ Added
+- `EmailCollectorService` (backend/src/fiscal/nfse/email-collector.service.ts):
+  cliente IMAP puro via `imapflow` + `mailparser`, extrai anexos .xml de mensagens
+  UNSEEN, salva em uploads/nfse-inbox/, marca SEEN (não apaga — auditoria).
+- `NfseEmailCollectSkill` (7ª skill): cron `*/30 * * * *`, lê config via env
+  (ADR-032), SKIP gracioso se não configurada, dispara NfseImportSkill inline
+  após coletar (ADR-037: mesmo canal de processamento).
+- Enum `SkillKey` expandido com `NFSE_EMAIL_COLLECT`.
+- Vars `NFSE_IMAP_*` no .env (host/port/secure/user/pass/mailbox).
+
+### 🧠 Decisions
+- ADR-039: IMAP como coletor; `source: 'EMAIL'` na skill de importação (ADR-037).
+- SKIP gracioso: sem credenciais → log + return, não quebra o cron.
+- Segurança (ADR-032): credenciais via env, TLS obrigatório, senha de APP.
+
+### 📊 Resultados reais (produção controlada, 18/08/2026)
+- Skill registrada com 2 crons ativos (NFSE_IMPORT + NFSE_EMAIL_COLLECT).
+- Run manual sem credenciais: `configured: false` + SKIP gracioso validado.
+
+### 🏁 Status
+HOMOLOGADO em ambiente local. Teste com caixa real pendente (requer credenciais IMAP).
 
 ## [Sprint F6] 2026-08 — Auditoria Tributária de NF-e (Base × Alíquota)
 
