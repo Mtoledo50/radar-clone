@@ -239,7 +239,27 @@ export class InventoryController {
       },
     );
   }
-
+  /**
+   * POST /fiscal/inventory/import-catalog
+   *
+   * 🆕 Sprint F8: importa catálogo permanente do cliente (descrição + código).
+   * Produtos existentes recebem unifiedCode; novos são criados com estoque 0.
+   *
+   * Body: { clientId?: string | null, items: [{ description, code }] }
+   *
+   * 🛡️ Anti-colisão + transação atômica + detecção de conflitos no service.
+   */
+  @Post('import-catalog')
+  importCatalog(@Request() req, @Body() body: any) {
+    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+      throw new BadRequestException('items deve ser um array não-vazio.');
+    }
+    return this.inventoryService.importCatalog(
+      req.user.companyId,
+      body.clientId ?? null,
+      body.items,
+    );
+  }
   /**
    * POST /fiscal/inventory/unify-codes
    *

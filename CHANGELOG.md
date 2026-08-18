@@ -2,7 +2,41 @@
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
-**Última atualização:** 18/08/2026 (pós-Sprints F4–F7 do Fiscal — Enriquecimento e Auditoria)
+
+## [Sprint F6] 2026-08 — Auditoria Tributária de NF-e (Base × Alíquota)
+
+### ✅ Added
+- **Parser de XML NF-e 4.0** com captura completa de alíquotas reais:
+  - ICMS: `vBC`, `pICMS`, `vICMS` (tratando CST 51 diferimento, CST 60 ST retido, ICMSSN)
+  - IPI: `vBC`, `pIPI`, `vIPI`, `CST` (formatos percentual, por unidade e IPINT isento)
+  - PIS: `vBC`, `pPIS`, `vPIS`, `CST` (formatos PISAliq, PISQtde, PISNT, PISOutr)
+  - COFINS: `vBC`, `pCOFINS`, `vCOFINS`, `CST` (formatos COFINSAliq, COFINSQtde, COFINSNT, COFINSOutr)
+- **Service de persistência** gravando 6 novas colunas em `FiscalInvoiceItem`:
+  - `ipiBase`, `ipiRate` (IPI com base + alíquota)
+  - `pisBase`, `pisRate` (PIS com base + alíquota)
+  - `cofinsBase`, `cofinsRate` (COFINS com base + alíquota)
+- **Componente `TaxAuditTable`** com tabela de auditoria por item:
+  - 4 linhas (ICMS/IPI/PIS/COFINS) com Base × Alíquota = Valor
+  - Selo ✓ OK (verde, bate) ou ⚠ diverge (âmbar, com diferença em R$)
+  - **Linha explicativa automática** quando diverge:
+    - Diagnóstico do erro (campo ausente, parser antigo, redução de base)
+    - Resultado esperado (calculado ou implícito)
+- **Tolerância de arredondamento** de R$ 0,02 (padrão fiscal brasileiro)
+
+### 🧠 Decisions
+- **ADR-031**: Cálculo tributário determinístico. O parser apenas extrai; a auditoria (base × alíquota) é feita no frontend (componente isolado). Tolerância R$ 0,02.
+- **ADR-032**: Reimportação necessária para notas antigas. Notas importadas antes da Sprint F6 têm alíquotas zeradas; o parser novo captura apenas em novos uploads.
+
+### 🛠️ Fixed
+- Parser antigo capturava apenas `vIPI`, `vPIS`, `vCOFINS` (valores), sem base/alíquota → auditoria impossível.
+- Parser não tratava CST 51 (diferimento) → alíquota efetiva calculada incorretamente.
+- Parser não tratava IPI por unidade (qUnid × vUnid) → alíquota zerada.
+- Parser não tratava PIS/COFINS por quantidade (qBCProd × vAliqProd) → base zerada.
+
+### 🏁 Status
+- **HOMOLOGADO** no ambiente Docker (Postgres 5433, Backend 3001, Frontend 3000).
+- Testado com NF-e reais (Blutrade, SEIWA BUSSAN) — auditoria detecta divergências de cálculo automaticamente.
+
 ## [FD-4] 2026-08-18 — Guias de imposto com memória de cálculo (Aurora)
 
 ### ✅ Added

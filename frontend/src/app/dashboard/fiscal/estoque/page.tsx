@@ -24,6 +24,7 @@ import {
   Settings2,
   Shuffle,
   Pencil,
+  Upload, // 🆕 Sprint F8: botão Importar Catálogo
 } from 'lucide-react';
 import api from '@/lib/axios';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
@@ -33,6 +34,7 @@ import UnifyCodesModal from '@/components/fiscal/UnifyCodesModal';
 import ProductEditModal from '@/components/fiscal/ProductEditModal';
 import ColumnPickerModal from '@/components/fiscal/ColumnPickerModal';
 import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel';
+import ImportCatalogModal from '@/components/fiscal/ImportCatalogModal'; // 🆕 Sprint F8
 import {
   ColumnDef,
   buildCsv,
@@ -177,7 +179,7 @@ const EXPORT_COLUMNS: ColumnDef[] = [
 ];
 
 // =================================================================
-// 📄 Página: Estoque Fiscal (Sprints 8–20)
+// 📄 Página: Estoque Fiscal (Sprints 8–20 + F8)
 // =================================================================
 export default function FiscalEstoquePage() {
   const { selected } = useFiscalClientStore();
@@ -212,6 +214,9 @@ export default function FiscalEstoquePage() {
   const [initialImportOpen, setInitialImportOpen] = useState(false);
   const [unifyOpen, setUnifyOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ProductBalance | null>(null);
+
+  // 🆕 Sprint F8: modal de importação de catálogo permanente
+  const [importCatalogOpen, setImportCatalogOpen] = useState(false);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [exportCols, setExportCols] = useState<string[]>([]);
@@ -379,11 +384,11 @@ export default function FiscalEstoquePage() {
         return;
       }
       const selectedColumns = EXPORT_COLUMNS.filter((c) => exportCols.includes(c.key));
-    if (selectedColumns.length === 0) {
-      toast.error('Nenhuma coluna selecionada para exportar.');
-      return;
-    }
-    const csv = buildCsv(selectedColumns, rows);
+      if (selectedColumns.length === 0) {
+        toast.error('Nenhuma coluna selecionada para exportar.');
+        return;
+      }
+      const csv = buildCsv(selectedColumns, rows);
       downloadCsv(`estoque-${new Date().toISOString().slice(0, 10)}.csv`, csv);
       toast.success(`${rows.length} linha(s) exportada(s).`);
     } catch {
@@ -549,6 +554,16 @@ export default function FiscalEstoquePage() {
           >
             <FileUp className="h-4 w-4" />
             Importar estoque inicial
+          </button>
+
+          {/* 🆕 Sprint F8: importar catálogo permanente do cliente */}
+          <button
+            onClick={() => setImportCatalogOpen(true)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-indigo-700 border border-indigo-300 rounded-lg hover:bg-indigo-50 transition-colors"
+            title="Importar catálogo permanente (descrição + código) — cria produtos com estoque 0"
+          >
+            <Upload className="h-4 w-4" />
+            Importar Catálogo
           </button>
 
           <button
@@ -999,6 +1014,18 @@ export default function FiscalEstoquePage() {
       {initialImportOpen && (
         <InitialStockImportModal
           onClose={() => setInitialImportOpen(false)}
+          onImported={() => {
+            loadBalance();
+            loadMetrics();
+          }}
+        />
+      )}
+
+      {/* 🆕 Sprint F8: Importação de Catálogo Permanente */}
+      {importCatalogOpen && (
+        <ImportCatalogModal
+          open={importCatalogOpen}
+          onClose={() => setImportCatalogOpen(false)}
           onImported={() => {
             loadBalance();
             loadMetrics();

@@ -159,6 +159,15 @@ Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando e
 - [x] Ambiente isolado para testes (banco virgem na porta 5433)
 - [x] Build de produção otimizado (Next.js standalone + NestJS multi-stage)
 
+### 🧾 Auditoria Tributária de NF-e (Sprint F6)
+| Recurso | Benefício |
+| --- | --- |
+| Parser XML completo | Captura ICMS/IPI/PIS/COFINS com base + alíquota + CST |
+| Auditoria automática | Tabela Base × Alíquota = Valor com selo ✓ OK / ⚠ diverge |
+| Explicação de erros | Diagnóstico guiado (campo ausente, parser antigo, redução de base) |
+| Tratamento de casos especiais | CST 51 diferimento, CST 60 ST, IPI por unidade, PIS/COFINS por quantidade |
+| Tolerância fiscal | R$ 0,02 de arredondamento (padrão brasileiro) |
+
 ---
 
 ## 🤖 Funcionário Digital Aurora (Sprints FD-1 e FD-2)
