@@ -80,6 +80,10 @@ ADR-031 Cálculo tributário determinístico no backend; IA apenas sugere/classi
 ADR-032 LGPD: cofres de credenciais AES-256-GCM (implementação em FD-8).
 ADR-033 Perfis de aprovação por tipo de tarefa (Auxiliar/Analista/Supervisor/Contador).
 ADR-034 Arquivos estruturais (app.module.ts, schema.prisma): entregar sempre o delta.
+ADR-035 PDFs de relatório mensal gerados no backend com jspdf + jspdf-autotable
+(reuso da stack do frontend); storage local em uploads/reports/{companyId}/{period}/
+(migração p/ S3 na FD-7); versões pinadas no BE: jspdf 2.5.2 / autotable 3.8.2
+(v4+ são ESM-first e quebram o require CommonJS do NestJS).
 ADR-036 NFS-e: parser ABRASF 2.0 c/ adaptadores municipais; não reconhecido → rawXml + REVIEW.
 ADR-037 Origem do documento (MANUAL|EMAIL|PORTAL|OCR) é atributo `source`, não arquitetura.
 
