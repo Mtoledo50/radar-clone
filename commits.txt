@@ -1,0 +1,102 @@
+﻿5c1bb85 2026-08-17 FD-2 final + FD-3a: MonthlyReportSkill (99 PDFs) + NfseImportSkill (ABRASF) + UIs Relatorios/NFS-e + ADRs 033-037
+dc54b0a 2026-08-17  FD-3a HOMOLOGADA! Os 3 prints provam o ciclo completo
+d38d6e1 2026-08-17 ­ƒÅå ENTREGA COMPLETA! A aba "Relat├│rios Mensais" est├í no ar
+84c9d04 2026-08-17 ­ƒÅå HOMOLOGADO! O primeiro pacote mensal da Aurora nasceu!
+0fbb45a 2026-08-17 ajuste na importa├º├úo das notas fiscais
+ae6ff93 2026-08-17 ­ƒÄ» Sprint F5 ÔÇö Coluna "Produtos" + Ordena├º├úo AÔÇôZ (C├│digo Completo)
+e315b05 2026-08-17 atualiza├º├úo da documenta├º├úo
+81d9f27 2026-08-17 urora em produ├º├úo controlada com dados reais ­ƒÄë
+ff5d115 2026-08-17 atualiza├º├úo documenta├º├úo
+84a84c7 2026-08-17 ­ƒÅå CENTRAL DE APROVA├ç├òES HOMOLOGADA ÔÇö FD-2 fechada com chave de ouro!
+34a5c42 2026-08-17 modified:   README.md
+23621bf 2026-08-17 Atuializ├º├úo da Documenta├º├úo
+8a40560 2026-08-17 PASSO 6/6 parte 1: ligar os crons aos toggles
+1e1d7d4 2026-08-17 ­ƒÄë PASSO 5/6 100% CONCLU├ìDO ÔÇö as 2 skills funcionam perfeitamente!
+c2de1bb 2026-08-17 implementa├º├úo da aurora
+51ab229 2026-08-14 Atualiza├º├úo do projeto
+9e92cc9 2026-08-14 ­ƒÜÇ PASSO 3/6 ÔÇö Orquestrador (o cora├º├úo da Aurora)
+fa2e6ba 2026-08-14 ­ƒÄë Aurora acordou! Sprint FD-1 ÔÇö Iniciando Passo 1/6
+252170b 2026-08-14 [Sprint A2 - Parte 1] 2026-08 ÔÇö Integra├º├úo do Motor de Heran├ºa com o Banco
+5d153b5 2026-08-14 readme atualizado
+b18e745 2026-08-14 docker implementado
+8e29d03 2026-08-14 Next.js 16 com App Router e Turbopack
+ba563bc 2026-08-13 docker com problemas--- resolvendo ...
+c646b5d 2026-08-13 corre├º├úo de erros do docker
+8e4c074 2026-08-12 atualizado readme
+8ae0210 2026-08-11 readme atualizado
+d61b657 2026-08-11 ­ƒÄ» Sprint 29 ÔÇö Concilia├º├úo Autom├ítica Banco ├ù NF-e (Completa)
+461bb15 2026-08-11 corre├º├úo de bugs
+9b0d607 2026-08-11 SPRINT 26 ÔÇö DRE do Cliente (Cont├íbil ├ù Banc├írio)
+44c08d5 2026-08-11 Autocomplete de Contas (Sprint 25.2.2)
+3149cb1 2026-08-11 Fechamento Banc├írio 100% Operacional
+ccc6960 2026-08-10 DRE - RENAN
+a74e37e 2026-08-10 ­ƒÄë Backend da Sprint 21 Homologado!
+3f22b42 2026-08-10 atualizando readm-me
+d2ebf86 2026-08-09 ­ƒÄë Sprint 20 Homologada no Estoque!
+81cdb3f 2026-08-09 FRONTEND: Mostrar "C├│d. Unificado" no Estoque
+4069ac9 2026-08-09 CORRE├ç├âO DE ERROS AO IMPORTAR ESTOQUE
+375b2d5 2026-08-08 Sprint 14 Pronta para Valida├º├úo Final
+8a6ab04 2026-08-08 relatorio comparativo
+197df66 2026-08-08 Sprint 11 est├í completa
+3323395 2026-08-08 Sprint 10 Homologada! ÔÇö Sprint 11: Comparativo Estoque Inicial ├ù NF-e
+121fdb7 2026-08-07  Sprint 10: Estoque Inicial via CSV + Comparativo NF-e ├ù Invent├írio. ­ƒÄ»
+a6edce1 2026-08-07 ­ƒÄë Sprint 9 Parte 1 Homologada! ÔÇö Parte 2: Frontend de Gest├úo de Notas
+a7bfcc9 2026-08-07 Checklist da Parte 2A (Store + Componente) txt
+69054c7 2026-08-07 Backend Sprint 8 Homologado!
+ca22fe1 2026-08-07 ­ƒÅü FASE 1 DO M├ôDULO FISCAL ÔÇö 100% CONCLU├ìDA!
+7994728 2026-08-07 Frontend da Apura├º├úo de ICMS
+20101ae 2026-08-07 Sprint 5 est├í completa
+1f28733 2026-08-07 Parte 1: Backend de M├®tricas
+57145dc 2026-08-07 Frontend Fiscal
+2091987 2026-08-07 ­ƒÄë Parser Homologado
+9d2df0b 2026-08-07 Ativar o M├│dulo Fiscal no Backend
+0afa9ef 2026-08-07 Homologa├º├úo ÔÇö Etapa 2B
+abdf02f 2026-08-07 Etapa 2A Homologada
+6abed02 2026-08-07 Backend: M├│dulo Fiscal (Fornecedores)
+ad0beea 2026-08-06 Projetos
+5303da3 2026-08-06  p├ígina de Projetos
+b03857d 2026-08-06 BASE HIST├ôRICA POR CLIENTE (mem├│ria do ano anterior)
+fd6bff9 2026-08-05 ­ƒÄ» Impacto no Fluxo Comercial
+a5cb9ac 2026-08-05 ### ­ƒöÉ Sistema de Autentica├º├úo com Sincroniza├º├úo de Cookies
+1f0b1f6 2026-08-05 ­ƒôè Relat├│rio de Altera├º├Áes da Sess├úo
+103142d 2026-08-05 Seed de Dados Demo (Demonstra├º├úo Comercial)
+4f22466 2026-08-05 ### ­ƒøí´©Å Admin Overview (Dashboard Executivo)
+39b68dd 2026-08-05 Sistema de Permiss├Áes e Menu Din├ómico
+aff3652 2026-08-05 ### ­ƒøí´©Å M├│dulo de Planos Comerciais (Enterprise)
+adaf6b0 2026-08-05 Construtor de Propostas Comerciais
+30bd32a 2026-08-05 ­ƒÄ» Motor de Propostas Comerciais (Enterprise)
+43d4d70 2026-08-05 nova UX de Onboardin
+4a6fd3e 2026-08-05 melhoria na multi sele├º├úo
+be2f785 2026-08-05 ­ƒÄ» Melhoria: Multi-sele├º├úo de Tipo de Servi├ºo com Chips/Tags
+51b1698 2026-08-05 Autocomplete melhorado! Agora mostra todas as contas com 'Caixa' ordenadas corretamente
+675ccd0 2026-08-04 iniciando a cria├º├úo da tora de concilia├º├Áes
+659bbb8 2026-08-04 PLANO DE CONTAS
+765b0dd 2026-08-03 Rotas de planejamento mapeadas e salvando com sucesso
+3aa433a 2026-08-03 gest├úo completa das 18 categorias de softwares
+2c439a7 2026-08-03 Proposta p├║blica funcionando, planos aparecendo
+5d5186d 2026-08-03 M├ôDULO DE PRECIFICA├ç├âO 100% OPERACIONAL!
+144e882 2026-08-03 turnover corrigido e funcionando!"
+4d3a7c6 2026-08-03 Atualiza├º├úo: Carteira de Clientes (Gest├úo de Carteira)
+ae1a75e 2026-08-03 inserido comentarios nos arquivos
+09bc381 2026-08-03 xporta├º├úo para Excel/CSV: Gera uma planilha com
+b858867 2026-08-03 Bot├Áes de exporta├º├úo PDF e Excel funcionando perfeitame
+4910692 2026-08-03 Tooltips informativos funcionando perfeitamente! Visual ficou muito profissiona
+1673e5d 2026-08-03 Atualiza├º├úo: Gr├ífico de Taxa de Convers├úo no CRM
+699515b 2026-08-03 Gr├ífico de Linha de Taxa de Convers├úo
+8bc17b4 2026-08-03 Atualiza├º├úo: Filtros de Per├¡odo no CRM de Propostas
+ba88c55 2026-08-03 readme atualizado
+eb29ef1 2026-08-03  Implementa├º├úo dos Filtros de Per├¡odo nos gr├íficos do CRM.
+3602618 2026-08-03 Gr├ífico de Pizza (Motivos de Perda)
+c4c1e4c 2026-08-03 gr├íficos do CRM
+d64804f 2026-08-03 Dashboard Comercial (CRM) funcionando perfeitamente! KPIs e modais OK!
+9f55263 2026-08-03 Etapa 5: Dashboard Comercial (CRM de Propostas).
+a1c9092 2026-08-03 Merge branch 'main' of https://github.com/Mtoledo50/radar-clone
+c223f82 2026-08-03 Etapa 4: Gera├º├úo de PDF da Proposta.
+c64df00 2026-08-03 Fix formatting in README.md
+0d51a2c 2026-08-03 Update README.md
+e29612c 2026-08-03 Update README with architecture and folder structure
+750cb52 2026-08-03 Update README with frontend architecture details
+f5f3f7a 2026-08-03 segunda fase do projeto implementada..
+ba0612f 2026-08-01 radar conta certa v001
+e71e7ac 2026-07-31 .
+05ad405 2026-07-30 .

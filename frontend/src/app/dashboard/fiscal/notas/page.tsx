@@ -8,9 +8,10 @@
  * Sprint 9: seleção múltipla + atribuir cliente + excluir c/ estorno
  * Sprint F4: Base ICMS total e por item no modal de detalhe
  * Sprint F5: coluna "Produtos" na listagem + ordenação A–Z
- * Sprint F6 (auditoria tributária): tabela Base × Alíquota = Valor
- *   para ICMS, IPI, PIS e COFINS, com selo de conferência (✓ OK / ⚠ diverge)
- *   e explicação automática do erro + resultado esperado
+ * Sprint F6: auditoria tributária (TaxAuditTable: Base × Alíq = Valor)
+ * Sprint F6.1: quantidade destacada por item + resumo de unidades
+ * Sprint F7: IMPRESSÃO / SALVAR PDF (ADR-026: portal + CSS injetado,
+ *            sem depender de globals.css)
  *
  * 🛡️ Regras de negócio (mantidas):
  *   - Seleção múltipla é apenas "da página atual" (não cross-page)
@@ -20,6 +21,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom'; // 🆕 Sprint F7: portal p/ impressão limpa
 import { toast } from 'sonner';
 import {
   Receipt,
@@ -37,16 +39,54 @@ import {
   UserPlus,
   AlertTriangle,
   ArrowUpDown,
+  Printer, // 🆕 Sprint F7
 } from 'lucide-react';
 import api from '@/lib/axios';
 import FiscalInfoPanel from '@/components/fiscal/FiscalInfoPanel';
 import FiscalClientSelector from '@/components/fiscal/FiscalClientSelector';
-import TaxAuditTable from '@/components/fiscal/TaxAuditTable'; // 🆕 Sprint F6
+import TaxAuditTable from '@/components/fiscal/TaxAuditTable'; // Sprint F6
 import { useFiscalClientStore } from '@/store/fiscalClientStore';
 
 // =================================================================
+// 🖨️ Sprint F7 — CSS de impressão INJETADO (ADR-026 revisado)
+// =================================================================
+// Por que NÃO usamos globals.css? Porque o projeto não tem esse arquivo
+// (o CSS global pode ter outro nome/origem). Solução auto-contida:
+//
+//  1) O modal é renderizado via createPortal(document.body) → vira
+//     IRMÃO do root do Next, e não neto dele.
+//  2) Na impressão, escondemos TODOS os filhos diretos do <body>
+//     EXCETO o backdrop do modal → imprime SÓ o detalhe da NF-e.
+//  3) Neutralizamos o backdrop (bloco branco estático) e liberamos o
+//     modal (sem max-height/overflow) para fluir em várias páginas A4.
+//  4) .print-hidden → botões somem no papel.
+//     .print-avoid-break → item nunca é cortado entre páginas.
+// =================================================================
+const PRINT_CSS = `
+@media print {
+  body > *:not(.print-backdrop) { display: none !important; }
+  .print-backdrop {
+    position: static !important;
+    display: block !important;
+    background: white !important;
+    padding: 0 !important;
+  }
+  .print-area {
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+  .print-area .sticky { position: static !important; }
+  .print-hidden { display: none !important; }
+  .print-avoid-break { break-inside: avoid; page-break-inside: avoid; }
+  @page { size: A4; margin: 12mm; }
+}
+`;
+
+// =================================================================
 // 📦 Tipos do frontend (espelham o backend)
-// 🆕 Sprint F6: alíquotas REAIS no InvoiceItem para auditoria
 // =================================================================
 interface InvoiceMetrics {
   totalInvoices: number;
@@ -95,21 +135,20 @@ interface InvoiceItem {
   icmsStBase: number;
   icmsStValue: number;
 
-  // 🆕 Sprint F6: IPI/PIS/COFINS com base + alíquota
+  // Sprint F6: IPI/PIS/COFINS com base + alíquota
   ipiBase: number;
   ipiRate: number;
   ipiValue: number;
-
   pisBase: number;
   pisRate: number;
   pisValue: number;
-
   cofinsBase: number;
   cofinsRate: number;
   cofinsValue: number;
 
   productMatchStatus: string;
-  product?: { id: string; code: string; description: string } | null;
+  // 🆕 Sprint F6.1: unit vem do produto (fallback 'UN' no badge)
+  product?: { id: string; code: string; description: string; unit?: string } | null;
 }
 
 interface InvoiceDetail extends InvoiceRow {
@@ -160,7 +199,7 @@ function StatusBadge({ status }: { status: string }) {
 // 📄 Componente principal
 // =================================================================
 export default function FiscalNotasPage() {
-  // 🆕 Sprint 8: cliente selecionado (persistido via Zustand + localStorage)
+  // Sprint 8: cliente selecionado (persistido via Zustand + localStorage)
   const { selected } = useFiscalClientStore();
 
   // KPIs e filtro de período
@@ -300,7 +339,7 @@ export default function FiscalNotasPage() {
   };
 
   // ---------------------------------------------------------------
-  // 🗑️ Excluir com estorno (individual ou em lote)
+  // 🗑️ Excluir com estorno (individual ou lote)
   // ---------------------------------------------------------------
   const askDelete = (id?: string) => {
     setDeleteTargetId(id || null);
@@ -352,6 +391,11 @@ export default function FiscalNotasPage() {
   };
 
   const deleteCount = deleteTargetId ? 1 : selectedIds.length;
+
+  // 🆕 Sprint F6.1: total de unidades da nota (soma das quantidades)
+  const totalUnits = detail
+    ? detail.items.reduce((acc, it) => acc + Number(it.quantity ?? 0), 0)
+    : 0;
 
   // ---------------------------------------------------------------
   // 🎨 Renderização
@@ -695,153 +739,180 @@ export default function FiscalNotasPage() {
       </div>
 
       {/* ================================================================
-          MODAL DE DETALHE DA NOTA — 🆕 Sprint F6: auditoria tributária
+          MODAL DE DETALHE DA NOTA — 🆕 Sprint F7: PORTAL + impressão
+          ================================================================
+          createPortal(document.body): o modal vira IRMÃO do root do Next.
+          Isso permite que o CSS de impressão esconda o app inteiro e
+          imprima SOMENTE o detalhe da NF-e (ADR-026).
           ================================================================ */}
-      {(detail || loadingDetail) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            {loadingDetail ? (
-              <div className="flex justify-center py-16">
-                <Loader2 className="h-6 w-6 text-teal-600 animate-spin" />
-              </div>
-            ) : (
-              detail && (
-                <>
-                  {/* Cabeçalho do modal */}
-                  <div className="flex items-center justify-between p-5 border-b border-slate-200 sticky top-0 bg-white">
-                    <div>
-                      <h3 className="font-bold text-slate-900">
-                        NF-e #{detail.number} / série {detail.series}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {detail.supplier?.name} • {formatDate(detail.emissionDate)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setDetail(null)}
-                      className="text-slate-400 hover:text-slate-600"
-                    >
-                      <X className="h-5 w-5" />
-                    </button>
+      {(detail || loadingDetail) &&
+        createPortal(
+          <>
+            {/* 🆕 Sprint F7: CSS de impressão injetado (sem globals.css) */}
+            <style>{PRINT_CSS}</style>
+
+            {/* Backdrop: na tela = véu escuro; no papel = bloco branco */}
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 print-backdrop">
+              <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto print-area">
+                {loadingDetail ? (
+                  <div className="flex justify-center py-16">
+                    <Loader2 className="h-6 w-6 text-teal-600 animate-spin" />
                   </div>
-
-                  {/* Totais da nota */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-5 border-b border-slate-100">
-                    <div>
-                      <p className="text-xs text-slate-500">Total da Nota</p>
-                      <p className="font-semibold text-slate-800">
-                        {formatBRL(Number(detail.totalValue ?? 0))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">Base ICMS</p>
-                      <p className="font-semibold text-blue-700">
-                        {formatBRL(Number(detail.icmsBase ?? 0))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">ICMS</p>
-                      <p className="font-semibold text-green-700">
-                        {formatBRL(Number(detail.icmsValue ?? 0))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">IPI</p>
-                      <p className="font-semibold text-slate-800">
-                        {formatBRL(Number(detail.ipiValue ?? 0))}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500">PIS + COFINS</p>
-                      <p className="font-semibold text-slate-800">
-                        {formatBRL(
-                          Number(detail.pisValue ?? 0) + Number(detail.cofinsValue ?? 0),
-                        )}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* ================================================================
-                      🆕 Sprint F6: Itens com AUDITORIA TRIBUTÁRIA
-                      Cada item renderiza o componente TaxAuditTable que faz:
-                      - Tabela Base × Alíquota = Valor por ICMS/IPI/PIS/COFINS
-                      - Selo ✓ OK (bate) / ⚠ diverge
-                      - Linha explicativa com erro + resultado esperado
-                      ================================================================ */}
-                                   <div className="p-5">
-                    {/* 🆕 Sprint F6.1: resumo de itens + unidades totais */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-                      <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                        Itens da Nota ({detail.items.length})
-                        <span className="text-xs font-normal text-slate-500">
-                          (com auditoria tributária base × alíquota)
-                        </span>
-                      </h4>
-                      {/* Badge com total de unidades da nota */}
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
-                        <Receipt className="h-3.5 w-3.5 text-teal-700" />
-                        <span className="text-xs font-semibold text-teal-900">
-                          {detail.items.length} {detail.items.length === 1 ? 'item' : 'itens'} •{' '}
-                          {Number(
-                            detail.items.reduce(
-                              (acc, it) => acc + Number(it.quantity ?? 0),
-                              0,
-                            ),
-                          ).toLocaleString('pt-BR')}{' '}
-                          unidades
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      {detail.items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="border border-slate-200 rounded-lg p-3 bg-slate-50/50"
-                        >
-                          {/* Cabeçalho do item */}
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-800">
-                                {item.itemNumber}. {item.description}
-                              </p>
-                              <p className="text-xs text-slate-500 mt-1">
-                                NCM {item.ncm} • CFOP {item.cfop} •{' '}
-                                {item.csosn ? `CSOSN ${item.csosn}` : `CST ${item.cst || '-'}`}
-                              </p>
-                              {item.product && (
-                                <p className="text-xs text-teal-600 mt-0.5">
-                                  → {item.product.code}: {item.product.description}
-                                </p>
-                              )}
-                            </div>
-                                                       <div className="text-right text-sm space-y-1">
-                              {/* 🆕 Sprint F6.1: selo de quantidade destacado */}
-                              <span className="inline-block px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs font-semibold text-blue-800">
-                                Qtd: {Number(item.quantity ?? 0).toLocaleString('pt-BR')}{' '}
-                                {item.product?.unit ?? 'UN'}
-                              </span>
-                              <p className="font-semibold text-slate-800">
-                                {formatBRL(Number(item.totalValue ?? 0))}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                {Number(item.quantity).toLocaleString('pt-BR')} ×{' '}
-                                {formatBRL(Number(item.unitValue ?? 0))}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* 🆕 Sprint F6: auditoria tributária isolada em componente */}
-                          <TaxAuditTable item={item} />
+                ) : (
+                  detail && (
+                    <>
+                      {/* Cabeçalho do modal + 🆕 botão Imprimir */}
+                      <div className="flex items-center justify-between p-5 border-b border-slate-200 sticky top-0 bg-white">
+                        <div>
+                          <h3 className="font-bold text-slate-900">
+                            NF-e #{detail.number} / série {detail.series}
+                          </h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            {detail.supplier?.name} • {formatDate(detail.emissionDate)}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )
-            )}
-          </div>
-        </div>
-      )}
+                        <div className="flex items-center gap-2">
+                          {/* 🆕 Sprint F7: imprime (ou salva como PDF) */}
+                          <button
+                            onClick={() => window.print()}
+                            className="print-hidden flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50 border border-teal-200 rounded-lg transition-colors"
+                            title="Imprimir ou salvar como PDF"
+                          >
+                            <Printer className="h-4 w-4" />
+                            Imprimir
+                          </button>
+                          <button
+                            onClick={() => setDetail(null)}
+                            className="print-hidden text-slate-400 hover:text-slate-600"
+                            title="Fechar"
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Totais da nota */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 p-5 border-b border-slate-100">
+                        <div>
+                          <p className="text-xs text-slate-500">Total da Nota</p>
+                          <p className="font-semibold text-slate-800">
+                            {formatBRL(Number(detail.totalValue ?? 0))}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">Base ICMS</p>
+                          <p className="font-semibold text-blue-700">
+                            {formatBRL(Number(detail.icmsBase ?? 0))}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">ICMS</p>
+                          <p className="font-semibold text-green-700">
+                            {formatBRL(Number(detail.icmsValue ?? 0))}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">IPI</p>
+                          <p className="font-semibold text-slate-800">
+                            {formatBRL(Number(detail.ipiValue ?? 0))}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-slate-500">PIS + COFINS</p>
+                          <p className="font-semibold text-slate-800">
+                            {formatBRL(
+                              Number(detail.pisValue ?? 0) + Number(detail.cofinsValue ?? 0),
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Itens + 🆕 F6.1 resumo de unidades */}
+                      <div className="p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                          <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                            Itens da Nota ({detail.items.length})
+                            <span className="text-xs font-normal text-slate-500">
+                              (com auditoria tributária base × alíquota)
+                            </span>
+                          </h4>
+                          {/* 🆕 Sprint F6.1: badge itens + unidades totais */}
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg">
+                            <Receipt className="h-3.5 w-3.5 text-teal-700" />
+                            <span className="text-xs font-semibold text-teal-900">
+                              {detail.items.length}{' '}
+                              {detail.items.length === 1 ? 'item' : 'itens'} •{' '}
+                              {Number(totalUnits).toLocaleString('pt-BR')} unidades
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          {detail.items.map((item) => (
+                            <div
+                              key={item.id}
+                              className="border border-slate-200 rounded-lg p-3 bg-slate-50/50 print-avoid-break"
+                            >
+                              {/* Cabeçalho do item + 🆕 selo de quantidade */}
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-slate-800">
+                                    {item.itemNumber}. {item.description}
+                                  </p>
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    NCM {item.ncm} • CFOP {item.cfop} •{' '}
+                                    {item.csosn ? `CSOSN ${item.csosn}` : `CST ${item.cst || '-'}`}
+                                  </p>
+                                  {item.product && (
+                                    <p className="text-xs text-teal-600 mt-0.5">
+                                      → {item.product.code}: {item.product.description}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="text-right text-sm space-y-1">
+                                  {/* 🆕 Sprint F6.1: selo Qtd + unidade */}
+                                  <span className="inline-block px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs font-semibold text-blue-800">
+                                    Qtd: {Number(item.quantity ?? 0).toLocaleString('pt-BR')}{' '}
+                                    {item.product?.unit ?? 'UN'}
+                                  </span>
+                                  <p className="font-semibold text-slate-800">
+                                    {formatBRL(Number(item.totalValue ?? 0))}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {Number(item.quantity).toLocaleString('pt-BR')} ×{' '}
+                                    {formatBRL(Number(item.unitValue ?? 0))}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Sprint F6: auditoria tributária */}
+                              <TaxAuditTable item={item} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 🆕 Sprint F7: rodapé fiscal com chave de acesso */}
+                      <div className="px-5 pb-5 border-t border-slate-100">
+                        <p className="text-xs text-slate-500 mb-1">
+                          Chave de acesso (44 dígitos):
+                        </p>
+                        <p className="font-mono text-xs text-slate-700 break-all">
+                          {detail.accessKey}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-2 print-hidden">
+                          💡 Dica: na caixa de impressão, escolha "Salvar como PDF"
+                          para gerar uma cópia digital.
+                        </p>
+                      </div>
+                    </>
+                  )
+                )}
+              </div>
+            </div>
+          </>,
+          document.body,
+        )}
 
       {/* ================================================================
           MODAL: ATRIBUIR CLIENTE (Sprint 9)
