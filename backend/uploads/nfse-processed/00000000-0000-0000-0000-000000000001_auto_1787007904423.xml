@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CompNfse><Nfse><InfNfse>
+  <Numero>1002</Numero>
+  <CodigoVerificacao>ABC1002</CodigoVerificacao>
+  <DataEmissao>2026-07-15T10:30:00</DataEmissao>
+  <Competencia>2026-07-15</Competencia>
+  <PrestadorServico>
+    <IdentificacaoPrestador><Cnpj>55666777000188</Cnpj></IdentificacaoPrestador>
+    <RazaoSocial>PRESTADOR 1002 LTDA</RazaoSocial>
+  </PrestadorServico>
+  <TomadorServico>
+    <IdentificacaoTomador><CpfCnpj><Cnpj>98765432000100</Cnpj></CpfCnpj></IdentificacaoTomador>
+    <RazaoSocial>TOMADOR X</RazaoSocial>
+  </TomadorServico>
+  <Servico>
+    <Valores>
+      <ValorServicos>1500.00</ValorServicos>
+      <BaseCalculo>1500.00</BaseCalculo>
+      <Aliquota>0.03</Aliquota>
+      <ValorIss>45.00</ValorIss>
+      <IssRetido>false</IssRetido>
+    </Valores>
+    <ItemListaServico>17.01</ItemListaServico>
+    <Discriminacao>Servico tecnico 1002</Discriminacao>
+    <CodigoMunicipio>4314902</CodigoMunicipio>
+  </Servico>
+</InfNfse></Nfse></CompNfse>

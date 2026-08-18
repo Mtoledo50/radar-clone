@@ -228,6 +228,14 @@ const allMenuItems: MenuItem[] = [
     icon: FileText,
     section: 'inteligencia',
   },
+    // 🆕 FD-3a (18/08/2026): NFS-e — importação e fila de revisão
+  {
+    id: 'nfse',
+    title: 'NFS-e',
+    href: '/dashboard/funcionario-digital/nfse',
+    icon: Receipt,
+    section: 'inteligencia',
+  },
   {
     id: 'bi',
     title: 'DRE do Escritório',

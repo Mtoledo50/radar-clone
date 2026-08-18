@@ -80,6 +80,8 @@ ADR-031 Cálculo tributário determinístico no backend; IA apenas sugere/classi
 ADR-032 LGPD: cofres de credenciais AES-256-GCM (implementação em FD-8).
 ADR-033 Perfis de aprovação por tipo de tarefa (Auxiliar/Analista/Supervisor/Contador).
 ADR-034 Arquivos estruturais (app.module.ts, schema.prisma): entregar sempre o delta.
+ADR-036 NFS-e: parser ABRASF 2.0 c/ adaptadores municipais; não reconhecido → rawXml + REVIEW.
+ADR-037 Origem do documento (MANUAL|EMAIL|PORTAL|OCR) é atributo `source`, não arquitetura.
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
 
@@ -89,24 +91,23 @@ ADR-034 Arquivos estruturais (app.module.ts, schema.prisma): entregar sempre o d
 - Sprint A2: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano).
 - Sprint A3: versões de proposta.
 - FD-1 Fundação: 6 tabelas + dashboard + menu + crons ↔ toggles.
-- FD-2 COMPLETA: 4 skills (RECONCILIATION, CLASSIFICATION, ACCOUNTING_BRIDGE,
-  MONTHLY_REPORT) + Central de Aprovações + aba Relatórios Mensais.
-- Entrega C: Aurora em produção controlada c/ dados reais
-  (98 clientes importados do CSV de honorários; CLASSIFICATION 18/18 auto-aprovadas).
-- MonthlyReportSkill homologada (18/08): 99 PDFs + endpoints + UI.
+- FD-2 COMPLETA: 4 skills + Central de Aprovações + Relatórios Mensais (99 PDFs) + UI.
+- FD-3a COMPLETA (18/08): NFS-e ABRASF + NfseImportSkill + upload/lista + UI.
+- Aurora com 5 skills em produção controlada (98 clientes reais).
 
 ### 🚧 Notas técnicas (dívida consciente)
-- Postgres 18 local: `radar_user` sem CREATEDB → migrations via SQL manual + GRANT.
-- Backend: jspdf 2.5.2 / autotable 3.8.2 pinados (CommonJS).
-- Schema: @@unique([companyId, companyName]) em Client aplicado.
+- Postgres 18 local: radar_user sem CREATEDB → SQL manual + GRANT + resolve.
+- Backend: jspdf 2.5.2 / autotable 3.8.2 pinados; fast-xml-parser p/ NFS-e.
+- FD-3b (IMAP) e FD-3c (portal/OCR) adiados; `source` já preparado (ADR-037).
 
 ### 🚀 IMEDIATO (escolher 1)
-- FD-3: Importação automática NFS-e (e-mail + portal + OCR).
-- FD-4: Emissão de guias DAS/ISS/DARF com memória de cálculo.
+- FD-3b: Monitoramento IMAP (caixa nfse@...) — coleta sem intervenção humana.
+- FD-4: Guias DAS/ISS/DARF com memória de cálculo.
 - A4: Fechamento com Ganho (plano comercial 2.0).
 
 ### 📋 DEPOIS
 - FD-5→FD-9; A5→A7; Fases B→E (ordem do §7).
+
 
 ## 10) COMANDOS ÚTEIS (PowerShell)
 docker compose up -d --build | docker compose ps | docker compose logs -f backend

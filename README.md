@@ -89,9 +89,10 @@ Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando e
 └─────────────────────────────────────────────────────────────┘
 ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ 🤖 FUNCIONÁRIO DIGITAL AURORA │
-│ Conciliação → Classificação → Ponte Contábil → Relatórios │
-│ (Execução automática + Revisão humana obrigatória) │
+│ 🤖 FUNCIONÁRIO DIGITAL (AURORA) — 5 skills                  │
+│ Conciliação • Classificação • Ponte Contábil •              │
+│ Relatório Mensal (PDF) • NFS-e (ABRASF)                     │
+│ Mesa → Aprovações → Auditoria → Relatórios → NFS-e          │
 └─────────────────────────────────────────────────────────────┘
 
 ---
