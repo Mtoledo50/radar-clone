@@ -74,8 +74,6 @@ const SECTIONS = [
 // =================================================================
 // INÍCIO: CONFIGURAÇÃO DOS ITENS DO MENU
 // =================================================================
-// 🆕 Sprint 25: todos os itens têm 'section' definido.
-// A renderização agrupa por seção e mostra um header visual entre elas.
 const allMenuItems: MenuItem[] = [
 
   // ─────────────────────────────────────────────────────────
@@ -134,6 +132,11 @@ const allMenuItems: MenuItem[] = [
     href: '/dashboard/precificacao',
     icon: Calculator,
     section: 'comercial',
+    // 🆕 SPRINT A2: Adicionado submenu para separar Propostas de Meus Planos
+    children: [
+      { id: 'propostas', title: 'Propostas Comerciais', href: '/dashboard/precificacao' },
+      { id: 'meus-planos', title: 'Meus Planos', href: '/dashboard/precificacao/meus-planos' },
+    ],
   },
   {
     id: 'planejamento',
@@ -163,7 +166,7 @@ const allMenuItems: MenuItem[] = [
     ],
   },
 
-    // ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   // 🏦 BANCÁRIO (Sprint 21-24)
   // ─────────────────────────────────────────────────────────
   {
@@ -174,7 +177,7 @@ const allMenuItems: MenuItem[] = [
     section: 'bancario',
   },
 
-   // ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   // 📒 CONTÁBIL
   // ─────────────────────────────────────────────────────────
   {
@@ -200,19 +203,17 @@ const allMenuItems: MenuItem[] = [
       { id: 'contabil-plano', title: 'Plano de Contas', href: '/dashboard/contabil/plano-contas' },
     ],
   },
-    {
+  {
     id: 'revisao-lancamentos',
     title: 'Revisão Inteligente',
     href: '/dashboard/lancamentos/revisao',
     icon: Brain,
     section: 'contabil',
   },
-   // ─────────────────────────────────────────────────────────
+
+  // ─────────────────────────────────────────────────────────
   // 📈 INTELIGÊNCIA
   // ─────────────────────────────────────────────────────────
-
-  // 🆕 FD-1 (15/08/2026): Funcionário Digital Aurora — topo da seção
-  // por ser a feature mais nova e importante de Inteligência.
   {
     id: 'funcionario-digital',
     title: 'Funcionário Digital',
@@ -220,7 +221,6 @@ const allMenuItems: MenuItem[] = [
     icon: Bot,
     section: 'inteligencia',
   },
-  // 🆕 FD-2 final (18/08/2026): Relatórios mensais gerados pela Aurora
   {
     id: 'relatorios-mensais',
     title: 'Relatórios Mensais',
@@ -228,7 +228,6 @@ const allMenuItems: MenuItem[] = [
     icon: FileText,
     section: 'inteligencia',
   },
-    // 🆕 FD-3a (18/08/2026): NFS-e — importação e fila de revisão
   {
     id: 'nfse',
     title: 'NFS-e',
@@ -236,7 +235,6 @@ const allMenuItems: MenuItem[] = [
     icon: Receipt,
     section: 'inteligencia',
   },
-    // 🆕 FD-4 (18/08/2026): Guias de imposto (DAS/ISS) calculadas pela Aurora
   {
     id: 'guias-imposto',
     title: 'Guias de Imposto',
@@ -286,6 +284,7 @@ const allMenuItems: MenuItem[] = [
     icon: Scale,
     section: 'inteligencia',
   },
+
   // ─────────────────────────────────────────────────────────
   // ⚙️ SISTEMA (admin-only)
   // ─────────────────────────────────────────────────────────
@@ -314,11 +313,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // 🆕 Sprint 25: apenas o Comercial começa expandido por padrão
-  // (Fiscal tem 7 filhos e é melhor começar fechado para não poluir)
+  // 🆕 Sprint 25 + A2: 'Precificação' adicionado para já aparecer aberto com o submenu
   const [expandedMenus, setExpandedMenus] = useState<string[]>([
     'Gestão de Pessoas',
     'Operacional',
+    'Precificação', 
   ]);
 
   const { user, logout } = useAuthStore();
@@ -329,7 +328,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // MENU DINÂMICO (useMemo) — agrupa por seção 🆕 Sprint 25
   // =================================================================
   const groupedMenuItems = useMemo(() => {
-    // 1) Filtra por permissão (lógica original preservada)
     const visibleItems = allMenuItems
       .map((item) => {
         if (item.adminOnly && user?.role !== 'ADMIN') return null;
@@ -346,7 +344,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       })
       .filter(Boolean) as MenuItem[];
 
-    // 2) 🆕 Sprint 25: agrupa por seção preservando a ordem do SECTIONS
     const grouped: { sectionId: string; sectionLabel: string; items: MenuItem[] }[] = [];
     for (const sec of SECTIONS) {
       const items = visibleItems.filter((it) => it.section === sec.id);
@@ -416,10 +413,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
-          {/* 🆕 Sprint 25: renderização por seção com header visual */}
-          {groupedMenuItems.map((group, groupIdx) => (
+          {groupedMenuItems.map((group) => (
             <div key={group.sectionId}>
-              {/* Header da seção (exceto o primeiro — sem divisor acima) */}
               <div className="flex items-center gap-2 px-2 mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-orange-300/80">
                   {group.sectionLabel}
@@ -427,7 +422,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="flex-1 h-px bg-teal-700/40" />
               </div>
 
-              {/* Itens da seção */}
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const Icon = item.icon;
@@ -467,8 +461,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                       {hasChildren && isExpanded && (
                         <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-teal-700 pl-2">
-                            {item.children?.map((child) => {
-                              const childActive = isActive(child.href);
+                          {item.children?.map((child) => {
+                            const childActive = isActive(child.href);
                             return (
                               <button
                                 key={child.href}

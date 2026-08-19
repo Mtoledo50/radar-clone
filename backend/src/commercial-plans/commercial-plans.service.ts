@@ -3,24 +3,38 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+
+// DTOs de Entrada
 import { CreateCommercialPlanDto } from './dto/create-commercial-plan.dto';
 import { UpdateCommercialPlanDto } from './dto/update-commercial-plan.dto';
 import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { CreateServiceItemDto } from './dto/create-service-item.dto';
+
+// Domínio Puro (Sprint A1 - Lógica de Negócio isolada)
 import { resolvePlanInheritance, PlanInput } from './domain/plan-inheritance';
-import { ResolvedPlanDto, ResolvedServiceItemDto } from './dto/resolved-plan.dto';
 import {
   planPriceFromReference,
   relativePercentVsBase,
   calcMoneyOnTable,
 } from './domain/pricing-insights';
+
+// DTOs de Saída (Sprint A2)
+import { ResolvedPlanDto, ResolvedServiceItemDto } from './dto/resolved-plan.dto';
 import { CalculatePricingInsightsDto, PlanWithInsightsDto } from './dto/pricing-insights.dto';
+
 /**
  * =================================================================
  * 🏢 CommercialPlansService — Gestão do Catálogo Enterprise
  * =================================================================
- * 🛡️ Proteção Multi-Tenant | 🔒 Soft Delete | ✅ Validação de Integridade
+ * Responsabilidade: Gerenciar Planos, Categorias e Itens de Serviço.
+ * 
+ * 🛡️ Regras de Negócio (ADRs):
+ * - ADR-004: Multi-tenant rigoroso (todas as queries filtradas por companyId).
+ * - ADR-020: Herança de planos derivada em memória (banco guarda apenas itens próprios).
+ * - Soft Delete: Exclusões definem `deletedAt` para preservar histórico de propostas/contratos.
+ * - Integridade: Impede exclusão de planos/categorias/itens que possuem vínculos ativos.
  * =================================================================
  */
 @Injectable()
@@ -28,9 +42,13 @@ export class CommercialPlansService {
   constructor(private readonly prisma: PrismaService) {}
 
   // =================================================================
-  // 🏢 PLANOS COMERCIAIS
+  // 🏢 1. PLANOS COMERCIAIS
   // =================================================================
 
+  /**
+   * Lista todos os planos da empresa, ordenados pelo multiplicador (do menor para o maior).
+   * Inclui a contagem de itens e os detalhes de cada item vinculado.
+   */
   async getPlans(companyId: string) {
     const plans = await this.prisma.commercialPlan.findMany({
       where: { companyId, deletedAt: null },
@@ -46,6 +64,7 @@ export class CommercialPlansService {
       },
     });
 
+    // Formata a resposta para o frontend, achatando a estrutura de relação N:N
     return plans.map((plan) => ({
       ...plan,
       itemCount: plan.planItems.length,
@@ -58,6 +77,9 @@ export class CommercialPlansService {
     }));
   }
 
+  /**
+   * Busca um plano específico pelo ID, garantindo que pertence à empresa (companyId).
+   */
   async getPlanById(id: string, companyId: string) {
     const plan = await this.prisma.commercialPlan.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -72,18 +94,26 @@ export class CommercialPlansService {
       },
     });
 
-    if (!plan) throw new NotFoundException('Plano não encontrado.');
+    if (!plan) {
+      throw new NotFoundException('Plano não encontrado ou não pertence a esta empresa.');
+    }
     return plan;
   }
 
+  /**
+   * Cria um novo plano comercial e vincula os itens de serviço selecionados.
+   * Usa transação atômica para garantir que, se falhar ao vincular itens, o plano não seja criado.
+   */
   async createPlan(companyId: string, dto: CreateCommercialPlanDto) {
     const { itemIds, ...planData } = dto;
 
     return this.prisma.$transaction(async (tx) => {
+      // 1. Cria o plano
       const plan = await tx.commercialPlan.create({
         data: { companyId, ...planData },
       });
 
+      // 2. Vincula os itens (se houver)
       if (itemIds && itemIds.length > 0) {
         await tx.planServiceItem.createMany({
           data: itemIds.map((serviceItemId) => ({
@@ -91,6 +121,7 @@ export class CommercialPlansService {
             serviceItemId,
           })),
         });
+        // Obs: A herança real será calculada pelo frontend/backend via getResolvedPlans
       }
 
       return this.getPlanById(plan.id, companyId);
@@ -98,23 +129,21 @@ export class CommercialPlansService {
   }
 
   /**
-   * Atualização parcial (aceita só itemIds, só name, etc.)
+   * Atualiza um plano comercial (suporta atualização parcial).
+   * Se `itemIds` for enviado, substitui TODOS os itens anteriores pelos novos (sincronização total).
    */
-  async updatePlan(
-    id: string,
-    companyId: string,
-    dto: UpdateCommercialPlanDto,
-  ) {
-    await this.getPlanById(id, companyId);
+  async updatePlan(id: string, companyId: string, dto: UpdateCommercialPlanDto) {
+    await this.getPlanById(id, companyId); // Valida existência e tenant
 
     const { itemIds, ...planData } = dto;
 
-    // Remove campos undefined para não enviar lixo ao Prisma
+    // Remove campos undefined para evitar erros de validação do Prisma
     const cleanData = Object.fromEntries(
       Object.entries(planData).filter(([_, value]) => value !== undefined),
     );
 
     return this.prisma.$transaction(async (tx) => {
+      // 1. Atualiza dados do plano (nome, multiplicador, etc.)
       if (Object.keys(cleanData).length > 0) {
         await tx.commercialPlan.update({
           where: { id },
@@ -122,6 +151,7 @@ export class CommercialPlansService {
         });
       }
 
+      // 2. Sincroniza itens (Delete all + Create new)
       if (itemIds !== undefined) {
         await tx.planServiceItem.deleteMany({ where: { planId: id } });
 
@@ -139,6 +169,10 @@ export class CommercialPlansService {
     });
   }
 
+  /**
+   * Soft delete de um plano.
+   * Bloqueia a exclusão se houver contratos de clientes ativos vinculados a este plano.
+   */
   async deletePlan(id: string, companyId: string) {
     await this.getPlanById(id, companyId);
 
@@ -159,9 +193,12 @@ export class CommercialPlansService {
   }
 
   // =================================================================
-  // 📁 CATEGORIAS DE SERVIÇO
+  // 📁 2. CATEGORIAS DE SERVIÇO
   // =================================================================
 
+  /**
+   * Lista categorias da empresa, incluindo a contagem de itens ativos em cada uma.
+   */
   async getCategories(companyId: string) {
     return this.prisma.serviceCategory.findMany({
       where: { companyId, deletedAt: null },
@@ -191,19 +228,17 @@ export class CommercialPlansService {
     });
   }
 
-  async updateCategory(
-    id: string,
-    companyId: string,
-    dto: CreateServiceCategoryDto,
-  ) {
+  async updateCategory(id: string, companyId: string, dto: CreateServiceCategoryDto) {
     await this.getCategoryById(id, companyId);
-
     return this.prisma.serviceCategory.update({
       where: { id },
       data: dto,
     });
   }
 
+  /**
+   * Soft delete de categoria. Bloqueia se houver itens de serviço ativos vinculados.
+   */
   async deleteCategory(id: string, companyId: string) {
     await this.getCategoryById(id, companyId);
 
@@ -224,11 +259,15 @@ export class CommercialPlansService {
   }
 
   // =================================================================
-  // 📦 ITENS DE SERVIÇO
+  // 📦 3. ITENS DE SERVIÇO
   // =================================================================
 
+  /**
+   * Lista itens de serviço, opcionalmente filtrados por categoria.
+   * ✅ Tipagem estrita com Prisma.ServiceItemWhereInput.
+   */
   async getServiceItems(companyId: string, categoryId?: string) {
-    const where: any = { companyId, deletedAt: null };
+    const where: Prisma.ServiceItemWhereInput = { companyId, deletedAt: null };
     if (categoryId) where.categoryId = categoryId;
 
     return this.prisma.serviceItem.findMany({
@@ -248,29 +287,38 @@ export class CommercialPlansService {
     return item;
   }
 
+  /**
+   * Cria um novo item de serviço com valores padrão seguros (null ou 0) para campos opcionais.
+   * ✅ Removido 'as any', todos os campos estão estritamente tipados.
+   */
   async createServiceItem(companyId: string, dto: CreateServiceItemDto) {
     await this.getCategoryById(dto.categoryId, companyId);
 
     return this.prisma.serviceItem.create({
       data: {
-        company: { connect: { id: companyId } },
-        category: { connect: { id: dto.categoryId } },
+        companyId,
+        categoryId: dto.categoryId,
         name: dto.name,
-        description: dto.description,
-        scope: dto.scope,
-        outOfScope: dto.outOfScope,
-        requiredDocs: dto.requiredDocs,
-        basePrice: dto.basePrice,
+        description: dto.description ?? null,
+        scope: dto.scope ?? null,
+        outOfScope: dto.outOfScope ?? null,
+        requiredDocs: dto.requiredDocs ?? null,
+        basePrice: dto.basePrice ?? 0,
         estimatedHours: dto.estimatedHours ?? 1,
-        slaDays: dto.slaDays,
-        recurrence: dto.recurrence,
-        order: dto.order,
+        slaDays: dto.slaDays ?? 0,
+        recurrence: dto.recurrence ?? 'MENSAL',
+        order: dto.order ?? 0,
         isActive: dto.isActive ?? true,
-      } as any,
+      },
       include: { category: true },
     });
   }
 
+  /**
+   * Atualiza um item de serviço.
+   * ✅ CORREÇÃO CRÍTICA: Usa nested connect para a relação de categoria, 
+   * evitando o erro TS2551 do Prisma (que esconde o campo escalar no UpdateInput).
+   */
   async updateServiceItem(
     id: string,
     companyId: string,
@@ -282,8 +330,12 @@ export class CommercialPlansService {
       await this.getCategoryById(dto.categoryId, companyId);
     }
 
-    const updateData: any = {};
-    if (dto.categoryId !== undefined) updateData.categoryId = dto.categoryId;
+    const updateData: Prisma.ServiceItemUpdateInput = {};
+    
+    // Mapeamento explícito para evitar envio de campos undefined ao Prisma
+    if (dto.categoryId !== undefined) {
+      updateData.category = { connect: { id: dto.categoryId } };
+    }
     if (dto.name !== undefined) updateData.name = dto.name;
     if (dto.description !== undefined) updateData.description = dto.description;
     if (dto.scope !== undefined) updateData.scope = dto.scope;
@@ -303,6 +355,9 @@ export class CommercialPlansService {
     });
   }
 
+  /**
+   * Soft delete de item de serviço. Bloqueia se houver contratos ativos vinculados.
+   */
   async deleteServiceItem(id: string, companyId: string) {
     await this.getServiceItemById(id, companyId);
 
@@ -323,50 +378,68 @@ export class CommercialPlansService {
   }
 
   // =================================================================
-  // 💾 SALVAR CONFIGURAÇÃO COMPLETA (Legacy)
+  // 💾 4. OPERAÇÕES EM LOTE (Bulk Update)
   // =================================================================
 
+  /**
+   * Salva a configuração completa de múltiplos planos de uma vez.
+   * Usado pelo frontend na ação "Salvar Alterações" da tela de Meus Planos.
+   * Garante consistência via transação atômica.
+   */
   async savePlansConfiguration(companyId: string, plansData: any[]) {
     return this.prisma.$transaction(async (tx) => {
       const results = [];
 
       for (const plan of plansData) {
         let savedPlan;
-        if (plan.id) {
-          savedPlan = await tx.commercialPlan.update({
-            where: { id: plan.id },
-            data: {
-              name: plan.name,
-              multiplier: plan.multiplier,
-              order: plan.order,
-              isIndependent: plan.isIndependent,
-              badge: plan.badge,
-              color: plan.color,
-              description: plan.description,
-            },
-          });
-        } else {
-          savedPlan = await tx.commercialPlan.create({
-            data: {
-              companyId,
-              name: plan.name,
-              multiplier: plan.multiplier,
-              order: plan.order,
-              isIndependent: plan.isIndependent,
-              badge: plan.badge,
-              color: plan.color,
-              description: plan.description,
-            },
-          });
-        }
+        
+             // 1. Upsert do Plano (Update se existir no banco, Create se for novo)
+      // ✅ CORREÇÃO: o frontend gera UUIDs temporários para planos NOVOS,
+      // então o tamanho do ID não basta — precisamos confirmar no banco
+      // que o registro realmente existe antes de tentar atualizar.
+      const planExists =
+        plan.id && plan.id.length > 20
+          ? await tx.commercialPlan.findUnique({ where: { id: plan.id } })
+          : null;
+      if (planExists) {
+        savedPlan = await tx.commercialPlan.update({
+          where: { id: plan.id },
+          data: {
+            name: plan.name,
+            multiplier: plan.multiplier,
+            order: plan.order,
+            isIndependent: plan.isIndependent,
+            badge: plan.badge,
+            color: plan.color,
+            description: plan.description,
+          },
+        });
+      } else {
+        savedPlan = await tx.commercialPlan.create({
+          data: {
+            companyId,
+            name: plan.name,
+            multiplier: plan.multiplier,
+            order: plan.order,
+            isIndependent: plan.isIndependent,
+            badge: plan.badge,
+            color: plan.color,
+            description: plan.description,
+          },
+        });
+      }
 
+        // 2. Limpa vínculos antigos de itens
         await tx.planServiceItem.deleteMany({
           where: { planId: savedPlan.id },
         });
 
-        const itemIds = (plan.items || [])
+        // 3. Cria novos vínculos (suporta 'items' ou 'explicitItems' vindo do frontend)
+        const sourceItems = plan.items || plan.explicitItems || [];
+        const itemIds = sourceItems
           .map((item: any) => item.id)
           .filter(Boolean);
+
         if (itemIds.length > 0) {
           await tx.planServiceItem.createMany({
             data: itemIds.map((serviceItemId: string) => ({
@@ -376,6 +449,7 @@ export class CommercialPlansService {
           });
         }
 
+        // 4. Busca o plano atualizado com relações para retornar ao frontend
         const updatedPlan = await tx.commercialPlan.findUnique({
           where: { id: savedPlan.id },
           include: {
@@ -406,19 +480,19 @@ export class CommercialPlansService {
   }
 
   // =================================================================
-  //  SPRINT A2: Planos Resolvidos (Herança + Dinheiro na Mesa)
+  // 🧠 5. SPRINT A2: LÓGICA DE DOMÍNIO (Herança + Insights)
   // =================================================================
+
   /**
    * Busca os planos, aplica o motor de herança (domínio A1) e devolve
    * a estrutura enriquecida para o Frontend.
    * 
-   * 🧠 DECISÃO TÉCNICA (Performance):
+   * 🧠 DECISÃO TÉCNICA (Performance - ADR-020):
    * Usamos um Map (itemMap) para cachear os itens em memória O(1).
-   * Isso evita que tenhamos que fazer N queries adicionais ou loops
-   * aninhados complexos para resolver os IDs retornados pelo domínio.
+   * Isso evita N queries adicionais ou loops aninhados complexos (O(n²)).
    */
   async getResolvedPlans(companyId: string): Promise<ResolvedPlanDto[]> {
-    // 1. Buscar dados brutos do banco (mesma query do getPlans)
+    // 1. Buscar dados brutos do banco (mesma query otimizada do getPlans)
     const dbPlans = await this.prisma.commercialPlan.findMany({
       where: { companyId, deletedAt: null },
       orderBy: { multiplier: 'asc' },
@@ -433,7 +507,7 @@ export class CommercialPlansService {
       },
     });
 
-    // 2. Mapear para a interface do Domínio (PlanInput)
+    // 2. Mapear para a interface do Domínio Puro (PlanInput)
     const domainPlans: PlanInput[] = dbPlans.map((p) => ({
       id: p.id,
       name: p.name,
@@ -442,7 +516,7 @@ export class CommercialPlansService {
       ownItemIds: p.planItems.map((pi) => pi.serviceItemId),
     }));
 
-    // 3.  Aplicar o Motor de Herança (Sprint A1)
+    // 3. Aplicar o Motor de Herança (Sprint A1 - Lógica pura, sem banco)
     const resolvedDomainPlans = resolvePlanInheritance(domainPlans);
 
     // 4. Criar um "Dicionário" (Map) de itens para lookup rápido O(1)
@@ -461,12 +535,15 @@ export class CommercialPlansService {
 
     // 5. Montar o DTO final enriquecido
     return resolvedDomainPlans.map((r) => {
-      // Helper para buscar item e marcar se é herdado
+      // Helper para buscar item no Map e marcar se é herdado
       const resolveItem = (id: string, isInherited: boolean): ResolvedServiceItemDto | null => {
         const item = itemMap.get(id);
-        if (!item) return null; // Segurança: item pode ter sido deletado
+        if (!item) return null; // Segurança: item pode ter sido deletado do banco
         return { ...item, isInherited };
       };
+
+      // ✅ Busca tipada sem usar 'as any'
+      const dbPlan = dbPlans.find((p) => p.id === r.id);
 
       return {
         id: r.id,
@@ -474,9 +551,9 @@ export class CommercialPlansService {
         multiplier: r.multiplier,
         isIndependent: r.independent,
         order: r.order,
-        badge: (dbPlans.find((p) => p.id === r.id) as any)?.badge,
-        color: (dbPlans.find((p) => p.id === r.id) as any)?.color,
-        description: (dbPlans.find((p) => p.id === r.id) as any)?.description,
+        badge: dbPlan?.badge ?? null,
+        color: dbPlan?.color ?? null,
+        description: dbPlan?.description ?? null,
         
         ownItems: r.ownItemIds
           .map((id) => resolveItem(id, false))
@@ -493,11 +570,9 @@ export class CommercialPlansService {
     });
   }
 
-    // =================================================================
-  // 💰 SPRINT A2: Planos com Insights de Preço (Dinheiro na Mesa)
-  // =================================================================
   /**
    * Pega os planos já resolvidos (com herança) e aplica a matemática de preço.
+   * Este é o endpoint que alimenta o "Dinheiro na Mesa" na UI.
    * 
    * @param companyId - ID da empresa (multi-tenant)
    * @param baseValue - Valor de referência para calcular os preços dos planos
@@ -508,7 +583,7 @@ export class CommercialPlansService {
     baseValue: number,
     currentMonthly?: number,
   ): Promise<PlanWithInsightsDto[]> {
-    // 1. Reutilizamos o motor de herança já validado na Parte 1
+    // 1. Reutilizamos o motor de herança já validado e testado
     const resolvedPlans = await this.getResolvedPlans(companyId);
 
     // 2. Enriquecemos cada plano com a matemática do domínio puro

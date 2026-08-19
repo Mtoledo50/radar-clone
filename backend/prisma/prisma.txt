@@ -1,0 +1,299 @@
+ O volume na unidade C ‚ Windows
+ O N£mero de S‚rie do Volume ‚ 7678-FA10
+
+ Pasta de C:\radar-clone\backend\prisma
+
+19/08/2026  11:06    <DIR>          .
+19/08/2026  10:33    <DIR>          ..
+10/08/2026  18:02               451 fix-bank-nature.sql
+04/08/2026  19:44            24.558 Lancamentos_2025_scotta.csv
+18/08/2026  17:35    <DIR>          migrations
+05/08/2026  17:37           116.941 Plano_de_Contas_90113.csv
+19/08/2026  11:07                 0 prisma.txt
+19/08/2026  10:32            80.973 schema.prisma
+19/08/2026  10:24                 0 seed-catalog.ts
+18/08/2026  20:21             2.683 seed-users.ts
+               7 arquivo(s)        225.606 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations
+
+18/08/2026  17:35    <DIR>          .
+19/08/2026  11:06    <DIR>          ..
+07/08/2026  16:46    <DIR>          20260730172438_init
+07/08/2026  16:46    <DIR>          20260730193800_add_company_profile
+07/08/2026  16:46    <DIR>          20260731124513_add_employee
+07/08/2026  16:46    <DIR>          20260731141704_add_client_model
+07/08/2026  16:46    <DIR>          20260731144915_add_pricing_model
+07/08/2026  16:46    <DIR>          20260731150747_add_planning_model
+07/08/2026  16:46    <DIR>          20260731211232_add_financial_transactions
+07/08/2026  16:46    <DIR>          20260801004217_add_turnover_module
+07/08/2026  16:46    <DIR>          20260801005649_add_multi_tenant_support
+07/08/2026  16:46    <DIR>          20260801010918_
+07/08/2026  16:46    <DIR>          20260801020206_add_turnover_sector_distribution
+07/08/2026  16:46    <DIR>          20260803132247_add_commercial_plans_module
+07/08/2026  16:46    <DIR>          20260803143604_add_pricing_calculator_models
+07/08/2026  16:46    <DIR>          20260803150121_add_proposals_module
+07/08/2026  16:46    <DIR>          20260805125812_add_catalog_and_contracts
+07/08/2026  16:46    <DIR>          20260805140123_add_unique_company_code_constraint
+07/08/2026  16:46    <DIR>          20260805204524_account_template_global
+07/08/2026  16:46    <DIR>          20260805210025_historical_base_and_reduced_code
+07/08/2026  16:46    <DIR>          20260805211032_historical_base_and_reduced_code
+07/08/2026  16:46    <DIR>          20260806215912_add_tasks_and_projects
+07/08/2026  16:46    <DIR>          20260807110002_add_fiscal_movements_relation
+07/08/2026  17:41    <DIR>          20260807204155_add_fiscal_icms_apuration
+07/08/2026  19:01    <DIR>          20260807220104_fiscal_per_client
+07/08/2026  22:22    <DIR>          20260808012246_add_saldo_inicial_movement
+09/08/2026  21:01    <DIR>          20260810000148_product_code_nullable
+09/08/2026  21:55    <DIR>          20260810005520_add_unified_code_field
+10/08/2026  12:45    <DIR>          20260810154541_modulo_bancario_fechamento_mensal
+14/08/2026  11:51    <DIR>          20260814145127_add_client_contractual_fields
+14/08/2026  14:09    <DIR>          20260814170922_add_proposal_versions
+14/08/2026  16:39    <DIR>          20260814193945_fd1_foundation_robot_worker
+17/08/2026  19:18    <DIR>          20260818120000_add_fiscal_service_invoices
+17/08/2026  22:18    <DIR>          20260818130000_add_tax_guides
+18/08/2026  16:38    <DIR>          20260818140000_add_skillkey_nfse_email_collect
+18/08/2026  17:35    <DIR>          20260819120000_add_proposal_closing_details
+14/08/2026  16:39               126 migration_lock.toml
+               1 arquivo(s)            126 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260730172438_init
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+30/07/2026  14:24               975 migration.sql
+               1 arquivo(s)            975 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260730193800_add_company_profile
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+30/07/2026  16:38             1.041 migration.sql
+               1 arquivo(s)          1.041 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260731124513_add_employee
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+31/07/2026  09:45               766 migration.sql
+               1 arquivo(s)            766 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260731141704_add_client_model
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+31/07/2026  11:17               842 migration.sql
+               1 arquivo(s)            842 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260731144915_add_pricing_model
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+31/07/2026  11:49               940 migration.sql
+               1 arquivo(s)            940 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260731150747_add_planning_model
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+31/07/2026  12:07               734 migration.sql
+               1 arquivo(s)            734 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260731211232_add_financial_transactions
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+31/07/2026  18:12             1.219 migration.sql
+               1 arquivo(s)          1.219 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260801004217_add_turnover_module
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+31/07/2026  21:42             4.955 migration.sql
+               1 arquivo(s)          4.955 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260801005649_add_multi_tenant_support
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+31/07/2026  22:06             5.651 migration.sql
+               1 arquivo(s)          5.651 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260801010918_
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+31/07/2026  22:09               181 migration.sql
+               1 arquivo(s)            181 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260801020206_add_turnover_sector_distribution
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+31/07/2026  23:02             1.471 migration.sql
+               1 arquivo(s)          1.471 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260803132247_add_commercial_plans_module
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+03/08/2026  10:22             3.419 migration.sql
+               1 arquivo(s)          3.419 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260803143604_add_pricing_calculator_models
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+03/08/2026  11:36             3.709 migration.sql
+               1 arquivo(s)          3.709 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260803150121_add_proposals_module
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+03/08/2026  12:01             1.786 migration.sql
+               1 arquivo(s)          1.786 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260805125812_add_catalog_and_contracts
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+05/08/2026  09:58            20.960 migration.sql
+               1 arquivo(s)         20.960 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260805140123_add_unique_company_code_constraint
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+05/08/2026  11:01               313 migration.sql
+               1 arquivo(s)            313 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260805204524_account_template_global
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+05/08/2026  17:45             1.006 migration.sql
+               1 arquivo(s)          1.006 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260805210025_historical_base_and_reduced_code
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+05/08/2026  18:00               844 migration.sql
+               1 arquivo(s)            844 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260805211032_historical_base_and_reduced_code
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+05/08/2026  18:10                85 migration.sql
+               1 arquivo(s)             85 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260806215912_add_tasks_and_projects
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+06/08/2026  18:59             3.610 migration.sql
+               1 arquivo(s)          3.610 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260807110002_add_fiscal_movements_relation
+
+07/08/2026  16:46    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+07/08/2026  08:00             9.762 migration.sql
+               1 arquivo(s)          9.762 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260807204155_add_fiscal_icms_apuration
+
+07/08/2026  17:41    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+07/08/2026  17:41             1.318 migration.sql
+               1 arquivo(s)          1.318 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260807220104_fiscal_per_client
+
+07/08/2026  19:01    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+07/08/2026  19:01             2.443 migration.sql
+               1 arquivo(s)          2.443 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260808012246_add_saldo_inicial_movement
+
+07/08/2026  22:22    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+07/08/2026  22:22                66 migration.sql
+               1 arquivo(s)             66 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260810000148_product_code_nullable
+
+09/08/2026  21:01    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+09/08/2026  21:01                79 migration.sql
+               1 arquivo(s)             79 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260810005520_add_unified_code_field
+
+09/08/2026  21:55    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+09/08/2026  21:55                79 migration.sql
+               1 arquivo(s)             79 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260810154541_modulo_bancario_fechamento_mensal
+
+10/08/2026  12:45    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+10/08/2026  12:45             2.617 migration.sql
+               1 arquivo(s)          2.617 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260814145127_add_client_contractual_fields
+
+14/08/2026  11:51    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+14/08/2026  11:51             3.207 migration.sql
+               1 arquivo(s)          3.207 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260814170922_add_proposal_versions
+
+14/08/2026  14:09    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+14/08/2026  14:09               697 migration.sql
+               1 arquivo(s)            697 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260814193945_fd1_foundation_robot_worker
+
+14/08/2026  16:39    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+14/08/2026  16:39             5.874 migration.sql
+               1 arquivo(s)          5.874 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260818120000_add_fiscal_service_invoices
+
+17/08/2026  19:18    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+17/08/2026  19:52             2.357 migration.sql
+               1 arquivo(s)          2.357 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260818130000_add_tax_guides
+
+17/08/2026  22:18    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+17/08/2026  22:29                37 migration.sql
+               1 arquivo(s)             37 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260818140000_add_skillkey_nfse_email_collect
+
+18/08/2026  16:38    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+18/08/2026  16:38               126 migration.sql
+               1 arquivo(s)            126 bytes
+
+ Pasta de C:\radar-clone\backend\prisma\migrations\20260819120000_add_proposal_closing_details
+
+18/08/2026  17:35    <DIR>          .
+18/08/2026  17:35    <DIR>          ..
+18/08/2026  17:35               109 migration.sql
+               1 arquivo(s)            109 bytes
+
+     Total de Arquivos na Lista:
+              42 arquivo(s)        309.010 bytes
+             107 pasta(s)   793.072.570.368 bytes dispon¡veis

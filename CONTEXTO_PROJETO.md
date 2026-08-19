@@ -57,8 +57,11 @@ ponte + dashboard + auditoria + crons + NFS-e ABRASF).
 - Estratégia: manter vantagem operacional + atropelar na camada comercial/analítica/UX.
 
 ## 7) PLANO DE EXPANSÃO "CONTA CERTA 2.0"
-- Fase A (Comercial): A1 herança de planos ✅(domínio) • A2 valor ref. + dinheiro na
-  mesa • A3 versões de proposta • A4 fechamento c/ ganho • A5 white-label • A6 PDF v2+PNG • A7 dashboard desempenho.
+Fase A (Comercial): A1 ✅ • A2 ✅ • A3 ✅ • A4 ✅ • A5 white-label • A6 PDF v2+PNG • A7 dashboard desempenho.  mesa 
+• A3 versões de proposta 
+• A4 fechamento c/ ganho 
+• A5 white-label 
+• A6 PDF v2+PNG • A7 dashboard desempenho.
 - Fase B (Pessoas): B1 tipos contratuais • B2 distribuição por setor validada •
   B3 KPIs novatos/crítico • B4 entrevista de desligamento (IA) • B5 cargos p/ setor.
 - Fase C (Mercado): C1 benchmark softwares • C2 serviços extras c/ preço médio •
@@ -143,6 +146,7 @@ Sprint A1 CONCLUÍDA: domínio puro testado (6 testes verdes).
 Sprint 31 (Docker) HOMOLOGADA: ambiente estável (Postgres 5433, Backend 3001, Frontend 3000).
 Sprint A2 COMPLETA: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano validado).
 Sprint A3 HOMOLOGADA: versões de proposta (version/isCurrent/originalProposalId + endpoints de listagem e duplicação).
+Sprint A4 HOMOLOGADA: Fechamento com Ganho (slider de desconto + memória de cálculo em `closingDetails` JSON + alerta 🟡 belowCurrent). Fluxo completo: criar proposta → enviar → clicar 🏆 → descontar → ver ganho vs hoje → confirmar → toast com ganho mensal.
 Sprint F6 HOMOLOGADA: auditoria tributária de NF-e (parser captura todas as alíquotas; modal exibe Base × Alíquota = Valor com explicação automática de divergências).
 IMEDIATO: Sprint F7 = Endpoint consolidado GET /fiscal/invoices/tax-rates-by-product (tabela de alíquotas médias por NCM/produto para análise de padrões tributários).
 DEPOIS: A4→A7, Fases B→E (ordem do §7).

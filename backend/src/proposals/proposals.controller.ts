@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ProposalsService } from './proposals.service';
+import { CloseProposalDto } from './dto/close-proposal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';           // 🆕 A3
 import { Roles } from '../common/decorators/roles.decorator';        // 🆕 A3
@@ -180,17 +181,6 @@ export class ProposalsController {
   // 🔄 MUDANÇAS DE STATUS
   // =================================================================
 
-  @Post(':id/close')
-  async closeProposal(
-    @Param('id') id: string,
-    @CurrentUser() user: UserPayload,
-    @Body() body: { planId: string; price: number },
-  ) {
-    return {
-      success: true,
-      data: await this.service.closeProposal(id, user.companyId, body),
-    };
-  }
 
   @Post(':id/lose')
   async markAsLost(
@@ -209,6 +199,29 @@ export class ProposalsController {
     return {
       success: true,
       data: await this.service.markAsSent(id, user.companyId),
+    };
+  }
+    // =================================================================
+  // 💰 SPRINT A4 — Fechamento com Ganho (rota unificada)
+  // =================================================================
+  /**
+   * POST /proposals/:id/close
+   * - body.discountPercent (número) → Fechamento com Ganho (A4)
+   * - body.price/planId (legado)    → comportamento da UI antiga
+   */
+  @Post(':id/close')
+  async close(
+    @Param('id') id: string,
+    @CurrentUser() user: UserPayload,
+    @Body() body: any,
+  ) {
+    if (typeof body?.discountPercent === 'number') {
+      const result = await this.service.closeWithGain(user.companyId, id, body);
+      return { success: true, data: result.proposal, gain: result.gain };
+    }
+    return {
+      success: true,
+      data: await this.service.closeProposal(id, user.companyId, body),
     };
   }
 }

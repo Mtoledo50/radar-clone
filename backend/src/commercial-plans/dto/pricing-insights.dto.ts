@@ -1,5 +1,8 @@
-import { IsNumber, IsOptional } from 'class-validator';
+import { IsNumber, IsOptional, Min } from 'class-validator';
 
+
+// Re-exporta o tipo do domínio para uso no Controller
+// *Nota: Certifique-se de que o arquivo pricing-insights.ts exporta essa interface, ou declare-a aqui.
 export class CalculatePricingInsightsDto {
   @IsNumber()
   baseValue: number;
