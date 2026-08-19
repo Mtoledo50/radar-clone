@@ -3,16 +3,19 @@
 // =================================================================
 /**
  * =================================================================
- * 🌐 PÁGINA PÚBLICA DA PROPOSTA COMERCIAL (White-label — Sprint A5)
+ * 🌐 PÁGINA PÚBLICA DA PROPOSTA COMERCIAL
  * =================================================================
  * Acessada pelo cliente do escritório via link compartilhado.
  * Não requer autenticação.
  *
- * 🎨 SPRINT A5 (ADR-043): as cores vêm do objeto `branding` retornado
- * pelo backend (findBySlug) e são injetadas como CSS variables
- * (--brand-primary / --brand-secondary) no container raiz. Todos os
- * pontos de cor da página consomem as variables → white-label total
- * sem quebrar o cache do Tailwind. Fallback = identidade Conta Certa.
+ * 🎨 SPRINT A5 (ADR-043): cores do tenant vêm do objeto `branding`
+ *    (findBySlug) e são injetadas como CSS variables
+ *    (--brand-primary / --brand-secondary). Fallback = Conta Certa.
+ *
+ * 📄 SPRINT A6: exportação white-label direto da página:
+ *    - "Baixar PDF"  → proposal-pdf.ts (capa + sumário + tabelas)
+ *    - "Baixar PNG"  → proposal-png.ts (card 1080×1350 p/ WhatsApp)
+ *    Ambos 100% client-side (ADR-045/046) — zero carga no servidor.
  * =================================================================
  */
 'use client';
@@ -20,11 +23,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import api from '@/lib/axios';
+import { toast } from 'sonner';
 import {
   FileText, Loader2, AlertTriangle, MessageCircle,
   Building2, DollarSign, Briefcase, Users, Sparkles, Shield,
   ArrowRight, Phone, Mail, Calendar,
+  Download, Image as ImageIcon, // 🆕 Sprint A6
 } from 'lucide-react';
+// 🆕 Sprint A6 — geradores white-label (client-side)
+import { generateProposalPdf, type PdfProposal } from '@/lib/proposal-pdf';
+import { generateProposalPng, downloadPng } from '@/lib/proposal-png';
 
 // =================================================================
 // 📋 TIPOS E INTERFACES
@@ -106,6 +114,8 @@ export default function PublicProposalPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [whatsappClicked, setWhatsappClicked] = useState(false);
+  // 🆕 Sprint A6: qual exportação está rodando (evita duplo clique)
+  const [exporting, setExporting] = useState<'pdf' | 'png' | null>(null);
 
   // Ref p/ evitar dupla contagem de views (StrictMode do React 19)
   const viewTracked = useRef(false);
@@ -151,6 +161,71 @@ export default function PublicProposalPage() {
     secondaryColor: proposal?.branding?.secondaryColor || '#f97316',
     proposalFooterText: proposal?.branding?.proposalFooterText ?? null,
   };
+
+  // =================================================================
+  // 📄 SPRINT A6: normaliza a proposta p/ o formato dos geradores
+  // =================================================================
+  function buildPdfData(): PdfProposal | null {
+    if (!proposal) return null;
+    return {
+      proposalNumber: proposal.proposalNumber,
+      clientName: proposal.clientName,
+      clientCnpj: proposal.clientCnpj ?? null,
+      taxRegime: REGIME_LABELS[proposal.taxRegime] || proposal.taxRegime,
+      activity: proposal.activity || null,
+      monthlyRevenue: proposal.monthlyRevenue,
+      employeeCount: proposal.employeeCount,
+      aboutOffice: proposal.aboutOffice ?? null,
+      differentials: proposal.differentials ?? null,
+      onboarding: proposal.onboarding ?? null,
+      commercialTerms: proposal.commercialTerms ?? null,
+      specificNote: proposal.specificNote ?? null,
+      createdAt: proposal.createdAt,
+      // Itens relacionais → formato achatado do PDF/PNG
+      items: (proposal.items ?? []).map((i) => ({
+        name: i.commercialPlan?.name || i.serviceItem?.name || 'Item',
+        kind: i.commercialPlan ? ('PLANO' as const) : ('AVULSO' as const),
+        category: i.serviceItem?.category?.name ?? null,
+        description:
+          i.commercialPlan?.description || i.serviceItem?.description || null,
+        scope: i.serviceItem?.scope ?? null,
+        price: Number(i.totalPrice) || 0,
+      })),
+    };
+  }
+
+  /** 📄 Gera e baixa o PDF v2 premium (capa + sumário + tabelas). */
+  async function handleDownloadPdf() {
+    const data = buildPdfData();
+    if (!data) return;
+    setExporting('pdf');
+    try {
+      await generateProposalPdf(data, brand);
+      toast.success('📄 PDF gerado! Verifique seus downloads.');
+    } catch (e) {
+      console.error('Erro ao gerar PDF:', e);
+      toast.error('Erro ao gerar o PDF. Tente novamente.');
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  /** 🖼️ Gera e baixa o PNG da capa (card 1080×1350 p/ WhatsApp). */
+  async function handleDownloadPng() {
+    const data = buildPdfData();
+    if (!data) return;
+    setExporting('png');
+    try {
+      const url = await generateProposalPng(data, brand);
+      downloadPng(url, `capa-${data.proposalNumber}.png`);
+      toast.success('🖼️ Capa gerada! Anexe a imagem no WhatsApp. 📲');
+    } catch (e) {
+      console.error('Erro ao gerar PNG:', e);
+      toast.error('Erro ao gerar a imagem. Tente novamente.');
+    } finally {
+      setExporting(null);
+    }
+  }
 
   // =================================================================
   // AÇÃO: CLIQUE NO WHATSAPP (com tracking)
@@ -211,7 +286,7 @@ export default function PublicProposalPage() {
     <div
       className="min-h-screen bg-slate-50"
       style={{
-        //  ADR-043: injeta as cores do tenant como CSS variables
+        // ADR-043: injeta as cores do tenant como CSS variables
         ['--brand-primary' as any]: brand.primaryColor,
         ['--brand-secondary' as any]: brand.secondaryColor,
       }}
@@ -430,7 +505,7 @@ export default function PublicProposalPage() {
         </section>
 
         {/* ============================================================= */}
-        {/* FOOTER — 🆕 Sprint A5: rodapé customizado do tenant           */}
+        {/* FOOTER — rodapé customizado do tenant (Sprint A5)             */}
         {/* ============================================================= */}
         <footer className="text-center py-6 text-slate-400 text-sm">
           <p className="flex items-center justify-center gap-1 mb-1">
@@ -443,6 +518,39 @@ export default function PublicProposalPage() {
           )}
         </footer>
       </main>
+
+      {/* ============================================================= */}
+      {/* 🆕 SPRINT A6 — BARRA FLUTUANTE DE EXPORTAÇÃO                    */}
+      {/* PDF v2 premium + PNG da capa, nas cores do tenant (ADR-045/6)   */}
+      {/* ============================================================= */}
+      <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2">
+        <button
+          onClick={handleDownloadPdf}
+          disabled={exporting !== null}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-lg text-white text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: 'var(--brand-primary)' }}
+        >
+          {exporting === 'pdf' ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
+          Baixar PDF
+        </button>
+        <button
+          onClick={handleDownloadPng}
+          disabled={exporting !== null}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg shadow-lg text-white text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: 'var(--brand-secondary)' }}
+        >
+          {exporting === 'png' ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ImageIcon className="h-4 w-4" />
+          )}
+          PNG p/ WhatsApp
+        </button>
+      </div>
     </div>
   );
 }

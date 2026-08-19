@@ -1,22 +1,29 @@
 // =================================================================
 // INÍCIO: frontend/src/app/dashboard/precificacao/page.tsx
 // =================================================================
-// 🚀 MOTOR DE PROPOSTAS COMERCIAIS (Enterprise Edition)
-// Construtor de propostas relacionais integrado ao Catálogo de
-// Serviços, Planos Comerciais e BI de Vendas.
-//
-// Sprints integradas:
-//   - A1: Motor de Herança de Planos (domínio puro)
-//   - A2: Valor de Referência + Dinheiro na Mesa
-//   - A3: Versões de Proposta (version/isCurrent/originalProposalId)
-//   - A4: 🆕 Fechamento com Ganho (slider de desconto + memória de cálculo)
-//
-// ADRs aplicados:
-//   - ADR-020: round2 em cálculos monetários (sem erro de ponto flutuante)
-//   - ADR-021: Ícones Lucide com <span title> wrapper
-//   - ADR-023: optional chaining (?.) em .map de opcionais
-//   - ADR-024: Sonner cancel com onClick (() => {})
-// =================================================================
+/**
+ * =================================================================
+ *  MOTOR DE PROPOSTAS COMERCIAIS (Enterprise Edition)
+ * =================================================================
+ * Construtor de propostas relacionais integrado ao Catálogo de
+ * Serviços, Planos Comerciais e BI de Vendas.
+ *
+ * Sprints integradas:
+ *   - A1: Motor de Herança de Planos (domínio puro)
+ *   - A2: Valor de Referência + Dinheiro na Mesa
+ *   - A3: Versões de Proposta (version/isCurrent/originalProposalId)
+ *   - A4: Fechamento com Ganho (slider de desconto + memória)
+ *   - A6: 🆕 PDF v2 white-label por proposta (botão 📄 na tabela)
+ *
+ * ADRs aplicados:
+ *   - ADR-020: round2 em cálculos monetários
+ *   - ADR-021: Ícones Lucide com <span title> wrapper
+ *   - ADR-023: optional chaining (?.) em .map de opcionais
+ *   - ADR-024: Sonner cancel com onClick (() => {})
+ *   - ADR-043: branding white-label c/ fallback Conta Certa
+ *   - ADR-045: PDF 100% client-side (zero carga no servidor)
+ * =================================================================
+ */
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -28,11 +35,18 @@ import {
   FileText, Plus, Search, Eye, Loader2, X, Save, Send,
   Trophy, XCircle, Download, Link2, DollarSign, TrendingUp,
   Users, Building2, Package, ChevronRight, ChevronLeft,
-  Crown, Sparkles, AlertTriangle, Copy, CheckCircle2, Target
+  Crown, Sparkles, AlertTriangle, Copy, CheckCircle2, Target,
+  FileDown, // 🆕 Sprint A6: ícone do PDF v2
 } from 'lucide-react';
 
 // 🆕 Sprint A4 — Modal de Fechamento com Ganho (slider + memória de cálculo)
 import CloseProposalModal from '@/components/proposals/CloseProposalModal';
+// 🆕 Sprint A6 — gerador de PDF v2 white-label (client-side, ADR-045)
+import {
+  generateProposalPdf,
+  type PdfProposal,
+  type PdfBranding,
+} from '@/lib/proposal-pdf';
 
 // =================================================================
 // 📋 TIPOS E INTERFACES (Alinhados ao Backend)
@@ -176,6 +190,10 @@ export default function PrecificacaoPage() {
   const [selectedProposal, setSelectedProposal] = useState<Proposal | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // 🆕 Sprint A6: branding do tenant (p/ PDF white-label) + estado de exportação
+  const [branding, setBranding] = useState<PdfBranding | null>(null);
+  const [pdfExportingId, setPdfExportingId] = useState<string | null>(null);
+
   // Wizard
   const [wizardStep, setWizardStep] = useState(1);
 
@@ -208,27 +226,42 @@ export default function PrecificacaoPage() {
   const btnSecondary = 'flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-lg transition-colors';
 
   // =================================================================
+  // 🎨 SPRINT A6: branding efetivo c/ fallback Conta Certa (ADR-043)
+  // =================================================================
+  const effectiveBrand: PdfBranding = branding ?? {
+    companyName: 'Conta Certa Soluções Empresariais',
+    logoUrl: null,
+    primaryColor: '#0d9488',
+    secondaryColor: '#f97316',
+    proposalFooterText: null,
+  };
+
+  // =================================================================
   // CARREGAR DADOS (Paralelo para performance)
   // =================================================================
   useEffect(() => {
     loadInitialData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterPeriod]);
 
   async function loadInitialData() {
     try {
       setLoading(true);
       // ✅ Cada requisição com .catch próprio: uma falha não derruba as demais
-      const [propRes, dashRes, plansRes, itemsRes] = await Promise.all([
+      const [propRes, dashRes, plansRes, itemsRes, brandRes] = await Promise.all([
         api.get('/proposals').catch(() => ({ data: { data: [] } })),
         api.get(`/proposals/dashboard?period=${filterPeriod}`).catch(() => ({ data: { data: null } })),
         api.get('/commercial-plans/plans').catch(() => ({ data: { data: [] } })),
         api.get('/commercial-plans/items').catch(() => ({ data: { data: [] } })),
+        // 🆕 Sprint A6: branding do tenant p/ PDF white-label (falha = fallback)
+        api.get('/company/branding').catch(() => ({ data: null })),
       ]);
 
       setProposals(propRes.data.data || []);
       if (dashRes.data.data) setMetrics(dashRes.data.data);
       setPlans(plansRes.data.data || []);
       setServiceItems(itemsRes.data.data || []);
+      if (brandRes.data) setBranding(brandRes.data);
     } catch (err) {
       toast.error('Erro ao carregar dados');
     } finally {
@@ -295,6 +328,53 @@ export default function PrecificacaoPage() {
     setSelectedProposal(proposal);
     setLossReason('');
     setShowLoseModal(true);
+  }
+
+  // =================================================================
+  // 📄 SPRINT A6: GERAR PDF v2 DA PROPOSTA (white-label, client-side)
+  // =================================================================
+  /**
+   * Mapeia a proposta da tabela p/ o formato do gerador de PDF e
+   * dispara o download. Usa o branding do tenant (ADR-043/045).
+   */
+  async function handleDownloadPdf(proposal: Proposal) {
+    setPdfExportingId(proposal.id);
+    try {
+      const pdfData: PdfProposal = {
+        proposalNumber: proposal.proposalNumber,
+        clientName: proposal.clientName,
+        clientCnpj: proposal.clientCnpj ?? null,
+        taxRegime:
+          REGIMES.find(r => r.value === proposal.taxRegime)?.label || proposal.taxRegime,
+        activity: proposal.activity || null,
+        monthlyRevenue: proposal.monthlyRevenue,
+        employeeCount: proposal.employeeCount,
+        aboutOffice: proposal.aboutOffice ?? null,
+        differentials: proposal.differentials ?? null,
+        onboarding: proposal.onboarding ?? null,
+        commercialTerms: proposal.commercialTerms ?? null,
+        specificNote: proposal.specificNote ?? null,
+        createdAt: proposal.createdAt,
+        // Itens relacionais → formato achatado do PDF
+        items: (proposal.items ?? []).map((i) => ({
+          name: i.commercialPlan?.name || i.serviceItem?.name || 'Item',
+          kind: i.commercialPlan ? ('PLANO' as const) : ('AVULSO' as const),
+          category: i.serviceItem?.category?.name ?? null,
+          description:
+            i.commercialPlan?.description || i.serviceItem?.description || null,
+          scope: i.serviceItem?.scope ?? null,
+          price: Number(i.totalPrice) || 0,
+        })),
+      };
+
+      await generateProposalPdf(pdfData, effectiveBrand);
+      toast.success('📄 PDF v2 gerado! Verifique seus downloads.');
+    } catch (e) {
+      console.error('Erro ao gerar PDF:', e);
+      toast.error('Erro ao gerar o PDF da proposta.');
+    } finally {
+      setPdfExportingId(null);
+    }
   }
 
   // =================================================================
@@ -426,7 +506,7 @@ export default function PrecificacaoPage() {
   }
 
   // =================================================================
-  // 📄 EXPORTAR PDF (Padrão Conta Certa)
+  // 📄 EXPORTAR PDF (Lista — padrão Conta Certa)
   // =================================================================
   function exportToPDF() {
     const doc = new jsPDF();
@@ -611,6 +691,20 @@ export default function PrecificacaoPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
+                        {/* 🆕 Sprint A6: PDF v2 white-label da proposta (ADR-021) */}
+                        <span title="Baixar PDF v2 (white-label)">
+                          <button
+                            onClick={() => handleDownloadPdf(p)}
+                            disabled={pdfExportingId === p.id}
+                            className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg disabled:opacity-50"
+                          >
+                            {pdfExportingId === p.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileDown className="h-4 w-4" />
+                            )}
+                          </button>
+                        </span>
                         <span title="Visualizar">
                           <button onClick={() => openViewModal(p)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
                             <Eye className="h-4 w-4" />
