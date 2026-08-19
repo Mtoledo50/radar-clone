@@ -4,6 +4,18 @@
 // 🚀 MOTOR DE PROPOSTAS COMERCIAIS (Enterprise Edition)
 // Construtor de propostas relacionais integrado ao Catálogo de
 // Serviços, Planos Comerciais e BI de Vendas.
+//
+// Sprints integradas:
+//   - A1: Motor de Herança de Planos (domínio puro)
+//   - A2: Valor de Referência + Dinheiro na Mesa
+//   - A3: Versões de Proposta (version/isCurrent/originalProposalId)
+//   - A4: 🆕 Fechamento com Ganho (slider de desconto + memória de cálculo)
+//
+// ADRs aplicados:
+//   - ADR-020: round2 em cálculos monetários (sem erro de ponto flutuante)
+//   - ADR-021: Ícones Lucide com <span title> wrapper
+//   - ADR-023: optional chaining (?.) em .map de opcionais
+//   - ADR-024: Sonner cancel com onClick (() => {})
 // =================================================================
 'use client';
 
@@ -18,6 +30,9 @@ import {
   Users, Building2, Package, ChevronRight, ChevronLeft,
   Crown, Sparkles, AlertTriangle, Copy, CheckCircle2, Target
 } from 'lucide-react';
+
+// 🆕 Sprint A4 — Modal de Fechamento com Ganho (slider + memória de cálculo)
+import CloseProposalModal from '@/components/proposals/CloseProposalModal';
 
 // =================================================================
 // 📋 TIPOS E INTERFACES (Alinhados ao Backend)
@@ -182,9 +197,8 @@ export default function PrecificacaoPage() {
     specificNote: '',
   });
 
-  // Motivo de perda / valor de fechamento
+  // Motivo de perda (fechamento agora é feito no CloseProposalModal — Sprint A4)
   const [lossReason, setLossReason] = useState('');
-  const [closedPrice, setClosedPrice] = useState(0);
 
   // =================================================================
   // ESTILOS (Design System Conta Certa)
@@ -200,7 +214,7 @@ export default function PrecificacaoPage() {
     loadInitialData();
   }, [filterPeriod]);
 
-    async function loadInitialData() {
+  async function loadInitialData() {
     try {
       setLoading(true);
       // ✅ Cada requisição com .catch próprio: uma falha não derruba as demais
@@ -271,9 +285,9 @@ export default function PrecificacaoPage() {
     setShowViewModal(true);
   }
 
+  // 🆕 Sprint A4 — abrir modal de Fechamento com Ganho
   function openCloseModal(proposal: Proposal) {
     setSelectedProposal(proposal);
-    setClosedPrice(proposal.basePrice);
     setShowCloseModal(true);
   }
 
@@ -366,24 +380,6 @@ export default function PrecificacaoPage() {
       loadInitialData();
     } catch {
       toast.error('Erro ao atualizar status');
-    }
-  }
-
-  async function handleCloseProposal() {
-    if (!selectedProposal) return;
-    setSubmitting(true);
-    try {
-      await api.post(`/proposals/${selectedProposal.id}/close`, {
-        planId: form.selectedPlanId || '',
-        price: closedPrice,
-      });
-      toast.success('🎉 Negócio fechado com sucesso!');
-      setShowCloseModal(false);
-      loadInitialData();
-    } catch {
-      toast.error('Erro ao fechar proposta');
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -615,30 +611,43 @@ export default function PrecificacaoPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openViewModal(p)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Visualizar">
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => copyPublicLink(p)} className="p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg" title="Copiar link público">
-                          <Link2 className="h-4 w-4" />
-                        </button>
-                        {p.status === 'DRAFT' && (
-                          <button onClick={() => handleSend(p)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Marcar como enviada">
-                            <Send className="h-4 w-4" />
+                        <span title="Visualizar">
+                          <button onClick={() => openViewModal(p)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                            <Eye className="h-4 w-4" />
                           </button>
+                        </span>
+                        <span title="Copiar link público">
+                          <button onClick={() => copyPublicLink(p)} className="p-2 text-slate-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg">
+                            <Link2 className="h-4 w-4" />
+                          </button>
+                        </span>
+                        {p.status === 'DRAFT' && (
+                          <span title="Marcar como enviada">
+                            <button onClick={() => handleSend(p)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                              <Send className="h-4 w-4" />
+                            </button>
+                          </span>
                         )}
                         {(p.status === 'SENT' || p.status === 'VIEWED') && (
                           <>
-                            <button onClick={() => openCloseModal(p)} className="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg" title="Fechar negócio">
-                              <Trophy className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => openLoseModal(p)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Marcar como perdida">
-                              <XCircle className="h-4 w-4" />
-                            </button>
+                            {/* 💰 Sprint A4 — botão "Fechar com Ganho" abre modal com slider */}
+                            <span title="Fechar negócio (com desconto e cálculo de ganho)">
+                              <button onClick={() => openCloseModal(p)} className="p-2 text-slate-500 hover:text-green-600 hover:bg-green-50 rounded-lg">
+                                <Trophy className="h-4 w-4" />
+                              </button>
+                            </span>
+                            <span title="Marcar como perdida">
+                              <button onClick={() => openLoseModal(p)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                            </span>
                           </>
                         )}
-                        <button onClick={() => handleDelete(p)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir">
-                          <X className="h-4 w-4" />
-                        </button>
+                        <span title="Excluir">
+                          <button onClick={() => handleDelete(p)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -1001,37 +1010,24 @@ export default function PrecificacaoPage() {
       )}
 
       {/* ============================================================= */}
-      {/* 🏆 MODAL: FECHAR NEGÓCIO (Substitui confirm() nativo) */}
+      {/* 💰 SPRINT A4 — MODAL: FECHAR COM GANHO (slider + memória) */}
       {/* ============================================================= */}
       {showCloseModal && selectedProposal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-green-100 rounded-full">
-                <Trophy className="h-6 w-6 text-green-600" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900">Fechar Negócio!</h3>
-            </div>
-            <p className="text-slate-600 mb-4">
-              Confirme o fechamento da proposta <strong>{selectedProposal.proposalNumber}</strong> para o cliente <strong>{selectedProposal.clientName}</strong>.
-            </p>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Valor Final Fechado (R$)</label>
-            <input
-              type="number"
-              step="0.01"
-              value={closedPrice}
-              onChange={(e) => setClosedPrice(parseFloat(e.target.value) || 0)}
-              className={inputClass}
-            />
-            <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setShowCloseModal(false)} className={btnSecondary}>Cancelar</button>
-              <button onClick={handleCloseProposal} disabled={submitting} className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trophy className="h-4 w-4" />}
-                Confirmar Vitória
-              </button>
-            </div>
-          </div>
-        </div>
+        <CloseProposalModal
+          proposalId={selectedProposal.id}
+          proposalNumber={selectedProposal.proposalNumber}
+          clientName={selectedProposal.clientName}
+          basePrice={selectedProposal.closedPrice || selectedProposal.basePrice}
+          onClose={() => {
+            setShowCloseModal(false);
+            setSelectedProposal(null);
+          }}
+          onClosed={() => {
+            setShowCloseModal(false);
+            setSelectedProposal(null);
+            loadInitialData();
+          }}
+        />
       )}
 
       {/* ============================================================= */}

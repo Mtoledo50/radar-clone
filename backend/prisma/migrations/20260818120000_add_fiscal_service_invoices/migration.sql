@@ -1,4 +1,4 @@
-﻿-- CreateEnum
+-- CreateEnum
 CREATE TYPE "NfseDirection" AS ENUM ('EMITIDA', 'RECEBIDA');
 
 -- CreateEnum

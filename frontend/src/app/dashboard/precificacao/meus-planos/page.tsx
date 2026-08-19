@@ -1,20 +1,14 @@
 /**
  * Página: Meus Planos Comerciais
  * 
- * Permite ao usuário:
- * - Criar/editar/excluir planos comerciais (START, PRIME, BLACK)
- * - Definir multiplicadores de cada plano
- * - Associar itens de serviço a cada plano
- * - Criar/editar/excluir categorias e itens de serviço
+ * Responsabilidade: Gerenciar a estrutura de planos, multiplicadores e 
+ * a associação explícita de itens de serviço.
  * 
- * FLUXO DE USO:
- * 1. Usuário cria categorias (ex: "Fiscal e Tributário")
- * 2. Usuário cria itens dentro das categorias (ex: "Apuração de impostos")
- * 3. Usuário cria planos (ex: START, PRIME, BLACK) com multiplicadores
- * 4. Usuário marca quais itens cada plano inclui
- * 5. Usuário salva a configuração completa
- * 
- * @author Marcos
+ * REGRA DE NEGÓCIO (ADR-020):
+ * - O frontend envia apenas as associações EXPLÍCITAS feitas pelo usuário.
+ * - A herança de itens (planos menores -> maiores) é calculada pelo backend 
+ *   no endpoint /commercial-plans/resolved.
+ * - O preço final é: Valor de Referência × Multiplicador do Plano.
  */
 'use client';
 
@@ -22,54 +16,29 @@ import { useState, useEffect } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 import {
-  Package,
-  Plus,
-  Trash2,
-  Edit2,
-  Save,
-  X,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  GripVertical,
-  Loader2,
-  Tag,
-  FolderOpen,
-  FileText,
+  Package, Plus, Trash2, Edit2, Save, X, Loader2, 
+  Tag, FolderOpen, FileText, DollarSign,
+  ChevronDown, ChevronRight // ✅ CORREÇÃO: Imports faltantes que quebrariam o build
 } from 'lucide-react';
 
 // =================================================================
-// 🎨 CLASSES DE ESTILO REUTILIZÁVEIS
+// 🎨 CLASSES DE ESTILO REUTILIZÁVEIS (Design System)
 // =================================================================
 const inputClass =
   'w-full px-3 py-2 border border-slate-300 rounded-lg text-slate-900 ' +
-  'placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white';
+  'placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white transition-all';
 
 const buttonPrimary =
   'flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 ' +
-  'text-white font-semibold rounded-lg transition-colors disabled:opacity-50';
+  'text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
 const buttonSecondary =
   'flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 ' +
   'text-slate-700 font-medium rounded-lg transition-colors';
 
-const buttonDanger =
-  'flex items-center gap-2 px-3 py-1.5 bg-red-50 hover:bg-red-100 ' +
-  'text-red-600 font-medium rounded-lg transition-colors';
-
 // =================================================================
-// 📦 TIPOS
+//  TIPOS (Alinhados com o Schema Prisma)
 // =================================================================
-interface ServiceCategory {
-  id: string;
-  name: string;
-  icon?: string;
-  order: number;
-  description?: string;
-  items: ServiceItem[];
-  _count: { items: number };
-}
-
 interface ServiceItem {
   id: string;
   name: string;
@@ -78,17 +47,24 @@ interface ServiceItem {
   categoryId: string;
 }
 
+interface ServiceCategory {
+  id: string;
+  name: string;
+  order: number;
+  description?: string;
+  items: ServiceItem[];
+  _count: { items: number };
+}
+
 interface CommercialPlan {
   id: string;
   name: string;
   multiplier: number;
   order: number;
   isIndependent: boolean;
-  color?: string;
   badge?: string;
   description?: string;
-  itemCount: number;
-  items: Array<{
+  explicitItems: Array<{
     id: string;
     name: string;
     categoryId: string;
@@ -102,11 +78,15 @@ interface CommercialPlan {
 export default function MeusPlanosPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  const [valorReferencia, setValorReferencia] = useState<number>(2000);
   const [plans, setPlans] = useState<CommercialPlan[]>([]);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newItemName, setNewItemName] = useState<Record<string, string>>({});
 
-  // Carrega dados iniciais
   useEffect(() => {
     loadData();
   }, []);
@@ -114,25 +94,38 @@ export default function MeusPlanosPage() {
   async function loadData() {
     try {
       setLoading(true);
+      // ✅ CORREÇÃO: Rota alinhada com o Controller (@Get('plans'))
       const [plansRes, categoriesRes] = await Promise.all([
         api.get('/commercial-plans/plans'),
         api.get('/commercial-plans/categories'),
       ]);
-      setPlans(plansRes.data.data || []);
+      
+      const safePlans = (plansRes.data.data || []).map((p: any) => ({
+        ...p,
+        explicitItems: p.explicitItems || p.items || []
+      }));
+      
+      setPlans(safePlans);
       setCategories(categoriesRes.data.data || []);
     } catch (err) {
-      toast.error('Erro ao carregar dados');
+      console.error(err);
+      toast.error('Erro ao carregar dados dos planos');
     } finally {
       setLoading(false);
     }
   }
 
-  // Salva toda a configuração de uma vez
   async function handleSaveAll() {
     setSaving(true);
     try {
-      await api.post('/commercial-plans/save-configuration', { plans });
-      toast.success('Planos salvos com sucesso!');
+      // ✅ CORREÇÃO: Rota alinhada com o Controller (@Post('bulk-update'))
+      await api.post('/commercial-plans/bulk-update', { 
+        valorReferencia,
+        plans: plans.map(({ id, name, multiplier, order, isIndependent, explicitItems }) => ({
+          id, name, multiplier, order, isIndependent, explicitItems
+        }))
+      });
+      toast.success('Planos e valores salvos com sucesso!');
       setEditingPlanId(null);
       await loadData();
     } catch (err: any) {
@@ -142,62 +135,76 @@ export default function MeusPlanosPage() {
     }
   }
 
-  // Adiciona um novo plano
-  async function handleAddPlan() {
+  function handleAddPlan() {
     const newPlan: CommercialPlan = {
-      id: '', // Será criado no backend
+      id: crypto.randomUUID(),
       name: `Novo Plano ${plans.length + 1}`,
       multiplier: 1.0,
       order: plans.length,
       isIndependent: false,
-      itemCount: 0,
-      items: [],
+      explicitItems: [],
     };
     setPlans([...plans, newPlan]);
-    setEditingPlanId('new');
+    setEditingPlanId(newPlan.id);
   }
 
-  // Atualiza dados de um plano
-  function handleUpdatePlan(id: string, field: string, value: any) {
-    setPlans(plans.map((p) => (p.id === id || (id === 'new' && !p.id) ? { ...p, [field]: value } : p)));
+  function handleUpdatePlan(id: string, field: string, value: unknown) {
+    setPlans(prev => prev.map((p) => 
+      (p.id === id) ? { ...p, [field]: value } : p
+    ));
   }
 
-  // Remove um plano
   async function handleDeletePlan(id: string) {
-    if (!confirm('Tem certeza que deseja remover este plano?')) return;
-
+    if (!confirm('Tem certeza que deseja remover este plano? Esta ação não pode ser desfeita.')) return;
     try {
-      if (id) {
+      if (id.length > 20) { 
         await api.delete(`/commercial-plans/plans/${id}`);
       }
-      setPlans(plans.filter((p) => p.id !== id));
+      setPlans(prev => prev.filter((p) => p.id !== id));
       toast.success('Plano removido');
     } catch (err) {
       toast.error('Erro ao remover plano');
     }
   }
 
-  // Toggle: marca/desmarca item em um plano
-  function handleToggleItem(planIndex: number, itemId: string) {
-    const plan = plans[planIndex];
-    const hasItem = plan.items.some((i) => i.id === itemId);
+  function handleToggleItem(planId: string, itemId: string) {
+    setPlans(prevPlans => prevPlans.map(plan => {
+      if (plan.id !== planId) return plan;
 
-    const newItems = hasItem
-      ? plan.items.filter((i) => i.id !== itemId)
-      : [...plan.items, { id: itemId, name: '', categoryId: '', categoryName: '' }];
+      const hasItem = plan.explicitItems.some((i) => i.id === itemId);
+      
+      if (hasItem) {
+        return { ...plan, explicitItems: plan.explicitItems.filter((i) => i.id !== itemId) };
+      } else {
+        const itemToAdd = categories.flatMap(c => c.items).find(i => i.id === itemId);
+        const categoryOfItem = categories.find(c => c.id === itemToAdd?.categoryId);
+        
+        if (!itemToAdd || !categoryOfItem) return plan;
 
-    const newPlans = [...plans];
-    newPlans[planIndex] = { ...plan, items: newItems, itemCount: newItems.length };
-    setPlans(newPlans);
+        return {
+          ...plan,
+          explicitItems: [
+            ...plan.explicitItems,
+            {
+              id: itemToAdd.id,
+              name: itemToAdd.name,
+              categoryId: categoryOfItem.id,
+              categoryName: categoryOfItem.name
+            }
+          ]
+        };
+      }
+    }));
   }
 
-  // Adiciona uma nova categoria
   async function handleAddCategory() {
-    const name = prompt('Nome da nova categoria:');
-    if (!name) return;
-
+    if (!newCategoryName.trim()) return;
     try {
-      await api.post('/commercial-plans/categories', { name, order: categories.length });
+      await api.post('/commercial-plans/categories', { 
+        name: newCategoryName.trim(), 
+        order: categories.length 
+      });
+      setNewCategoryName('');
       toast.success('Categoria criada');
       await loadData();
     } catch (err) {
@@ -205,10 +212,8 @@ export default function MeusPlanosPage() {
     }
   }
 
-  // Remove uma categoria
   async function handleDeleteCategory(id: string) {
-    if (!confirm('Remover esta categoria e todos os seus itens?')) return;
-
+    if (!confirm('Remover esta categoria e TODOS os seus itens?')) return;
     try {
       await api.delete(`/commercial-plans/categories/${id}`);
       toast.success('Categoria removida');
@@ -218,13 +223,12 @@ export default function MeusPlanosPage() {
     }
   }
 
-  // Adiciona um novo item a uma categoria
   async function handleAddItem(categoryId: string) {
-    const name = prompt('Nome do novo item de serviço:');
+    const name = newItemName[categoryId]?.trim();
     if (!name) return;
-
     try {
       await api.post('/commercial-plans/items', { categoryId, name });
+      setNewItemName(prev => ({ ...prev, [categoryId]: '' }));
       toast.success('Item criado');
       await loadData();
     } catch (err) {
@@ -232,10 +236,8 @@ export default function MeusPlanosPage() {
     }
   }
 
-  // Remove um item
   async function handleDeleteItem(itemId: string) {
     if (!confirm('Remover este item de serviço?')) return;
-
     try {
       await api.delete(`/commercial-plans/items/${itemId}`);
       toast.success('Item removido');
@@ -245,21 +247,18 @@ export default function MeusPlanosPage() {
     }
   }
 
-  // =================================================================
-  // 🎨 RENDERIZAÇÃO
-  // =================================================================
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-12 w-12 text-teal-600 animate-spin mb-4" />
-        <p className="text-slate-600">Carregando planos comerciais...</p>
+        <p className="text-slate-600">Carregando estrutura comercial...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Cabeçalho */}
+    <div className="space-y-8 p-6 max-w-7xl mx-auto">
+      {/* Cabeçalho da Página */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
@@ -267,14 +266,12 @@ export default function MeusPlanosPage() {
             Meus Planos Comerciais
           </h1>
           <p className="text-slate-600 mt-1">
-            Configure os planos que aparecerão na calculadora de preço e nas propostas.
+            Configure os planos, multiplicadores e o catálogo de serviços para a calculadora de propostas.
           </p>
         </div>
-
         <div className="flex gap-2">
           <button onClick={handleAddPlan} className={buttonSecondary}>
-            <Plus className="h-4 w-4" />
-            Adicionar Plano
+            <Plus className="h-4 w-4" /> Adicionar Plano
           </button>
           <button onClick={handleSaveAll} disabled={saving} className={buttonPrimary}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -283,32 +280,56 @@ export default function MeusPlanosPage() {
         </div>
       </div>
 
+      {/* Bloco de Valor de Referência */}
+      <section className="bg-gradient-to-r from-teal-50 to-white rounded-xl shadow-sm border border-teal-100 p-6">
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-teal-600" />
+              Valor de Referência Base
+            </h2>
+            <p className="text-sm text-slate-600 mt-1">
+              Este é o valor base (multiplicador 1.00). Os preços dos outros planos serão calculados automaticamente.
+            </p>
+          </div>
+          <div className="md:w-64">
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Valor Mensal (R$)</label>
+            <input
+              type="number"
+              value={valorReferencia}
+              onChange={(e) => setValorReferencia(parseFloat(e.target.value) || 0)}
+              className={`${inputClass} text-xl font-bold text-teal-700`}
+              placeholder="0.00"
+              step="0.01"
+            />
+          </div>
+        </div>
+      </section>
+
       {/* Seção 1: Planos Comerciais */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <h2 className="text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-          <Tag className="h-5 w-5 text-teal-600" />
-          Planos Comerciais
+        <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+          <Tag className="h-5 w-5 text-teal-600" /> Estrutura de Planos
         </h2>
 
         {plans.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
+          <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-200 rounded-lg">
             <Package className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-            <p>Nenhum plano criado ainda.</p>
-            <p className="text-sm mt-2">Clique em "Adicionar Plano" para começar.</p>
+            <p className="font-medium">Nenhum plano criado ainda.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {plans.map((plan, planIndex) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {plans.map((plan) => (
               <PlanCard
-                key={plan.id || `new-${planIndex}`}
+                key={plan.id}
                 plan={plan}
-                index={planIndex}
-                isEditing={editingPlanId === plan.id || (editingPlanId === 'new' && !plan.id)}
-                onEdit={() => setEditingPlanId(plan.id || 'new')}
+                valorReferencia={valorReferencia}
+                isEditing={editingPlanId === plan.id}
+                onEdit={() => setEditingPlanId(plan.id)}
                 onCancelEdit={() => setEditingPlanId(null)}
-                onUpdate={(field, value) => handleUpdatePlan(plan.id || 'new', field, value)}
+                onUpdate={(field: string, value: unknown) => handleUpdatePlan(plan.id, field, value)}
                 onDelete={() => handleDeletePlan(plan.id)}
-                onToggleItem={(itemId) => handleToggleItem(planIndex, itemId)}
+                onToggleItem={(itemId: string) => handleToggleItem(plan.id, itemId)} // ✅ CORREÇÃO: Tipagem explícita
                 categories={categories}
               />
             ))}
@@ -318,28 +339,34 @@ export default function MeusPlanosPage() {
 
       {/* Seção 2: Categorias e Itens de Serviço */}
       <section className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <FolderOpen className="h-5 w-5 text-teal-600" />
-            Categorias e Itens de Serviço
+            <FolderOpen className="h-5 w-5 text-teal-600" /> Catálogo de Serviços
           </h2>
-          <button onClick={handleAddCategory} className={buttonSecondary}>
-            <Plus className="h-4 w-4" />
-            Nova Categoria
+        </div>
+
+        <div className="flex gap-2 mb-6">
+          <input
+            type="text"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            placeholder="Nome da nova categoria (ex: Fiscal e Tributário)"
+            className={`${inputClass} max-w-md`}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+          />
+          <button onClick={handleAddCategory} disabled={!newCategoryName.trim()} className={buttonPrimary}>
+            <Plus className="h-4 w-4" /> Nova Categoria
           </button>
         </div>
 
-        {categories.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            <FolderOpen className="h-12 w-12 mx-auto mb-4 text-slate-300" />
-            <p>Nenhuma categoria criada ainda.</p>
-          </div>
-        ) : (
+        {categories.length > 0 && (
           <div className="space-y-4">
             {categories.map((category) => (
               <CategoryCard
                 key={category.id}
                 category={category}
+                newItemName={newItemName[category.id] || ''}
+                onNewItemNameChange={(name: string) => setNewItemName(prev => ({ ...prev, [category.id]: name }))}
                 onAddItem={() => handleAddItem(category.id)}
                 onDeleteItem={handleDeleteItem}
                 onDeleteCategory={() => handleDeleteCategory(category.id)}
@@ -353,133 +380,79 @@ export default function MeusPlanosPage() {
 }
 
 // =================================================================
-//  CARD DE PLANO
+//  SUB-COMPONENTE: CARD DE PLANO
 // =================================================================
-function PlanCard({
-  plan,
-  index,
-  isEditing,
-  onEdit,
-  onCancelEdit,
-  onUpdate,
-  onDelete,
-  onToggleItem,
-  categories,
-}: {
-  plan: CommercialPlan;
-  index: number;
-  isEditing: boolean;
-  onEdit: () => void;
-  onCancelEdit: () => void;
-  onUpdate: (field: string, value: any) => void;
-  onDelete: () => void;
-  onToggleItem: (itemId: string) => void;
-  categories: ServiceCategory[];
-}) {
+function PlanCard({ plan, valorReferencia, isEditing, onEdit, onCancelEdit, onUpdate, onDelete, onToggleItem, categories }: any) {
+  const precoCalculado = valorReferencia * plan.multiplier;
+  const percentualDiferenca = ((plan.multiplier - 1) * 100).toFixed(0);
+
   return (
-    <div className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-      {/* Header do Card */}
-      <div className="flex items-start justify-between mb-3">
+    <div className={`border rounded-xl p-5 transition-all ${isEditing ? 'border-teal-500 ring-1 ring-teal-500 shadow-md' : 'border-slate-200 hover:shadow-md'}`}>
+      <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           {isEditing ? (
-            <input
-              type="text"
-              value={plan.name}
-              onChange={(e) => onUpdate('name', e.target.value)}
-              className={inputClass + ' font-bold text-lg'}
-              placeholder="Nome do plano"
-            />
+            <input type="text" value={plan.name} onChange={(e) => onUpdate('name', e.target.value)} className={`${inputClass} font-bold text-lg mb-1`} placeholder="Nome do plano" />
           ) : (
             <h3 className="font-bold text-lg text-slate-900">{plan.name}</h3>
           )}
-          {plan.badge && (
-            <span className="inline-block mt-1 px-2 py-0.5 rounded text-xs font-bold bg-orange-100 text-orange-700">
-              {plan.badge}
-            </span>
+          {plan.badge && !isEditing && (
+            <span className="inline-block mt-1 px-2 py-0.5 rounded text-xs font-bold bg-orange-100 text-orange-700">{plan.badge}</span>
+          )}
+          {isEditing && (
+            <input type="text" value={plan.badge || ''} onChange={(e) => onUpdate('badge', e.target.value)} className={`${inputClass} text-sm mt-1`} placeholder="Badge (ex: MAIS POPULAR)" />
           )}
         </div>
-
         <div className="flex gap-1">
           {isEditing ? (
-            <button onClick={onCancelEdit} className="p-1.5 text-slate-400 hover:text-slate-600">
-              <X className="h-4 w-4" />
-            </button>
+            <button onClick={onCancelEdit} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100"><span title="Cancelar"><X className="h-4 w-4" /></span></button>
           ) : (
-            <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-teal-600">
-              <Edit2 className="h-4 w-4" />
-            </button>
+            <button onClick={onEdit} className="p-1.5 text-slate-400 hover:text-teal-600 rounded-md hover:bg-slate-100"><span title="Editar"><Edit2 className="h-4 w-4" /></span></button>
           )}
-          <button onClick={onDelete} className="p-1.5 text-slate-400 hover:text-red-600">
-            <Trash2 className="h-4 w-4" />
-          </button>
+          <button onClick={onDelete} className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100"><span title="Excluir"><Trash2 className="h-4 w-4" /></span></button>
         </div>
       </div>
 
-      {/* Campos editáveis */}
-      {isEditing ? (
-        <div className="space-y-3 mb-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Multiplicador</label>
-            <input
-              type="number"
-              step="0.01"
-              value={plan.multiplier}
-              onChange={(e) => onUpdate('multiplier', parseFloat(e.target.value) || 0)}
-              className={inputClass}
-            />
+      <div className="mb-4 p-3 bg-slate-50 rounded-lg">
+        {isEditing ? (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Multiplicador</label>
+              <input type="number" step="0.01" value={plan.multiplier} onChange={(e) => onUpdate('multiplier', parseFloat(e.target.value) || 0)} className={inputClass} />
+            </div>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={plan.isIndependent} onChange={(e) => onUpdate('isIndependent', e.target.checked)} className="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+              <span className="text-slate-700"><strong>Independente</strong> (Não herda itens)</span>
+            </label>
           </div>
+        ) : (
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Badge (opcional)</label>
-            <input
-              type="text"
-              value={plan.badge || ''}
-              onChange={(e) => onUpdate('badge', e.target.value)}
-              className={inputClass}
-              placeholder="Ex: MAIS POPULAR"
-            />
+            <div className="text-3xl font-bold text-teal-700">R$ {precoCalculado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+            <div className="text-sm text-slate-500 mt-1">
+              {plan.multiplier === 1 ? 'Valor Base' : plan.multiplier < 1 ? `${percentualDiferenca}% abaixo da base` : `+${percentualDiferenca}% sobre a base`}
+            </div>
+            <div className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-200">{plan.explicitItems.length} itens selecionados</div>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={plan.isIndependent}
-              onChange={(e) => onUpdate('isIndependent', e.target.checked)}
-              className="rounded border-slate-300"
-            />
-            <span className="text-slate-700">Independente (não herda itens)</span>
-          </label>
-        </div>
-      ) : (
-        <div className="mb-4">
-          <div className="text-2xl font-bold text-teal-600">×{plan.multiplier.toFixed(2)}</div>
-          <div className="text-sm text-slate-500">{plan.itemCount} itens selecionados</div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Lista de itens marcados */}
       {isEditing && (
         <div className="border-t border-slate-200 pt-3">
-          <p className="text-xs font-semibold text-slate-600 mb-2">Itens inclusos:</p>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {categories.map((category) => (
+          <p className="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">Selecionar Itens Inclusos:</p>
+          <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+            {categories.map((category: any) => (
               <div key={category.id}>
-                <p className="text-xs font-medium text-slate-500 mb-1">{category.name}</p>
-                {category.items.map((item) => {
-                  const isChecked = plan.items.some((i) => i.id === item.id);
-                  return (
-                    <label
-                      key={item.id}
-                      className="flex items-center gap-2 text-sm hover:bg-slate-50 p-1 rounded cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => onToggleItem(item.id)}
-                        className="rounded border-slate-300"
-                      />
-                      <span className="text-slate-700">{item.name}</span>
-                    </label>
-                  );
-                })}
+                <p className="text-xs font-bold text-teal-700 mb-1 flex items-center gap-1"><FolderOpen className="h-3 w-3" /> {category.name}</p>
+                <div className="space-y-1 pl-2 border-l-2 border-slate-100">
+                  {category.items.map((item: any) => {
+                    const isChecked = plan.explicitItems.some((i: any) => i.id === item.id);
+                    return (
+                      <label key={item.id} className="flex items-start gap-2 text-sm hover:bg-slate-50 p-1.5 rounded cursor-pointer transition-colors">
+                        <input type="checkbox" checked={isChecked} onChange={() => onToggleItem(item.id)} className="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+                        <span className="text-slate-700 leading-tight">{item.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>
@@ -490,62 +463,48 @@ function PlanCard({
 }
 
 // =================================================================
-// 📁 CARD DE CATEGORIA
+// 📁 SUB-COMPONENTE: CARD DE CATEGORIA
 // =================================================================
-function CategoryCard({
-  category,
-  onAddItem,
-  onDeleteItem,
-  onDeleteCategory,
-}: {
-  category: ServiceCategory;
-  onAddItem: () => void;
-  onDeleteItem: (itemId: string) => void;
-  onDeleteCategory: () => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
+function CategoryCard({ category, newItemName, onNewItemNameChange, onAddItem, onDeleteItem, onDeleteCategory }: any) {
+  const [expanded, setExpanded] = useState(true);
 
   return (
-    <div className="border border-slate-200 rounded-lg overflow-hidden">
-      {/* Header da Categoria */}
-      <div
-        className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
-      >
+    <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+      <div className="flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-center gap-3 flex-1">
-          {expanded ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
+          {expanded ? <span title="Recolher"><ChevronDown className="h-5 w-5 text-slate-500" /></span> : <span title="Expandir"><ChevronRight className="h-5 w-5 text-slate-500" /></span>}
           <FolderOpen className="h-5 w-5 text-teal-600" />
           <div>
             <h3 className="font-semibold text-slate-900">{category.name}</h3>
-            <p className="text-xs text-slate-500">{category._count.items} itens</p>
+            <p className="text-xs text-slate-500">{category._count.items} itens cadastrados</p>
           </div>
         </div>
-
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-          <button onClick={onAddItem} className="p-1.5 text-slate-400 hover:text-teal-600" title="Adicionar item">
-            <Plus className="h-4 w-4" />
-          </button>
-          <button onClick={onDeleteCategory} className="p-1.5 text-slate-400 hover:text-red-600" title="Remover categoria">
-            <Trash2 className="h-4 w-4" />
+          <button onClick={onDeleteCategory} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
+            <span title="Remover categoria"><Trash2 className="h-4 w-4" /></span>
           </button>
         </div>
       </div>
 
-      {/* Lista de Itens */}
       {expanded && (
-        <div className="border-t border-slate-200">
+        <div className="border-t border-slate-200 bg-white">
+          <div className="p-3 bg-slate-50 border-b border-slate-100 flex gap-2">
+            <input type="text" value={newItemName} onChange={(e) => onNewItemNameChange(e.target.value)} placeholder="Nome do novo serviço..." className={`${inputClass} text-sm py-1.5`} onKeyDown={(e) => e.key === 'Enter' && onAddItem()} />
+            <button onClick={onAddItem} disabled={!newItemName.trim()} className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-md transition-colors disabled:opacity-50">Adicionar</button>
+          </div>
+
           {category.items.length === 0 ? (
-            <p className="p-4 text-sm text-slate-500 text-center">Nenhum item nesta categoria</p>
+            <p className="p-6 text-sm text-slate-500 text-center italic">Nenhum item nesta categoria. Adicione um acima.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
-              {category.items.map((item) => (
-                <li key={item.id} className="flex items-center justify-between p-3 hover:bg-slate-50">
-                  <div className="flex items-center gap-2">
+              {category.items.map((item: any) => (
+                <li key={item.id} className="flex items-center justify-between p-3 hover:bg-slate-50 transition-colors group">
+                  <div className="flex items-center gap-3">
                     <FileText className="h-4 w-4 text-slate-400" />
                     <span className="text-sm text-slate-700">{item.name}</span>
                   </div>
-                  <button onClick={() => onDeleteItem(item.id)} className="text-slate-400 hover:text-red-600">
-                    <Trash2 className="h-4 w-4" />
+                  <button onClick={() => onDeleteItem(item.id)} className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all">
+                    <span title="Remover item"><Trash2 className="h-4 w-4" /></span>
                   </button>
                 </li>
               ))}

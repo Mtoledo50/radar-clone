@@ -331,7 +331,32 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
----
+[Sprint A4] 2026-08 — Fechamento com Ganho (Conta Certa 2.0)
+✅ Added
+Domínio puro `closing-gain.ts`: função `calcClosingGain` com round2,
+interface `ClosingGainResult` (finalPrice, concessionMonthly/Yearly,
+gainMonthly/Yearly, belowCurrent, steps[] de memória).
+DTO `CloseProposalDto`: `discountPercent` (0–50), `closedPlanId?`,
+`currentMonthly?`, `notes?`.
+Controller `POST /proposals/:id/close` com rota unificada polimórfica:
+se body tem `discountPercent` → `closeWithGain` (A4); senão →
+`closeProposal` (legado).
+Service `closeWithGain`: persiste `closingDetails` JSON com memória
+completa (steps, concession, gain, belowCurrent).
+Frontend `CloseProposalModal.tsx`: slider de desconto (0–30%),
+preview em tempo real (preço final + concessão + ganho vs hoje),
+alerta 🟡 quando `belowCurrent`, toast com ganho mensal no sucesso.
+Integração na `precificacao/page.tsx`: botão 🏆 abre o modal em
+propostas `SENT`/`VIEWED`; callback `onClosed` recarrega a lista.
+🧠 Decisions
+ADR-020: round2 em todos os cálculos monetários (fonte da verdade
+no backend, frontend só envia `discountPercent`).
+Rota unificada polimórfica: mesmo endpoint decide o fluxo pelo DTO
+recebido (evita endpoint duplicado e mantém compatibilidade legada).
+Memória de cálculo persistida em `closingDetails.steps[]`: auditoria
+completa e argumento de venda reproduzível.
+🏁 Status
+HOMOLOGADO em ambiente local.
 
 ## [Sprint A3] 2026-08 — Versões de Proposta
 

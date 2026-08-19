@@ -589,6 +589,7 @@ model Proposal {
   closedAt          DateTime?
   closedPlanId      String?
   closedPrice       Float?
+  closingDetails    Json?          // 🆕 A4: memória do fechamento (desconto, ganho, steps)
   lossReason        String?
   
   views             Int            @default(0)

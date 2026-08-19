@@ -1,17 +1,20 @@
 // =================================================================
 // INÍCIO: backend/src/digital-employee/digital-employee.service.ts
 // =================================================================
-// DigitalEmployeeService — Lógica de negócio da Aurora (Sprint FD-1/FD-2).
-//
-// Responsabilidades:
-//  - Criar a Aurora sob demanda (lazy) — 1 por tenant (ADR-004)
-//  - Pausar/retomar o funcionário
-//  - Agregar KPIs do dashboard
-//  - Gerenciar skills (ligar/desligar, cron)
-//  - Listar runs, pendências e auditoria
-//  - Resolver pendências (aprovar/rejeitar) + ApprovalRecord + AUDITORIA
-//    + efeito colateral seguro para CLASSIFICATION (FD-2 final)
-// =================================================================
+/**
+ * DigitalEmployeeService — O "Cérebro" da Aurora (Sprints FD-1 a FD-4)
+ * 
+ * Responsabilidades Principais:
+ * 1. Lazy Creation: Criar a instância da Aurora sob demanda (1 por tenant/empresa).
+ * 2. Orquestração: Gerenciar Skills (ligar/desligar) e sincronizar com o Cron Scheduler.
+ * 3. Human-in-the-loop: Gerenciar a fila de pendências e aprovações humanas.
+ * 4. Compliance: Garantir que TODA ação humana ou automática seja auditada (Regra de Ouro).
+ * 
+ * ADRs Aplicados:
+ * - ADR-004: Multi-tenant single-database (todas as queries filtradas por companyId).
+ * - ADR-FD-01: Efeitos colaterais de aprovação devem ser tolerantes a falhas (não quebrar o fluxo principal).
+ */
+
 import {
   Injectable,
   NotFoundException,
@@ -21,76 +24,91 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SkillKey, ApprovalDecision } from '@prisma/client';
 import { JobRunnerService } from './orchestrator/job-runner.service';
 import { SchedulerService } from './orchestrator/scheduler.service';
-import { AutomationAuditService } from './audit/automation-audit.service'; // 🆕 FD-2 final
+import { AutomationAuditService } from './audit/automation-audit.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import { MonthlyReportSkill } from './skills/monthly-report.skill';
 import { TaxGuidesService } from '../tax/tax-guides.service';
+
 // -----------------------------------------------------------------
-// Configuração das skills padrão da Aurora.
-// Quando o worker é criado, fazemos o "seed" destas 4 skills
-// (todas DESLIGADAS — o usuário liga pelo painel).
-// cronExpr usa formato POSIX cron.
+// CONFIGURAÇÃO PADRÃO DAS SKILLS
+// Quando a Aurora é criada pela 1ª vez, ela ganha estas 4 habilidades.
+// Todas começam DESLIGADAS (enabled: false). O usuário as ativa no painel.
+// O cronExpr segue o formato POSIX (ex: '0 2 * * *' = todo dia às 02:00).
 // -----------------------------------------------------------------
 const DEFAULT_SKILLS: Array<{
   skillKey: SkillKey;
   cronExpr: string;
 }> = [
-  { skillKey: 'RECONCILIATION', cronExpr: '0 2 * * *' },      // 02:00 diário
-  { skillKey: 'CLASSIFICATION', cronExpr: '30 2 * * *' },     // 02:30 diário
-  { skillKey: 'ACCOUNTING_BRIDGE', cronExpr: '0 3 * * *' },   // 03:00 diário
-  { skillKey: 'MONTHLY_REPORT', cronExpr: '0 8 5 * *' },      // 08:00 dia 5
+  { skillKey: 'RECONCILIATION', cronExpr: '0 2 * * *' },      // Conciliação: 02:00 diário
+  { skillKey: 'CLASSIFICATION', cronExpr: '30 2 * * *' },     // Classificação: 02:30 diário
+  { skillKey: 'ACCOUNTING_BRIDGE', cronExpr: '0 3 * * *' },   // Ponte Contábil: 03:00 diário
+  { skillKey: 'MONTHLY_REPORT', cronExpr: '0 8 5 * *' },      // Relatório Mensal: Dia 5, às 08:00
 ];
 
 @Injectable()
 export class DigitalEmployeeService {
   constructor(
+    // Prisma: Acesso seguro e tipado ao banco de dados
     private readonly prisma: PrismaService,
+    // JobRunner: Executa a lógica pesada das skills em background
     private readonly jobRunner: JobRunnerService,
-    private readonly scheduler: SchedulerService, // 🆕 FD-2: sincroniza toggle ↔ cron
-    private readonly audit: AutomationAuditService, // 🆕 FD-2 final: auditoria das decisões humanas
+    // Scheduler: Gerencia os timers/crons em memória do servidor Node.js
+    private readonly scheduler: SchedulerService,
+    // Audit: Registra trilha de compliance imutável (Regra de Ouro)
+    private readonly audit: AutomationAuditService,
+    // Skills injetadas para execução manual ou delegação
     private readonly monthlyReportSkill: MonthlyReportSkill,
     private readonly taxGuidesService: TaxGuidesService,
   ) {}
 
   // =================================================================
-  // 🤖 WORKER — Lazy create (cria na primeira vez que acessa)
+  // 🔒 LAZY CREATION — Garantir que a Aurora existe
   // =================================================================
   /**
-   * Busca a Aurora do tenant. Se ainda não existir, cria com o nome
-   * padrão "Aurora" + as 4 skills padrão (desligadas).
-   * O companyId é UNIQUE no modelo RobotWorker, então nunca duplica.
+   * Padrão "Lazy Initialization": Verifica se a Aurora já existe para esta empresa.
+   * Se não existir, cria com as skills padrão. Isso evita erros de "null reference".
+   * 
+   * @param companyId - O ID da empresa (tenant)
+   * @returns A instância do RobotWorker
    */
-  async getOrCreateWorker(companyId: string) {
-    // Tenta buscar primeiro (caminho feliz — já existe)
-    const existing = await this.prisma.robotWorker.findUnique({
+  private async getOrCreateRobotWorker(companyId: string) {
+    // 1. Tenta buscar no banco. Se existir, retorna imediatamente (performance).
+    const existingWorker = await this.prisma.robotWorker.findFirst({
       where: { companyId },
-      include: { skills: true },
+      include: { skills: true }, // Já traz as skills para evitar query extra depois
     });
-    if (existing) return existing;
 
-    // Não existe ainda → cria dentro de uma transação (worker + skills)
+    if (existingWorker) {
+      return existingWorker;
+    }
+
+    // 2. Se NÃO existir, cria em uma transação atômica para garantir integridade.
     return this.prisma.$transaction(async (tx) => {
+      // Cria o worker base
       const worker = await tx.robotWorker.create({
-        data: { companyId, name: 'Aurora', avatar: '🌅' },
+        data: {
+          companyId: companyId, // ⚠️ CRÍTICO: Vincula ao tenant (ADR-004)
+          name: 'Aurora',
+          status: 'ACTIVE',
+        },
       });
 
-      // Seed das skills padrão (todas desligadas por segurança)
-      for (const skill of DEFAULT_SKILLS) {
-        await tx.robotWorkerSkill.create({
-          data: {
-            companyId,
-            workerId: worker.id,
-            skillKey: skill.skillKey,
-            enabled: false,
-            cronExpr: skill.cronExpr,
-            autonomy: 'REVIEW', // Regra de Ouro: começa sempre em revisão
-          },
-        });
-      }
+      // Cria as 4 skills padrão desligadas para este worker
+      const skillsData = DEFAULT_SKILLS.map((skill) => ({
+        companyId,
+        workerId: worker.id,
+        skillKey: skill.skillKey,
+        cronExpr: skill.cronExpr,
+        enabled: false, // Começam desligadas por segurança
+      }));
 
-      // Retorna já com as skills carregadas
-      return tx.robotWorker.findUnique({
+      await tx.robotWorkerSkill.createMany({
+        data: skillsData,
+      });
+
+      // Retorna o worker já com as skills incluídas
+      return tx.robotWorker.findUniqueOrThrow({
         where: { id: worker.id },
         include: { skills: true },
       });
@@ -98,47 +116,48 @@ export class DigitalEmployeeService {
   }
 
   /**
-   * Atualiza a Aurora (pausar/retomar ou renomear).
-   * Valida posse por companyId (multi-tenant — ADR-004).
+   * Obtém ou cria o RobotWorker (Aurora) para o tenant.
+   * (Método público para ser chamado pelo Controller)
    */
-  async updateWorker(
-    companyId: string,
-    data: { status?: 'ACTIVE' | 'PAUSED'; name?: string },
-  ) {
-    const worker = await this.prisma.robotWorker.findUnique({
+  async getOrCreateWorker(companyId: string) {
+    return this.getOrCreateRobotWorker(companyId);
+  }
+
+  /**
+   * Atualiza configurações do RobotWorker (ex: pausar/retomar).
+   */
+  async updateWorker(companyId: string, data: { status?: string; name?: string }) {
+    const worker = await this.prisma.robotWorker.findFirst({
       where: { companyId },
     });
-    if (!worker) throw new NotFoundException('Funcionário digital não encontrado.');
+    
+    if (!worker) {
+      throw new NotFoundException('Aurora (RobotWorker) não encontrada para este tenant.');
+    }
 
     return this.prisma.robotWorker.update({
       where: { id: worker.id },
       data: {
-        ...(data.status ? { status: data.status } : {}),
+        ...(data.status ? { status: data.status as any } : {}),
         ...(data.name ? { name: data.name } : {}),
       },
     });
   }
 
   // =================================================================
-  // 📊 DASHBOARD — KPIs agregados
+  // 📊 DASHBOARD — Agregação de KPIs
   // =================================================================
   /**
-   * Agrega os números para o topo do painel da Aurora:
-   *  - Quantas execuções (runs) ocorreram hoje
-   *  - Quantos itens foram aprovados sozinhos (score ≥80%)
-   *  - Quantas pendências aguardam o humano (fila 🟡)
-   *  - Tempo total economizado (métrica de marketing)
+   * Monta os números do painel principal da Aurora.
+   * Usa Promise.all para executar 4 queries em paralelo, reduzindo o tempo de resposta.
    */
   async getDashboard(companyId: string) {
-    // Início e fim do dia de hoje (para o filtro "runs hoje")
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
-    // 4 consultas em paralelo (Promise.all) — performance
     const [runsToday, pendingCount, lifetime, lastRun] = await Promise.all([
-      // Runs de hoje
       this.prisma.automationRun.findMany({
         where: { companyId, startedAt: { gte: startOfDay, lte: endOfDay } },
         select: {
@@ -146,27 +165,21 @@ export class DigitalEmployeeService {
           skillKey: true,
           status: true,
           startedAt: true,
-          itemsProcessed: true,
           itemsAutoApproved: true,
-          itemsPendingHuman: true,
           secondsSaved: true,
         },
         orderBy: { startedAt: 'desc' },
       }),
-      // Pendências abertas (fila 🟡)
       this.prisma.automationPending.count({
         where: { companyId, status: 'PENDING' },
       }),
-      // Totais acumulados (desde sempre)
       this.prisma.automationRun.aggregate({
         where: { companyId },
         _sum: {
-          itemsProcessed: true,
           itemsAutoApproved: true,
           secondsSaved: true,
         },
       }),
-      // Última execução (para mostrar "última vez que trabalhou")
       this.prisma.automationRun.findFirst({
         where: { companyId },
         orderBy: { startedAt: 'desc' },
@@ -177,13 +190,12 @@ export class DigitalEmployeeService {
     return {
       today: {
         runs: runsToday.length,
-        autoApproved: runsToday.reduce((s, r) => s + r.itemsAutoApproved, 0),
-        secondsSaved: runsToday.reduce((s, r) => s + r.secondsSaved, 0),
+        autoApproved: runsToday.reduce((sum, r) => sum + (r.itemsAutoApproved || 0), 0),
+        secondsSaved: runsToday.reduce((sum, r) => sum + (r.secondsSaved || 0), 0),
         runsList: runsToday,
       },
       pendingReview: pendingCount,
       lifetime: {
-        itemsProcessed: lifetime._sum.itemsProcessed ?? 0,
         itemsAutoApproved: lifetime._sum.itemsAutoApproved ?? 0,
         secondsSaved: lifetime._sum.secondsSaved ?? 0,
       },
@@ -192,22 +204,19 @@ export class DigitalEmployeeService {
   }
 
   // =================================================================
-  // 🧩 SKILLS — ligar/desligar e configurar cron
+  // 🧩 SKILLS — Gerenciamento de Habilidades e Cron
   // =================================================================
   /**
-   * Lista as skills da Aurora do tenant.
-   * Garante que o worker existe antes (lazy create).
+   * Lista as habilidades configuradas para a Aurora deste tenant.
    */
   async listSkills(companyId: string) {
-    const worker = await this.getOrCreateWorker(companyId);
+    const worker = await this.getOrCreateRobotWorker(companyId);
     return worker.skills;
   }
 
   /**
-   * Atualiza uma skill (ligar/desligar + cron).
-   * 🆕 FD-2: o toggle agora SINCRONIZA o cron em tempo real:
-   *    ON  → scheduler.registerCron (Aurora passa a acordar sozinha)
-   *    OFF → scheduler.unregisterCron (Aurora dorme)
+   * Atualiza uma skill (liga/desliga ou muda o horário do cron).
+   * ⚠️ DECISÃO TÉCNICA (FD-2): O banco de dados é a "Fonte da Verdade".
    */
   async updateSkill(
     companyId: string,
@@ -217,9 +226,8 @@ export class DigitalEmployeeService {
     const skill = await this.prisma.robotWorkerSkill.findFirst({
       where: { id: skillId, companyId },
     });
-    if (!skill) throw new NotFoundException('Skill não encontrada.');
+    if (!skill) throw new NotFoundException('Skill não encontrada ou sem permissão.');
 
-    // 1. Persiste a mudança no banco
     const updated = await this.prisma.robotWorkerSkill.update({
       where: { id: skillId },
       data: {
@@ -228,7 +236,6 @@ export class DigitalEmployeeService {
       },
     });
 
-    // 2. 🆕 Sincroniza o cron com o estado final do toggle
     const finalEnabled = data.enabled !== undefined ? data.enabled : skill.enabled;
     const finalCron = data.cronExpr || skill.cronExpr;
 
@@ -242,12 +249,8 @@ export class DigitalEmployeeService {
   }
 
   // =================================================================
-  // 📋 RUNS — histórico de execuções (o "ponto" da Aurora)
+  // 📋 RUNS & PENDÊNCIAS — Histórico e Fila de Revisão
   // =================================================================
-  /**
-   * Lista as últimas execuções (mais recentes primeiro).
-   * @param limit - quantidade máxima (padrão 20, máx 100)
-   */
   async listRuns(companyId: string, limit = 20) {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     return this.prisma.automationRun.findMany({
@@ -257,13 +260,6 @@ export class DigitalEmployeeService {
     });
   }
 
-  // =================================================================
-  // 🟡 PENDÊNCIAS — fila de revisão (human-in-the-loop)
-  // =================================================================
-  /**
-   * Lista as pendências abertas (status = PENDING).
-   * É o que o contador revisa/aprova no painel.
-   */
   async listPending(companyId: string) {
     return this.prisma.automationPending.findMany({
       where: { companyId, status: 'PENDING' },
@@ -271,21 +267,15 @@ export class DigitalEmployeeService {
     });
   }
 
+  // =================================================================
+  // ✅ RESOLUÇÃO DE PENDÊNCIAS (Human-in-the-loop)
+  // =================================================================
   /**
-   * Resolve uma pendência: aprova ou rejeita.
-   *
-   * 🆕 FD-2 final (Central de Aprovações):
-   *  - Auditoria da decisão humana (USER_APPROVED / USER_REJECTED)
-   *  - Efeito colateral SEGURO: CLASSIFICATION aprovada aplica a natureza
-   *    sugerida na transação (se ela existir no tenant); MATCH continua
-   *    sendo confirmado na tela de Conciliação (motor da Sprint 29).
-   *  - Sempre cria ApprovalRecord (trava de transmissão — Regra de Ouro).
-   *
-   * @param companyId - Tenant (valida posse)
-   * @param userId - quem decidiu (auditoria)
-   * @param pendingId - ID da pendência
-   * @param decision - APPROVED ou REJECTED
-   * @param notes - nota opcional do contador (alimenta memória futura)
+   * 🛡️ REGRA DE OURO (Compliance):
+   * Esta operação usa uma Transação Atômica ($transaction) para garantir 3 coisas:
+   * 1. A pendência muda de status.
+   * 2. Um registro de auditoria (ApprovalRecord) é criado.
+   * 3. O "Efeito Colateral" é aplicado (ex: se aprovou classificação, atualiza a transação).
    */
   async resolvePending(
     companyId: string,
@@ -297,16 +287,13 @@ export class DigitalEmployeeService {
     const pending = await this.prisma.automationPending.findFirst({
       where: { id: pendingId, companyId },
     });
+    
     if (!pending) throw new NotFoundException('Pendência não encontrada.');
     if (pending.status !== 'PENDING') {
-      throw new BadRequestException('Esta pendência já foi resolvida.');
+      throw new BadRequestException('Esta pendência já foi resolvida anteriormente.');
     }
 
-    // -----------------------------------------------------------------
-    // Transação atômica: pendência + ApprovalRecord + efeito colateral
-    // -----------------------------------------------------------------
     const updated = await this.prisma.$transaction(async (tx) => {
-      // 1. Atualiza a pendência para o status final (APPROVED/REJECTED)
       const resolved = await tx.automationPending.update({
         where: { id: pendingId },
         data: {
@@ -317,11 +304,10 @@ export class DigitalEmployeeService {
         },
       });
 
-      // 2. Cria o ApprovalRecord (prova jurídica da decisão)
       await tx.approvalRecord.create({
         data: {
           companyId,
-          entityType: pending.type, // ex.: MATCH, CLASSIFICATION
+          entityType: pending.type,
           entityId: pending.id,
           decision,
           decidedBy: userId,
@@ -329,16 +315,6 @@ export class DigitalEmployeeService {
         },
       });
 
-      // 3. 🆕 Efeito colateral seguro por tipo de pendência
-      //
-      //    CLASSIFICATION aprovada → aplica a natureza sugerida na
-      //    transação bancária correspondente (se ela existir no tenant).
-      //    Se a transação não existir (ex.: dado de teste), simplesmente
-      //    ignora — não é erro, é tolerância.
-      //
-      //    MATCH → a confirmação efetiva continua na tela de Conciliação
-      //    (motor de score da Sprint 29). Aqui apenas registramos a
-      //    decisão para compliance e auditoria.
       if (decision === 'APPROVED' && pending.type === 'CLASSIFICATION') {
         const payload = (pending.payload || {}) as {
           transactionId?: string;
@@ -346,7 +322,6 @@ export class DigitalEmployeeService {
         };
 
         if (payload?.transactionId && payload?.suggestedNature) {
-          // Só aplica se a transação existir no tenant (tolerante a testes)
           const exists = await tx.bankTransaction.findFirst({
             where: { id: payload.transactionId, companyId },
           });
@@ -363,13 +338,6 @@ export class DigitalEmployeeService {
       return resolved;
     });
 
-    // -----------------------------------------------------------------
-    // 4. 🆕 Auditoria da decisão humana (fora da transação — fire-and-forget)
-    //
-    //    Registra USER_APPROVED:<tipo> ou USER_REJECTED:<tipo> na trilha
-    //    de compliance. A nota vai no detail para histórico completo.
-    //    Se der erro aqui, não deve quebrar a resolução já persistida.
-    // -----------------------------------------------------------------
     try {
       await this.audit.log({
         companyId,
@@ -380,12 +348,9 @@ export class DigitalEmployeeService {
         detail: { notes: notes || null, type: pending.type },
       });
     } catch (auditError) {
-      // Log do erro de auditoria NÃO deve quebrar o fluxo principal.
-      // A resolução já foi persistida na transação acima.
       console.error(
-        `[resolvePending] Falha ao registrar auditoria da decisão ${decision} ` +
-          `na pendência ${pendingId}:`,
-        auditError?.message,
+        `[resolvePending] Falha ao registrar auditoria da decisão ${decision} na pendência ${pendingId}:`,
+        (auditError as Error)?.message,
       );
     }
 
@@ -393,12 +358,8 @@ export class DigitalEmployeeService {
   }
 
   // =================================================================
-  // 📝 AUDITORIA — trilha de compliance
+  // 📝 AUDITORIA & DISPARO MANUAL
   // =================================================================
-  /**
-   * Lista as últimas ações da Aurora (e do humano revisando).
-   * @param limit - quantidade máxima (padrão 50, máx 200)
-   */
   async listAudit(companyId: string, limit = 50) {
     const safeLimit = Math.min(Math.max(limit, 1), 200);
     return this.prisma.automationAudit.findMany({
@@ -408,28 +369,13 @@ export class DigitalEmployeeService {
     });
   }
 
-  // =================================================================
-  // ▶️ DISPARO MANUAL — Botão "Rodar agora"
-  // =================================================================
-  /**
-   * Dispara uma skill sob demanda (usada pelo botão "Rodar agora").
-   * Wrapper sobre o JobRunnerService para manter a API coesa.
-   *
-   * @param companyId - Tenant
-   * @param skillKey - Qual skill executar (RECONCILIATION, CLASSIFICATION...)
-   * @param userId - Quem disparou (auditoria)
-   */
   async runSkillNow(companyId: string, skillKey: string, userId: string) {
     return this.jobRunner.runSkill(companyId, skillKey as any, 'MANUAL', userId);
   }
-  // =================================================================
-  // 📊 RELATÓRIOS MENSAIS (FD-2 final)
-  // =================================================================
 
-  /**
-   * Lista todos os relatórios do tenant, com filtros opcionais.
-   * Ordena por período decrescente (mais recente primeiro).
-   */
+  // =================================================================
+  // 📊 FD-2: RELATÓRIOS MENSAIS
+  // =================================================================
   async listReports(
     companyId: string,
     period?: string,
@@ -445,13 +391,7 @@ export class DigitalEmployeeService {
       where,
       include: {
         client: {
-          select: {
-            id: true,
-            companyName: true,
-            cnpj: true,
-            serviceType: true,
-            monthlyFee: true,
-          },
+          select: { id: true, companyName: true, cnpj: true },
         },
       },
       orderBy: { period: 'desc' },
@@ -460,10 +400,6 @@ export class DigitalEmployeeService {
     return { value: reports, count: reports.length };
   }
 
-  /**
-   * Faz o download do PDF do relatório (stream direto do filesystem).
-   * Retorna 404 se o relatório não pertencer ao tenant ou o arquivo não existir.
-   */
   async downloadReport(companyId: string, id: string, res: any) {
     const report = await this.prisma.monthlyReport.findFirst({
       where: { id, companyId },
@@ -480,16 +416,13 @@ export class DigitalEmployeeService {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="relatorio-${report.period}-${report.clientId.slice(0, 8)}.pdf"`,
+      `attachment; filename="relatorio-${report.period}.pdf"`,
     );
+    
     const stream = fs.createReadStream(filePath);
     stream.pipe(res);
   }
 
-  /**
-   * Gera o relatório de 1 cliente específico (modo manual da skill).
-   * Reutiliza a MonthlyReportSkill com params.clientId.
-   */
   async generateReportForClient(
     companyId: string,
     userId: string,
@@ -497,13 +430,7 @@ export class DigitalEmployeeService {
     year?: number,
     month?: number,
   ) {
-    // Cria um run de auditoria para este disparo manual
-    const worker = await this.prisma.robotWorker.findFirst({
-      where: { companyId },
-    });
-    if (!worker) {
-      throw new Error('RobotWorker não encontrado para o tenant');
-    }
+    const worker = await this.getOrCreateRobotWorker(companyId);
 
     const run = await this.prisma.automationRun.create({
       data: {
@@ -520,8 +447,8 @@ export class DigitalEmployeeService {
       const result = await this.monthlyReportSkill.execute({
         companyId,
         runId: run.id,
-        skillKey: 'MONTHLY_REPORT',   // 🆕 exigido pelo SkillContext
-        triggeredBy: userId,          // 🆕 exigido pelo SkillContext
+        skillKey: 'MONTHLY_REPORT',
+        triggeredBy: userId,
         params: { clientId, year, month },
       });
 
@@ -538,20 +465,7 @@ export class DigitalEmployeeService {
         },
       });
 
-      await this.audit.log({
-        companyId,
-        actor: `USER_${userId}`,
-        action: 'SKILL_FINISHED:MONTHLY_REPORT',
-        entity: 'AutomationRun',
-        entityId: run.id,
-        detail: { ...result, period: result.detail?.period },
-      });
-
-      return {
-        runId: run.id,
-        status: result.itemsFailed > 0 ? 'PARTIAL' : 'SUCCESS',
-        result,
-      };
+      return { runId: run.id, status: 'SUCCESS', result };
     } catch (error: any) {
       await this.prisma.automationRun.update({
         where: { id: run.id },
@@ -564,61 +478,48 @@ export class DigitalEmployeeService {
       throw error;
     }
   }
-  // =================================================================
-  // 📥 NFS-e (FD-3a)
-  // =================================================================
 
-  /**
-   * Salva o XML na caixa de entrada da Aurora.
-   * Nome do arquivo carrega tenant + clientId opcional:
-   *   {companyId}_{clientId|auto}_{timestamp}.xml
-   */
+  // =================================================================
+  // 📥 FD-3a: NFS-e (Caixa de Entrada)
+  // =================================================================
   async saveNfseToInbox(companyId: string, xml: string, clientId?: string) {
     if (!xml || typeof xml !== 'string' || xml.trim().length < 10) {
       throw new BadRequestException('XML vazio ou inválido');
     }
+    
     const dir = path.join(process.cwd(), 'uploads', 'nfse-inbox');
     fs.mkdirSync(dir, { recursive: true });
+    
     const safeClient = clientId || 'auto';
     const file = `${companyId}_${safeClient}_${Date.now()}.xml`;
     fs.writeFileSync(path.join(dir, file), xml, 'utf-8');
+    
     return { saved: file };
   }
 
-  /**
-   * Lista NFS-e do tenant (com cliente vinculado, se houver).
-   */
   async listNfse(companyId: string, status?: string) {
     const where: any = { companyId };
     if (status) where.status = status;
+    
     const items = await this.prisma.fiscalServiceInvoice.findMany({
       where,
       include: { client: { select: { id: true, companyName: true } } },
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
+    
     return { value: items, count: items.length };
   }
-  // =================================================================
-  // 🧾 GUIAS DE IMPOSTO (FD-4)
-  // =================================================================
 
-  async listTaxGuides(
-    companyId: string,
-    period?: string,
-    type?: string,
-    status?: string,
-  ) {
+  // =================================================================
+  // 🧾 FD-4: GUIAS DE IMPOSTO
+  // =================================================================
+  async listTaxGuides(companyId: string, period?: string, type?: string, status?: string) {
     return this.taxGuidesService.list(companyId, period, type, status);
   }
 
-  async calculateTaxGuides(
-    companyId: string,
-    period: string,
-    userId: string,
-  ) {
-    // Cria run de auditoria
-    const worker = await this.prisma.robotWorker.findFirst({ where: { companyId } });
+  async calculateTaxGuides(companyId: string, period: string, userId: string) {
+    const worker = await this.getOrCreateRobotWorker(companyId);
     if (!worker) throw new Error('Aurora não inicializada para este tenant');
 
     const run = await this.prisma.automationRun.create({
@@ -633,13 +534,10 @@ export class DigitalEmployeeService {
     });
 
     try {
-      const result = await this.taxGuidesService.calcForPeriod(
-        companyId,
-        period,
-        run.id,
-      );
+      const result = await this.taxGuidesService.calcForPeriod(companyId, period, run.id);
 
       const status = result.warnings > 0 ? 'PARTIAL' : 'SUCCESS';
+      
       await this.prisma.automationRun.update({
         where: { id: run.id },
         data: {
@@ -649,7 +547,7 @@ export class DigitalEmployeeService {
           itemsAutoApproved: result.created + result.updated - result.warnings,
           itemsPendingHuman: result.warnings,
           itemsFailed: 0,
-          secondsSaved: result.processed * 900, // ~15min/guia economizados
+          secondsSaved: result.processed * 900,
         },
       });
 
@@ -662,23 +560,18 @@ export class DigitalEmployeeService {
       throw e;
     }
   }
-    async updateTaxGuide(
-    companyId: string,
-    id: string,
-    status: string,
-    userId: string,
-  ) {
+
+  async updateTaxGuide(companyId: string, id: string, status: string, userId: string) {
     const guide = await this.prisma.taxGuide.findFirst({
       where: { id, companyId },
     });
-    if (!guide) throw new Error('Guia não encontrada');
+    if (!guide) throw new NotFoundException('Guia não encontrada');
 
     const updated = await this.prisma.taxGuide.update({
       where: { id },
       data: { status: status as any },
     });
 
-    // Auditoria da ação humana (Regra de Ouro: LEGAL sempre registrado)
     await this.audit.log({
       companyId,
       actor: `USER_${userId}`,
@@ -690,7 +583,8 @@ export class DigitalEmployeeService {
 
     return updated;
   }
-    async taxGuidePdf(companyId: string, id: string) {
+
+  async taxGuidePdf(companyId: string, id: string) {
     return this.taxGuidesService.generatePdf(companyId, id);
   }
 }

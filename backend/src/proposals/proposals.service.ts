@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+// =================================================================
+// ProposalsService — Sprint A1..A4 (completo)
+// =================================================================
 import { PrismaService } from '../prisma/prisma.service';
 import { ProposalStatus } from '@prisma/client';
+import { calcClosingGain } from '../commercial-plans/domain/closing-gain';
+import { CloseProposalDto } from './dto/close-proposal.dto';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 
 @Injectable()
 export class ProposalsService {
@@ -9,7 +14,7 @@ export class ProposalsService {
   // =================================================================
   // 📋 CRUD DE PROPOSTAS (Com ProposalItem relacional)
   // =================================================================
-  
+
   async findAll(companyId: string, status?: string) {
     const where: any = { companyId };
     if (status && status !== 'all') {
@@ -46,116 +51,68 @@ export class ProposalsService {
     return proposal;
   }
 
-  // =================================================================
-  // 🌐 MÉTODOS PÚBLICOS (Página Pública da Proposta)
-  // =================================================================
-
   /**
-   * 🌐 BUSCA PÚBLICA POR SLUG (Para visualização do cliente)
-   * Não exige companyId (acesso público via link compartilhado)
-   */
-  async findBySlug(slug: string) {
-    const proposal = await this.prisma.proposal.findUnique({
-      where: { slug },
-      include: {
-        items: {
-          include: {
-            commercialPlan: true,
-            serviceItem: {
-              include: { category: true },
-            },
-          },
-        },
-        company: {
-          select: {
-            name: true,
-            logoUrl: true,
-            email: true,
-            phone: true,
-          },
-        },
-      },
-    });
-
-    if (!proposal) {
-      throw new NotFoundException('Proposta não encontrada.');
-    }
-
-    return proposal;
-  }
-
-  /**
-   * 👁️ TRACK DE VISUALIZAÇÃO (Métrica de engajamento)
-   * Incrementa o contador de views da proposta
-   */
-  async trackView(slug: string) {
-    return this.prisma.proposal.update({
-      where: { slug },
-      data: {
-        views: { increment: 1 },
-      },
-    });
-  }
-
-  /**
-   * 💬 TRACK DE CLIQUE NO WHATSAPP (Métrica de conversão)
-   */
-  async trackWhatsAppClick(slug: string) {
-    return this.prisma.proposal.update({
-      where: { slug },
-      data: {
-        whatsappClicks: { increment: 1 },
-      },
-    });
-  }
-
-  /**
-   * 🚀 CRIAÇÃO ENTERPRISE: Proposal + ProposalItems (Transacional)
+   * Cria uma nova proposta com proposalNumber e slug únicos.
+   * Padrão: PROP-YYYYMM-NNNN (contador mensal do tenant).
    */
   async create(companyId: string, userId: string, data: any) {
     return this.prisma.$transaction(async (tx) => {
+      // 1) Gera proposalNumber único: PROP-YYYYMM-NNNN
+      const now = new Date();
+      const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const prefix = `PROP-${ym}-`;
+      const lastProposal = await tx.proposal.findFirst({
+        where: {
+          companyId,
+          proposalNumber: { startsWith: prefix },
+        },
+        orderBy: { proposalNumber: 'desc' },
+        select: { proposalNumber: true },
+      });
+      const lastSeq = lastProposal
+        ? parseInt(lastProposal.proposalNumber.split('-')[2] || '0', 10)
+        : 0;
+      const proposalNumber = `${prefix}${String(lastSeq + 1).padStart(4, '0')}`;
+
+      // 2) Gera slug único baseado no clientName + timestamp
+      const baseSlug =
+        (data.clientName || 'proposta')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .slice(0, 60) || 'proposta';
+      const slug = `${baseSlug}-${Date.now()}`;
+
+      // 3) Cria a proposta
       const proposal = await tx.proposal.create({
         data: {
           companyId,
           userId,
-          proposalNumber: data.proposalNumber,
-          slug: data.slug,
-          clientName: data.clientName,
-          clientCnpj: data.clientCnpj,
-          taxRegime: data.taxRegime,
-          activity: data.activity,
-          monthlyRevenue: data.monthlyRevenue,
-          employeeCount: data.employeeCount,
-          basePrice: data.basePrice,
-          aboutOffice: data.aboutOffice,
-          differentials: data.differentials,
-          onboarding: data.onboarding,
-          commercialTerms: data.commercialTerms,
-          specificNote: data.specificNote,
-          status: ProposalStatus.DRAFT,
+          proposalNumber,
+          slug,
+          clientName: data.clientName || 'Sem nome',
+          clientCnpj: data.clientCnpj || null,
+          taxRegime: data.taxRegime || 'SIMPLES',
+          activity: data.activity || '',
+          monthlyRevenue: data.monthlyRevenue || 0,
+          employeeCount: data.employeeCount || 0,
+          basePrice: data.basePrice || 0,
+          aboutOffice: data.aboutOffice || null,
+          differentials: data.differentials || null,
+          onboarding: data.onboarding || null,
+          commercialTerms: data.commercialTerms || null,
+          specificNote: data.specificNote || null,
+          status: 'DRAFT',
         },
       });
-
-      if (data.items && data.items.length > 0) {
-        await tx.proposalItem.createMany({
-          data: data.items.map((item: any) => ({
-            proposalId: proposal.id,
-            commercialPlanId: item.commercialPlanId || null,
-            serviceItemId: item.serviceItemId || null,
-            quantity: item.quantity || 1,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-          })),
-        });
-      }
-
-      return this.findOne(proposal.id, companyId);
+      return proposal;
     });
   }
 
   async update(id: string, companyId: string, data: any) {
     await this.findOne(id, companyId);
-    
     return this.prisma.proposal.update({
       where: { id },
       data: {
@@ -181,14 +138,51 @@ export class ProposalsService {
   }
 
   // =================================================================
+  // 🌐 MÉTODOS PÚBLICOS (Página Pública da Proposta)
+  // =================================================================
+
+  async findBySlug(slug: string) {
+    const proposal = await this.prisma.proposal.findUnique({
+      where: { slug },
+      include: {
+        items: {
+          include: {
+            commercialPlan: true,
+            serviceItem: { include: { category: true } },
+          },
+        },
+        company: {
+          select: { name: true, logoUrl: true, email: true, phone: true },
+        },
+      },
+    });
+    if (!proposal) throw new NotFoundException('Proposta não encontrada.');
+    return proposal;
+  }
+
+  async trackView(slug: string) {
+    return this.prisma.proposal.update({
+      where: { slug },
+      data: { views: { increment: 1 } },
+    });
+  }
+
+  async trackWhatsAppClick(slug: string) {
+    return this.prisma.proposal.update({
+      where: { slug },
+      data: { whatsappClicks: { increment: 1 } },
+    });
+  }
+
+  // =================================================================
   // 📊 STATUS DA PROPOSTA
   // =================================================================
-  
+
   async markAsSent(id: string, companyId: string) {
     await this.findOne(id, companyId);
     return this.prisma.proposal.update({
       where: { id },
-      data: { 
+      data: {
         status: ProposalStatus.SENT,
         sentAt: new Date(),
       },
@@ -199,46 +193,49 @@ export class ProposalsService {
     await this.findOne(id, companyId);
     return this.prisma.proposal.update({
       where: { id },
-      data: { 
+      data: {
         status: ProposalStatus.VIEWED,
         views: { increment: 1 },
       },
     });
   }
 
-  async closeProposal(id: string, companyId: string, data: { planId: string; price: number }) {
+  // 🆕 LEGADO: fechamento simples (usado quando body tem {planId, price})
+  async closeProposal(
+    id: string,
+    companyId: string,
+    body: { planId?: string; price?: number },
+  ) {
     await this.findOne(id, companyId);
     return this.prisma.proposal.update({
       where: { id },
-      data: { 
+      data: {
         status: ProposalStatus.CLOSED_WON,
-        closedAt: new Date(), 
-        closedPlanId: data.planId, 
-        closedPrice: data.price,
+        closedAt: new Date(),
+        closedPrice: body.price ?? null,
+        closedPlanId: body.planId ?? null,
       },
     });
   }
 
+  // 🆕 Marcar como perdida
   async markAsLost(id: string, companyId: string, reason: string) {
     await this.findOne(id, companyId);
     return this.prisma.proposal.update({
       where: { id },
-      data: { 
+      data: {
         status: ProposalStatus.CLOSED_LOST,
+        closedAt: new Date(),
         lossReason: reason,
       },
     });
   }
 
-  async loseProposal(id: string, companyId: string, reason: string) {
-    return this.markAsLost(id, companyId, reason);
-  }
-
   // =================================================================
   // 📊 MÉTRICAS E DASHBOARDS
   // =================================================================
-  
-  private getDateFilter(period?: string): { createdAt?: any; closedAt?: any } {
+
+  private getDateFilter(period?: string): { createdAt?: any } {
     const now = new Date();
     let startDate: Date;
 
@@ -268,22 +265,22 @@ export class ProposalsService {
   async getDashboardStats(companyId: string, period?: string) {
     const dateFilter = this.getDateFilter(period);
 
-    const [totalProposals, wonProposals, lostProposals, sentProposals] = await Promise.all([
-      this.prisma.proposal.count({ where: { companyId, ...dateFilter } }),
-      this.prisma.proposal.count({ 
-        where: { companyId, status: ProposalStatus.CLOSED_WON, ...dateFilter }
-      }),
-      this.prisma.proposal.count({ 
-        where: { companyId, status: ProposalStatus.CLOSED_LOST, ...dateFilter }
-      }),
-      this.prisma.proposal.count({ 
-        where: { companyId, status: ProposalStatus.SENT, ...dateFilter }
-      }),
-    ]);
+    const [totalProposals, wonProposals, lostProposals, sentProposals] =
+      await Promise.all([
+        this.prisma.proposal.count({ where: { companyId, ...dateFilter } }),
+        this.prisma.proposal.count({
+          where: { companyId, status: ProposalStatus.CLOSED_WON, ...dateFilter },
+        }),
+        this.prisma.proposal.count({
+          where: { companyId, status: ProposalStatus.CLOSED_LOST, ...dateFilter },
+        }),
+        this.prisma.proposal.count({
+          where: { companyId, status: ProposalStatus.SENT, ...dateFilter },
+        }),
+      ]);
 
-    const conversionRate = totalProposals > 0 
-      ? (wonProposals / totalProposals) * 100 
-      : 0;
+    const conversionRate =
+      totalProposals > 0 ? (wonProposals / totalProposals) * 100 : 0;
 
     const wonRevenue = await this.prisma.proposal.aggregate({
       where: { companyId, status: ProposalStatus.CLOSED_WON, ...dateFilter },
@@ -302,20 +299,19 @@ export class ProposalsService {
 
   async getTrendData(companyId: string, period?: string) {
     const dateFilter = this.getDateFilter(period);
-    
+
     const proposals = await this.prisma.proposal.findMany({
       where: { companyId, ...dateFilter },
-      select: {
-        createdAt: true,
-        status: true,
-        closedPrice: true,
-      },
+      select: { createdAt: true, status: true, closedPrice: true },
       orderBy: { createdAt: 'asc' },
     });
 
-    const groupedByDay: Record<string, { created: number; won: number; lost: number; revenue: number }> = {};
-    
-    proposals.forEach(p => {
+    const groupedByDay: Record<
+      string,
+      { created: number; won: number; lost: number; revenue: number }
+    > = {};
+
+    proposals.forEach((p) => {
       const day = p.createdAt.toISOString().split('T')[0];
       if (!groupedByDay[day]) {
         groupedByDay[day] = { created: 0, won: 0, lost: 0, revenue: 0 };
@@ -338,10 +334,10 @@ export class ProposalsService {
 
   async getLossReasonsData(companyId: string, period?: string) {
     const dateFilter = this.getDateFilter(period);
-    
+
     const lostProposals = await this.prisma.proposal.findMany({
-      where: { 
-        companyId, 
+      where: {
+        companyId,
         status: ProposalStatus.CLOSED_LOST,
         ...dateFilter,
       },
@@ -349,7 +345,7 @@ export class ProposalsService {
     });
 
     const reasons: Record<string, number> = {};
-    lostProposals.forEach(p => {
+    lostProposals.forEach((p) => {
       const reason = p.lossReason || 'Não informado';
       reasons[reason] = (reasons[reason] || 0) + 1;
     });
@@ -362,19 +358,27 @@ export class ProposalsService {
 
   async getConversionTrend(companyId: string, period?: string) {
     const now = new Date();
-    const months: { month: string; total: number; won: number; rate: number }[] = [];
+    const months: { month: string; total: number; won: number; rate: number }[] =
+      [];
 
     for (let i = 5; i >= 0; i--) {
       const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
-      
+      const end = new Date(
+        now.getFullYear(),
+        now.getMonth() - i + 1,
+        0,
+        23,
+        59,
+        59,
+      );
+
       const [total, won] = await Promise.all([
         this.prisma.proposal.count({
           where: { companyId, createdAt: { gte: start, lte: end } },
         }),
         this.prisma.proposal.count({
-          where: { 
-            companyId, 
+          where: {
+            companyId,
             status: ProposalStatus.CLOSED_WON,
             closedAt: { gte: start, lte: end },
           },
@@ -382,7 +386,10 @@ export class ProposalsService {
       ]);
 
       months.push({
-        month: start.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+        month: start.toLocaleDateString('pt-BR', {
+          month: 'short',
+          year: '2-digit',
+        }),
         total,
         won,
         rate: total > 0 ? Number(((won / total) * 100).toFixed(2)) : 0,
@@ -409,32 +416,30 @@ export class ProposalsService {
             where: { companyId, createdAt: { gte: start, lte: end } },
           }),
           this.prisma.proposal.count({
-            where: { companyId, status: ProposalStatus.CLOSED_WON, closedAt: { gte: start, lte: end } },
+            where: {
+              companyId,
+              status: ProposalStatus.CLOSED_WON,
+              closedAt: { gte: start, lte: end },
+            },
           }),
           this.prisma.proposal.count({
-            where: { companyId, status: ProposalStatus.CLOSED_LOST, closedAt: { gte: start, lte: end } },
+            where: {
+              companyId,
+              status: ProposalStatus.CLOSED_LOST,
+              closedAt: { gte: start, lte: end },
+            },
           }),
         ]);
-
         return { month, created, won, lost };
-      })
+      }),
     );
   }
-    // =================================================================
+
+  // =================================================================
   // 🆕 SPRINT A3: Versões de Proposta
   // =================================================================
 
-  /**
-   * Lista todas as versões de proposta para um cliente específico.
-   * Agrupa por originalProposalId (ou pelo próprio ID se for a primeira).
-   *
-   * 🧠 DECISÃO TÉCNICA:
-   * Agrupamento em memória (Map) é O(N) e simples. Para centenas de propostas
-   * por cliente é mais que suficiente. Se um dia tivermos milhares,
-   * mover para GROUP BY no SQL.
-   */
   async getProposalsByClient(companyId: string, clientName: string) {
-    // Busca propostas cujo clientName contenha o termo (case-insensitive)
     const proposals = await this.prisma.proposal.findMany({
       where: {
         companyId,
@@ -443,16 +448,12 @@ export class ProposalsService {
       orderBy: [{ createdAt: 'desc' }, { version: 'desc' }],
       include: {
         items: {
-          include: {
-            commercialPlan: true,
-            serviceItem: true,
-          },
+          include: { commercialPlan: true, serviceItem: true },
         },
         user: { select: { id: true, name: true, email: true } },
       },
     });
 
-    // Agrupa por cadeia de versão (originalProposalId ou próprio ID)
     const grouped = new Map<string, any[]>();
     proposals.forEach((p) => {
       const key = p.originalProposalId || p.id;
@@ -473,23 +474,15 @@ export class ProposalsService {
     });
   }
 
-  /**
-   * Cria uma nova versão de uma proposta existente.
-   *
-   * Regras:
-   * 1. Busca a proposta original (com itens).
-   * 2. Marca a anterior como isCurrent = false.
-   * 3. Cria a nova cópia com version = anterior + 1 e isCurrent = true.
-   * 4. Duplica todos os ProposalItems.
-   * 5. Tudo em transação atômica (se algo falhar, nada é gravado).
-   */
-  async createNewVersion(proposalId: string, companyId: string, userId: string) {
-    // 1. Buscar original com itens
+  async createNewVersion(
+    proposalId: string,
+    companyId: string,
+    userId: string,
+  ) {
     const original = await this.prisma.proposal.findFirst({
       where: { id: proposalId, companyId },
       include: { items: true },
     });
-
     if (!original) {
       throw new Error('Proposta original não encontrada.');
     }
@@ -498,15 +491,12 @@ export class ProposalsService {
     const newProposalNumber = `${original.proposalNumber}-v${newVersion}`;
     const newSlug = `${original.slug}-v${newVersion}`;
 
-    // 2. Transação atômica
     return this.prisma.$transaction(async (tx) => {
-      // 2.1. Desmarcar a versão anterior como atual
       await tx.proposal.update({
         where: { id: proposalId },
         data: { isCurrent: false },
       });
 
-      // 2.2. Criar a nova proposta (cópia da original)
       const newProposal = await tx.proposal.create({
         data: {
           companyId,
@@ -525,14 +515,13 @@ export class ProposalsService {
           onboarding: original.onboarding,
           commercialTerms: original.commercialTerms,
           specificNote: original.specificNote,
-          status: 'DRAFT', // Nova versão sempre começa como rascunho
+          status: 'DRAFT',
           version: newVersion,
           isCurrent: true,
           originalProposalId: original.originalProposalId || original.id,
         },
       });
 
-      // 2.3. Duplicar os itens
       if (original.items.length > 0) {
         await tx.proposalItem.createMany({
           data: original.items.map((item) => ({
@@ -546,7 +535,6 @@ export class ProposalsService {
         });
       }
 
-      // 2.4. Retornar a nova proposta enriquecida
       return tx.proposal.findUnique({
         where: { id: newProposal.id },
         include: {
@@ -556,5 +544,62 @@ export class ProposalsService {
         },
       });
     });
+  }
+
+  // =================================================================
+  // 💰 SPRINT A4: Fechamento com Ganho
+  // =================================================================
+
+  async closeWithGain(
+    companyId: string,
+    proposalId: string,
+    dto: CloseProposalDto,
+  ) {
+    const proposal = await this.prisma.proposal.findFirst({
+      where: { id: proposalId, companyId },
+    });
+    if (!proposal) throw new NotFoundException('Proposta não encontrada');
+
+    if (
+      proposal.status === 'CLOSED_WON' ||
+      proposal.status === 'CLOSED_LOST'
+    ) {
+      throw new BadRequestException(
+        'Proposta já fechada — não pode ser re-fechada',
+      );
+    }
+
+    // 🧮 Domínio puro (ADR-020)
+    const gain = calcClosingGain({
+      idealPrice: proposal.basePrice,
+      currentCharge: dto.currentMonthly ?? null,
+      discountPercent: dto.discountPercent,
+    });
+
+    // 💾 Grava status + preço + memória de fechamento
+    const updated = await this.prisma.proposal.update({
+      where: { id: proposalId },
+      data: {
+        status: 'CLOSED_WON',
+        closedAt: new Date(),
+        closedPrice: gain.finalPrice,
+        closedPlanId: dto.closedPlanId ?? null,
+        closingDetails: {
+          discountPercent: dto.discountPercent,
+          currentMonthly: dto.currentMonthly ?? null,
+          idealPrice: proposal.basePrice,
+          finalPrice: gain.finalPrice,
+          concessionMonthly: gain.concessionMonthly,
+          concessionYearly: gain.concessionYearly,
+          gainMonthly: gain.gainMonthly,
+          gainYearly: gain.gainYearly,
+          belowCurrent: gain.belowCurrent,
+          steps: gain.steps,
+          notes: dto.notes ?? null,
+        },
+      },
+    });
+
+    return { proposal: updated, gain };
   }
 }

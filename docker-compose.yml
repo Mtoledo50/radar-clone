@@ -1,64 +1,51 @@
-# =================================================================
-# 🐳 Docker Compose — Radar Conta Certa (Sprint 31)
-# =================================================================
-# DECISÕES TÉCNICAS:
-# - Postgres mapeado em 5433 (não conflita com Postgres local 5432)
-# - Backend aplica `prisma migrate deploy` no boot (self-healing)
-# - Frontend usa NEXT_PUBLIC_API_URL=localhost:3001 (browser fala direto)
-# =================================================================
 
 services:
-  # ================================================================
-  # 🗄️ PostgreSQL 16 (banco de dados virgem para testes)
-  # ================================================================
   postgres:
     image: postgres:16-alpine
-    restart: unless-stopped
+    container_name: radar_postgres
     environment:
-      POSTGRES_USER: radar
-      POSTGRES_PASSWORD: radar_pass
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
       POSTGRES_DB: radar_db
     ports:
-      - "5433:5432"  # 🔄 CORRIGIDO: 5433 no host (protege seu banco real na 5432)
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U radar -d radar_db"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
       timeout: 5s
       retries: 5
 
-  # ================================================================
-  # 🧠 Backend NestJS (API + Prisma)
-  # ================================================================
   backend:
-    build: ./backend
-    restart: unless-stopped
-    ports:
-      - "3001:3001"
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: radar_backend
     environment:
-      DATABASE_URL: postgresql://radar:radar_pass@postgres:5432/radar_db?schema=public
-      NODE_ENV: production
-      JWT_SECRET: radar-clone-super-secret-key-2026-mude-em-producao  # 🆕 ADICIONADO
+      DATABASE_URL: postgresql://postgres:postgres_password@postgres:5432/radar_db?schema=public
+      JWT_SECRET: radar-clone-super-secret-key-2026-mude-em-producao
       JWT_EXPIRATION: 7d
       PORT: 3001
+    ports:
+      - "3001:3001"
     depends_on:
       postgres:
         condition: service_healthy
-    # 🔄 REMOVIDO: comando inline (agora está no Dockerfile CMD)
-
-  # ================================================================
-  # ⚛️ Frontend Next.js (App Router + Turbopack)
-  # ================================================================
-  frontend:
-    build: ./frontend
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: radar_frontend
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
     depends_on:
       - backend
+    restart: unless-stopped
 
 volumes:
   pgdata:

@@ -6,8 +6,16 @@ import {
   IsArray,
   Min,
   MaxLength,
+  
+  
 } from 'class-validator';
+import { PartialType } from '@nestjs/mapped-types';
+import { CreateCommercialPlanDto } from './create-commercial-plan.dto';
 
+/**
+ * DTO para atualização parcial de plano comercial.
+ * Herda todas as regras de CreateCommercialPlanDto, mas torna tudo opcional.
+ */
 /**
  * =================================================================
  * 📦 DTO: UpdateCommercialPlanDto (Atualização Parcial)
