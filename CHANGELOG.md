@@ -331,6 +331,21 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint A5] 2026-08 — White-label (Branding da Proposta Pública)
+✅ Added
+Schema: 3 colunas em `Company` (`primaryColor`, `secondaryColor`, `proposalFooterText`).
+Backend: `GET/PATCH /company/branding` (PATCH só ADMIN) + `UpdateBrandingDto`
+(regex hex + maxLength 300) + `findBySlug` retorna objeto `branding` com fallback.
+Frontend admin: seção "🎨 Branding da Proposta Pública" em `/dashboard/minha-empresa`
+(color pickers + hex + preview ao vivo + rodapé + validação client-side).
+Frontend público: `/proposta/[slug]` consome CSS variables `--brand-primary` /
+`--brand-secondary` (header, hero, preços, ícones, CTA) + rodapé customizado.
+🧠 Decisions
+ADR-043: white-label via CSS variables (performático, fallback trivial Conta Certa).
+String vazia = null = fallback (tenant antigo nunca quebra).
+🏁 Status
+HOMOLOGADO localmente.
+
 [Sprint A4] 2026-08 — Fechamento com Ganho (Conta Certa 2.0)
 ✅ Added
 Domínio puro `closing-gain.ts`: função `calcClosingGain` com round2,

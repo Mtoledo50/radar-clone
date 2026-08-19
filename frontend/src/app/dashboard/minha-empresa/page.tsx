@@ -1,12 +1,30 @@
+// =================================================================
+// INÍCIO: frontend/src/app/dashboard/minha-empresa/page.tsx
+// =================================================================
+/**
+ * =================================================================
+ * MinhaEmpresaPage — Perfil do Escritório + 🎨 Branding (Sprint A5)
+ * =================================================================
+ * Duas responsabilidades (espelho do backend):
+ * 1. PERFIL (CompanyProfile): razão social, CNPJ, softwares, metas.
+ *    Salva via POST/PUT /company (mantido como estava).
+ * 2. BRANDING (Company): cores primária/secundária + rodapé da
+ *    proposta pública. Salva via PATCH /company/branding (Sprint A5).
+ *
+ * 🧠 ADR-043: campos de cor vazios = fallback Conta Certa
+ * (teal #0d9488 / laranja #f97316) aplicado pelo backend.
+ * =================================================================
+ */
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
-import { 
-  Building2, MapPin, Monitor, TrendingUp, Save, Loader2, 
-  X, Plus, Target, Briefcase, Users 
+import {
+  Building2, MapPin, Monitor, TrendingUp, Save, Loader2,
+  X, Plus, Target, Briefcase, Users,
+  Palette,   // 🆕 Sprint A5: ícone da seção de branding
 } from 'lucide-react';
 
 // =================================================================
@@ -15,9 +33,10 @@ import {
 const ESTADOS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
   'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
-  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
 ];
 
+/** Categorias de software do benchmark (formato "categoria:valor" no banco). */
 const SOFTWARE_CATEGORIES = [
   { id: 'consultoria', label: 'Consultoria' },
   { id: 'contabil', label: 'Sistema Contábil' },
@@ -39,20 +58,25 @@ const SOFTWARE_CATEGORIES = [
   { id: 'xml', label: 'Captura de XML' },
 ];
 
-const inputClass = "w-full px-3 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-white";
+/** Classes padrão de input (design system Conta Certa). */
+const inputClass =
+  'w-full px-3 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-white';
+
+/** Regex de hex (espelho do DTO backend) p/ validar no client. */
+const HEX_REGEX = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
 
 // =================================================================
-// COMPONENTE AUXILIAR: Software Category
+// COMPONENTE AUXILIAR: Software Category (mantido da versão anterior)
 // =================================================================
-function SoftwareCategory({ 
-  title, 
-  categoryId, 
-  data, 
-  onUpdate 
-}: { 
-  title: string; 
-  categoryId: string; 
-  data: { notUsed: boolean; items: string[] }; 
+function SoftwareCategory({
+  title,
+  categoryId,
+  data,
+  onUpdate,
+}: {
+  title: string;
+  categoryId: string;
+  data: { notUsed: boolean; items: string[] };
   onUpdate: (categoryId: string, newData: { notUsed: boolean; items: string[] }) => void;
 }) {
   const [newItem, setNewItem] = useState('');
@@ -65,7 +89,7 @@ function SoftwareCategory({
   };
 
   const handleRemove = (itemToRemove: string) => {
-    onUpdate(categoryId, { ...data, items: data.items.filter(i => i !== itemToRemove) });
+    onUpdate(categoryId, { ...data, items: data.items.filter((i) => i !== itemToRemove) });
   };
 
   return (
@@ -73,16 +97,22 @@ function SoftwareCategory({
       <div className="flex items-center justify-between mb-3">
         <h4 className="font-semibold text-slate-800 text-sm">{title}</h4>
         <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer hover:text-slate-800">
-          <input 
-            type="checkbox" 
-            checked={data.notUsed} 
-            onChange={(e) => onUpdate(categoryId, { ...data, notUsed: e.target.checked, items: e.target.checked ? [] : data.items })}
+          <input
+            type="checkbox"
+            checked={data.notUsed}
+            onChange={(e) =>
+              onUpdate(categoryId, {
+                ...data,
+                notUsed: e.target.checked,
+                items: e.target.checked ? [] : data.items,
+              })
+            }
             className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
           />
           Não utilizo
         </label>
       </div>
-      
+
       {!data.notUsed && (
         <div className="space-y-3">
           <div className="flex gap-2">
@@ -94,7 +124,7 @@ function SoftwareCategory({
               placeholder="Nome do software..."
               className="flex-1 px-3 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             />
-            <button 
+            <button
               type="button"
               onClick={handleAdd}
               className="px-3 py-1.5 bg-teal-600 text-white rounded-md hover:bg-teal-700 text-sm font-medium flex items-center gap-1"
@@ -104,7 +134,10 @@ function SoftwareCategory({
           </div>
           <div className="flex flex-wrap gap-2">
             {data.items.map((item, idx) => (
-              <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-800 text-xs font-medium rounded-full">
+              <span
+                key={idx}
+                className="inline-flex items-center gap-1 px-2 py-1 bg-teal-100 text-teal-800 text-xs font-medium rounded-full"
+              >
                 {item}
                 <button type="button" onClick={() => handleRemove(item)} className="hover:text-teal-900">
                   <X className="h-3 w-3" />
@@ -126,10 +159,11 @@ function SoftwareCategory({
 // =================================================================
 export default function MinhaEmpresaPage() {
   const { user } = useAuthStore();
+
+  // ----- Estado do PERFIL (CompanyProfile) -----
   const [fetching, setFetching] = useState(true);
   const [loading, setLoading] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
-
   const [formData, setFormData] = useState({
     razaoSocial: '',
     cnpj: '',
@@ -143,20 +177,31 @@ export default function MinhaEmpresaPage() {
     compromisso: '',
   });
 
+  // ----- 🆕 SPRINT A5: estado do BRANDING (Company) -----
+  const [branding, setBranding] = useState({
+    primaryColor: '',        // '' = usa fallback teal
+    secondaryColor: '',      // '' = usa fallback laranja
+    proposalFooterText: '',  // '' = sem rodapé customizado
+  });
+  const [savingBranding, setSavingBranding] = useState(false);
+
   const initialSoftwareState = SOFTWARE_CATEGORIES.reduce((acc, cat) => {
     acc[cat.id] = { notUsed: false, items: [] };
     return acc;
-  }, {} as Record<string, { notUsed: boolean; items: string[] }>);
+  }, {} as Record<string, { notUsed: boolean; items: [] }>);
 
-  const [softwareData, setSoftwareData] = useState<Record<string, { notUsed: boolean; items: string[] }>>(initialSoftwareState);
+  const [softwareData, setSoftwareData] =
+    useState<Record<string, { notUsed: boolean; items: string[] }>>(initialSoftwareState);
 
   // =================================================================
-  // CARREGAR DADOS
+  // CARREGAR DADOS (perfil + branding em paralelo)
   // =================================================================
   useEffect(() => {
     async function fetchData() {
       try {
         setFetching(true);
+
+        // 1) Perfil (CompanyProfile) — rota já existente
         const response = await api.get('/company');
         if (response.data && response.data.data) {
           const data = response.data.data;
@@ -174,7 +219,7 @@ export default function MinhaEmpresaPage() {
             compromisso: data.compromisso || '',
           });
 
-          // Carregar softwares do formato "categoria:valor"
+          // Softwares no formato "categoria:valor"
           const loadedSoftware = { ...initialSoftwareState };
           if (data.softwareStack && Array.isArray(data.softwareStack)) {
             data.softwareStack.forEach((entry: string) => {
@@ -192,6 +237,17 @@ export default function MinhaEmpresaPage() {
           }
           setSoftwareData(loadedSoftware);
         }
+
+        // 2) 🆕 Branding (Company) — Sprint A5. .catch p/ não quebrar a página
+        //    se o backend ainda não tiver a rota (compatibilidade).
+        const brandRes = await api.get('/company/branding').catch(() => null);
+        if (brandRes?.data) {
+          setBranding({
+            primaryColor: brandRes.data.primaryColor === '#0d9488' ? '' : brandRes.data.primaryColor || '',
+            secondaryColor: brandRes.data.secondaryColor === '#f97316' ? '' : brandRes.data.secondaryColor || '',
+            proposalFooterText: brandRes.data.proposalFooterText || '',
+          });
+        }
       } catch (error) {
         console.error('Erro ao carregar dados da empresa:', error);
       } finally {
@@ -199,25 +255,23 @@ export default function MinhaEmpresaPage() {
       }
     }
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // =================================================================
-  // SALVAR DADOS
+  // SALVAR PERFIL (mantido)
   // =================================================================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Formatar softwares para array de strings compatível com o banco
+    // Achata softwares p/ array de strings compatível com o banco
     const flattenedSoftware = Object.entries(softwareData).flatMap(([categoryId, data]) => {
       if (data.notUsed) return [`${categoryId}:NÃO_UTILIZADO`];
-      return data.items.map(item => `${categoryId}:${item}`);
+      return data.items.map((item) => `${categoryId}:${item}`);
     });
 
-    const payload = {
-      ...formData,
-      softwareStack: flattenedSoftware,
-    };
+    const payload = { ...formData, softwareStack: flattenedSoftware };
 
     try {
       let response;
@@ -238,7 +292,34 @@ export default function MinhaEmpresaPage() {
   };
 
   // =================================================================
-  // RENDERIZAÇÃO
+  // 🆕 SPRINT A5: SALVAR BRANDING (PATCH /company/branding)
+  // =================================================================
+  const handleSaveBranding = async () => {
+    // Validação client-side (espelho do DTO backend)
+    if (branding.primaryColor && !HEX_REGEX.test(branding.primaryColor)) {
+      return toast.error('Cor primária inválida. Use formato hex, ex: #0d9488');
+    }
+    if (branding.secondaryColor && !HEX_REGEX.test(branding.secondaryColor)) {
+      return toast.error('Cor de destaque inválida. Use formato hex, ex: #f97316');
+    }
+
+    setSavingBranding(true);
+    try {
+      await api.patch('/company/branding', {
+        primaryColor: branding.primaryColor || null,         // null = fallback
+        secondaryColor: branding.secondaryColor || null,     // null = fallback
+        proposalFooterText: branding.proposalFooterText?.trim() || null,
+      });
+      toast.success('🎨 Branding salvo! Abra uma proposta pública para ver.');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao salvar branding.');
+    } finally {
+      setSavingBranding(false);
+    }
+  };
+
+  // =================================================================
+  // RENDERIZAÇÃO: LOADING
   // =================================================================
   if (fetching) {
     return (
@@ -248,6 +329,10 @@ export default function MinhaEmpresaPage() {
       </div>
     );
   }
+
+  // Cores efetivas p/ preview (vazio = fallback Conta Certa)
+  const previewPrimary = branding.primaryColor || '#0d9488';
+  const previewSecondary = branding.secondaryColor || '#f97316';
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
@@ -319,7 +404,7 @@ export default function MinhaEmpresaPage() {
                 title={cat.label}
                 categoryId={cat.id}
                 data={softwareData[cat.id]}
-                onUpdate={(catId, newData) => setSoftwareData(prev => ({ ...prev, [catId]: newData }))}
+                onUpdate={(catId, newData) => setSoftwareData((prev) => ({ ...prev, [catId]: newData }))}
               />
             ))}
           </div>
@@ -433,7 +518,146 @@ export default function MinhaEmpresaPage() {
           </div>
         </div>
 
-        {/* BOTÃO SALVAR */}
+        {/* ============================================================= */}
+        {/* 🆕 SEÇÃO 5: BRANDING DA PROPOSTA PÚBLICA (Sprint A5)          */}
+        {/* ============================================================= */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+          <div className="flex items-center gap-3 mb-2 pb-2 border-b border-slate-100">
+            <Palette className="h-5 w-5 text-teal-600" />
+            <h2 className="text-lg font-semibold text-slate-900">🎨 Branding da Proposta Pública</h2>
+          </div>
+          <p className="text-xs text-slate-500 mb-6">
+            Personalize as cores e o rodapé das propostas enviadas aos seus clientes.
+            Deixe em branco para usar a identidade padrão Conta Certa.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* Cor primária */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Cor Primária <span className="text-xs text-slate-400">(header, botões, preços)</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={previewPrimary}
+                  onChange={(e) => setBranding({ ...branding, primaryColor: e.target.value })}
+                  className="h-11 w-16 rounded-lg border border-slate-300 cursor-pointer bg-white"
+                  title="Selecionar cor primária"
+                />
+                <input
+                  type="text"
+                  value={branding.primaryColor}
+                  onChange={(e) => setBranding({ ...branding, primaryColor: e.target.value })}
+                  placeholder="#0d9488 (padrão)"
+                  className={`${inputClass} font-mono`}
+                />
+                {branding.primaryColor && (
+                  <span title="Restaurar padrão">
+                    <button
+                      type="button"
+                      onClick={() => setBranding({ ...branding, primaryColor: '' })}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </span>
+                )}
+              </div>
+              {branding.primaryColor && !HEX_REGEX.test(branding.primaryColor) && (
+                <p className="text-xs text-red-600 mt-1">Hex inválido — use ex: #0d9488</p>
+              )}
+            </div>
+
+            {/* Cor de destaque */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Cor de Destaque <span className="text-xs text-slate-400">(acentos, badges)</span>
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={previewSecondary}
+                  onChange={(e) => setBranding({ ...branding, secondaryColor: e.target.value })}
+                  className="h-11 w-16 rounded-lg border border-slate-300 cursor-pointer bg-white"
+                  title="Selecionar cor de destaque"
+                />
+                <input
+                  type="text"
+                  value={branding.secondaryColor}
+                  onChange={(e) => setBranding({ ...branding, secondaryColor: e.target.value })}
+                  placeholder="#f97316 (padrão)"
+                  className={`${inputClass} font-mono`}
+                />
+                {branding.secondaryColor && (
+                  <span title="Restaurar padrão">
+                    <button
+                      type="button"
+                      onClick={() => setBranding({ ...branding, secondaryColor: '' })}
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </span>
+                )}
+              </div>
+              {branding.secondaryColor && !HEX_REGEX.test(branding.secondaryColor) && (
+                <p className="text-xs text-red-600 mt-1">Hex inválido — use ex: #f97316</p>
+              )}
+            </div>
+          </div>
+
+          {/* Rodapé customizado */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Texto do Rodapé <span className="text-xs text-slate-400">(opcional, máx. 300)</span>
+            </label>
+            <textarea
+              value={branding.proposalFooterText}
+              onChange={(e) => setBranding({ ...branding, proposalFooterText: e.target.value })}
+              rows={2}
+              maxLength={300}
+              className={inputClass}
+              placeholder="Ex: Contato: (11) 9999-9999 • contato@seuescritorio.com.br"
+            />
+          </div>
+
+          {/* Preview ao vivo */}
+          <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 mb-4">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">👁️ Preview ao vivo</p>
+            <div className="rounded-lg p-5 text-white shadow-lg" style={{ backgroundColor: previewPrimary }}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-lg">
+                  {(formData.razaoSocial || 'E').charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-bold text-lg leading-tight">{formData.razaoSocial || 'Seu Escritório'}</p>
+                  <p className="text-xs opacity-90">Proposta Comercial</p>
+                </div>
+              </div>
+              <div className="bg-white/10 rounded-md p-3 text-sm">
+                Investimento: <strong>R$ 1.500,00/mês</strong>
+                <span className="ml-2 font-bold" style={{ color: previewSecondary }}>• 10% OFF</span>
+              </div>
+            </div>
+            {branding.proposalFooterText && (
+              <p className="text-center text-xs text-slate-500 mt-3 italic">{branding.proposalFooterText}</p>
+            )}
+          </div>
+
+          {/* Salvar branding (independente do submit do perfil) */}
+          <button
+            type="button"
+            onClick={handleSaveBranding}
+            disabled={savingBranding}
+            className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg disabled:opacity-50"
+          >
+            {savingBranding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {savingBranding ? 'Salvando...' : 'Salvar Branding'}
+          </button>
+        </div>
+
+        {/* BOTÃO SALVAR PERFIL */}
         <div className="flex justify-end pt-4 sticky bottom-4 bg-slate-50/80 backdrop-blur-sm p-4 -mx-4 rounded-b-xl">
           <button
             type="submit"
@@ -448,3 +672,6 @@ export default function MinhaEmpresaPage() {
     </div>
   );
 }
+// =================================================================
+// FIM: frontend/src/app/dashboard/minha-empresa/page.tsx
+// =================================================================

@@ -150,7 +150,8 @@ Sprint A4 HOMOLOGADA: Fechamento com Ganho (slider de desconto + memória de cá
 Sprint F6 HOMOLOGADA: auditoria tributária de NF-e (parser captura todas as alíquotas; modal exibe Base × Alíquota = Valor com explicação automática de divergências).
 IMEDIATO: Sprint F7 = Endpoint consolidado GET /fiscal/invoices/tax-rates-by-product (tabela de alíquotas médias por NCM/produto para análise de padrões tributários).
 DEPOIS: A4→A7, Fases B→E (ordem do §7).
-
+Sprint A5 HOMOLOGADA: white-label de propostas (cores/logo/rodapé por tenant via CSS variables, fallback Conta Certa).
+Fase A (Comercial): A1 ✅ • A2 ✅ • A3 ✅ • A4 ✅ • A5 ✅ • A6 PDF v2+PNG • A7 dashboard desempenho.
 
 
 - FD-1 Fundação: 6 tabelas + dashboard + menu + crons ↔ toggles.

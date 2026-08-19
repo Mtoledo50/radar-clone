@@ -119,6 +119,11 @@ model Company {
   phone             String?
   address           String?
   logoUrl           String?
+  // 🆕 Sprint A5 — White-label da proposta pública
+  primaryColor      String?   // Cor primária (ex: "#dc2626"). Null = fallback teal #0d9488
+  secondaryColor    String?   // Cor de destaque (ex: "#facc15"). Null = fallback laranja #f97316
+  proposalFooterText String?  @db.Text  // Texto opcional no rodapé da proposta
+
   softwareStack     String[] @default([])
   businessGoals     String?  @db.Text
   
