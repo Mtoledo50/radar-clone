@@ -11,6 +11,16 @@
 ![Prisma](https://img.shields.io/badge/Prisma-5-2d3748?style=for-the-badge)
 ![Sprints Entregues](https://img.shields.io/badge/Sprints_Entregues-31-f97316?style=for-the-badge)
 
+<div align="center">
+https://img.shields.io/badge/🚀_PRODUÇÃO_EM_BREVE-0d9488?style=for-the-badge
+https://img.shields.io/badge/Next.js-16.2-black?style=for-the-badge
+https://img.shields.io/badge/NestJS-10-red?style=for-the-badge
+https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge
+https://img.shields.io/badge/Prisma-5-2d3748?style=for-the-badge
+https://img.shields.io/badge/Sprints_Entregues-37-f97316?style=for-the-badge
+https://img.shields.io/badge/Conta_Certa_2.0-A6_✅-0d9488?style=for-the-badge
+</div>
+
 Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando extratos e notas fiscais, classificando sozinho, conciliando com inteligência e entregando DREs prontos para o cliente e para a diretoria.
 
 [Para Diretores](#-resumo-executivo-para-quem-não-programa) • [Mapa do Sistema](#️-mapa-do-sistema) • [Jornada das Sprints](#-jornada-de-desenvolvimento-sprints-131) • [Arquitetura](#️-arquitetura-para-a-equipe-técnica) • [Roadmap](#️-roadmap-onde-chegamos-e-onde-vamos)
@@ -104,6 +114,40 @@ Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando e
 - [x] Multi-tenant: cada escritório vê APENAS os seus dados (`companyId`)
 - [x] Papéis de acesso (Super Admin, Admin, Gerente, Usuário, Cliente)
 - [x] Módulos liberados por plano de assinatura (`allowedModules`)
+🚀 Conta Certa 2.0 — Expansão Comercial (Sprints A1–A6)
+Plano de atropelar a concorrência na camada comercial/analítica/UX, mantendo
+a vantagem operacional (Fiscal, Bancário, SCI). Baseado na análise de 11 vídeos
+do Radar Gestão Estratégica.
+
+💼 Comercial (Fase A — 6/7 sprints concluídas)
+[x] A1: Motor de Herança de Planos (domínio puro — 6 testes verdes, ADR-020)
+[x] A2: Valor de Referência + Dinheiro na Mesa (GET /resolved + POST /insights)
+[x] A3: Versões de Proposta (cadeia version/isCurrent/originalProposalId)
+[x] A4: Fechamento com Ganho (slider de desconto + memória de cálculo em
+    `closingDetails` JSON + alerta 🟡 belowCurrent)
+[x] A5: White-label de propostas (cores/logo/rodapé por tenant via CSS
+    variables, fallback Conta Certa; GET/PATCH /company/branding)
+[x] A6: PDF v2 Premium + PNG 1080×1350 p/ WhatsApp (jsPDF+autoTable client-side,
+    Canvas 2D nativo, logo proporcional em chip branco)
+[ ] A7: Dashboard de Desempenho (funil, tempo médio, desconto médio, ganho
+    acumulado, top fechamentos, motivos de perda) — PRÓXIMA
+[x] 🆕 Motor de Herança de Planos (A1): START/PRIME/BLACK herdam itens automaticamente
+[x] 🆕 Valor de Referência + "Dinheiro na Mesa" (A2): quanto o cliente deixa de ganhar
+[x] 🆕 Versões de Proposta (A3): reenvio sem perder o histórico
+[x] 🆕 Fechamento com Ganho (A4): slider de desconto + memória de cálculo
+[x] 🆕 White-label (A5): cores/logo/rodapé do escritório via CSS variables
+[x] 🆕 PDF v2 Premium + PNG 1080×1350 (A6): geração client-side, logo proporcional
+
+🏆 Diferenciais competitivos conquistados
+| Recurso | Benefício comercial |
+|---|---|
+| Motor de herança de planos | Planos START/PRIME/BLACK herdam itens automaticamente |
+| Dinheiro na mesa | Mostra ao vendedor quanto ele está perdendo por não subir o preço |
+| Versões de proposta | Reenvia a proposta ajustada sem perder o histórico |
+| Fechamento com memória | Desconto, ganho vs atual e "passos da negociação" gravados |
+| Proposta white-label | Cores/logo/rodapé do escritório (não da Conta Certa) |
+| PDF + PNG no cliente | Geração instantânea, zero carga no servidor |
+| PNG para WhatsApp | Card 1080×1350 pronto para compartilhar com o cliente |
 
 ### 📊 Dashboard Executivo
 - [x] KPIs em tempo real (clientes, faturamento, pessoas, metas)
@@ -423,7 +467,6 @@ Cor primária (ações, sidebar)
 Destaques e alertas
 Textos neutros
 
-
 🗺️ Roadmap — onde chegamos e onde vamos
 ✅ FASES 1–2.5 — Fundação + BI + Fiscal + Bancário + Contábil (Sprints 1–30)
 Auth multi-tenant, Dashboard, Pessoas, Clientes, Precificação, Planejamento
@@ -431,25 +474,38 @@ Fiscal (NF-e, Kardex, ICMS, SPED), Bancário (extrato, conciliação)
 Contábil (plano de contas, lançamentos, DRE oficial)
 BI (DRE do escritório, ponto fora da curva, simulador tributário)
 Conciliação Banco × NF-e com motor de score
-✅ FASE 3 — PRODUÇÃO (Sprint 31 + A1)
-Sprint 31: Docker + docker-compose (deploy em 1 comando)
-Sprint A1: Motor de Herança de Planos (domínio puro)
-Sprint A2: Valor de Referência + Dinheiro na Mesa (PRÓXIMA)
-Sprint 32: Deploy em nuvem/VPS com proxy reverso
-Sprint 33: CI/CD (GitHub Actions)
-Sprint 34: Monitoramento (Sentry) + Backup automático
-🚧 FASE 4 — EXPANSÃO COMERCIAL (Plano Conta Certa 2.0)
-A3: Versões de Proposta
-A4: Fechamento com Ganho
-A5: White-label (cores do logo/site do cliente)
-A6: PDF v2 + PNG
-A7: Dashboard de Desempenho
+✅ FASE 3 — PRODUÇÃO (Sprint 31)
+Docker Compose (Postgres 5433 / Backend 3001 / Frontend 3000)
+Build otimizado (Next standalone + NestJS multi-stage)
+🚀 FASE 4 — CONTA CERTA 2.0 (Plano de Expansão Comercial)
+✅ A1: Motor de Herança de Planos (domínio puro)
+✅ A2: Valor de Referência + Dinheiro na Mesa
+✅ A3: Versões de Proposta
+✅ A4: Fechamento com Ganho (memória em `closingDetails`)
+✅ A5: White-label (CSS variables + fallback)
+✅ A6: PDF v2 Premium + PNG 1080×1350 (Canvas 2D nativo)
+⏳ A7: Dashboard de Desempenho (funil + ganho acumulado)
 📋 FASE 5 — PESSOAS & MERCADO
 B1–B5: Tipos contratuais, distribuição por setor, entrevista de desligamento (IA)
 C1–C4: Benchmark de softwares, serviços extras, indicadores com fórmula, score 0–100
 🧠 FASE 6 — MENTORIA & UX
 D1–D3: Visão de Futuro, checklist, ranking de níveis
 E1–E3: Command palette, boas-vindas/"onde parou", notificações
+🤖 FASE 7 — FUNCIONÁRIO DIGITAL AURORA (FD-1 → FD-9)
+✅ FD-1 Fundação: 6 tabelas + dashboard + menu + crons ↔ toggles
+✅ FD-2 Completa: 4 skills + Central de Aprovações + Relatórios Mensais (99 PDFs)
+✅ FD-3a NFS-e ABRASF 2.0 + NfseImportSkill
+✅ FD-3b Coleta IMAP (collector com SKIP gracioso)
+✅ FD-4 Guias de imposto (DAS/ISS) com memória de cálculo (ADR-038)
+⏳ FD-5 CNAB 240/400 + régua de cobrança
+⏳ FD-6 SPED completo + certificado A1 criptografado
+⏳ FD-7 Integração Domínio/Questor/Sage
+⏳ FD-8 Legalização (cofres AES-256-GCM — ADR-032)
+⏳ FD-9 DP leve (integração, não construção do zero)
+🛡️ FASE 8 — PRODUÇÃO EM NUVEM
+Sprint 32: Deploy em VPS + nginx + Let's Encrypt
+Sprint 33: CI/CD (GitHub Actions)
+Sprint 34: Monitoramento (Sentry) + Backup automático
 
 🤖 FASE 7 — FUNCIONÁRIO DIGITAL AURORA (FD-1 → FD-9)
 FD-1 fundação ✅ • 

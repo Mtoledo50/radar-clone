@@ -331,6 +331,31 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint A6] 2026-08 — PDF v2 Premium + PNG da Capa + Logo oficial (white-label)
+✅ Added
+`lib/proposal-pdf.ts`: PDF v2 100% client-side (ADR-045) — capa com cores do
+tenant, logo oficial em chip branco proporcional (contain, nunca esticado),
+sumário com nº de páginas (insertPage), gráfico de barras do investimento,
+tabela de itens (autoTable head/foot coloridos), seções condicionais,
+running header + rodapé numerado com texto customizado.
+`lib/proposal-png.ts`: card 1080×1350 p/ WhatsApp via Canvas 2D nativo
+(ADR-046 — sem html2canvas), logo proporcional em chip branco, total em
+destaque, fallback de inicial quando sem logo.
+Exportação em 2 pontos: barra flutuante na página pública (PDF + PNG) e
+botão 📄 (FileDown) por proposta na tabela do admin (branding via
+GET /company/branding com fallback Conta Certa).
+Logo oficial em `frontend/public/logo-conta-certa.png` + `logoUrl` gravado
+no tenant via `prisma/set-logo.ts`.
+🧠 Decisions
+ADR-045: PDF no cliente (zero carga no servidor; jsPDF+autoTable já instalados).
+ADR-046: PNG via Canvas 2D nativo (determinístico, sem dependência nova).
+ADR-043.1: logo horizontal tratado como "chip branco" com proporção original
+(contain) na capa do PDF/PNG e no header público — nunca clipado em círculo.
+Degradação graciosa: sem logo → inicial; insertPage indisponível → sem sumário.
+🏁 Status
+HOMOLOGADO localmente (logo proporcional validado no PDF, no PNG e na página
+pública; seed de 5 propostas como base de teste).
+
 [Sprint A5] 2026-08 — White-label (Branding da Proposta Pública)
 ✅ Added
 Schema: 3 colunas em `Company` (`primaryColor`, `secondaryColor`, `proposalFooterText`).

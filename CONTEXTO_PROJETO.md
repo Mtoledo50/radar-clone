@@ -142,33 +142,46 @@ ADR-042 Conciliação Banco×NF-e apenas em DÉBITOS bancários c/ NF-e de ENTRA
         (estoque armazena notas de compra) (commit d61b657 — Sprint 29).
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
+Última atualização: 20/08/2026 (pós-Sprint A6 homologada).
+
+── PLANO 2.0 — FASE A (COMERCIAL) ──
 Sprint A1 CONCLUÍDA: domínio puro testado (6 testes verdes).
-Sprint 31 (Docker) HOMOLOGADA: ambiente estável (Postgres 5433, Backend 3001, Frontend 3000).
-Sprint A2 COMPLETA: GET /resolved + POST /insights (Dinheiro na Mesa R$ 19.200/ano validado).
-Sprint A3 HOMOLOGADA: versões de proposta (version/isCurrent/originalProposalId + endpoints de listagem e duplicação).
-Sprint A4 HOMOLOGADA: Fechamento com Ganho (slider de desconto + memória de cálculo em `closingDetails` JSON + alerta 🟡 belowCurrent). Fluxo completo: criar proposta → enviar → clicar 🏆 → descontar → ver ganho vs hoje → confirmar → toast com ganho mensal.
-Sprint F6 HOMOLOGADA: auditoria tributária de NF-e (parser captura todas as alíquotas; modal exibe Base × Alíquota = Valor com explicação automática de divergências).
-IMEDIATO: Sprint F7 = Endpoint consolidado GET /fiscal/invoices/tax-rates-by-product (tabela de alíquotas médias por NCM/produto para análise de padrões tributários).
-DEPOIS: A4→A7, Fases B→E (ordem do §7).
-Sprint A5 HOMOLOGADA: white-label de propostas (cores/logo/rodapé por tenant via CSS variables, fallback Conta Certa).
-Fase A (Comercial): A1 ✅ • A2 ✅ • A3 ✅ • A4 ✅ • A5 ✅ • A6 PDF v2+PNG • A7 dashboard desempenho.
+Sprint A2 COMPLETA: GET /resolved + POST /insights (Dinheiro na Mesa validado).
+Sprint A3 HOMOLOGADA: versões de proposta (version/isCurrent/originalProposalId
++ endpoints de listagem e duplicação).
+Sprint A4 HOMOLOGADA: Fechamento com Ganho (slider de desconto + memória de
+cálculo em `closingDetails` JSON + alerta 🟡 belowCurrent). Fluxo completo:
+criar proposta → enviar → clicar 🏆 → descontar → ver ganho vs hoje →
+confirmar → toast com ganho mensal.
+Sprint A5 HOMOLOGADA: white-label de propostas (cores/logo/rodapé por tenant
+via CSS variables, fallback Conta Certa; GET/PATCH /company/branding).
+Sprint A6 HOMOLOGADA: PDF v2 premium (capa + sumário + gráfico de barras +
+tabela de itens) + PNG 1080×1350 p/ WhatsApp (Canvas 2D nativo, ADR-046);
+logo oficial proporcional em chip branco nas 3 superfícies (ADR-043.1);
+seed de 5 propostas em status variados (`seed-proposals.ts`) como base de teste.
+IMEDIATO: Sprint A7 = Dashboard de Desempenho (GET /proposals/performance:
+funil de conversão, tempo médio de fechamento, desconto médio, ganho acumulado
+via `closingDetails`, top fechamentos por ganho e motivos de perda).
+DEPOIS: Fases B→E (ordem do §7).
 
-
-- FD-1 Fundação: 6 tabelas + dashboard + menu + crons ↔ toggles.
-- FD-2 COMPLETA: 4 skills + Central de Aprovações + Relatórios Mensais (99 PDFs) + UI.
-- FD-3a COMPLETA (18/08): NFS-e ABRASF + NfseImportSkill + upload/lista + UI.
-- **Sprints F4–F7 (Enriquecimento Fiscal) COMPLETAS E HOMOLOGADAS (18/08):**
-  - F4: Base ICMS total e por item no modal de detalhe.
-  - F5: Coluna "Produtos" na listagem + ordenação A–Z (ADR-025) + busca por nome
-    do produto (`items.description` case-insensitive).
-  - F6: Auditoria tributária por item (TaxAuditTable: Base × Alíquota = Valor p/
-    ICMS/IPI/PIS/COFINS c/ selo ✓ OK / ⚠ diverge + explicação do esperado).
-  - F6.1: Selo "Qtd: N UN" por item + resumo "X itens • Y unidades" no modal.
-  - F7: Impressão/salvar PDF do detalhe da NF-e via portal + CSS injetado (ADR-026),
-    com chave de acesso (44 dígitos) no rodapé fiscal.
-  - Arquivos: `invoice.service.ts`, `invoice.controller.ts`, `notas/page.tsx`,
-    `components/fiscal/TaxAuditTable.tsx`. Zero migrações Prisma.
-- Aurora com 5 skills em produção controlada (98 clientes reais).
+── INFRA / FISCAL / AURORA (mantido, sem alterações) ──
+Sprint 31 (Docker) HOMOLOGADA: ambiente estável (Postgres 5433, Backend 3001,
+Frontend 3000).
+Sprints F4–F7 COMPLETAS E HOMOLOGADAS (18/08):
+  F4: Base ICMS total e por item no modal de detalhe.
+  F5: Coluna "Produtos" na listagem + ordenação A–Z + busca por nome do
+      produto (`items.description` case-insensitive).
+  F6/F6.1: Auditoria tributária por item (TaxAuditTable: Base × Alíquota =
+      Valor p/ ICMS/IPI/PIS/COFINS c/ selo ✓ OK / ⚠ diverge + explicação do
+      esperado + selo "Qtd: N UN").
+  F7: Impressão/salvar PDF do detalhe da NF-e via portal + CSS injetado
+      (ADR-026), com chave de acesso (44 dígitos) no rodapé fiscal.
+  Arquivos: `invoice.service.ts`, `invoice.controller.ts`, `notas/page.tsx`,
+  `components/fiscal/TaxAuditTable.tsx`. Zero migrações Prisma.
+FD-1 Fundação: 6 tabelas + dashboard + menu + crons ↔ toggles.
+FD-2 COMPLETA: 4 skills + Central de Aprovações + Relatórios Mensais (99 PDFs) + UI.
+FD-3a COMPLETA (18/08): NFS-e ABRASF + NfseImportSkill + upload/lista + UI.
+Aurora com 5 skills em produção controlada (98 clientes reais).
 
 ### 🚧 Notas técnicas (dívida consciente)
 - Postgres 18 local: radar_user sem CREATEDB → SQL manual + GRANT + resolve.
