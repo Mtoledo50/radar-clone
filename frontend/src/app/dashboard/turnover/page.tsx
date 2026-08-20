@@ -1,3 +1,21 @@
+// =================================================================
+// INÍCIO: frontend/src/app/dashboard/turnover/page.tsx
+// =================================================================
+/**
+ * =================================================================
+ * 📊 Módulo Turnover (Sprints B1 + B2)
+ * =================================================================
+ * Análise de rotatividade de colaboradores.
+ * 4 abas: Empresa, Tipo Contratual, Setores, Rescisões.
+ *
+ * 🆕 Sprint B2 (ADR-048): a aba "Setores" agora tem uma nova seção
+ * no TOPO — "📊 Distribuição VALIDADA (ao vivo)" — que DERIVA a
+ * distribuição atual dos setores a partir dos colaboradores ATIVOS
+ * (fonte da verdade: Employee.department), comparada com o
+ * benchmark contábil (Fiscal 30% / Contábil 25% / DP 20% / Admin 15%
+ * / Outros 10%), com selos ✓ OK / ⚠ OVER / ⚠ UNDER.
+ * =================================================================
+ */
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -6,20 +24,26 @@ import { toast } from 'sonner';
 import {
   Users, TrendingUp, TrendingDown, Plus, X, Loader2,
   Edit2, Trash2, CheckCircle, AlertCircle, Calendar,
-  Briefcase, Settings, BarChart3, FileText, ChevronDown, ChevronRight
+  Briefcase, Settings, BarChart3, FileText, ChevronDown, ChevronRight,
+  Check, AlertTriangle,
 } from 'lucide-react';
 
 // =================================================================
 // 🎨 PALETA E UTILITÁRIOS
 // =================================================================
-const inputClass = 
-  "w-full px-3 py-2 border border-slate-300 rounded-lg " +
-  "text-slate-900 placeholder:text-slate-400 " + 
-  "focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-white";
+const inputClass =
+  'w-full px-3 py-2 border border-slate-300 rounded-lg ' +
+  'text-slate-900 placeholder:text-slate-400 ' +
+  'focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-white';
 
-const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 
-                'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const monthsShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const months = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+];
+const monthsShort = [
+  'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+  'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez',
+];
 
 const contractTypes = [
   { key: 'clt', label: 'CLT' },
@@ -28,8 +52,25 @@ const contractTypes = [
   { key: 'partner', label: 'Sócio' },
 ];
 
+// 🆕 Sprint B2 — tipos do endpoint sector-distribution
+interface SectorDist {
+  name: string;
+  current: number;
+  currentPct: number;
+  recommendedPct: number;
+  recommendedHeadcount: number;
+  delta: number;
+  status: 'OK' | 'OVER' | 'UNDER';
+}
+
+interface SectorDistributionResponse {
+  totalActive: number;
+  sectors: SectorDist[];
+  unmapped: Array<{ name: string; current: number }>;
+}
+
 // =================================================================
-//  PÁGINA PRINCIPAL
+// 🎯 PÁGINA PRINCIPAL
 // =================================================================
 export default function TurnoverPage() {
   const [loading, setLoading] = useState(true);
@@ -44,31 +85,53 @@ export default function TurnoverPage() {
   const [resignations, setResignations] = useState<any[]>([]);
   const [sectorDistribution, setSectorDistribution] = useState<any[]>([]);
 
-  // Modais
+  // 🆕 Sprint B2 — distribuição validada em tempo real
+  const [liveDistribution, setLiveDistribution] = useState<SectorDistributionResponse | null>(null);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResignationModal, setShowResignationModal] = useState(false);
   const [showSectorModal, setShowSectorModal] = useState(false);
 
   useEffect(() => { loadData(); }, [year]);
-  useEffect(() => { 
-    if (activeTab === 'setores') loadSectorDistribution(); 
+  useEffect(() => {
+    if (activeTab === 'empresa') loadSectorDistribution();
   }, [selectedMonth, activeTab]);
+
+// 🆕 Sprint B2 — carrega distribuição validada nas abas Empresa e Setores
+// A aba Empresa usa o totalActive para corrigir o KPI "Total da Equipe".
+useEffect(() => {
+  if (activeTab === 'empresa' || activeTab === 'setores') {
+    loadLiveDistribution();
+  }
+}, [activeTab]);
 
   async function loadData() {
     try {
       setLoading(true);
-      const [dashRes, sectorsRes, reasonsRes, positionsRes, resignationsRes] = await Promise.all([
-        api.get(`/turnover/dashboard?year=${year}`),
-        api.get('/turnover/sectors'),
-        api.get('/turnover/reasons'),
-        api.get('/turnover/positions'),
-        api.get(`/turnover/resignations?year=${year}`),
-      ]);
-      setData(dashRes.data.data);
-      setSectors(sectorsRes.data.data);
-      setReasons(reasonsRes.data.data);
-      setPositions(positionsRes.data.data);
-      setResignations(resignationsRes.data.data);
+const [
+  dashRes,
+  sectorsRes,
+  reasonsRes,
+  positionsRes,
+  resignationsRes,
+  liveDistRes,
+] = await Promise.all([
+  api.get(`/turnover/dashboard?year=${year}`),
+  api.get('/turnover/sectors'),
+  api.get('/turnover/reasons'),
+  api.get('/turnover/positions'),
+  api.get(`/turnover/resignations?year=${year}`),
+
+  // 🆕 Sprint B2 — fonte da verdade para Total da Equipe e distribuição validada
+  api.get('/employees/sector-distribution'),
+]);
+
+setData(dashRes.data.data);
+setSectors(sectorsRes.data.data);
+setReasons(reasonsRes.data.data);
+setPositions(positionsRes.data.data);
+setResignations(resignationsRes.data.data);
+setLiveDistribution(liveDistRes.data.data);
     } catch (err) {
       toast.error('Erro ao carregar dados de turnover');
     } finally {
@@ -82,6 +145,16 @@ export default function TurnoverPage() {
       setSectorDistribution(res.data.data || []);
     } catch (err) {
       console.error('Erro ao carregar distribuição:', err);
+    }
+  }
+
+  // 🆕 Sprint B2 — distribuição validada derivada dos Employee ATIVOS
+  async function loadLiveDistribution() {
+    try {
+      const res = await api.get('/employees/sector-distribution');
+      setLiveDistribution(res.data.data);
+    } catch (err) {
+      console.error('Erro ao carregar distribuição validada:', err);
     }
   }
 
@@ -140,20 +213,28 @@ export default function TurnoverPage() {
 
       {/* CONTEÚDO DAS TABS */}
       {activeTab === 'empresa' && (
-        <EmpresaTab data={data} year={year} onEdit={(month: number) => { setSelectedMonth(month); setShowEditModal(true); }} />
+        <EmpresaTab
+          data={data}
+          liveDistribution={liveDistribution}
+          year={year}
+          onEdit={(month: number) => { setSelectedMonth(month); setShowEditModal(true); }}
+          onRefreshLive={loadLiveDistribution}
+        />
       )}
       {activeTab === 'contratual' && (
         <ContratualTab data={data} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} onEdit={() => setShowEditModal(true)} />
       )}
       {activeTab === 'setores' && (
-        <SetoresTab 
-          data={data} 
-          selectedMonth={selectedMonth} 
-          setSelectedMonth={setSelectedMonth} 
+        <SetoresTab
+          data={data}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
           sectors={sectors}
           sectorDistribution={sectorDistribution}
           setSectorDistribution={setSectorDistribution}
+          liveDistribution={liveDistribution}
           onManageSectors={() => setShowSectorModal(true)}
+          onRefreshLive={loadLiveDistribution}
           onSaveDistribution={async () => {
             try {
               await api.post('/turnover/sector-distribution', {
@@ -170,8 +251,8 @@ export default function TurnoverPage() {
         />
       )}
       {activeTab === 'rescisoes' && (
-        <RescisoesTab 
-          subTab={rescisaoSubTab} 
+        <RescisoesTab
+          subTab={rescisaoSubTab}
           setSubTab={setRescisaoSubTab}
           resignations={resignations}
           reasons={reasons}
@@ -248,22 +329,31 @@ export default function TurnoverPage() {
 }
 
 // =================================================================
-// 📊 TAB EMPRESA
+// 📊 TAB EMPRESA (🆕 Sprint B2: "Total da Equipe" vem do liveDistribution)
 // =================================================================
-function EmpresaTab({ data, year, onEdit }: any) {
+function EmpresaTab({ data, liveDistribution, year, onEdit, onRefreshLive }: any) {
   if (!data) return null;
 
   const turnoverAcumuladoSafe = Number(data.turnoverAcumulado) >= 0 ? Number(data.turnoverAcumulado).toFixed(1) : '0.0';
+
+  // 🆕 Sprint B2: fonte da verdade = Employee ATIVOS
+  const totalEquipe = liveDistribution?.totalActive ?? 0;
 
   return (
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard icon={Users} label="Total da Equipe" value={data.totalTeam || 0} sublabel="Colaboradores ativos" color="teal" />
-        <KpiCard 
-          icon={TrendingUp} 
-          label="Turnover Acumulado 12m" 
-          value={`${turnoverAcumuladoSafe}%`} 
+        <KpiCard
+          icon={Users}
+          label="Total da Equipe"
+          value={totalEquipe}
+          sublabel="Colaboradores ativos (ao vivo)"
+          color="teal"
+        />
+        <KpiCard
+          icon={TrendingUp}
+          label="Turnover Acumulado 12m"
+          value={`${turnoverAcumuladoSafe}%`}
           sublabel="Média anual"
           extra={
             <div className="text-xs text-slate-500 mt-2 p-2 bg-slate-50 rounded">
@@ -271,11 +361,54 @@ function EmpresaTab({ data, year, onEdit }: any) {
               <p><strong>Cálculo:</strong> HC Médio = (Inicial + Final) / 2</p>
             </div>
           }
-          color="orange" 
+          color="orange"
         />
         <KpiCard icon={BarChart3} label="Turnover por Setor" value="-" sublabel="Veja na aba Setores" color="slate" />
         <KpiCard icon={Briefcase} label="Turnover por Tipo" value="Detalhes" sublabel="Veja na aba Tipo Contratual" color="teal" />
       </div>
+
+      {/* 🆕 Sprint B2: preview da distribuição validada no dashboard */}
+      {liveDistribution && liveDistribution.totalActive > 0 && (
+        <div className="bg-gradient-to-r from-teal-50 to-blue-50 rounded-xl p-5 border border-teal-200">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold text-teal-900 flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              Distribuição por Setor (ao vivo)
+            </h3>
+            <button
+              onClick={onRefreshLive}
+              className="text-xs text-teal-700 hover:text-teal-900 underline"
+            >
+              Atualizar
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {liveDistribution.sectors.map((s) => (
+              <div key={s.name} className="bg-white rounded-lg p-3 border border-white shadow-sm">
+                <p className="text-xs font-semibold text-slate-600 uppercase mb-1">{s.name}</p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-bold text-slate-900">{s.current}</span>
+                  <span className="text-xs text-slate-500">/ {s.recommendedHeadcount}</span>
+                </div>
+                <StatusBadge status={s.status} delta={s.delta} />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-slate-600 mt-3 italic">
+            💡 Recomendado baseado em benchmark contábil (ADR-048):
+            Fiscal 30% • Contábil 25% • DP 20% • Admin 15% • Outros 10%. Tolerância ±5 p.p.
+          </p>
+        </div>
+      )}
+
+      {liveDistribution && liveDistribution.totalActive === 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+          <p className="text-sm text-amber-900 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span><strong>Sem colaboradores ativos.</strong> Cadastre colaboradores em "Gestão de Pessoas" para ativar a distribuição por setor.</span>
+          </p>
+        </div>
+      )}
 
       {/* Gráfico de Linha */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
@@ -285,21 +418,21 @@ function EmpresaTab({ data, year, onEdit }: any) {
             const initial = Number(m.initial) || 0;
             const final = Number(m.final) || 0;
             const dismissals = Number(m.dismissals) || 0;
-            
+
             const hcMedio = (initial + final) / 2;
             const turnover = hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
-            
+
             const maxVal = Math.max(...data.monthlyData.map((mm: any) => {
               const hc = (Number(mm.initial) + Number(mm.final)) / 2;
               return hc > 0 ? (Number(mm.dismissals) / hc) * 100 : 0;
             }), 1);
-            
+
             const height = (turnover / maxVal) * 100;
-            
+
             return (
               <div key={idx} className="flex flex-col items-center flex-1">
                 <div className="w-full flex justify-center" style={{ height: '200px' }}>
-                  <div 
+                  <div
                     className="w-4 bg-teal-500 rounded-t transition-all hover:bg-teal-700 cursor-pointer"
                     style={{ height: `${Math.max(height, 2)}%`, marginBottom: '0px' }}
                     title={`${monthsShort[idx]}: ${turnover.toFixed(2)}%`}
@@ -337,14 +470,14 @@ function EmpresaTab({ data, year, onEdit }: any) {
                 const final = Number(m.final) || 0;
                 const admissions = Number(m.admissions) || 0;
                 const dismissals = Number(m.dismissals) || 0;
-                
+
                 const hcMedio = (initial + final) / 2;
                 const turnoverMensal = hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
-                
+
                 const demissAcum = data.monthlyData.slice(0, idx + 1).reduce((acc: number, mm: any) => acc + (Number(mm.dismissals) || 0), 0);
                 const hcAcum = data.monthlyData.slice(0, idx + 1).reduce((acc: number, mm: any) => acc + ((Number(mm.initial) || 0) + (Number(mm.final) || 0)) / 2, 0);
                 const turnoverAcum = hcAcum > 0 ? (demissAcum / hcAcum) * 100 : 0;
-                
+
                 return (
                   <tr key={idx} className="hover:bg-slate-50">
                     <td className="px-6 py-4 font-medium text-slate-900">{months[idx]}</td>
@@ -379,7 +512,6 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
 
   return (
     <div className="space-y-6">
-      {/* Seletor de Mês */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <h3 className="font-semibold text-slate-900 mb-3">Selecione o Mês</h3>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
@@ -399,7 +531,6 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
         </div>
       </div>
 
-      {/* Resumo */}
       {monthData && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Resumo da Empresa - {months[selectedMonth - 1]}</h3>
@@ -424,7 +555,6 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
         </div>
       )}
 
-      {/* Tabela por Tipo Contratual */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-200">
           <h3 className="text-lg font-bold text-slate-900">Distribuição por Tipo Contratual - {months[selectedMonth - 1]}</h3>
@@ -448,7 +578,7 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
               const final = initial + admissions - dismissals;
               const hcMedio = (initial + final) / 2;
               const turnover = hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
-              
+
               return (
                 <tr key={ct.key} className="hover:bg-slate-50">
                   <td className="px-6 py-4 font-medium text-slate-900">{ct.label}</td>
@@ -481,9 +611,13 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
 }
 
 // =================================================================
-//  TAB SETORES (COM VALIDAÇÃO EM TEMPO REAL)
+// 🆕 SPRINT B2: TAB SETORES (com distribuição VALIDADA no topo)
 // =================================================================
-function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDistribution, setSectorDistribution, onManageSectors, onSaveDistribution }: any) {
+function SetoresTab({
+  data, selectedMonth, setSelectedMonth, sectors, sectorDistribution,
+  setSectorDistribution, liveDistribution, onManageSectors, onRefreshLive,
+  onSaveDistribution,
+}: any) {
   const monthData = data?.monthlyData?.find((m: any) => m.month === selectedMonth);
 
   const distributedTotals = useMemo(() => {
@@ -503,8 +637,8 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
   }, [distributedTotals, monthData]);
 
   const updateSectorDistribution = (sectorId: string, field: string, value: number) => {
-    setSectorDistribution((prev: any[]) => 
-      prev.map((d: any) => 
+    setSectorDistribution((prev: any[]) =>
+      prev.map((d: any) =>
         d.sectorId === sectorId ? { ...d, [field]: value } : d
       )
     );
@@ -530,9 +664,80 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
 
   return (
     <div className="space-y-6">
+      {/* ============================================================= */}
+      {/* 🆕 SPRINT B2: DISTRIBUIÇÃO VALIDADA (AO VIVO)                 */}
+      {/* Fonte da verdade: Employee ATIVOS, comparado ao benchmark.    */}
+      {/* ============================================================= */}
+      {liveDistribution && liveDistribution.totalActive > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border-2 border-teal-300 overflow-hidden">
+          <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-5 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <CheckCircle className="h-6 w-6" />
+                Distribuição por Setor — VALIDADA (ao vivo)
+              </h2>
+              <p className="text-sm text-teal-100 mt-1">
+                Fonte: <strong>{liveDistribution.totalActive} colaboradores ativos</strong> • Benchmark contábil (ADR-048) • Tolerância ±5 p.p.
+              </p>
+            </div>
+            <button
+              onClick={onRefreshLive}
+              className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              🔄 Atualizar
+            </button>
+          </div>
+
+          <div className="p-6 space-y-3">
+            {liveDistribution.sectors.map((s) => (
+              <ValidatedSectorRow key={s.name} sector={s} />
+            ))}
+
+            {/* Setores não reconhecidos (unmapped) */}
+            {liveDistribution.unmapped.length > 0 && (
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm font-semibold text-amber-900 flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Departamentos não reconhecidos ({liveDistribution.unmapped.reduce((s, u) => s + u.current, 0)} pessoas)
+                </p>
+                <p className="text-xs text-amber-800 mb-2">
+                  Esses departamentos foram contados em "Outros". Para que sejam mapeados automaticamente, use nomes padronizados
+                  (ex: "Fiscal", "Contábil", "Departamento Pessoal", "Comercial").
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {liveDistribution.unmapped.map((u) => (
+                    <span key={u.name} className="inline-flex px-2 py-1 bg-white border border-amber-300 rounded text-xs font-medium text-amber-900">
+                      {u.name}: {u.current}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-slate-500 italic pt-3 border-t border-slate-100">
+              💡 <strong>Como melhorar:</strong> cadastre colaboradores com departamentos padronizados em
+              <span className="font-semibold"> Gestão de Pessoas</span> — a distribuição se atualiza automaticamente.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {liveDistribution && liveDistribution.totalActive === 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6 text-center">
+          <AlertTriangle className="h-10 w-10 text-amber-600 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-amber-900 mb-1">Sem colaboradores ativos</h3>
+          <p className="text-sm text-amber-800">
+            Cadastre colaboradores em "Gestão de Pessoas" para ativar a distribuição validada por setor.
+          </p>
+        </div>
+      )}
+
+      {/* ============================================================= */}
+      {/* Distribuição MANUAL (legado — para TurnoverMonthly histórico) */}
+      {/* ============================================================= */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex-1">
-          <h3 className="font-semibold text-slate-900 mb-3">Selecione o Mês</h3>
+          <h3 className="font-semibold text-slate-900 mb-3">📋 Distribuição Histórica (preenchimento manual) — Selecione o Mês</h3>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
             {monthsShort.map((m, idx) => (
               <button
@@ -591,7 +796,7 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
             <>
               <CheckCircle className="h-6 w-6 text-green-600" />
               <div>
-                <p className="font-semibold text-green-800">Distribuição Válida</p>
+                <p className="font-semibold text-green-800">Distribuição Histórica Válida</p>
                 <p className="text-sm text-green-700">A soma dos setores está igual aos totais da empresa</p>
               </div>
             </>
@@ -599,7 +804,7 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
             <>
               <AlertCircle className="h-6 w-6 text-red-600" />
               <div>
-                <p className="font-semibold text-red-800">Distribuição Inválida</p>
+                <p className="font-semibold text-red-800">Distribuição Histórica Inválida</p>
                 <p className="text-sm text-red-700">A soma dos setores deve ser igual aos totais da empresa</p>
               </div>
             </>
@@ -609,7 +814,7 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
 
       {turnoverRanking.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Ranking de Turnover por Setor - {months[selectedMonth - 1]}</h3>
+          <h3 className="text-lg font-bold text-slate-900 mb-4">Ranking de Turnover por Setor (histórico) - {months[selectedMonth - 1]}</h3>
           <div className="space-y-2">
             {turnoverRanking.map((item: any, idx: number) => (
               <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
@@ -626,7 +831,7 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-slate-900">Distribuição por Setor - {months[selectedMonth - 1]}</h3>
+          <h3 className="text-lg font-bold text-slate-900">Distribuição Histórica por Setor - {months[selectedMonth - 1]}</h3>
           <button
             onClick={onSaveDistribution}
             disabled={!isDistributionValid}
@@ -640,7 +845,7 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
             Salvar Distribuição
           </button>
         </div>
-        
+
         {sectors.length === 0 ? (
           <div className="p-12 text-center text-slate-500">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-slate-300" />
@@ -728,6 +933,87 @@ function SetoresTab({ data, selectedMonth, setSelectedMonth, sectors, sectorDist
         )}
       </div>
     </div>
+  );
+}
+
+// =================================================================
+// 🆕 SPRINT B2: LINHA DE SETOR VALIDADO (barras atual × recomendado)
+// =================================================================
+function ValidatedSectorRow({ sector }: { sector: SectorDist }) {
+  const statusColors = {
+    OK: { bg: 'bg-green-500', text: 'text-green-700', pill: 'bg-green-100 text-green-800' },
+    OVER: { bg: 'bg-amber-500', text: 'text-amber-700', pill: 'bg-amber-100 text-amber-800' },
+    UNDER: { bg: 'bg-red-500', text: 'text-red-700', pill: 'bg-red-100 text-red-800' },
+  };
+  const c = statusColors[sector.status];
+  const statusLabel = {
+    OK: '✓ Dentro do ideal',
+    OVER: `⚠ +${sector.delta.toFixed(1)} p.p. acima`,
+    UNDER: `⚠ ${Math.abs(sector.delta).toFixed(1)} p.p. abaixo`,
+  };
+
+  return (
+    <div className="p-3 bg-slate-50 rounded-lg">
+      <div className="flex justify-between items-baseline mb-2">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-slate-900">{sector.name}</span>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.pill}`}>
+            {statusLabel[sector.status]}
+          </span>
+        </div>
+        <div className="text-right">
+          <span className="text-lg font-bold text-slate-900">{sector.current}</span>
+          <span className="text-xs text-slate-500 ml-1">
+            / {sector.recommendedHeadcount} recomendado
+          </span>
+        </div>
+      </div>
+
+      {/* Barra dupla: atual (colorida) vs recomendado (tracejada) */}
+      <div className="relative h-7 bg-white rounded-md overflow-hidden border border-slate-200">
+        {/* Linha tracejada do recomendado */}
+        <div
+          className="absolute top-0 bottom-0 w-0.5 bg-slate-400 z-10"
+          style={{ left: `${Math.min(sector.recommendedPct * 2, 100)}%` }}
+          title={`Recomendado: ${sector.recommendedPct}%`}
+        />
+        {/* Barra atual */}
+        <div
+          className={`h-full ${c.bg} transition-all flex items-center justify-end pr-2`}
+          style={{ width: `${Math.min(sector.currentPct * 2, 100)}%` }}
+        >
+          {sector.currentPct > 3 && (
+            <span className="text-xs font-bold text-white drop-shadow">
+              {sector.currentPct}%
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-between mt-1 text-xs text-slate-500">
+        <span>{sector.current} pessoas ({sector.currentPct}%)</span>
+        <span>Meta: {sector.recommendedPct}%</span>
+      </div>
+    </div>
+  );
+}
+
+// =================================================================
+// 🆕 SPRINT B2: BADGE DE STATUS (OK / OVER / UNDER)
+// =================================================================
+function StatusBadge({ status, delta }: { status: 'OK' | 'OVER' | 'UNDER'; delta: number }) {
+  const configs = {
+    OK: { icon: Check, color: 'text-green-700 bg-green-100', label: '✓ OK' },
+    OVER: { icon: AlertTriangle, color: 'text-amber-700 bg-amber-100', label: `+${delta.toFixed(1)}` },
+    UNDER: { icon: AlertTriangle, color: 'text-red-700 bg-red-100', label: `${delta.toFixed(1)}` },
+  };
+  const cfg = configs[status];
+  const Icon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${cfg.color} mt-1`}>
+      <Icon className="h-3 w-3" />
+      {cfg.label}
+    </span>
   );
 }
 
@@ -930,7 +1216,7 @@ function KpiCard({ icon: Icon, label, value, sublabel, extra, color }: any) {
 }
 
 // =================================================================
-// 📝 MODAL: Editar Dados Mensais
+// 📝 MODAL: Editar Dados Mensais (mantido)
 // =================================================================
 function EditMonthlyModal({ month, year, initialData, onClose, onSave }: any) {
   const [form, setForm] = useState({
@@ -1036,7 +1322,7 @@ function EditMonthlyModal({ month, year, initialData, onClose, onSave }: any) {
 }
 
 // =================================================================
-// 📝 MODAL: Adicionar Rescisão
+// 📝 MODAL: Adicionar Rescisão (mantido)
 // =================================================================
 function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: any) {
   const [form, setForm] = useState({
@@ -1173,7 +1459,7 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
 }
 
 // =================================================================
-// ⚙️ MODAL: Gerenciar Setores e Células (COMPLETO)
+// ⚙️ MODAL: Gerenciar Setores e Células (mantido)
 // =================================================================
 function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDeleteCell }: any) {
   const [newSector, setNewSector] = useState('');
@@ -1181,7 +1467,6 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
   const [newCellName, setNewCellName] = useState('');
   const [showOtherSectors, setShowOtherSectors] = useState(false);
 
-  // Setores populares de outras empresas (simulação)
   const otherSectors = [
     { name: 'Diretoria', count: 9 },
     { name: 'Administrativo', count: 8 },
@@ -1203,7 +1488,6 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
         </div>
 
         <div className="p-6 space-y-4">
-          {/* Adicionar Novo Setor */}
           <div className="flex gap-2">
             <input
               type="text"
@@ -1233,7 +1517,6 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
             </button>
           </div>
 
-          {/* Dropdown de Setores Populares */}
           {showOtherSectors && (
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
               <p className="text-xs text-slate-600 mb-2 font-medium">Setores usados por outras empresas</p>
@@ -1259,11 +1542,9 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
             ℹ️ Setores com cadeado são obrigatórios e não podem ser removidos
           </p>
 
-          {/* Lista de Setores */}
           <div className="space-y-2">
             {sectors.map((s: any) => (
               <div key={s.id} className="border border-slate-200 rounded-lg overflow-hidden">
-                {/* Header do Setor */}
                 <div className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 transition-colors">
                   <div className="flex items-center gap-2 flex-1">
                     <button
@@ -1284,12 +1565,10 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
                   )}
                 </div>
 
-                {/* Células de Trabalho (Expandido) */}
                 {expandedSector === s.id && (
                   <div className="border-t border-slate-200 bg-slate-50 p-3">
                     <p className="text-xs font-medium text-slate-600 mb-2">Células de Trabalho</p>
-                    
-                    {/* Adicionar Célula */}
+
                     <div className="flex gap-2 mb-3">
                       <input
                         type="text"
@@ -1312,7 +1591,6 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
                       </button>
                     </div>
 
-                    {/* Lista de Células */}
                     {s.cells && s.cells.length > 0 ? (
                       <div className="space-y-1">
                         {s.cells.map((cell: any) => (
@@ -1340,3 +1618,6 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
     </div>
   );
 }
+// =================================================================
+// FIM: frontend/src/app/dashboard/turnover/page.tsx
+// =================================================================

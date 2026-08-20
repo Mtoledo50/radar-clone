@@ -330,6 +330,33 @@ fechamento) validado; crons ativos em produção controlada.
 HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ •
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
+[Sprint B2] 2026-08 — Distribuição por Setor VALIDADA (Fase B — Pessoas)
+✅ Added
+`EmployeeService.getSectorDistribution` + endpoint
+`GET /employees/sector-distribution`: deriva a distribuição atual por setor
+dos colaboradores ATIVOS (fonte da verdade), normaliza `department`
+(minúsculo + sem acentos) e mapeia para setores canônicos por keywords.
+Comparação com benchmark contábil (ADR-048): Fiscal 30% • Contábil 25% •
+DP 20% • Admin 15% • Outros 10%, tolerância ±5 p.p., selos
+✓ OK / ⚠ OVER / ⚠ UNDER + headcount recomendado.
+Lista `unmapped`: departamentos não reconhecidos viram chips com contagem
+(orienta o usuário a padronizar nomes).
+Frontend Turnover (`turnover/page.tsx`):
+- Aba "Empresa": KPI "Total da Equipe" agora vem dos ativos (corrige o "0"
+  sem preenchimento manual) + card preview "Distribuição por Setor (ao vivo)".
+- Aba "Setores": nova seção no topo "Distribuição por Setor — VALIDADA
+  (ao vivo)" com header teal, barras comparativas (atual × linha de meta)
+  e botão 🔄 Atualizar.
+- Coexistência com o legado: tabela histórica manual (TurnoverMonthly)
+  permanece abaixo, sem quebra.
+🛠️ Fixed
+Normalização de acentos: "Contábil" caía em "Outros" porque o matching
+comparava 'contáb' ≠ 'contab'; agora `.normalize('NFD')` remove acentos.
+🧠 Decisions
+ADR-048: benchmark contábil padrão com tolerância ±5 p.p.; distribuição
+derivada em memória (zero tabelas novas, zero migrations).
+🏁 Status
+HOMOLOGADO localmente (12 colaboradores; Fiscal ✓ OK; Contábil mapeado pós-fix).
 
 [Sprint B1] 2026-08 — Tipos Contratuais (Fase B — Pessoas)
 ✅ Added

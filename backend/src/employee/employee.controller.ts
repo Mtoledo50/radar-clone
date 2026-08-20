@@ -3,7 +3,7 @@
 // =================================================================
 /**
  * =================================================================
- * EmployeeController — Gestão de Colaboradores (Sprint B1)
+ * EmployeeController — Gestão de Colaboradores (Sprints B1 + B2)
  * =================================================================
  * Endpoints REST para CRUD de colaboradores (Employee).
  *
@@ -11,14 +11,15 @@
  * - Todas as rotas exigem JWT (JwtAuthGuard)
  * - Queries filtradas por companyId (multi-tenant ADR-004)
  *
- * 🆕 Sprint B1: aceita `contractType` no body de POST/PUT.
- *
  * Rotas:
- * - GET    /employees          → lista todos do tenant
- * - GET    /employees/metrics  → KPIs (total, ativos, admissões)
- * - POST   /employees          → cria colaborador
- * - PUT    /employees/:id      → atualiza colaborador
- * - DELETE /employees/:id      → remove colaborador
+ * - GET    /employees                  → lista todos do tenant
+ * - GET    /employees/metrics          → KPIs (total, ativos, admissões)
+ * - GET    /employees/sector-distribution → 🆕 Sprint B2: distribuição por setor
+ * - POST   /employees                  → cria colaborador
+ * - PUT    /employees/:id              → atualiza colaborador
+ * - DELETE /employees/:id              → remove colaborador
+ *
+ * ⚠️ ORDEM DAS ROTAS (NestJS): rotas LITERAIS antes de parametrizadas.
  * =================================================================
  */
 import {
@@ -44,10 +45,6 @@ export class EmployeeController {
   // 📋 LISTAGEM
   // =================================================================
 
-  /**
-   * GET /employees
-   * Lista todos os colaboradores do tenant logado, ordenados por nome.
-   */
   @Get()
   async findAll(@Request() req) {
     const employees = await this.employeeService.findAll(req.user.companyId);
@@ -58,11 +55,6 @@ export class EmployeeController {
   // 📊 MÉTRICAS
   // =================================================================
 
-  /**
-   * GET /employees/metrics
-   * KPIs básicos: total, ativos, admissões no mês, taxa de turnover.
-   * 🆕 Sprint B1: métricas ainda básicas; B2/B3 expandirão.
-   */
   @Get('metrics')
   async getMetrics(@Request() req) {
     const metrics = await this.employeeService.getMetrics(req.user.companyId);
@@ -70,28 +62,36 @@ export class EmployeeController {
   }
 
   // =================================================================
-  // 💾 CRIAÇÃO
+  // 🆕 SPRINT B2 — DISTRIBUIÇÃO POR SETOR VALIDADA
   // =================================================================
 
   /**
-   * POST /employees
-   * Cria um novo colaborador.
-   * 🆕 Sprint B1: aceita `contractType` (CLT/ESTAGIARIO/TERCEIRIZADO/SOCIO).
+   * GET /employees/sector-distribution
+   * Distribuição atual por setor (derivada dos Employee ATIVOS)
+   * comparada com o benchmark contábil.
    *
-   * Body esperado:
+   * Retorno:
    * {
-   *   name: string,
-   *   email?: string,
-   *   phone?: string,
-   *   position: string,
-   *   department?: string,
-   *   admissionDate: string (AAAA-MM-DD),
-   *   dismissalDate?: string,
-   *   salary?: number,
-   *   status?: 'ACTIVE' | 'INACTIVE' | 'DISMISSED',
-   *   contractType?: 'CLT' | 'ESTAGIARIO' | 'TERCEIRIZADO' | 'SOCIO'
+   *   totalActive: number,
+   *   sectors: [
+   *     { name, current, currentPct, recommendedPct, recommendedHeadcount,
+   *       delta, status: 'OK' | 'OVER' | 'UNDER' }
+   *   ],
+   *   unmapped: [{ name, current }]
    * }
    */
+  @Get('sector-distribution')
+  async getSectorDistribution(@Request() req) {
+    const data = await this.employeeService.getSectorDistribution(
+      req.user.companyId,
+    );
+    return { data };
+  }
+
+  // =================================================================
+  // 💾 CRIAÇÃO
+  // =================================================================
+
   @Post()
   async create(@Request() req, @Body() dto: any) {
     const employee = await this.employeeService.create(
@@ -106,11 +106,6 @@ export class EmployeeController {
   // 🔄 ATUALIZAÇÃO
   // =================================================================
 
-  /**
-   * PUT /employees/:id
-   * Atualiza dados do colaborador (patch parcial).
-   * 🆕 Sprint B1: aceita `contractType`.
-   */
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: any) {
     const employee = await this.employeeService.update(id, dto);
@@ -121,10 +116,6 @@ export class EmployeeController {
   // 🗑️ EXCLUSÃO
   // =================================================================
 
-  /**
-   * DELETE /employees/:id
-   * Remove colaborador (hard delete — futuro: soft delete).
-   */
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.employeeService.delete(id);
