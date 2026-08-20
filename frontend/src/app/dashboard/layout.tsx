@@ -102,6 +102,8 @@ const allMenuItems: MenuItem[] = [
     children: [
       { id: 'pessoas', title: 'Colaboradores', href: '/dashboard/pessoas' },
       { id: 'turnover', title: 'Turnover', href: '/dashboard/turnover' },
+      { id: 'benchmark-cargos', title: 'Benchmark de Cargos', href: '/dashboard/pessoas/benchmark' },
+
     ],
   },
   {
