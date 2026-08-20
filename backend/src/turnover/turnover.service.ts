@@ -1,40 +1,39 @@
 // =================================================================
-// INÍCIO: turnover.service.ts
+// INÍCIO: backend/src/turnover/turnover.service.ts
 // =================================================================
 /**
- * TurnoverService
- * Gerencia o módulo de Turnover: dados mensais, setores, cargos,
- * motivos de desligamento, rescisões e distribuição por setor.
+ * =================================================================
+ * TurnoverService — Módulo de Rotatividade (Sprints B1→B4)
+ * =================================================================
+ * Gerencia: dados mensais, setores, cargos, motivos, rescisões,
+ * distribuição por setor, dashboard de rescisões (B3) e
+ * 🆕 entrevista de desligamento + análise (B4, ADR-050).
+ * =================================================================
  */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { analyzeExitInterview } from './exit-interview-engine';
 
 @Injectable()
 export class TurnoverService {
   constructor(private prisma: PrismaService) {}
 
   // =================================================================
-  // INÍCIO: getDashboard
+  // 📊 DASHBOARD (dados mensais)
   // =================================================================
-  /**
-   * Retorna o dashboard de turnover:
-   * - Dados mensais do ano (TurnoverMonthly)
-   * - KPIs calculados (total admissões, demissões, turnover acumulado)
-   */
   async getDashboard(companyId: string, year: number) {
     const monthlyData = await this.prisma.turnoverMonthly.findMany({
       where: { companyId, year },
       orderBy: { month: 'asc' },
     });
 
-    // Calcular KPIs agregados
     const totalAdmissions = monthlyData.reduce(
       (sum, m) => sum + m.cltAdmissions + m.internAdmissions + m.thirdAdmissions + m.partnerAdmissions,
-      0
+      0,
     );
     const totalDismissals = monthlyData.reduce(
       (sum, m) => sum + m.cltDismissals + m.internDismissals + m.thirdDismissals + m.partnerDismissals,
-      0
+      0,
     );
 
     const lastMonth = monthlyData[monthlyData.length - 1];
@@ -45,26 +44,12 @@ export class TurnoverService {
         lastMonth.partnerInitial + lastMonth.partnerAdmissions - lastMonth.partnerDismissals
       : 0;
 
-    return {
-      year,
-      monthlyData,
-      kpis: {
-        totalAdmissions,
-        totalDismissals,
-        currentHeadcount,
-      },
-    };
+    return { year, monthlyData, kpis: { totalAdmissions, totalDismissals, currentHeadcount } };
   }
-  // =================================================================
-  // FIM: getDashboard
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: saveMonthlyData
+  // 📅 DADOS MENSAIS
   // =================================================================
-  /**
-   * Salva ou atualiza os dados mensais de turnover (upsert).
-   */
   async saveMonthlyData(companyId: string, userId: string, year: number, month: number, data: any) {
     return this.prisma.turnoverMonthly.upsert({
       where: { companyId_year_month: { companyId, year, month } },
@@ -83,10 +68,7 @@ export class TurnoverService {
         partnerDismissals: Number(data.partnerDismissals) || 0,
       },
       create: {
-        companyId,
-        userId,
-        year,
-        month,
+        companyId, userId, year, month,
         cltInitial: Number(data.cltInitial) || 0,
         cltAdmissions: Number(data.cltAdmissions) || 0,
         cltDismissals: Number(data.cltDismissals) || 0,
@@ -102,12 +84,9 @@ export class TurnoverService {
       },
     });
   }
-  // =================================================================
-  // FIM: saveMonthlyData
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Setores (CRUD)
+  // 🏢 SETORES
   // =================================================================
   async getSectors(companyId: string) {
     return this.prisma.sector.findMany({
@@ -117,19 +96,13 @@ export class TurnoverService {
     });
   }
 
-  async createSector(companyId: string, userId: string, name: string, mandatory: boolean = false) {
+  async createSector(companyId: string, userId: string, name: string, mandatory = false) {
     const maxOrder = await this.prisma.sector.findFirst({
       where: { companyId },
       orderBy: { order: 'desc' },
     });
     return this.prisma.sector.create({
-      data: {
-        companyId,
-        userId,
-        name,
-        mandatory,
-        order: (maxOrder?.order || 0) + 1,
-      },
+      data: { companyId, userId, name, mandatory, order: (maxOrder?.order || 0) + 1 },
     });
   }
 
@@ -139,12 +112,9 @@ export class TurnoverService {
     if (sector.mandatory) throw new NotFoundException('Setor obrigatório não pode ser removido.');
     return this.prisma.sector.delete({ where: { id } });
   }
-  // =================================================================
-  // FIM: Setores (CRUD)
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Distribuição por Setor
+  // 📋 DISTRIBUIÇÃO POR SETOR (histórica)
   // =================================================================
   async getSectorDistribution(companyId: string, year: number, month: number) {
     const sectors = await this.prisma.sector.findMany({ where: { companyId } });
@@ -152,112 +122,65 @@ export class TurnoverService {
       where: { companyId, year, month },
       include: { sector: true },
     });
-
-    // Retorna todos os setores, mesmo os sem distribuição
     return sectors.map((sector) => {
       const dist = distributions.find((d) => d.sectorId === sector.id);
       return dist || {
-        id: null,
-        companyId,
-        userId: distributions[0]?.userId || null,
-        year,
-        month,
-        sectorId: sector.id,
-        initial: 0,
-        admissions: 0,
-        dismissals: 0,
-        sector,
+        id: null, companyId, userId: distributions[0]?.userId || null,
+        year, month, sectorId: sector.id,
+        initial: 0, admissions: 0, dismissals: 0, sector,
       };
     });
   }
 
   async saveSectorDistribution(companyId: string, userId: string, year: number, month: number, distributions: any[]) {
-    // Deleta distribuições existentes do mês
-    await this.prisma.turnoverSectorDistribution.deleteMany({
-      where: { companyId, year, month },
-    });
-
-    // Cria as novas distribuições
-    const created = await Promise.all(
+    await this.prisma.turnoverSectorDistribution.deleteMany({ where: { companyId, year, month } });
+    return Promise.all(
       distributions
         .filter((d) => d.initial !== undefined || d.admissions !== undefined || d.dismissals !== undefined)
         .map((d) =>
           this.prisma.turnoverSectorDistribution.create({
             data: {
-              companyId,
-              userId,
-              year,
-              month,
-              sectorId: d.sectorId,
+              companyId, userId, year, month, sectorId: d.sectorId,
               initial: Number(d.initial) || 0,
               admissions: Number(d.admissions) || 0,
               dismissals: Number(d.dismissals) || 0,
             },
-          })
-        )
+          }),
+        ),
     );
-
-    return created;
   }
-  // =================================================================
-  // FIM: Distribuição por Setor
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Motivos de Desligamento (CRUD)
+  // 📝 MOTIVOS DE DESLIGAMENTO
   // =================================================================
   async getDismissalReasons(companyId: string) {
-    return this.prisma.dismissalReason.findMany({
-      where: { companyId },
-      orderBy: { name: 'asc' },
-    });
+    return this.prisma.dismissalReason.findMany({ where: { companyId }, orderBy: { name: 'asc' } });
   }
-
   async createDismissalReason(companyId: string, userId: string, name: string) {
-    return this.prisma.dismissalReason.create({
-      data: { companyId, userId, name },
-    });
+    return this.prisma.dismissalReason.create({ data: { companyId, userId, name } });
   }
-
   async deleteDismissalReason(id: string) {
     return this.prisma.dismissalReason.delete({ where: { id } });
   }
-  // =================================================================
-  // FIM: Motivos de Desligamento (CRUD)
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Cargos (CRUD)
+  // 💼 CARGOS
   // =================================================================
   async getPositions(companyId: string) {
-    return this.prisma.position.findMany({
-      where: { companyId },
-      orderBy: { name: 'asc' },
-    });
+    return this.prisma.position.findMany({ where: { companyId }, orderBy: { name: 'asc' } });
   }
-
   async createPosition(companyId: string, userId: string, name: string, description?: string) {
-    return this.prisma.position.create({
-      data: { companyId, userId, name, description },
-    });
+    return this.prisma.position.create({ data: { companyId, userId, name, description } });
   }
-
   async updatePosition(id: string, name: string, description?: string) {
-    return this.prisma.position.update({
-      where: { id },
-      data: { name, description },
-    });
+    return this.prisma.position.update({ where: { id }, data: { name, description } });
   }
-
   async deletePosition(id: string) {
     return this.prisma.position.delete({ where: { id } });
   }
-  // =================================================================
-  // FIM: Cargos (CRUD)
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Rescisões (CRUD) — 🆕 Sprint B3
+  // 📤 RESCISÕES (CRUD)
   // =================================================================
   async getResignations(companyId: string, filters?: any) {
     const where: any = { companyId };
@@ -271,25 +194,14 @@ export class TurnoverService {
     return this.prisma.resignation.findMany({
       where,
       orderBy: { dismissalDate: 'desc' },
-      include: {
-        sector: true,
-        position: true,
-        dismissalReason: true,
-      },
+      include: { sector: true, position: true, dismissalReason: true },
     });
   }
 
-  /**
-   * 🆕 Sprint B3 (ADR-049): aceita `isCritical` (cópia histórica).
-   * Se o usuário marcar "era crítico" no modal de rescisão, o flag é
-   * gravado no Resignation — independente do Employee.isCritical atual
-   * (o colaborador pode ter deixado de ser crítico antes de sair).
-   */
   async createResignation(companyId: string, userId: string, data: any) {
     return this.prisma.resignation.create({
       data: {
-        companyId,
-        userId,
+        companyId, userId,
         employeeName: data.employeeName,
         admissionDate: new Date(data.admissionDate),
         dismissalDate: new Date(data.dismissalDate),
@@ -298,48 +210,26 @@ export class TurnoverService {
         contractType: data.contractType || 'CLT',
         positionId: data.positionId || null,
         dismissalReasonId: data.dismissalReasonId || null,
-        isCritical: Boolean(data.isCritical), // 🆕 Sprint B3 (ADR-049)
+        isCritical: Boolean(data.isCritical), // B3 (ADR-049)
         observations: data.observations || null,
       },
-      include: {
-        sector: true,
-        position: true,
-        dismissalReason: true,
-      },
+      include: { sector: true, position: true, dismissalReason: true },
     });
   }
 
   async deleteResignation(id: string) {
     return this.prisma.resignation.delete({ where: { id } });
   }
-  // =================================================================
-  // FIM: Rescisões (CRUD)
-  // =================================================================
 
   // =================================================================
-  // 🆕 SPRINT B3: Dashboard de Rescisões (alimento dos KPIs do Turnover)
+  // 🆕 SPRINT B3: DASHBOARD DE RESCISÕES
   // =================================================================
-
-  /**
-   * 🎯 getResignationsDashboard — alimenta os 4 KPIs da aba
-   * "Rescisões → Dashboard" no Turnover:
-   *   1. Total de Desligamentos (no ano)
-   *   2. Turnover de Novatos (desligados com tenure < 12 meses)
-   *   3. Motivo Mais Frequente (top 1)
-   *   4. Setor Crítico (setor com mais desligamentos)
-   *
-   * Também consome o endpoint do EmployeeService (turnover-kpis)
-   * para trazer `criticalDismissals` — aqui só agregamos motivos/setores.
-   */
   async getResignationsDashboard(companyId: string, year: number) {
     const start = new Date(year, 0, 1);
     const end = new Date(year, 11, 31, 23, 59, 59);
 
     const resignations = await this.prisma.resignation.findMany({
-      where: {
-        companyId,
-        dismissalDate: { gte: start, lte: end },
-      },
+      where: { companyId, dismissalDate: { gte: start, lte: end } },
       include: {
         sector: { select: { name: true } },
         dismissalReason: { select: { name: true } },
@@ -347,33 +237,25 @@ export class TurnoverService {
     });
 
     const totalDismissals = resignations.length;
-
-    // Turnover de novatos: tenure < 12 meses na data do desligamento
     const newbieDismissals = resignations.filter((r) => {
-      const tenureMs = r.dismissalDate.getTime() - r.admissionDate.getTime();
-      const tenureMonths = tenureMs / (1000 * 60 * 60 * 24 * 30.44);
-      return tenureMonths < 12;
+      const months = (r.dismissalDate.getTime() - r.admissionDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
+      return months < 12;
     }).length;
-    const newbieTurnoverRate =
-      totalDismissals > 0 ? (newbieDismissals / totalDismissals) * 100 : 0;
+    const newbieTurnoverRate = totalDismissals > 0 ? (newbieDismissals / totalDismissals) * 100 : 0;
 
-    // Motivo mais frequente
     const reasonCounts: Record<string, number> = {};
     resignations.forEach((r) => {
       const name = r.dismissalReason?.name || 'Não informado';
       reasonCounts[name] = (reasonCounts[name] || 0) + 1;
     });
-    const topReason =
-      Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0] || null;
+    const topReason = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0] || null;
 
-    // Setor crítico (mais desligamentos)
     const sectorCounts: Record<string, number> = {};
     resignations.forEach((r) => {
       const name = r.sector?.name || 'Sem setor';
       sectorCounts[name] = (sectorCounts[name] || 0) + 1;
     });
-    const topSector =
-      Object.entries(sectorCounts).sort((a, b) => b[1] - a[1])[0] || null;
+    const topSector = Object.entries(sectorCounts).sort((a, b) => b[1] - a[1])[0] || null;
 
     return {
       year,
@@ -384,10 +266,97 @@ export class TurnoverService {
       topSector: topSector ? { name: topSector[0], count: topSector[1] } : null,
     };
   }
+
   // =================================================================
-  // FIM: Rescisões (CRUD)
+  // 🆕 SPRINT B4: ENTREVISTA DE DESLIGAMENTO + ANÁLISE (ADR-050)
   // =================================================================
+
+  /** Valida que a rescisão pertence ao tenant (segurança ADR-004). */
+  private async assertResignation(companyId: string, id: string) {
+    const r = await this.prisma.resignation.findFirst({ where: { id, companyId } });
+    if (!r) throw new NotFoundException('Rescisão não encontrada.');
+    return r;
+  }
+
+  /**
+   * 📝 Salva as 5 respostas da entrevista (sobrescreve se já existir).
+   */
+  async saveExitInterview(companyId: string, resignationId: string, answers: string[]) {
+    await this.assertResignation(companyId, resignationId);
+    return this.prisma.resignation.update({
+      where: { id: resignationId },
+      data: {
+        exitInterview: {
+          answers,
+          conductedAt: new Date().toISOString(),
+        },
+      },
+    });
+  }
+
+  /**
+   * 🤖 Roda o motor de análise (ADR-050) sobre a entrevista salva
+   * e persiste o resultado em `exitAnalysis`.
+   */
+  async analyzeResignation(companyId: string, resignationId: string) {
+    const r = await this.assertResignation(companyId, resignationId);
+    const interview = r.exitInterview as any;
+    if (!interview?.answers?.length) {
+      throw new NotFoundException('Entrevista ainda não preenchida para esta rescisão.');
+    }
+
+    const analysis = analyzeExitInterview(interview.answers);
+
+    const updated = await this.prisma.resignation.update({
+      where: { id: resignationId },
+      data: { exitAnalysis: analysis as any },
+      include: { sector: true, position: true, dismissalReason: true },
+    });
+    return updated;
+  }
+
+  /**
+   * 📊 Agrega as análises do ano p/ sub-aba "Análises":
+   * contagem por causa-raiz + planos de ação da causa primária.
+   */
+  async getExitAnalyses(companyId: string, year: number) {
+    const start = new Date(year, 0, 1);
+    const end = new Date(year, 11, 31, 23, 59, 59);
+
+    const analyzed = await this.prisma.resignation.findMany({
+      where: {
+        companyId,
+        dismissalDate: { gte: start, lte: end },
+        exitAnalysis: { not: null },
+      },
+      select: { employeeName: true, exitAnalysis: true },
+    });
+
+    const causeCounts: Record<string, { label: string; count: number }> = {};
+    const actionPlans: Record<string, string[]> = {};
+
+    analyzed.forEach((r) => {
+      const a = r.exitAnalysis as any;
+      if (a?.primaryCause) {
+        if (!causeCounts[a.primaryCause]) {
+          causeCounts[a.primaryCause] = { label: a.primaryLabel || a.primaryCause, count: 0 };
+        }
+        causeCounts[a.primaryCause].count++;
+        actionPlans[a.primaryCause] = a.actionPlan || [];
+      }
+    });
+
+    const topCauses = Object.entries(causeCounts)
+      .map(([id, v]) => ({ category: id, label: v.label, count: v.count, actionPlan: actionPlans[id] || [] }))
+      .sort((a, b) => b.count - a.count);
+
+    return {
+      year,
+      analyzedCount: analyzed.length,
+      topCauses,
+    };
+  }
 }
 // =================================================================
-// FIM: turnover.service.ts
+// FIM: backend/src/turnover/turnover.service.ts
 // =================================================================

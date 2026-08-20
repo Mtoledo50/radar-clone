@@ -3,17 +3,17 @@
 // =================================================================
 /**
  * =================================================================
- * 📊 Módulo Turnover (Sprints B1 + B2)
+ * 📊 Módulo Turnover (Sprints B1 + B2 + B3 + B4)
  * =================================================================
  * Análise de rotatividade de colaboradores.
  * 4 abas: Empresa, Tipo Contratual, Setores, Rescisões.
  *
- * 🆕 Sprint B2 (ADR-048): a aba "Setores" agora tem uma nova seção
- * no TOPO — "📊 Distribuição VALIDADA (ao vivo)" — que DERIVA a
- * distribuição atual dos setores a partir dos colaboradores ATIVOS
- * (fonte da verdade: Employee.department), comparada com o
- * benchmark contábil (Fiscal 30% / Contábil 25% / DP 20% / Admin 15%
- * / Outros 10%), com selos ✓ OK / ⚠ OVER / ⚠ UNDER.
+ * 🆕 Sprint B2 (ADR-048): distribuição VALIDADA (ao vivo) derivada
+ *    dos Employee ATIVOS, comparada com benchmark contábil.
+ * 🆕 Sprint B3 (ADR-049): KPIs de novatos/críticos + checkbox 🔑
+ *    "Era colaborador crítico?" no modal de rescisão.
+ * 🆕 Sprint B4 (ADR-050): Entrevista de desligamento + motor de
+ *    análise (rules-v1) + sub-aba "Análises IA".
  * =================================================================
  */
 'use client';
@@ -25,9 +25,9 @@ import {
   Users, TrendingUp, TrendingDown, Plus, X, Loader2,
   Edit2, Trash2, CheckCircle, AlertCircle, Calendar,
   Briefcase, Settings, BarChart3, FileText, ChevronDown, ChevronRight,
-  Check, AlertTriangle,  Key, // 🆕 Sprint B3: ícone do colaborador crítico 🔑
-
+  Check, AlertTriangle, Key, XCircle, MessageSquare, Brain, Lightbulb,
 } from 'lucide-react';
+import { ExitInterviewModal } from '@/components/turnover/ExitInterviewModal';
 
 // =================================================================
 // 🎨 PALETA E UTILITÁRIOS
@@ -74,69 +74,70 @@ interface SectorDistributionResponse {
 // 🎯 PÁGINA PRINCIPAL
 // =================================================================
 export default function TurnoverPage() {
+  // =================================================================
+  // 📋 TODOS OS useState — DECLARADOS ANTES DE QUALQUER useEffect
+  // =================================================================
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'empresa' | 'contratual' | 'setores' | 'rescisoes'>('empresa');
-  const [rescisaoSubTab, setRescisaoSubTab] = useState<'dashboard' | 'registros' | 'config'>('dashboard');
+  const [rescisaoSubTab, setRescisaoSubTab] = useState<'dashboard' | 'registros' | 'config' | 'analises'>('dashboard');
   const [year, setYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(1);
+
   const [data, setData] = useState<any>(null);
   const [sectors, setSectors] = useState<any[]>([]);
   const [reasons, setReasons] = useState<any[]>([]);
   const [positions, setPositions] = useState<any[]>([]);
   const [resignations, setResignations] = useState<any[]>([]);
   const [sectorDistribution, setSectorDistribution] = useState<any[]>([]);
-    // 🆕 Sprint B3: KPIs reais do endpoint turnover-kpis
-  const [turnoverKpis, setTurnoverKpis] = useState<any>(null);
-  // 🆕 Sprint B3: dashboard de rescisões (top motivos / setores)
-  const [resignationsDash, setResignationsDash] = useState<any>(null);
 
-  // 🆕 Sprint B2 — distribuição validada em tempo real
+  // 🆕 Sprint B3: KPIs de turnover (novatos + críticos + tenure)
+  const [turnoverKpis, setTurnoverKpis] = useState<any>(null);
+  // 🆕 Sprint B3+B4: dashboard de rescisões + análises agregadas
+  const [resignationsDash, setResignationsDash] = useState<any>(null);
+  // 🆕 Sprint B2: distribuição validada em tempo real
   const [liveDistribution, setLiveDistribution] = useState<SectorDistributionResponse | null>(null);
 
+  // Modais
   const [showEditModal, setShowEditModal] = useState(false);
   const [showResignationModal, setShowResignationModal] = useState(false);
   const [showSectorModal, setShowSectorModal] = useState(false);
 
-  useEffect(() => { loadData(); loadTurnoverKpis(); loadResignationsDash(); }, [year]);
+  // 🆕 Sprint B4: modal de entrevista de desligamento
+  const [showExitInterviewModal, setShowExitInterviewModal] = useState(false);
+  const [selectedResignation, setSelectedResignation] = useState<any>(null);
+
+  // =================================================================
+  // 🔄 useEffects — DEPOIS de todos os useState declarados
+  // =================================================================
   useEffect(() => {
-    if (activeTab === 'empresa') loadSectorDistribution();
+    loadData();
+    loadTurnoverKpis();
+    loadResignationsDash();
+    loadLiveDistribution();
+  }, [year]);
+
+  useEffect(() => {
+    if (activeTab === 'setores') loadSectorDistribution();
   }, [selectedMonth, activeTab]);
 
-// 🆕 Sprint B2 — carrega distribuição validada nas abas Empresa e Setores
-// A aba Empresa usa o totalActive para corrigir o KPI "Total da Equipe".
-useEffect(() => {
-  if (activeTab === 'empresa' || activeTab === 'setores') {
-    loadLiveDistribution();
-  }
-}, [activeTab]);
-
+  // =================================================================
+  // 🌐 FUNÇÕES DE CARREGAMENTO
+  // =================================================================
   async function loadData() {
     try {
       setLoading(true);
-const [
-  dashRes,
-  sectorsRes,
-  reasonsRes,
-  positionsRes,
-  resignationsRes,
-  liveDistRes,
-] = await Promise.all([
-  api.get(`/turnover/dashboard?year=${year}`),
-  api.get('/turnover/sectors'),
-  api.get('/turnover/reasons'),
-  api.get('/turnover/positions'),
-  api.get(`/turnover/resignations?year=${year}`),
-
-  // 🆕 Sprint B2 — fonte da verdade para Total da Equipe e distribuição validada
-  api.get('/employees/sector-distribution'),
-]);
-
-setData(dashRes.data.data);
-setSectors(sectorsRes.data.data);
-setReasons(reasonsRes.data.data);
-setPositions(positionsRes.data.data);
-setResignations(resignationsRes.data.data);
-setLiveDistribution(liveDistRes.data.data);
+      const [dashRes, sectorsRes, reasonsRes, positionsRes, resignationsRes] = await Promise.all([
+        api.get(`/turnover/dashboard?year=${year}`),
+        api.get('/turnover/sectors'),
+        api.get('/turnover/reasons'),
+        api.get('/turnover/positions'),
+        api.get(`/turnover/resignations?year=${year}`),
+      ]);
+      setData(dashRes.data.data);
+      setSectors(sectorsRes.data.data);
+      setReasons(reasonsRes.data.data);
+      setPositions(positionsRes.data.data);
+      setResignations(resignationsRes.data.data);
     } catch (err) {
       toast.error('Erro ao carregar dados de turnover');
     } finally {
@@ -152,6 +153,7 @@ setLiveDistribution(liveDistRes.data.data);
       console.error('Erro ao carregar distribuição:', err);
     }
   }
+
   // 🆕 Sprint B3: carrega KPIs de turnover (EmployeeService)
   async function loadTurnoverKpis() {
     try {
@@ -162,16 +164,24 @@ setLiveDistribution(liveDistRes.data.data);
     }
   }
 
-  // 🆕 Sprint B3: carrega dashboard de rescisões (TurnoverService)
+  // 🆕 Sprint B3+B4: carrega dashboard de rescisões + análises agregadas
   async function loadResignationsDash() {
     try {
-      const res = await api.get(`/turnover/resignations-dashboard?year=${year}`);
-      setResignationsDash(res.data.data);
+      const [resDash, resAnalyses] = await Promise.all([
+        api.get(`/turnover/resignations-dashboard?year=${year}`),
+        api.get(`/turnover/exit-analyses?year=${year}`),
+      ]);
+      setResignationsDash({
+        ...resDash.data.data,
+        analyzedCount: resAnalyses.data.data.analyzedCount,
+        topCauses: resAnalyses.data.data.topCauses,
+      });
     } catch (err) {
       console.error('Erro ao carregar dashboard de rescisões:', err);
     }
   }
-  // 🆕 Sprint B2 — distribuição validada derivada dos Employee ATIVOS
+
+  // 🆕 Sprint B2: distribuição validada derivada dos Employee ATIVOS
   async function loadLiveDistribution() {
     try {
       const res = await api.get('/employees/sector-distribution');
@@ -181,6 +191,9 @@ setLiveDistribution(liveDistRes.data.data);
     }
   }
 
+  // =================================================================
+  // RENDERIZAÇÃO: LOADING (SEM modal dentro)
+  // =================================================================
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -190,6 +203,9 @@ setLiveDistribution(liveDistRes.data.data);
     );
   }
 
+  // =================================================================
+  // RENDERIZAÇÃO: PÁGINA PRINCIPAL
+  // =================================================================
   return (
     <div className="space-y-6">
       {/* CABEÇALHO */}
@@ -245,7 +261,12 @@ setLiveDistribution(liveDistRes.data.data);
         />
       )}
       {activeTab === 'contratual' && (
-        <ContratualTab data={data} selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} onEdit={() => setShowEditModal(true)} />
+        <ContratualTab
+          data={data}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          onEdit={() => setShowEditModal(true)}
+        />
       )}
       {activeTab === 'setores' && (
         <SetoresTab
@@ -281,9 +302,14 @@ setLiveDistribution(liveDistRes.data.data);
           reasons={reasons}
           positions={positions}
           sectors={sectors}
-          turnoverKpis={turnoverKpis}         // 🆕 B3
-          resignationsDash={resignationsDash} // 🆕 B3
+          turnoverKpis={turnoverKpis}
+          resignationsDash={resignationsDash}
+          year={year}
           onAdd={() => setShowResignationModal(true)}
+          onOpenExitInterview={(r: any) => {
+            setSelectedResignation(r);
+            setShowExitInterviewModal(true);
+          }}
           onDelete={async (id: string) => {
             await api.delete(`/turnover/resignations/${id}`);
             toast.success('Rescisão removida');
@@ -294,7 +320,9 @@ setLiveDistribution(liveDistRes.data.data);
         />
       )}
 
-      {/* MODAIS */}
+      {/* ============================================================= */}
+      {/* MODAIS (SEMPRE NO FINAL DO COMPONENTE, FORA DO LOADING)        */}
+      {/* ============================================================= */}
       {showEditModal && (
         <EditMonthlyModal
           month={selectedMonth}
@@ -321,6 +349,8 @@ setLiveDistribution(liveDistRes.data.data);
             toast.success('Rescisão registrada!');
             setShowResignationModal(false);
             loadData();
+            loadTurnoverKpis();
+            loadResignationsDash();
           }}
         />
       )}
@@ -351,32 +381,41 @@ setLiveDistribution(liveDistRes.data.data);
           }}
         />
       )}
+
+      {/* 🆕 Sprint B4: Modal de entrevista de desligamento */}
+      {showExitInterviewModal && selectedResignation && (
+        <ExitInterviewModal
+          resignationId={selectedResignation.id}
+          employeeName={selectedResignation.employeeName}
+          onClose={() => {
+            setShowExitInterviewModal(false);
+            setSelectedResignation(null);
+          }}
+          onAnalyzed={() => {
+            loadData();
+            loadTurnoverKpis();
+            loadResignationsDash();
+          }}
+        />
+      )}
     </div>
   );
 }
 
 // =================================================================
-// 📊 TAB EMPRESA (🆕 Sprint B2: "Total da Equipe" vem do liveDistribution)
+// 📊 TAB EMPRESA
 // =================================================================
 function EmpresaTab({ data, liveDistribution, year, onEdit, onRefreshLive }: any) {
   if (!data) return null;
 
   const turnoverAcumuladoSafe = Number(data.turnoverAcumulado) >= 0 ? Number(data.turnoverAcumulado).toFixed(1) : '0.0';
-
-  // 🆕 Sprint B2: fonte da verdade = Employee ATIVOS
   const totalEquipe = liveDistribution?.totalActive ?? 0;
 
   return (
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard
-          icon={Users}
-          label="Total da Equipe"
-          value={totalEquipe}
-          sublabel="Colaboradores ativos (ao vivo)"
-          color="teal"
-        />
+        <KpiCard icon={Users} label="Total da Equipe" value={totalEquipe} sublabel="Colaboradores ativos (ao vivo)" color="teal" />
         <KpiCard
           icon={TrendingUp}
           label="Turnover Acumulado 12m"
@@ -402,10 +441,7 @@ function EmpresaTab({ data, liveDistribution, year, onEdit, onRefreshLive }: any
               <CheckCircle className="h-5 w-5" />
               Distribuição por Setor (ao vivo)
             </h3>
-            <button
-              onClick={onRefreshLive}
-              className="text-xs text-teal-700 hover:text-teal-900 underline"
-            >
+            <button onClick={onRefreshLive} className="text-xs text-teal-700 hover:text-teal-900 underline">
               Atualizar
             </button>
           </div>
@@ -422,8 +458,7 @@ function EmpresaTab({ data, liveDistribution, year, onEdit, onRefreshLive }: any
             ))}
           </div>
           <p className="text-xs text-slate-600 mt-3 italic">
-            💡 Recomendado baseado em benchmark contábil (ADR-048):
-            Fiscal 30% • Contábil 25% • DP 20% • Admin 15% • Outros 10%. Tolerância ±5 p.p.
+            💡 Recomendado baseado em benchmark contábil (ADR-048): Fiscal 30% • Contábil 25% • DP 20% • Admin 15% • Outros 10%. Tolerância ±5 p.p.
           </p>
         </div>
       )}
@@ -445,17 +480,13 @@ function EmpresaTab({ data, liveDistribution, year, onEdit, onRefreshLive }: any
             const initial = Number(m.initial) || 0;
             const final = Number(m.final) || 0;
             const dismissals = Number(m.dismissals) || 0;
-
             const hcMedio = (initial + final) / 2;
             const turnover = hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
-
             const maxVal = Math.max(...data.monthlyData.map((mm: any) => {
               const hc = (Number(mm.initial) + Number(mm.final)) / 2;
               return hc > 0 ? (Number(mm.dismissals) / hc) * 100 : 0;
             }), 1);
-
             const height = (turnover / maxVal) * 100;
-
             return (
               <div key={idx} className="flex flex-col items-center flex-1">
                 <div className="w-full flex justify-center" style={{ height: '200px' }}>
@@ -497,14 +528,11 @@ function EmpresaTab({ data, liveDistribution, year, onEdit, onRefreshLive }: any
                 const final = Number(m.final) || 0;
                 const admissions = Number(m.admissions) || 0;
                 const dismissals = Number(m.dismissals) || 0;
-
                 const hcMedio = (initial + final) / 2;
                 const turnoverMensal = hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
-
                 const demissAcum = data.monthlyData.slice(0, idx + 1).reduce((acc: number, mm: any) => acc + (Number(mm.dismissals) || 0), 0);
                 const hcAcum = data.monthlyData.slice(0, idx + 1).reduce((acc: number, mm: any) => acc + ((Number(mm.initial) || 0) + (Number(mm.final) || 0)) / 2, 0);
                 const turnoverAcum = hcAcum > 0 ? (demissAcum / hcAcum) * 100 : 0;
-
                 return (
                   <tr key={idx} className="hover:bg-slate-50">
                     <td className="px-6 py-4 font-medium text-slate-900">{months[idx]}</td>
@@ -547,9 +575,7 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
               key={idx}
               onClick={() => setSelectedMonth(idx + 1)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                selectedMonth === idx + 1
-                  ? 'bg-teal-600 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                selectedMonth === idx + 1 ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
               {m}
@@ -605,7 +631,6 @@ function ContratualTab({ data, selectedMonth, setSelectedMonth, onEdit }: any) {
               const final = initial + admissions - dismissals;
               const hcMedio = (initial + final) / 2;
               const turnover = hcMedio > 0 ? (dismissals / hcMedio) * 100 : 0;
-
               return (
                 <tr key={ct.key} className="hover:bg-slate-50">
                   <td className="px-6 py-4 font-medium text-slate-900">{ct.label}</td>
@@ -665,9 +690,7 @@ function SetoresTab({
 
   const updateSectorDistribution = (sectorId: string, field: string, value: number) => {
     setSectorDistribution((prev: any[]) =>
-      prev.map((d: any) =>
-        d.sectorId === sectorId ? { ...d, [field]: value } : d
-      )
+      prev.map((d: any) => d.sectorId === sectorId ? { ...d, [field]: value } : d)
     );
   };
 
@@ -682,19 +705,13 @@ function SetoresTab({
 
   const turnoverRanking = useMemo(() => {
     return sectorDistribution
-      .map((d: any) => ({
-        sector: d.sector?.name || 'Setor',
-        turnover: getSectorTurnover(d),
-      }))
+      .map((d: any) => ({ sector: d.sector?.name || 'Setor', turnover: getSectorTurnover(d) }))
       .sort((a: any, b: any) => b.turnover - a.turnover);
   }, [sectorDistribution]);
 
   return (
     <div className="space-y-6">
-      {/* ============================================================= */}
-      {/* 🆕 SPRINT B2: DISTRIBUIÇÃO VALIDADA (AO VIVO)                 */}
-      {/* Fonte da verdade: Employee ATIVOS, comparado ao benchmark.    */}
-      {/* ============================================================= */}
+      {/* 🆕 Sprint B2: DISTRIBUIÇÃO VALIDADA (AO VIVO) */}
       {liveDistribution && liveDistribution.totalActive > 0 && (
         <div className="bg-white rounded-2xl shadow-sm border-2 border-teal-300 overflow-hidden">
           <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-5 flex items-center justify-between">
@@ -707,10 +724,7 @@ function SetoresTab({
                 Fonte: <strong>{liveDistribution.totalActive} colaboradores ativos</strong> • Benchmark contábil (ADR-048) • Tolerância ±5 p.p.
               </p>
             </div>
-            <button
-              onClick={onRefreshLive}
-              className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition-colors"
-            >
+            <button onClick={onRefreshLive} className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition-colors">
               🔄 Atualizar
             </button>
           </div>
@@ -720,7 +734,6 @@ function SetoresTab({
               <ValidatedSectorRow key={s.name} sector={s} />
             ))}
 
-            {/* Setores não reconhecidos (unmapped) */}
             {liveDistribution.unmapped.length > 0 && (
               <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm font-semibold text-amber-900 flex items-center gap-2 mb-2">
@@ -759,9 +772,7 @@ function SetoresTab({
         </div>
       )}
 
-      {/* ============================================================= */}
-      {/* Distribuição MANUAL (legado — para TurnoverMonthly histórico) */}
-      {/* ============================================================= */}
+      {/* Distribuição MANUAL (legado) */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex-1">
           <h3 className="font-semibold text-slate-900 mb-3">📋 Distribuição Histórica (preenchimento manual) — Selecione o Mês</h3>
@@ -771,9 +782,7 @@ function SetoresTab({
                 key={idx}
                 onClick={() => setSelectedMonth(idx + 1)}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  selectedMonth === idx + 1
-                    ? 'bg-teal-600 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  selectedMonth === idx + 1 ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
                 {m}
@@ -863,9 +872,7 @@ function SetoresTab({
             onClick={onSaveDistribution}
             disabled={!isDistributionValid}
             className={`flex items-center gap-2 px-4 py-2 font-semibold rounded-lg transition-colors ${
-              isDistributionValid
-                ? 'bg-teal-600 hover:bg-teal-700 text-white'
-                : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+              isDistributionValid ? 'bg-teal-600 hover:bg-teal-700 text-white' : 'bg-slate-300 text-slate-500 cursor-not-allowed'
             }`}
           >
             <CheckCircle className="h-4 w-4" />
@@ -894,14 +901,9 @@ function SetoresTab({
               <tbody className="divide-y divide-slate-200">
                 {sectors.map((sector: any) => {
                   const dist = sectorDistribution.find((d: any) => d.sectorId === sector.id) || {
-                    sectorId: sector.id,
-                    initial: 0,
-                    admissions: 0,
-                    dismissals: 0,
-                    sector,
+                    sectorId: sector.id, initial: 0, admissions: 0, dismissals: 0, sector,
                   };
                   const turnover = getSectorTurnover(dist);
-
                   return (
                     <tr key={sector.id} className="hover:bg-slate-50">
                       <td className="px-6 py-4 font-medium text-slate-900">{sector.name}</td>
@@ -964,92 +966,11 @@ function SetoresTab({
 }
 
 // =================================================================
-// 🆕 SPRINT B2: LINHA DE SETOR VALIDADO (barras atual × recomendado)
-// =================================================================
-function ValidatedSectorRow({ sector }: { sector: SectorDist }) {
-  const statusColors = {
-    OK: { bg: 'bg-green-500', text: 'text-green-700', pill: 'bg-green-100 text-green-800' },
-    OVER: { bg: 'bg-amber-500', text: 'text-amber-700', pill: 'bg-amber-100 text-amber-800' },
-    UNDER: { bg: 'bg-red-500', text: 'text-red-700', pill: 'bg-red-100 text-red-800' },
-  };
-  const c = statusColors[sector.status];
-  const statusLabel = {
-    OK: '✓ Dentro do ideal',
-    OVER: `⚠ +${sector.delta.toFixed(1)} p.p. acima`,
-    UNDER: `⚠ ${Math.abs(sector.delta).toFixed(1)} p.p. abaixo`,
-  };
-
-  return (
-    <div className="p-3 bg-slate-50 rounded-lg">
-      <div className="flex justify-between items-baseline mb-2">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-900">{sector.name}</span>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.pill}`}>
-            {statusLabel[sector.status]}
-          </span>
-        </div>
-        <div className="text-right">
-          <span className="text-lg font-bold text-slate-900">{sector.current}</span>
-          <span className="text-xs text-slate-500 ml-1">
-            / {sector.recommendedHeadcount} recomendado
-          </span>
-        </div>
-      </div>
-
-      {/* Barra dupla: atual (colorida) vs recomendado (tracejada) */}
-      <div className="relative h-7 bg-white rounded-md overflow-hidden border border-slate-200">
-        {/* Linha tracejada do recomendado */}
-        <div
-          className="absolute top-0 bottom-0 w-0.5 bg-slate-400 z-10"
-          style={{ left: `${Math.min(sector.recommendedPct * 2, 100)}%` }}
-          title={`Recomendado: ${sector.recommendedPct}%`}
-        />
-        {/* Barra atual */}
-        <div
-          className={`h-full ${c.bg} transition-all flex items-center justify-end pr-2`}
-          style={{ width: `${Math.min(sector.currentPct * 2, 100)}%` }}
-        >
-          {sector.currentPct > 3 && (
-            <span className="text-xs font-bold text-white drop-shadow">
-              {sector.currentPct}%
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex justify-between mt-1 text-xs text-slate-500">
-        <span>{sector.current} pessoas ({sector.currentPct}%)</span>
-        <span>Meta: {sector.recommendedPct}%</span>
-      </div>
-    </div>
-  );
-}
-
-// =================================================================
-// 🆕 SPRINT B2: BADGE DE STATUS (OK / OVER / UNDER)
-// =================================================================
-function StatusBadge({ status, delta }: { status: 'OK' | 'OVER' | 'UNDER'; delta: number }) {
-  const configs = {
-    OK: { icon: Check, color: 'text-green-700 bg-green-100', label: '✓ OK' },
-    OVER: { icon: AlertTriangle, color: 'text-amber-700 bg-amber-100', label: `+${delta.toFixed(1)}` },
-    UNDER: { icon: AlertTriangle, color: 'text-red-700 bg-red-100', label: `${delta.toFixed(1)}` },
-  };
-  const cfg = configs[status];
-  const Icon = cfg.icon;
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${cfg.color} mt-1`}>
-      <Icon className="h-3 w-3" />
-      {cfg.label}
-    </span>
-  );
-}
-
-// =================================================================
-// 📤 TAB RESCISÕES
+// 📤 TAB RESCISÕES (completo — dashboard, registros, análises, config)
 // =================================================================
 function RescisoesTab({
   subTab, setSubTab, resignations, reasons, positions, sectors,
-  turnoverKpis, resignationsDash, onAdd, onDelete,
+  turnoverKpis, resignationsDash, year, onAdd, onOpenExitInterview, onDelete,
 }: any) {
   return (
     <div className="space-y-6">
@@ -1057,6 +978,7 @@ function RescisoesTab({
         {[
           { key: 'dashboard', label: 'Dashboard' },
           { key: 'registros', label: 'Registros' },
+          { key: 'analises', label: 'Análises IA' },
           { key: 'config', label: 'Configurações' },
         ].map((tab) => (
           <button
@@ -1072,72 +994,73 @@ function RescisoesTab({
       </div>
 
       {subTab === 'dashboard' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard
-            icon={Users}
-            label="Total de Desligamentos"
-            value={resignationsDash?.totalDismissals ?? 0}
-            sublabel={`Em ${resignationsDash?.year ?? new Date().getFullYear()}`}
-            color="teal"
-          />
-          <KpiCard
-            icon={TrendingUp}
-            label="Turnover de Novatos"
-            value={`${resignationsDash?.newbieTurnoverRate ?? 0}%`}
-            sublabel={`${resignationsDash?.newbieDismissals ?? 0} com tenure < 12m`}
-            color={(resignationsDash?.newbieTurnoverRate ?? 0) > 30 ? 'red' : 'orange'}
-          />
-          <KpiCard
-            icon={AlertCircle}
-            label="Motivo Mais Frequente"
-            value={resignationsDash?.topReason?.name ?? 'N/A'}
-            sublabel={`${resignationsDash?.topReason?.count ?? 0} ocorrências`}
-            color="slate"
-          />
-          <KpiCard
-            icon={Briefcase}
-            label="Setor Crítico"
-            value={resignationsDash?.topSector?.name ?? 'N/A'}
-            sublabel={`${resignationsDash?.topSector?.count ?? 0} desligamentos`}
-            color="slate"
-          />
-        </div>
-      )}
-
-      {/* 🆕 B3: Card extra com KPIs avançados (tenure + críticos) */}
-      {subTab === 'dashboard' && turnoverKpis && (
-        <div className="bg-gradient-to-r from-rose-50 to-amber-50 rounded-xl p-6 border border-rose-200">
-          <h3 className="text-lg font-bold text-rose-900 mb-4 flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            KPIs Avançados de Turnover
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-xs text-rose-800 uppercase font-semibold">Equipe Ativa</p>
-              <p className="text-2xl font-bold text-rose-900">{turnoverKpis.activeCount}</p>
-            </div>
-            <div>
-              <p className="text-xs text-rose-800 uppercase font-semibold">🔑 Críticos Ativos</p>
-              <p className="text-2xl font-bold text-rose-900">{turnoverKpis.criticalActive}</p>
-            </div>
-            <div>
-              <p className="text-xs text-rose-800 uppercase font-semibold">Tenure Médio</p>
-              <p className="text-2xl font-bold text-rose-900">{turnoverKpis.avgTenureMonths}m</p>
-            </div>
-            <div>
-              <p className="text-xs text-rose-800 uppercase font-semibold">🔑 Críticos Perdidos</p>
-              <p className="text-2xl font-bold text-rose-900">{turnoverKpis.criticalDismissals}</p>
-            </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard
+              icon={Users}
+              label="Total de Desligamentos"
+              value={resignationsDash?.totalDismissals ?? 0}
+              sublabel={`Em ${resignationsDash?.year ?? new Date().getFullYear()}`}
+              color="teal"
+            />
+            <KpiCard
+              icon={TrendingUp}
+              label="Turnover de Novatos"
+              value={`${resignationsDash?.newbieTurnoverRate ?? 0}%`}
+              sublabel={`${resignationsDash?.newbieDismissals ?? 0} com tenure < 12m`}
+              color={(resignationsDash?.newbieTurnoverRate ?? 0) > 30 ? 'red' : 'orange'}
+            />
+            <KpiCard
+              icon={AlertCircle}
+              label="Motivo Mais Frequente"
+              value={resignationsDash?.topReason?.name ?? 'N/A'}
+              sublabel={`${resignationsDash?.topReason?.count ?? 0} ocorrências`}
+              color="slate"
+            />
+            <KpiCard
+              icon={Briefcase}
+              label="Setor Crítico"
+              value={resignationsDash?.topSector?.name ?? 'N/A'}
+              sublabel={`${resignationsDash?.topSector?.count ?? 0} desligamentos`}
+              color="slate"
+            />
           </div>
-        </div>
+
+          {/* 🆕 Sprint B3: KPIs avançados (tenure + críticos) */}
+          {turnoverKpis && (
+            <div className="bg-gradient-to-r from-rose-50 to-amber-50 rounded-xl p-6 border border-rose-200">
+              <h3 className="text-lg font-bold text-rose-900 mb-4 flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                KPIs Avançados de Turnover
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-rose-800 uppercase font-semibold">Equipe Ativa</p>
+                  <p className="text-2xl font-bold text-rose-900">{turnoverKpis.activeCount}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-rose-800 uppercase font-semibold">🔑 Críticos Ativos</p>
+                  <p className="text-2xl font-bold text-rose-900">{turnoverKpis.criticalActive}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-rose-800 uppercase font-semibold">Tenure Médio</p>
+                  <p className="text-2xl font-bold text-rose-900">{turnoverKpis.avgTenureMonths}m</p>
+                </div>
+                <div>
+                  <p className="text-xs text-rose-800 uppercase font-semibold">🔑 Críticos Perdidos</p>
+                  <p className="text-2xl font-bold text-rose-900">{turnoverKpis.criticalDismissals}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {subTab === 'registros' && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 border-b border-slate-200 flex justify-between items-center">
             <h3 className="font-semibold text-slate-900">Registros de Rescisão</h3>
-            <button onClick={onAdd}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors">
+            <button onClick={onAdd} className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors">
               <Plus className="h-4 w-4" /> Adicionar Rescisão
             </button>
           </div>
@@ -1172,17 +1095,27 @@ function RescisoesTab({
                         {r.employeeName}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-700">
-                      {new Date(r.dismissalDate).toLocaleDateString('pt-BR')}
-                    </td>
+                    <td className="px-6 py-4 text-slate-700">{new Date(r.dismissalDate).toLocaleDateString('pt-BR')}</td>
                     <td className="px-6 py-4 text-slate-700">{r.sector?.name || '-'}</td>
                     <td className="px-6 py-4 text-slate-700">{r.position?.name || '-'}</td>
                     <td className="px-6 py-4 text-slate-700">{r.contractType}</td>
                     <td className="px-6 py-4 text-slate-700">{r.dismissalReason?.name || '-'}</td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={() => onDelete(r.id)} className="text-red-600 hover:text-red-800">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <span title="Entrevista de desligamento">
+                          <button
+                            onClick={() => onOpenExitInterview(r)}
+                            className="text-slate-400 hover:text-teal-600 transition-colors p-2"
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                          </button>
+                        </span>
+                        <span title="Remover">
+                          <button onClick={() => onDelete(r.id)} className="text-red-600 hover:text-red-800 p-2">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1192,9 +1125,58 @@ function RescisoesTab({
         </div>
       )}
 
+      {/* 🆕 Sprint B4: SUB-ABA ANÁLISES */}
+      {subTab === 'analises' && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-teal-50 to-orange-50 p-6 rounded-xl border border-teal-200">
+            <h3 className="text-lg font-bold text-teal-900 mb-2 flex items-center gap-2">
+              <Brain className="h-5 w-5" />
+              Análises de Entrevista de Desligamento
+            </h3>
+            <p className="text-sm text-teal-800">
+              Motor de análise ({resignationsDash?.analyzedCount || 0} entrevistas analisadas em {year})
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h4 className="text-lg font-bold text-slate-900 mb-4">Top Causas-raiz de Desligamento</h4>
+            {(resignationsDash?.analyzedCount || 0) === 0 ? (
+              <p className="text-slate-500 text-center py-8">
+                Nenhuma entrevista analisada ainda. Conduza entrevistas na aba "Registros".
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {resignationsDash?.topCauses?.map((cause: any) => (
+                  <div key={cause.category} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-slate-900">{cause.label}</span>
+                      <span className="text-sm font-bold text-teal-700 bg-teal-100 px-3 py-1 rounded-full">
+                        {cause.count} ocorrência(s)
+                      </span>
+                    </div>
+                    <div className="mt-3 p-3 bg-amber-50 rounded border border-amber-200">
+                      <p className="text-xs font-semibold text-amber-900 mb-2 flex items-center gap-1">
+                        <Lightbulb className="h-3 w-3" /> Plano de ação sugerido:
+                      </p>
+                      <ul className="space-y-1">
+                        {cause.actionPlan?.map((action: string, idx: number) => (
+                          <li key={idx} className="text-sm text-amber-800 flex items-start gap-2">
+                            <CheckCircle className="h-3 w-3 text-amber-600 mt-0.5 flex-shrink-0" />
+                            {action}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {subTab === 'config' && (
         <div className="space-y-6">
-          {/* Motivos de Desligamento (mantido) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-4">
               <div>
@@ -1234,7 +1216,6 @@ function RescisoesTab({
             </div>
           </div>
 
-          {/* Cargos (mantido) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-4">
               <div>
@@ -1278,8 +1259,83 @@ function RescisoesTab({
     </div>
   );
 }
+
 // =================================================================
-// 🧩 COMPONENTES AUXILIARES
+// 🆕 SPRINT B2: LINHA DE SETOR VALIDADO
+// =================================================================
+function ValidatedSectorRow({ sector }: { sector: SectorDist }) {
+  const statusColors = {
+    OK: { bg: 'bg-green-500', text: 'text-green-700', pill: 'bg-green-100 text-green-800' },
+    OVER: { bg: 'bg-amber-500', text: 'text-amber-700', pill: 'bg-amber-100 text-amber-800' },
+    UNDER: { bg: 'bg-red-500', text: 'text-red-700', pill: 'bg-red-100 text-red-800' },
+  };
+  const c = statusColors[sector.status];
+  const statusLabel = {
+    OK: '✓ Dentro do ideal',
+    OVER: `⚠ +${sector.delta.toFixed(1)} p.p. acima`,
+    UNDER: `⚠ ${Math.abs(sector.delta).toFixed(1)} p.p. abaixo`,
+  };
+
+  return (
+    <div className="p-3 bg-slate-50 rounded-lg">
+      <div className="flex justify-between items-baseline mb-2">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-slate-900">{sector.name}</span>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${c.pill}`}>
+            {statusLabel[sector.status]}
+          </span>
+        </div>
+        <div className="text-right">
+          <span className="text-lg font-bold text-slate-900">{sector.current}</span>
+          <span className="text-xs text-slate-500 ml-1">/ {sector.recommendedHeadcount} recomendado</span>
+        </div>
+      </div>
+
+      <div className="relative h-7 bg-white rounded-md overflow-hidden border border-slate-200">
+        <div
+          className="absolute top-0 bottom-0 w-0.5 bg-slate-400 z-10"
+          style={{ left: `${Math.min(sector.recommendedPct * 2, 100)}%` }}
+          title={`Recomendado: ${sector.recommendedPct}%`}
+        />
+        <div
+          className={`h-full ${c.bg} transition-all flex items-center justify-end pr-2`}
+          style={{ width: `${Math.min(sector.currentPct * 2, 100)}%` }}
+        >
+          {sector.currentPct > 3 && (
+            <span className="text-xs font-bold text-white drop-shadow">{sector.currentPct}%</span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex justify-between mt-1 text-xs text-slate-500">
+        <span>{sector.current} pessoas ({sector.currentPct}%)</span>
+        <span>Meta: {sector.recommendedPct}%</span>
+      </div>
+    </div>
+  );
+}
+
+// =================================================================
+// 🆕 SPRINT B2: BADGE DE STATUS
+// =================================================================
+function StatusBadge({ status, delta }: { status: 'OK' | 'OVER' | 'UNDER'; delta: number }) {
+  const configs = {
+    OK: { icon: Check, color: 'text-green-700 bg-green-100', label: '✓ OK' },
+    OVER: { icon: AlertTriangle, color: 'text-amber-700 bg-amber-100', label: `+${delta.toFixed(1)}` },
+    UNDER: { icon: AlertTriangle, color: 'text-red-700 bg-red-100', label: `${delta.toFixed(1)}` },
+  };
+  const cfg = configs[status];
+  const Icon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${cfg.color} mt-1`}>
+      <Icon className="h-3 w-3" />
+      {cfg.label}
+    </span>
+  );
+}
+
+// =================================================================
+// 🧩 KPI CARD (genérico)
 // =================================================================
 function KpiCard({ icon: Icon, label, value, sublabel, extra, color }: any) {
   const colorMap: any = {
@@ -1305,7 +1361,7 @@ function KpiCard({ icon: Icon, label, value, sublabel, extra, color }: any) {
 }
 
 // =================================================================
-// 📝 MODAL: Editar Dados Mensais (mantido)
+// 📝 MODAL: Editar Dados Mensais
 // =================================================================
 function EditMonthlyModal({ month, year, initialData, onClose, onSave }: any) {
   const [form, setForm] = useState({
@@ -1411,7 +1467,7 @@ function EditMonthlyModal({ month, year, initialData, onClose, onSave }: any) {
 }
 
 // =================================================================
-// 📝 MODAL: Adicionar Rescisão (mantido)
+// 📝 MODAL: Adicionar Rescisão (🆕 B3: checkbox "era crítico")
 // =================================================================
 function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: any) {
   const [form, setForm] = useState({
@@ -1423,7 +1479,7 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
     contractType: 'CLT',
     positionId: '',
     dismissalReasonId: '',
-    isCritical: false, // 🆕 B3: flag crítico (cópia histórica — ADR-049)
+    isCritical: false,
     observations: '',
   });
 
@@ -1512,7 +1568,7 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
             </select>
           </div>
 
-          {/* 🆕 B3: checkbox "era crítico?" — grava Resignation.isCritical (ADR-049) */}
+          {/* 🆕 Sprint B3: checkbox "era crítico?" */}
           <label className="flex items-center gap-3 cursor-pointer p-4 rounded-lg border-2 border-slate-200 hover:border-rose-300 hover:bg-rose-50 transition-colors">
             <input
               type="checkbox"
@@ -1556,7 +1612,7 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
 }
 
 // =================================================================
-// ⚙️ MODAL: Gerenciar Setores e Células (mantido)
+// ⚙️ MODAL: Gerenciar Setores e Células
 // =================================================================
 function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDeleteCell }: any) {
   const [newSector, setNewSector] = useState('');
@@ -1587,30 +1643,24 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
         <div className="p-6 space-y-4">
           <div className="flex gap-2">
             <input
-              type="text"
-              value={newSector}
+              type="text" value={newSector}
               onChange={(e) => setNewSector(e.target.value)}
               placeholder="Nome do novo setor..."
               className={inputClass + ' flex-1'}
             />
             <button
               onClick={() => {
-                if (newSector.trim()) {
-                  onAdd(newSector.trim());
-                  setNewSector('');
-                }
+                if (newSector.trim()) { onAdd(newSector.trim()); setNewSector(''); }
               }}
               className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg flex items-center gap-2"
             >
-              <Plus className="h-4 w-4" />
-              Adicionar
+              <Plus className="h-4 w-4" /> Adicionar
             </button>
             <button
               onClick={() => setShowOtherSectors(!showOtherSectors)}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg flex items-center gap-2"
             >
-              <Briefcase className="h-4 w-4" />
-              Setores de outras empresas (20)
+              <Briefcase className="h-4 w-4" /> Setores de outras empresas (20)
             </button>
           </div>
 
@@ -1621,10 +1671,7 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
                 {otherSectors.map((s) => (
                   <button
                     key={s.name}
-                    onClick={() => {
-                      onAdd(s.name);
-                      setShowOtherSectors(false);
-                    }}
+                    onClick={() => { onAdd(s.name); setShowOtherSectors(false); }}
                     className="w-full flex items-center justify-between px-3 py-2 bg-white hover:bg-teal-50 rounded border border-slate-200 transition-colors"
                   >
                     <span className="text-sm font-medium text-slate-700">{s.name}</span>
@@ -1665,26 +1712,20 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
                 {expandedSector === s.id && (
                   <div className="border-t border-slate-200 bg-slate-50 p-3">
                     <p className="text-xs font-medium text-slate-600 mb-2">Células de Trabalho</p>
-
                     <div className="flex gap-2 mb-3">
                       <input
-                        type="text"
-                        value={newCellName}
+                        type="text" value={newCellName}
                         onChange={(e) => setNewCellName(e.target.value)}
                         placeholder="Nome da célula..."
                         className={inputClass + ' flex-1 text-sm'}
                       />
                       <button
                         onClick={() => {
-                          if (newCellName.trim()) {
-                            onAddCell(s.id, newCellName.trim());
-                            setNewCellName('');
-                          }
+                          if (newCellName.trim()) { onAddCell(s.id, newCellName.trim()); setNewCellName(''); }
                         }}
                         className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg flex items-center gap-1"
                       >
-                        <Plus className="h-3 w-3" />
-                        Adicionar
+                        <Plus className="h-3 w-3" /> Adicionar
                       </button>
                     </div>
 
@@ -1693,10 +1734,7 @@ function ManageSectorsModal({ sectors, onClose, onAdd, onDelete, onAddCell, onDe
                         {s.cells.map((cell: any) => (
                           <div key={cell.id} className="flex items-center justify-between px-3 py-2 bg-white rounded border border-slate-200">
                             <span className="text-sm text-slate-700">{cell.name}</span>
-                            <button
-                              onClick={() => onDeleteCell(s.id, cell.id)}
-                              className="text-red-600 hover:text-red-800"
-                            >
+                            <button onClick={() => onDeleteCell(s.id, cell.id)} className="text-red-600 hover:text-red-800">
                               <Trash2 className="h-3 w-3" />
                             </button>
                           </div>

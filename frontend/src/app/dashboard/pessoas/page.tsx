@@ -26,7 +26,7 @@ import { toast } from 'sonner';
 import {
   Users, Plus, Loader2, Trash2, Edit2, X,
   Briefcase, Mail, Phone, Calendar, DollarSign,
-  Filter, BarChart3, Key, AlertTriangle,
+  Filter, BarChart3, Key, AlertTriangle,XCircle,
 } from 'lucide-react';
 
 // =================================================================
