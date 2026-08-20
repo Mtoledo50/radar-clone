@@ -146,8 +146,16 @@ ADR-042 Conciliação Banco×NF-e apenas em DÉBITOS bancários c/ NF-e de ENTRA
         (estoque armazena notas de compra) (commit d61b657 — Sprint 29).
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
-Fase B (Pessoas): B1 ✅ • B2 ✅ distribuição por setor validada • B3 KPIs
-novatos/crítico (PRÓXIMA) • B4 entrevista de desligamento (IA) • B5 cargos p/ setor.
+Fase B (Pessoas): B1 ✅ • B2 ✅ distribuição por setor validada •
+B3 KPIs novatos/crítico ✅ • B4 entrevista de desligamento (IA) (PRÓXIMA) •
+B5 cargos p/ setor.
+
+Sprint B3 HOMOLOGADA: KPIs de turnover (novatos/críticos/tenure) com
+flag `isCritical` em Employee + cópia histórica em Resignation (ADR-049).
+KPIs da aba Rescisões vêm de endpoints reais; checkbox "Era crítico?"
+no modal de rescisão.
+IMEDIATO: Sprint B4 = Entrevista de Desligamento com IA (causa-raiz +
+plano de ação sugerido).
 
 Sprint B2 HOMOLOGADA: distribuição por setor VALIDADA ao vivo (benchmark
 ADR-048 ±5 p.p., selos ✓/⚠, unmapped como chips, KPI "Total da Equipe"

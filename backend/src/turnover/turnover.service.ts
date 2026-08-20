@@ -257,7 +257,7 @@ export class TurnoverService {
   // =================================================================
 
   // =================================================================
-  // INÍCIO: Rescisões (CRUD)
+  // INÍCIO: Rescisões (CRUD) — 🆕 Sprint B3
   // =================================================================
   async getResignations(companyId: string, filters?: any) {
     const where: any = { companyId };
@@ -279,6 +279,12 @@ export class TurnoverService {
     });
   }
 
+  /**
+   * 🆕 Sprint B3 (ADR-049): aceita `isCritical` (cópia histórica).
+   * Se o usuário marcar "era crítico" no modal de rescisão, o flag é
+   * gravado no Resignation — independente do Employee.isCritical atual
+   * (o colaborador pode ter deixado de ser crítico antes de sair).
+   */
   async createResignation(companyId: string, userId: string, data: any) {
     return this.prisma.resignation.create({
       data: {
@@ -292,6 +298,7 @@ export class TurnoverService {
         contractType: data.contractType || 'CLT',
         positionId: data.positionId || null,
         dismissalReasonId: data.dismissalReasonId || null,
+        isCritical: Boolean(data.isCritical), // 🆕 Sprint B3 (ADR-049)
         observations: data.observations || null,
       },
       include: {
@@ -304,6 +311,78 @@ export class TurnoverService {
 
   async deleteResignation(id: string) {
     return this.prisma.resignation.delete({ where: { id } });
+  }
+  // =================================================================
+  // FIM: Rescisões (CRUD)
+  // =================================================================
+
+  // =================================================================
+  // 🆕 SPRINT B3: Dashboard de Rescisões (alimento dos KPIs do Turnover)
+  // =================================================================
+
+  /**
+   * 🎯 getResignationsDashboard — alimenta os 4 KPIs da aba
+   * "Rescisões → Dashboard" no Turnover:
+   *   1. Total de Desligamentos (no ano)
+   *   2. Turnover de Novatos (desligados com tenure < 12 meses)
+   *   3. Motivo Mais Frequente (top 1)
+   *   4. Setor Crítico (setor com mais desligamentos)
+   *
+   * Também consome o endpoint do EmployeeService (turnover-kpis)
+   * para trazer `criticalDismissals` — aqui só agregamos motivos/setores.
+   */
+  async getResignationsDashboard(companyId: string, year: number) {
+    const start = new Date(year, 0, 1);
+    const end = new Date(year, 11, 31, 23, 59, 59);
+
+    const resignations = await this.prisma.resignation.findMany({
+      where: {
+        companyId,
+        dismissalDate: { gte: start, lte: end },
+      },
+      include: {
+        sector: { select: { name: true } },
+        dismissalReason: { select: { name: true } },
+      },
+    });
+
+    const totalDismissals = resignations.length;
+
+    // Turnover de novatos: tenure < 12 meses na data do desligamento
+    const newbieDismissals = resignations.filter((r) => {
+      const tenureMs = r.dismissalDate.getTime() - r.admissionDate.getTime();
+      const tenureMonths = tenureMs / (1000 * 60 * 60 * 24 * 30.44);
+      return tenureMonths < 12;
+    }).length;
+    const newbieTurnoverRate =
+      totalDismissals > 0 ? (newbieDismissals / totalDismissals) * 100 : 0;
+
+    // Motivo mais frequente
+    const reasonCounts: Record<string, number> = {};
+    resignations.forEach((r) => {
+      const name = r.dismissalReason?.name || 'Não informado';
+      reasonCounts[name] = (reasonCounts[name] || 0) + 1;
+    });
+    const topReason =
+      Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0] || null;
+
+    // Setor crítico (mais desligamentos)
+    const sectorCounts: Record<string, number> = {};
+    resignations.forEach((r) => {
+      const name = r.sector?.name || 'Sem setor';
+      sectorCounts[name] = (sectorCounts[name] || 0) + 1;
+    });
+    const topSector =
+      Object.entries(sectorCounts).sort((a, b) => b[1] - a[1])[0] || null;
+
+    return {
+      year,
+      totalDismissals,
+      newbieDismissals,
+      newbieTurnoverRate: Number(newbieTurnoverRate.toFixed(1)),
+      topReason: topReason ? { name: topReason[0], count: topReason[1] } : null,
+      topSector: topSector ? { name: topSector[0], count: topSector[1] } : null,
+    };
   }
   // =================================================================
   // FIM: Rescisões (CRUD)

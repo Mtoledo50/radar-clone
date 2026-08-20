@@ -1,9 +1,28 @@
 // =================================================================
-// INÍCIO: turnover.controller.ts
+// INÍCIO: backend/src/turnover/turnover.controller.ts
 // =================================================================
 /**
- * TurnoverController
- * Endpoints REST para gestão de turnover, setores, cargos, motivos e rescisões.
+ * =================================================================
+ * 📊 TurnoverController — Gestão de Rotatividade (Sprints B1+B2+B3)
+ * =================================================================
+ * Endpoints REST para o módulo de Turnover:
+ * - Dashboard mensal (TurnoverMonthly)
+ * - Dados mensais (CRUD)
+ * - Setores (CRUD)
+ * - Distribuição por setor (histórica — preenchimento manual)
+ * - Motivos de desligamento (CRUD)
+ * - Cargos (CRUD)
+ * - Rescisões (CRUD + dashboard 🆕 B3)
+ *
+ * 🛡️ Segurança:
+ * - Todas as rotas exigem JWT (JwtAuthGuard)
+ * - Queries filtradas por companyId (multi-tenant ADR-004)
+ * - Uso uniforme de `@CurrentUser()` (ADR-034)
+ *
+ * 🆕 Sprint B3: endpoint `GET /turnover/resignations-dashboard`
+ * alimenta os 4 KPIs da aba Rescisões → Dashboard com dados reais
+ * (antes eram placeholders hardcoded "0" / "N/A").
+ * =================================================================
  */
 import {
   Controller,
@@ -15,10 +34,22 @@ import {
   Param,
   Query,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import { TurnoverService } from './turnover.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+
+/**
+ * 🆕 Sprint B3: tipagem do payload do JWT (espelho do JwtStrategy).
+ * Antes usávamos `@Request() req` + `req.user.xxx` (menos tipado).
+ * Agora: `@CurrentUser() user: UserPayload` (mais limpo e tipado).
+ */
+interface UserPayload {
+  id: string;
+  companyId: string;
+  email: string;
+  role: string;
+}
 
 @Controller('turnover')
 @UseGuards(JwtAuthGuard)
@@ -26,196 +57,267 @@ export class TurnoverController {
   constructor(private readonly turnoverService: TurnoverService) {}
 
   // =================================================================
-  // INÍCIO: Dashboard
+  // 📊 DASHBOARD (dados mensais agregados do ano)
   // =================================================================
+
+  /**
+   * GET /turnover/dashboard?year=2026
+   * Retorna os 12 meses de TurnoverMonthly do ano + KPIs agregados
+   * (total admissões/demissões/headcount atual).
+   */
   @Get('dashboard')
-  async getDashboard(@Request() req, @Query('year') year: string) {
-    const { companyId } = req.user;
+  async getDashboard(
+    @CurrentUser() user: UserPayload,
+    @Query('year') year: string,
+  ) {
     const data = await this.turnoverService.getDashboard(
-      companyId,
-      parseInt(year) || new Date().getFullYear()
+      user.companyId,
+      parseInt(year) || new Date().getFullYear(),
     );
     return { success: true, data };
   }
-  // =================================================================
-  // FIM: Dashboard
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Dados Mensais
+  // 📅 DADOS MENSAIS (CRUD de TurnoverMonthly)
   // =================================================================
+
+  /**
+   * POST /turnover/monthly
+   * Upsert dos dados mensais (clt/intern/third/partner × initial/admissions/dismissals).
+   * Body: { year, month, data: { cltInitial, cltAdmissions, ... } }
+   */
   @Post('monthly')
-  async saveMonthlyData(@Request() req, @Body() body: any) {
-    const { id: userId, companyId } = req.user;
+  async saveMonthlyData(
+    @CurrentUser() user: UserPayload,
+    @Body() body: any,
+  ) {
     const data = await this.turnoverService.saveMonthlyData(
-      companyId,
-      userId,
+      user.companyId,
+      user.id,
       body.year,
       body.month,
-      body.data
+      body.data,
     );
     return { success: true, data };
   }
-  // =================================================================
-  // FIM: Dados Mensais
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Setores
+  // 🏢 SETORES (CRUD)
   // =================================================================
+
+  /** GET /turnover/sectors — lista todos os setores do tenant. */
   @Get('sectors')
-  async getSectors(@Request() req) {
-    const data = await this.turnoverService.getSectors(req.user.companyId);
+  async getSectors(@CurrentUser() user: UserPayload) {
+    const data = await this.turnoverService.getSectors(user.companyId);
     return { success: true, data };
   }
 
+  /** POST /turnover/sectors — cria setor (body: { name, mandatory? }). */
   @Post('sectors')
-  async createSector(@Request() req, @Body() body: { name: string; mandatory?: boolean }) {
+  async createSector(
+    @CurrentUser() user: UserPayload,
+    @Body() body: { name: string; mandatory?: boolean },
+  ) {
     const data = await this.turnoverService.createSector(
-      req.user.companyId,
-      req.user.id,
+      user.companyId,
+      user.id,
       body.name,
-      body.mandatory
+      body.mandatory,
     );
     return { success: true, data };
   }
 
+  /** DELETE /turnover/sectors/:id — remove setor (não-mandatórios apenas). */
   @Delete('sectors/:id')
   async deleteSector(@Param('id') id: string) {
     await this.turnoverService.deleteSector(id);
     return { success: true };
   }
-  // =================================================================
-  // FIM: Setores
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Distribuição por Setor
+  // 📋 DISTRIBUIÇÃO POR SETOR (histórica — preenchimento manual)
   // =================================================================
+  // ⚠️ NOTA: isto é a distribuição MANUAL (TurnoverSectorDistribution).
+  // A distribuição AO VIVO (derivada dos Employee ATIVOS) está em
+  // `GET /employees/sector-distribution` (EmployeeController — B2).
+  // =================================================================
+
+  /**
+   * GET /turnover/sector-distribution?year=2026&month=8
+   * Retorna a distribuição manual preenchida pelo usuário p/ o mês.
+   */
   @Get('sector-distribution')
   async getSectorDistribution(
-    @Request() req,
+    @CurrentUser() user: UserPayload,
     @Query('year') year: string,
-    @Query('month') month: string
+    @Query('month') month: string,
   ) {
     const data = await this.turnoverService.getSectorDistribution(
-      req.user.companyId,
+      user.companyId,
       parseInt(year),
-      parseInt(month)
+      parseInt(month),
     );
     return { success: true, data };
   }
 
+  /**
+   * POST /turnover/sector-distribution
+   * Salva/substitui a distribuição manual do mês.
+   * Body: { year, month, distributions: [{ sectorId, initial, admissions, dismissals }] }
+   */
   @Post('sector-distribution')
-  async saveSectorDistribution(@Request() req, @Body() body: any) {
-    const { id: userId, companyId } = req.user;
+  async saveSectorDistribution(
+    @CurrentUser() user: UserPayload,
+    @Body() body: any,
+  ) {
     const data = await this.turnoverService.saveSectorDistribution(
-      companyId,
-      userId,
+      user.companyId,
+      user.id,
       body.year,
       body.month,
-      body.distributions
+      body.distributions,
     );
     return { success: true, data };
   }
-  // =================================================================
-  // FIM: Distribuição por Setor
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Motivos de Desligamento
+  // 📝 MOTIVOS DE DESLIGAMENTO (CRUD)
   // =================================================================
+
+  /** GET /turnover/reasons — lista todos os motivos do tenant. */
   @Get('reasons')
-  async getReasons(@Request() req) {
-    const data = await this.turnoverService.getDismissalReasons(req.user.companyId);
+  async getReasons(@CurrentUser() user: UserPayload) {
+    const data = await this.turnoverService.getDismissalReasons(user.companyId);
     return { success: true, data };
   }
 
+  /** POST /turnover/reasons — cria motivo (body: { name }). */
   @Post('reasons')
-  async createReason(@Request() req, @Body() body: { name: string }) {
+  async createReason(
+    @CurrentUser() user: UserPayload,
+    @Body() body: { name: string },
+  ) {
     const data = await this.turnoverService.createDismissalReason(
-      req.user.companyId,
-      req.user.id,
-      body.name
+      user.companyId,
+      user.id,
+      body.name,
     );
     return { success: true, data };
   }
 
+  /** DELETE /turnover/reasons/:id — remove motivo. */
   @Delete('reasons/:id')
   async deleteReason(@Param('id') id: string) {
     await this.turnoverService.deleteDismissalReason(id);
     return { success: true };
   }
-  // =================================================================
-  // FIM: Motivos de Desligamento
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Cargos
+  // 💼 CARGOS (CRUD)
   // =================================================================
+
+  /** GET /turnover/positions — lista todos os cargos do tenant. */
   @Get('positions')
-  async getPositions(@Request() req) {
-    const data = await this.turnoverService.getPositions(req.user.companyId);
+  async getPositions(@CurrentUser() user: UserPayload) {
+    const data = await this.turnoverService.getPositions(user.companyId);
     return { success: true, data };
   }
 
+  /** POST /turnover/positions — cria cargo (body: { name, description? }). */
   @Post('positions')
-  async createPosition(@Request() req, @Body() body: { name: string; description?: string }) {
+  async createPosition(
+    @CurrentUser() user: UserPayload,
+    @Body() body: { name: string; description?: string },
+  ) {
     const data = await this.turnoverService.createPosition(
-      req.user.companyId,
-      req.user.id,
+      user.companyId,
+      user.id,
       body.name,
-      body.description
+      body.description,
     );
     return { success: true, data };
   }
 
+  /** PUT /turnover/positions/:id — atualiza cargo. */
   @Put('positions/:id')
   async updatePosition(
     @Param('id') id: string,
-    @Body() body: { name: string; description?: string }
+    @Body() body: { name: string; description?: string },
   ) {
-    const data = await this.turnoverService.updatePosition(id, body.name, body.description);
+    const data = await this.turnoverService.updatePosition(
+      id,
+      body.name,
+      body.description,
+    );
     return { success: true, data };
   }
 
+  /** DELETE /turnover/positions/:id — remove cargo. */
   @Delete('positions/:id')
   async deletePosition(@Param('id') id: string) {
     await this.turnoverService.deletePosition(id);
     return { success: true };
   }
-  // =================================================================
-  // FIM: Cargos
-  // =================================================================
 
   // =================================================================
-  // INÍCIO: Rescisões
+  // 🆕 SPRINT B3: RESCISÕES (CRUD + DASHBOARD)
   // =================================================================
-  @Get('resignations')
-  async getResignations(@Request() req, @Query() filters: any) {
-    const data = await this.turnoverService.getResignations(req.user.companyId, filters);
-    return { success: true, data };
-  }
 
-  @Post('resignations')
-  async createResignation(@Request() req, @Body() body: any) {
-    const data = await this.turnoverService.createResignation(
-      req.user.companyId,
-      req.user.id,
-      body
+  /**
+   * 🆕 Sprint B3: GET /turnover/resignations-dashboard?year=2026
+   *
+   * Alimenta os 4 KPIs da aba Rescisões → Dashboard com dados REAIS:
+   * - totalDismissals (desligamentos no ano)
+   * - newbieDismissals + newbieTurnoverRate (tenure < 12m)
+   * - topReason (motivo mais frequente)
+   * - topSector (setor com mais desligamentos)
+   *
+   * Antes os KPIs eram hardcoded ("0" / "N/A"). Agora vêm do banco.
+   *
+   * ⚠️ ORDEM DAS ROTAS (NestJS): rota LITERAL deve vir ANTES de
+   *    qualquer rota parametrizada (ex: @Get('resignations/:id')).
+   *    Por isso esta rota está posicionada antes do POST/DELETE abaixo.
+   */
+  @Get('resignations-dashboard')
+  async getResignationsDashboard(
+    @CurrentUser() user: UserPayload,
+    @Query('year') year?: string,
+  ) {
+    const parsedYear = year ? parseInt(year, 10) : new Date().getFullYear();
+    const safeYear = isNaN(parsedYear) ? new Date().getFullYear() : parsedYear;
+    const data = await this.turnoverService.getResignationsDashboard(
+      user.companyId,
+      safeYear,
     );
     return { success: true, data };
   }
 
+  /**
+   * POST /turnover/resignations
+   * Cria registro de rescisão.
+   * 🆕 Sprint B3 (ADR-049): body aceita `isCritical` (cópia histórica
+   * do flag no momento do desligamento — não depende do Employee atual).
+   */
+  @Post('resignations')
+  async createResignation(
+    @CurrentUser() user: UserPayload,
+    @Body() body: any,
+  ) {
+    const data = await this.turnoverService.createResignation(
+      user.companyId,
+      user.id,
+      body,
+    );
+    return { success: true, data };
+  }
+
+  /** DELETE /turnover/resignations/:id — remove rescisão. */
   @Delete('resignations/:id')
   async deleteResignation(@Param('id') id: string) {
     await this.turnoverService.deleteResignation(id);
     return { success: true };
   }
-  // =================================================================
-  // FIM: Rescisões
-  // =================================================================
 }
 // =================================================================
-// FIM: turnover.controller.ts
+// FIM: backend/src/turnover/turnover.controller.ts
 // =================================================================

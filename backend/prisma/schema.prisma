@@ -291,6 +291,7 @@ model Employee {
   salary          Float?
   status          EmployeeStatus @default(ACTIVE)
   contractType    ContractType   @default(CLT)  // 🆕 Sprint B1: tipo contratual
+  isCritical      Boolean        @default(false)
   
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -1035,7 +1036,8 @@ model Resignation {
   cellId          String?
   positionId      String?
   position        Position? @relation(fields: [positionId], references: [id], onDelete: SetNull)
-  contractType    String   
+  contractType    String
+  isCritical      Boolean        @default(false)  // 🆕 Sprint B3: cópia histórica (ADR-049)
   dismissalReasonId String?
   dismissalReason DismissalReason? @relation(fields: [dismissalReasonId], references: [id], onDelete: SetNull)
   observations    String?  @db.Text

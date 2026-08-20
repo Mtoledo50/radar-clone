@@ -3,27 +3,30 @@
 // =================================================================
 /**
  * =================================================================
- * EmployeeService — Gestão de Colaboradores (Sprints B1 + B2)
+ * EmployeeService — Gestão de Colaboradores (Sprints B1 + B2 + B3)
  * =================================================================
  * Responsabilidades:
- * - CRUD de colaboradores (Employee)
- * - Métricas básicas (total, ativos, admissões no mês)
- * - Validação robusta de datas (admissionDate obrigatório)
+ * - CRUD de colaboradores (Employee) com validação robusta de datas
  * - Sprint B1: tipo contratual (CLT/ESTAGIARIO/TERCEIRIZADO/SOCIO)
- * - 🆕 Sprint B2: distribuição por setor VALIDADA (atual × benchmark)
+ * - Sprint B2: distribuição por setor VALIDADA (benchmark ADR-048)
+ * - Sprint B3: KPIs de turnover (novatos <12m + críticos 🔑 + tenure)
  *
  * 🧠 ADRs:
  * - ADR-004: Multi-tenant single-database (companyId em todas as queries)
- * - ADR-047 (proposto): tipo contratual vive no Employee (enum forte)
- * - ADR-048 (proposto): benchmark contábil padrão para validação de setores
- *   (Fiscal 30% / Contábil 25% / DP 20% / Admin 15% / Outros 10%, ±5 p.p.)
+ * - ADR-047: tipo contratual vive no Employee (enum forte)
+ * - ADR-048: benchmark contábil ±5 p.p. (Fiscal 30/Contábil 25/DP 20/
+ *   Admin 15/Outros 10) com normalização sem acentos (NFD)
+ * - ADR-049: flag crítico com cópia histórica (Employee.isCritical +
+ *   Resignation.isCritical), espelho do ADR-047
  * =================================================================
  */
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ContractType } from '@prisma/client';
 
-// 🆕 Sprint B2 — benchmark contábil (ADR-048)
+// =================================================================
+// 🆕 SPRINT B2 — BENCHMARK CONTÁBIL (ADR-048)
+// =================================================================
 interface SectorBenchmark {
   name: string;
   recommendedPct: number;
@@ -50,25 +53,12 @@ const SECTOR_BENCHMARKS: SectorBenchmark[] = [
     name: 'Administrativo/Comercial',
     recommendedPct: 15,
     keywords: [
-      'admin',
-      'comercial',
-      'vendas',
-      'financeiro',
-      'diretoria',
-      'gestao',
-      'gestão',
-      'ti',
-      'tecnologia',
-      'juridico',
-      'jurídico',
+      'admin', 'comercial', 'vendas', 'financeiro', 'diretoria',
+      'gestao', 'gestão', 'ti', 'tecnologia', 'juridico', 'jurídico',
     ],
   },
-  // 🆕 "Outros" = fallback (não tem keywords, captura tudo que não casou)
-  {
-    name: 'Outros',
-    recommendedPct: 10,
-    keywords: [],
-  },
+  // "Outros" = fallback (sem keywords — captura o que não casou)
+  { name: 'Outros', recommendedPct: 10, keywords: [] },
 ];
 
 @Injectable()
@@ -79,6 +69,7 @@ export class EmployeeService {
   // 📋 LISTAGEM
   // =================================================================
 
+  /** Lista todos os colaboradores do tenant, ordenados por nome. */
   async findAll(companyId: string) {
     return this.prisma.employee.findMany({
       where: { companyId },
@@ -87,9 +78,10 @@ export class EmployeeService {
   }
 
   // =================================================================
-  // 📊 MÉTRICAS (KPIs básicos)
+  // 📊 MÉTRICAS BÁSICAS
   // =================================================================
 
+  /** KPIs básicos: total, ativos, admissões no mês. */
   async getMetrics(companyId: string) {
     const active = await this.prisma.employee.count({
       where: { companyId, status: 'ACTIVE' },
@@ -106,25 +98,79 @@ export class EmployeeService {
       totalActive: active,
       totalEmployees: total,
       admissionsThisMonth,
-      turnoverRate: 0, // placeholder — será implementado na B3
+      turnoverRate: 0, // placeholder — turnover real vem de getTurnoverKpis (B3)
     };
   }
 
   // =================================================================
-  // 🆕 SPRINT B2 — DISTRIBUIÇÃO POR SETOR VALIDADA
+  // 🆕 SPRINT B3 — KPIs DE TURNOVER (novatos + críticos + tenure)
   // =================================================================
 
   /**
-   * 🆕 Sprint B2 (ADR-048): distribuição por setor derivada dos
-   * colaboradores ATIVOS, comparada com o benchmark contábil.
+   * 🎯 getTurnoverKpis — responde às 2 perguntas do diretor:
+   *   1. "Estamos perdendo quem acabou de chegar?"  → newbieTurnoverRate
+   *   2. "Estamos perdendo quem não podíamos perder?" → criticalDismissals
    *
-   * Pipeline:
-   * 1. Busca todos os `Employee` com status ACTIVE do tenant.
-   * 2. Normaliza o campo `department` (trim + lowercase).
-   * 3. Mapeia cada departamento para um setor canônico pelas keywords.
-   * 4. Departamentos não reconhecidos → "Outros" + lista `unmapped`.
-   * 5. Calcula: current, currentPct, recommendedPct, delta, status
-   *    (OK / OVER / UNDER — tolerância ±5 p.p.).
+   * Fórmulas (determinísticas — ADR-031):
+   * - newbieTurnoverRate = desligados c/ tenure <12m ÷ total desligados
+   *   no ano × 100 (guarda divisão por zero)
+   * - avgTenureMonths = média de meses(admissionDate → hoje) dos ATIVOS
+   * - criticalDismissals = Resignation.isCritical no ano (ADR-049)
+   */
+  async getTurnoverKpis(companyId: string, year: number) {
+    // 1) Ativos: tenure médio + contagem de críticos 🔑
+    const active = await this.prisma.employee.findMany({
+      where: { companyId, status: 'ACTIVE' },
+      select: { admissionDate: true, isCritical: true },
+    });
+
+    const activeCount = active.length;
+    const criticalActive = active.filter((e) => e.isCritical).length;
+    const now = new Date();
+    const avgTenureMonths =
+      activeCount > 0
+        ? active.reduce((sum, e) => sum + this.monthsBetween(e.admissionDate, now), 0) /
+          activeCount
+        : 0;
+
+    // 2) Desligamentos do ano (Resignation)
+    const start = new Date(year, 0, 1);
+    const end = new Date(year, 11, 31, 23, 59, 59);
+    const resignations = await this.prisma.resignation.findMany({
+      where: { companyId, dismissalDate: { gte: start, lte: end } },
+      select: { admissionDate: true, dismissalDate: true, isCritical: true },
+    });
+
+    const totalDismissals = resignations.length;
+    const newbieDismissals = resignations.filter(
+      (r) => this.monthsBetween(r.admissionDate, r.dismissalDate) < 12,
+    ).length;
+    const criticalDismissals = resignations.filter((r) => r.isCritical).length;
+
+    // % de novatos entre os desligados (guarda divisão por zero)
+    const newbieTurnoverRate =
+      totalDismissals > 0 ? (newbieDismissals / totalDismissals) * 100 : 0;
+
+    return {
+      year,
+      activeCount,
+      criticalActive,
+      avgTenureMonths: this.round1(avgTenureMonths),
+      totalDismissals,
+      newbieDismissals,
+      newbieTurnoverRate: this.round1(newbieTurnoverRate),
+      criticalDismissals,
+    };
+  }
+
+  // =================================================================
+  // 🆕 SPRINT B2 — DISTRIBUIÇÃO POR SETOR VALIDADA (ADR-048)
+  // =================================================================
+
+  /**
+   * Deriva a distribuição atual por setor dos colaboradores ATIVOS
+   * (fonte da verdade), normaliza `department` (minúsculo + SEM acentos)
+   * e compara com o benchmark contábil (tolerância ±5 p.p.).
    *
    * Retorno: { totalActive, sectors: [...], unmapped: [...] }
    */
@@ -151,15 +197,13 @@ export class EmployeeService {
       };
     }
 
-    // Contagem por setor canônico
+    // Contagem por setor canônico + lista de não reconhecidos
     const counts: Record<string, number> = {};
     SECTOR_BENCHMARKS.forEach((b) => (counts[b.name] = 0));
-
     const unmapped: Record<string, number> = {};
 
     for (const emp of employees) {
       // 🛠️ B2.1: normaliza SEM ACENTOS (NFD + strip) — "Contábil" → "contabil"
-      // casa com a keyword 'contab'; sem isso, acento quebrava o matching.
       const dept = (emp.department || '')
         .trim()
         .toLowerCase()
@@ -170,36 +214,31 @@ export class EmployeeService {
       if (sector) {
         counts[sector]++;
       } else {
-        // departamento não reconhecido → "Outros" + lista unmapped
         counts['Outros']++;
         const original = (emp.department || 'Sem departamento').trim();
         unmapped[original] = (unmapped[original] || 0) + 1;
       }
     }
 
-    // Monta o array com cálculo de % e delta
+    // Monta o array com % atual, delta e status (OK/OVER/UNDER)
     const sectors = SECTOR_BENCHMARKS.map((b) => {
       const current = counts[b.name] || 0;
-      const currentPct =
-        totalActive > 0 ? (current / totalActive) * 100 : 0;
+      const currentPct = totalActive > 0 ? (current / totalActive) * 100 : 0;
       const delta = currentPct - b.recommendedPct;
 
-      // Regra de validação: tolerância ±5 p.p. (ADR-048)
       let status: 'OK' | 'OVER' | 'UNDER';
-      if (Math.abs(delta) <= 5) {
-        status = 'OK';
-      } else if (delta > 5) {
-        status = 'OVER';
-      } else {
-        status = 'UNDER';
-      }
+      if (Math.abs(delta) <= 5) status = 'OK';
+      else if (delta > 5) status = 'OVER';
+      else status = 'UNDER';
 
       return {
         name: b.name,
         current,
         currentPct: Number(currentPct.toFixed(1)),
         recommendedPct: b.recommendedPct,
-        recommendedHeadcount: Number(((b.recommendedPct / 100) * totalActive).toFixed(1)),
+        recommendedHeadcount: Number(
+          ((b.recommendedPct / 100) * totalActive).toFixed(1),
+        ),
         delta: Number(delta.toFixed(1)),
         status,
       };
@@ -219,6 +258,10 @@ export class EmployeeService {
   // 💾 CRIAÇÃO
   // =================================================================
 
+  /**
+   * Cria colaborador com validação robusta de datas.
+   * B1: contractType • B3: isCritical (🔑).
+   */
   async create(companyId: string, userId: string, data: any) {
     const admissionDate = new Date(data.admissionDate);
     if (isNaN(admissionDate.getTime())) {
@@ -230,12 +273,8 @@ export class EmployeeService {
     let dismissalDate = null;
     if (data.dismissalDate) {
       const dDate = new Date(data.dismissalDate);
-      if (!isNaN(dDate.getTime())) {
-        dismissalDate = dDate;
-      }
+      if (!isNaN(dDate.getTime())) dismissalDate = dDate;
     }
-
-    const contractType = this.validateContractType(data.contractType);
 
     return this.prisma.employee.create({
       data: {
@@ -245,7 +284,8 @@ export class EmployeeService {
         position: data.position,
         department: data.department || null,
         status: data.status || 'ACTIVE',
-        contractType,
+        contractType: this.validateContractType(data.contractType),
+        isCritical: Boolean(data.isCritical), // 🆕 B3
         companyId,
         userId,
         admissionDate,
@@ -256,7 +296,7 @@ export class EmployeeService {
   }
 
   // =================================================================
-  // 🔄 ATUALIZAÇÃO
+  // 🔄 ATUALIZAÇÃO (patch parcial)
   // =================================================================
 
   async update(id: string, data: any) {
@@ -274,12 +314,15 @@ export class EmployeeService {
     if (data.contractType !== undefined) {
       updateData.contractType = this.validateContractType(data.contractType);
     }
+    // 🆕 B3: flag crítico
+    if (data.isCritical !== undefined) {
+      updateData.isCritical = Boolean(data.isCritical);
+    }
 
     if (data.admissionDate) {
       const aDate = new Date(data.admissionDate);
       if (!isNaN(aDate.getTime())) updateData.admissionDate = aDate;
     }
-
     if (data.dismissalDate !== undefined) {
       if (data.dismissalDate) {
         const dDate = new Date(data.dismissalDate);
@@ -304,34 +347,36 @@ export class EmployeeService {
   // 🔧 HELPERS PRIVADOS
   // =================================================================
 
+  /** B1: valida tipo contratual contra o enum (default CLT). */
   private validateContractType(value?: string): ContractType {
-    const validTypes: ContractType[] = [
-      'CLT',
-      'ESTAGIARIO',
-      'TERCEIRIZADO',
-      'SOCIO',
-    ];
+    const validTypes: ContractType[] = ['CLT', 'ESTAGIARIO', 'TERCEIRIZADO', 'SOCIO'];
     if (value && validTypes.includes(value as ContractType)) {
       return value as ContractType;
     }
     return 'CLT';
   }
 
-  /**
-   * 🆕 Sprint B2 (ADR-048): classifica um departamento normalizado
-   * em um setor canônico pelas keywords. Retorna null se não casar
-   * nenhuma keyword — caller trata como "Outros" + unmapped.
-   */
+  /** B2: classifica departamento normalizado em setor canônico (null = Outros). */
   private classifyDepartment(deptNormalized: string): string | null {
     if (!deptNormalized) return null;
     for (const benchmark of SECTOR_BENCHMARKS) {
-      // "Outros" não tem keywords — ignora no matching
-      if (benchmark.keywords.length === 0) continue;
+      if (benchmark.keywords.length === 0) continue; // "Outros" não casa keywords
       if (benchmark.keywords.some((kw) => deptNormalized.includes(kw))) {
         return benchmark.name;
       }
     }
     return null;
+  }
+
+  /** B3: meses entre duas datas (piso, mínimo 0). 30.44 = mês médio. */
+  private monthsBetween(from: Date, to: Date): number {
+    const ms = to.getTime() - from.getTime();
+    return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24 * 30.44)));
+  }
+
+  /** B3: arredonda 1 casa decimal. */
+  private round1(v: number): number {
+    return Math.round(v * 10) / 10;
   }
 }
 // =================================================================

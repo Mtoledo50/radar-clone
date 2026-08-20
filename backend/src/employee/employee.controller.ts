@@ -3,23 +3,19 @@
 // =================================================================
 /**
  * =================================================================
- * EmployeeController — Gestão de Colaboradores (Sprints B1 + B2)
+ * EmployeeController — Gestão de Colaboradores (Sprints B1+B2+B3)
  * =================================================================
- * Endpoints REST para CRUD de colaboradores (Employee).
+ * Rotas (todas com JWT + companyId do tenant — ADR-004):
+ * - GET  /employees                     → lista todos
+ * - GET  /employees/metrics             → KPIs básicos
+ * - GET  /employees/sector-distribution → 🅱️2 distribuição validada
+ * - GET  /employees/turnover-kpis       → 🅱️3 novatos/críticos/tenure
+ * - POST /employees                     → cria (contractType + isCritical)
+ * - PUT  /employees/:id                 → atualiza (patch parcial)
+ * - DELETE /employees/:id               → remove
  *
- * 🛡️ Segurança:
- * - Todas as rotas exigem JWT (JwtAuthGuard)
- * - Queries filtradas por companyId (multi-tenant ADR-004)
- *
- * Rotas:
- * - GET    /employees                  → lista todos do tenant
- * - GET    /employees/metrics          → KPIs (total, ativos, admissões)
- * - GET    /employees/sector-distribution → 🆕 Sprint B2: distribuição por setor
- * - POST   /employees                  → cria colaborador
- * - PUT    /employees/:id              → atualiza colaborador
- * - DELETE /employees/:id              → remove colaborador
- *
- * ⚠️ ORDEM DAS ROTAS (NestJS): rotas LITERAIS antes de parametrizadas.
+ * ⚠️ ORDEM DAS ROTAS: literais (metrics/sector-distribution/turnover-kpis)
+ *    antes de qualquer GET parametrizado (NestJS casa na ordem).
  * =================================================================
  */
 import {
@@ -30,6 +26,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -45,6 +42,7 @@ export class EmployeeController {
   // 📋 LISTAGEM
   // =================================================================
 
+  /** GET /employees — lista todos do tenant, ordenados por nome. */
   @Get()
   async findAll(@Request() req) {
     const employees = await this.employeeService.findAll(req.user.companyId);
@@ -52,9 +50,10 @@ export class EmployeeController {
   }
 
   // =================================================================
-  // 📊 MÉTRICAS
+  // 📊 MÉTRICAS BÁSICAS
   // =================================================================
 
+  /** GET /employees/metrics — total, ativos, admissões no mês. */
   @Get('metrics')
   async getMetrics(@Request() req) {
     const metrics = await this.employeeService.getMetrics(req.user.companyId);
@@ -67,18 +66,8 @@ export class EmployeeController {
 
   /**
    * GET /employees/sector-distribution
-   * Distribuição atual por setor (derivada dos Employee ATIVOS)
-   * comparada com o benchmark contábil.
-   *
-   * Retorno:
-   * {
-   *   totalActive: number,
-   *   sectors: [
-   *     { name, current, currentPct, recommendedPct, recommendedHeadcount,
-   *       delta, status: 'OK' | 'OVER' | 'UNDER' }
-   *   ],
-   *   unmapped: [{ name, current }]
-   * }
+   * Distribuição atual (Employee ATIVOS) × benchmark contábil (ADR-048),
+   * com selos OK/OVER/UNDER e lista de departamentos não reconhecidos.
    */
   @Get('sector-distribution')
   async getSectorDistribution(@Request() req) {
@@ -89,9 +78,39 @@ export class EmployeeController {
   }
 
   // =================================================================
+  // 🆕 SPRINT B3 — KPIs DE TURNOVER (novatos + críticos + tenure)
+  // =================================================================
+
+  /**
+   * GET /employees/turnover-kpis?year=2026
+   * - newbieTurnoverRate: % de desligados com tenure <12 meses
+   * - criticalDismissals: críticos 🔑 perdidos no ano (ADR-049)
+   * - avgTenureMonths: tenure médio dos ativos
+   * - criticalActive: críticos 🔑 atualmente ativos
+   */
+  @Get('turnover-kpis')
+  async getTurnoverKpis(
+    @Request() req,
+    @Query('year') year?: string,
+  ) {
+    const parsedYear = year ? parseInt(year, 10) : new Date().getFullYear();
+    const safeYear = isNaN(parsedYear) ? new Date().getFullYear() : parsedYear;
+    const data = await this.employeeService.getTurnoverKpis(
+      req.user.companyId,
+      safeYear,
+    );
+    return { data };
+  }
+
+  // =================================================================
   // 💾 CRIAÇÃO
   // =================================================================
 
+  /**
+   * POST /employees
+   * Body: { name*, position*, admissionDate*, email?, phone?, department?,
+   *         status?, salary?, contractType?, isCritical? }
+   */
   @Post()
   async create(@Request() req, @Body() dto: any) {
     const employee = await this.employeeService.create(
@@ -106,6 +125,7 @@ export class EmployeeController {
   // 🔄 ATUALIZAÇÃO
   // =================================================================
 
+  /** PUT /employees/:id — patch parcial (inclui isCritical 🔑). */
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: any) {
     const employee = await this.employeeService.update(id, dto);
@@ -116,6 +136,7 @@ export class EmployeeController {
   // 🗑️ EXCLUSÃO
   // =================================================================
 
+  /** DELETE /employees/:id — hard delete (futuro: soft delete). */
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.employeeService.delete(id);
