@@ -23,6 +23,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ContractType } from '@prisma/client';
+// 🆕 Sprint B5: motor de benchmark de cargos (domínio puro — ADR-051)
+import { analyzeSectorPositions } from './domain/position-benchmark';
+
 
 // =================================================================
 // 🆕 SPRINT B2 — BENCHMARK CONTÁBIL (ADR-048)
@@ -253,7 +256,72 @@ export class EmployeeService {
       })),
     };
   }
+  // =================================================================
+  // 🆕 SPRINT B5 — BENCHMARK DE CARGOS POR SETOR (ADR-051)
+  // =================================================================
 
+  /**
+   * 🎯 getPositionBenchmark — "minha equipe tem os cargos certos?"
+   *
+   * 1. Agrupa os ATIVOS por setor canônico (mesma classificação da B2).
+   * 2. Agrega os cargos reais por setor ({ name, count }).
+   * 3. Roda o domínio `analyzeSectorPositions` (maiores restos + gaps).
+   * 4. Soma totais de vagas em aberto (VACANCY) e sobras (OVER).
+   *
+   * Zero tabelas novas: tudo derivado em memória dos Employees (ADR-051).
+   */
+  async getPositionBenchmark(companyId: string) {
+    const employees = await this.prisma.employee.findMany({
+      where: { companyId, status: 'ACTIVE' },
+      select: { department: true, position: true },
+    });
+    const totalActive = employees.length;
+
+    // Agrega por setor canônico: headcount + cargos reais
+    const bySector: Record<
+      string,
+      { headcount: number; positions: Record<string, number> }
+    > = {};
+
+    for (const emp of employees) {
+      // Mesma normalização da B2 (minúsculo + sem acentos — NFD)
+      const dept = (emp.department || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+      const sector = this.classifyDepartment(dept) || 'Outros';
+
+      if (!bySector[sector]) bySector[sector] = { headcount: 0, positions: {} };
+      bySector[sector].headcount++;
+      const posName = (emp.position || 'Sem cargo').trim();
+      bySector[sector].positions[posName] =
+        (bySector[sector].positions[posName] || 0) + 1;
+    }
+
+    // Analisa cada setor presente (ordenado por headcount desc)
+    const sectors = Object.entries(bySector)
+      .sort((a, b) => b[1].headcount - a[1].headcount)
+      .map(([name, agg]) =>
+        analyzeSectorPositions(
+          name,
+          agg.headcount,
+          Object.entries(agg.positions).map(([n, count]) => ({ name: n, count })),
+        ),
+      );
+
+    // Totais p/ KPIs do frontend
+    let vacancies = 0;
+    let over = 0;
+    for (const s of sectors) {
+      for (const p of s.positions) {
+        if (p.status === 'VACANCY') vacancies += p.gap;
+        if (p.status === 'OVER') over += -p.gap;
+      }
+    }
+
+    return { totalActive, vacancies, over, sectors };
+  }
   // =================================================================
   // 💾 CRIAÇÃO
   // =================================================================

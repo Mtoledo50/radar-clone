@@ -10,6 +10,9 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge)
 ![Prisma](https://img.shields.io/badge/Prisma-5-2d3748?style=for-the-badge)
 ![Sprints Entregues](https://img.shields.io/badge/Sprints_Entregues-31-f97316?style=for-the-badge)
+![Conta_Certa_2.0-A6_✅](https://img.shields.io/badge/Conta_Certa_2.0-A6_✅-0d9488?style=for-the-badge)
+![Fase_A_✅](https://img.shields.io/badge/Fase_A_Comercial-✅_A1_A7-0d9488?style=for-the-badge)
+![Fase_B_✅](https://img.shields.io/badge/Fase_B_Pessoas-✅_B1_B5-f97316?style=for-the-badge)
 
 <div align="center">
 https://img.shields.io/badge/🚀_PRODUÇÃO_EM_BREVE-0d9488?style=for-the-badge
@@ -27,7 +30,16 @@ Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importando e
 
 </div>
 
----
+📋 Ordem sugerida do Roadmap (para ficar consistente)
+Para evitar mais duplicações no futuro, o Roadmap deve ter estas 8 seções únicas, nesta ordem:
+✅ FASES 1–2.5 — Fundação + BI + Fiscal + Bancário + Contábil (Sprints 1–30)
+✅ FASE 3 — PRODUÇÃO (Sprint 31)
+✅ FASE 4 — EXPANSÃO COMERCIAL (A1–A7) 🏁
+✅ FASE 5 — PESSOAS (B1–B5) 🏁
+🚧 FASE 6 — MERCADO & MENTORIA (C1–C4, D1–D3, E1–E3)
+🤖 FASE 7 — FUNCIONÁRIO DIGITAL AURORA (FD-1 → FD-9)
+🛡️ FASE 8 — PRODUÇÃO EM NUVEM (Sprints 32–34)
+📖 Glossário
 
 ## 📌 Resumo Executivo (para quem não programa)
 
@@ -478,19 +490,47 @@ Conciliação Banco × NF-e com motor de score
 Docker Compose (Postgres 5433 / Backend 3001 / Frontend 3000)
 Build otimizado (Next standalone + NestJS multi-stage)
 
-✅ FASE 4 — EXPANSÃO COMERCIAL (Plano Conta Certa 2.0) — FASE A COMPLETA
-A1: Motor de Herança de Planos (domínio puro) ✅
-A2: Valor de Referência + Dinheiro na Mesa ✅
-A3: Versões de Proposta ✅
-A4: Fechamento com Ganho (memória em closingDetails) ✅
-A5: White-label (CSS variables + fallback Conta Certa) ✅
-A6: PDF v2 Premium + PNG 1080×1350 (Canvas 2D) ✅
-A7: Dashboard de Desempenho (funil + ganho acumulado) ✅
-🚧 PRÓXIMAS: Fase B (Pessoas) • FD-5 CNAB • FD-3b IMAP real
+✅ FASE 4 — EXPANSÃO COMERCIAL (Plano Conta Certa 2.0) — FASE A COMPLETA 🏁
+Baseada na análise competitiva de 11 vídeos do Radar Gestão Estratégica.
+A1: Motor de Herança de Planos (domínio puro, 6 testes verdes, ADR-020) ✅
+A2: Valor de Referência + "Dinheiro na Mesa" (GET /resolved + POST /insights) ✅
+A3: Versões de Proposta (cadeia version/isCurrent/originalProposalId) ✅
+A4: Fechamento com Ganho (slider desconto + memória em `closingDetails` + 🟡 belowCurrent) ✅
+A5: White-label de propostas (cores/logo/rodapé por tenant via CSS variables, fallback Conta Certa) ✅
+A6: PDF v2 Premium + PNG 1080×1350 p/ WhatsApp (jsPDF+autoTable client-side + Canvas 2D, logo proporcional em chip branco) ✅
+A7: Dashboard de Desempenho (funil, tempo médio, desconto médio, ganho acumulado, top fechamentos, motivos de perda) ✅
+🏆 Diferenciais comerciais conquistados na Fase A
+| Recurso | Benefício comercial |
+|---|---|
+| Motor de herança de planos | START/PRIME/BLACK herdam itens automaticamente |
+| Dinheiro na mesa | Mostra quanto o vendedor perde por não subir o preço |
+| Versões de proposta | Reenvia ajustada sem perder o histórico |
+| Fechamento com memória | Desconto, ganho vs atual e "passos da negociação" gravados |
+| Proposta white-label | Cores/logo/rodapé do escritório (não da Conta Certa) |
+| PDF + PNG no cliente | Geração instantânea, zero carga no servidor |
+| Dashboard de desempenho | Funil + ganho acumulado + top fechamentos |
 
-📋 FASE 5 — PESSOAS & MERCADO
-B1–B5: Tipos contratuais, distribuição por setor, entrevista de desligamento (IA)
-C1–C4: Benchmark de softwares, serviços extras, indicadores com fórmula, score 0–100
+✅ FASE 5 — PESSOAS (Plano Conta Certa 2.0) — FASE B COMPLETA 🏁
+B1: Tipos contratuais (CLT/Estagiário/Terceirizado/Sócio) — enum forte ADR-047 ✅
+B2: Distribuição por setor VALIDADA (benchmark contábil ±5 p.p., ADR-048) ✅
+B3: KPIs novatos/críticos (flag 🔑 com cópia histórica, ADR-049) ✅
+B4: Entrevista de desligamento c/ IA (motor rules-v1, causa-raiz + plano de ação, ADR-050) ✅
+B5: Benchmark de Cargos por Setor (domínio puro ADR-051, maiores restos, gaps VACANCY/OK/OVER) ✅
+🏆 Diferenciais de People conquistados na Fase B
+| Recurso | Benefício |
+|---|---|
+| Distribuição validada ao vivo | Fonte da verdade = Employee.department (sem preencher manualmente) |
+| Flag crítico 🔑 | "Estamos perdendo quem não podíamos perder?" com cópia histórica |
+| Entrevista c/ IA | 7 causas-raiz + plano de ação sugerido (humano decide — ADR-031) |
+| Benchmark de cargos | "Minha equipe tem os cargos certos em cada setor?" |
+| Análises IA agregadas | Top causas-raiz e planos de ação do ano inteiro |
+
+🚧 PRÓXIMAS FASES
+Fase C (Mercado): C1 benchmark de softwares • C2 serviços extras c/ preço médio • C3 indicadores c/ fórmula • C4 score 0–100.
+Fase D (Mentoria): D1 Visão de Futuro • D2 checklist/Meu Plano • D3 ranking níveis.
+Fase E (UX): E1 command palette • E2 boas-vindas/"onde parou" • E3 notificações.
+Recomendado começar pela **C1** (reaproveita `Company.softwareStack` da "Minha Empresa").
+
 🧠 FASE 6 — MENTORIA & UX
 D1–D3: Visão de Futuro, checklist, ranking de níveis
 E1–E3: Command palette, boas-vindas/"onde parou", notificações
@@ -510,23 +550,6 @@ Sprint 32: Deploy em VPS + nginx + Let's Encrypt
 Sprint 33: CI/CD (GitHub Actions)
 Sprint 34: Monitoramento (Sentry) + Backup automático
 
-🤖 FASE 7 — FUNCIONÁRIO DIGITAL AURORA (FD-1 → FD-9)
-FD-1 fundação ✅ • 
-FD-2 completa ✅ (3 skills + crons + Central de Aprovações) •
-FD-3 NFS-e automática • FD-4 guias • FD-5 CNAB • FD-6 SPED + cert. A1 •
-FD-7 integrações • FD-8 legalização • FD-9 DP leve
-
-🤖 FASE 7 — FUNCIONÁRIO DIGITAL AURORA (FD-1 → FD-9)
-✅ FD-1 Fundação: 6 tabelas, módulo NestJS, dashboard, menu lateral
-✅ FD-2 Parcial: RECONCILIATION + CLASSIFICATION + ACCOUNTING_BRIDGE + crons ativos
-🚧 FD-2 Final: MonthlyReportSkill (PDF mensal) + UI de aprovação de pendências
-⏳ FD-3: NFS-e automática (e-mail + portal + OCR)
-⏳ FD-4: Emissão de guias (DAS/ISS/DARF) com memória de cálculo
-⏳ FD-5: Faturamento CNAB 240/400 + régua de cobrança
-⏳ FD-6: SPED/obrigações + certificado A1 criptografado
-⏳ FD-7: Integração com Domínio/Questor/Sage
-⏳ FD-8: Legalização (cofre de senhas, procurações, eCAC)
-⏳ FD-9: DP leve (integração com folha existente — NÃO construir do zero)
 
 📖 Glossário (para a diretoria)
 Termo               Significado simples

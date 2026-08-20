@@ -101,7 +101,19 @@ export class EmployeeController {
     );
     return { data };
   }
+  // =================================================================
+  // 🆕 SPRINT B5 — BENCHMARK DE CARGOS POR SETOR
+  // =================================================================
 
+  /**
+   * GET /employees/position-benchmark
+   * "Minha equipe tem os cargos certos em cada setor?" (ADR-051)
+   */
+  @Get('position-benchmark')
+  async getPositionBenchmark(@Request() req) {
+    const data = await this.employeeService.getPositionBenchmark(req.user.companyId);
+    return { data };
+  }
   // =================================================================
   // 💾 CRIAÇÃO
   // =================================================================

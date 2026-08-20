@@ -331,6 +331,26 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint B5] 2026-08 — Benchmark de Cargos por Setor (FASE B COMPLETA)
+✅ Added
+`employee/domain/position-benchmark.ts`: domínio puro (ADR-051) com catálogo
+contábil de cargos por setor (pesos), apportionment por maiores restos e
+classificação de cargos reais por keywords normalizadas; deriva gaps
+VACANCY/OK/OVER.
+`EmployeeService.getPositionBenchmark` + rota
+`GET /employees/position-benchmark`: agrega ativos por setor canônico
+(ADR-048) e devolve análises por setor + totais (vacancies/over).
+Página `/dashboard/pessoas/benchmark`: cards por setor com barras
+preenchido × recomendado (CSS puro), selos de status, chips de cargos não
+reconhecidos e KPIs totais. Menu "Benchmark de Cargos" em Gestão de Pessoas.
+🧠 Decisions
+ADR-051: catálogo estático versionado, ZERO tabelas novas; gaps derivados
+em memória dos Employees (fonte da verdade).
+ADR-034.1: arquivo em produção recebe delta cirúrgico; arquivo novo/quebrado
+recebe versão completa.
+🏁 Status
+HOMOLOGADO localmente. 🎉 FASE B (Pessoas) COMPLETA: B1–B5.
+
 [Sprint B4] 2026-08 — Entrevista de Desligamento com IA (Fase B — Pessoas)
 ✅ Added
 Schema: `exitInterview Json?` + `exitAnalysis Json?` no model `Resignation`.
