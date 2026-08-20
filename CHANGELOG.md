@@ -330,6 +330,46 @@ fechamento) validado; crons ativos em produção controlada.
 HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ •
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
+
+[Sprint B3] 2026-08 — KPIs Novatos & Críticos (Fase B — Pessoas)
+✅ Added
+Schema Prisma: flag `isCritical Boolean @default(false)` nos models
+`Employee` (equipe atual) e `Resignation` (cópia histórica no desligamento).
+`EmployeeService.getTurnoverKpis`: novo endpoint
+`GET /employees/turnover-kpis?year=` que retorna activeCount, criticalActive,
+avgTenureMonths, totalDismissals, newbieDismissals, newbieTurnoverRate (%)
+e criticalDismissals — consumindo o `isCritical` gravado nas rescisões.
+`TurnoverService.getResignationsDashboard`: endpoint
+`GET /turnover/resignations-dashboard?year=` que agrega total de desligamentos,
+turnover de novatos (<12 meses), motivo mais frequente e setor crítico.
+`TurnoverService.createResignation`: aceita `isCritical` e grava em
+`Resignation.isCritical` (cópia histórica — ADR-049).
+Frontend `pessoas/page.tsx`:
+- 4 KPIs no topo (Ativos/Tenure, 🔑 Críticos Ativos, Turnover Novatos,
+  Desligados com críticos perdidos).
+- Modal de criar/editar com checkbox "🔑 Colaborador crítico" e select de Status.
+- Badge 🔑 na tabela ao lado do nome (só aparece em críticos).
+- Filtro "Somente críticos 🔑" (checkbox).
+- Suporte a edição (não só criação).
+Frontend `turnover/page.tsx`:
+- KPIs da aba Rescisões → Dashboard agora vêm dos endpoints reais
+  (não mais hardcoded "0" / "N/A").
+- Card rosa "KPIs Avançados de Turnover" com 4 métricas do endpoint.
+- Modal de rescisão com checkbox "Era colaborador crítico 🔑?" que grava
+  `Resignation.isCritical`.
+- Ícone 🔑 ao lado do nome na tabela de registros (para desligamentos críticos).
+🧠 Decisions
+ADR-049: flag crítico com cópia histórica (Employee.isCritical = estado atual;
+Resignation.isCritical = foto do momento do desligamento). Mesma filosofia
+do ADR-047 (contractType). Permite que um colaborador deixe de ser crítico
+e depois saia — a rescisão ainda conta como "crítico perdido".
+Cálculo de tenure usa mês médio = 30.44 dias (365.25/12), piso em 0.
+Turnover de novatos = desligados com tenure < 12 meses ÷ total desligados × 100.
+Padronização de auth: todos os controllers usam `@CurrentUser() user: UserPayload`
+(mais limpo e tipado que `@Request() req` + `req.user.xxx`).
+🏁 Status
+HOMOLOGADO localmente.
+
 [Sprint B2] 2026-08 — Distribuição por Setor VALIDADA (Fase B — Pessoas)
 ✅ Added
 `EmployeeService.getSectorDistribution` + endpoint

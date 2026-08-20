@@ -25,7 +25,8 @@ import {
   Users, TrendingUp, TrendingDown, Plus, X, Loader2,
   Edit2, Trash2, CheckCircle, AlertCircle, Calendar,
   Briefcase, Settings, BarChart3, FileText, ChevronDown, ChevronRight,
-  Check, AlertTriangle,
+  Check, AlertTriangle,  Key, // 🆕 Sprint B3: ícone do colaborador crítico 🔑
+
 } from 'lucide-react';
 
 // =================================================================
@@ -84,6 +85,10 @@ export default function TurnoverPage() {
   const [positions, setPositions] = useState<any[]>([]);
   const [resignations, setResignations] = useState<any[]>([]);
   const [sectorDistribution, setSectorDistribution] = useState<any[]>([]);
+    // 🆕 Sprint B3: KPIs reais do endpoint turnover-kpis
+  const [turnoverKpis, setTurnoverKpis] = useState<any>(null);
+  // 🆕 Sprint B3: dashboard de rescisões (top motivos / setores)
+  const [resignationsDash, setResignationsDash] = useState<any>(null);
 
   // 🆕 Sprint B2 — distribuição validada em tempo real
   const [liveDistribution, setLiveDistribution] = useState<SectorDistributionResponse | null>(null);
@@ -92,7 +97,7 @@ export default function TurnoverPage() {
   const [showResignationModal, setShowResignationModal] = useState(false);
   const [showSectorModal, setShowSectorModal] = useState(false);
 
-  useEffect(() => { loadData(); }, [year]);
+  useEffect(() => { loadData(); loadTurnoverKpis(); loadResignationsDash(); }, [year]);
   useEffect(() => {
     if (activeTab === 'empresa') loadSectorDistribution();
   }, [selectedMonth, activeTab]);
@@ -147,7 +152,25 @@ setLiveDistribution(liveDistRes.data.data);
       console.error('Erro ao carregar distribuição:', err);
     }
   }
+  // 🆕 Sprint B3: carrega KPIs de turnover (EmployeeService)
+  async function loadTurnoverKpis() {
+    try {
+      const res = await api.get('/employees/turnover-kpis');
+      setTurnoverKpis(res.data.data);
+    } catch (err) {
+      console.error('Erro ao carregar turnover-kpis:', err);
+    }
+  }
 
+  // 🆕 Sprint B3: carrega dashboard de rescisões (TurnoverService)
+  async function loadResignationsDash() {
+    try {
+      const res = await api.get(`/turnover/resignations-dashboard?year=${year}`);
+      setResignationsDash(res.data.data);
+    } catch (err) {
+      console.error('Erro ao carregar dashboard de rescisões:', err);
+    }
+  }
   // 🆕 Sprint B2 — distribuição validada derivada dos Employee ATIVOS
   async function loadLiveDistribution() {
     try {
@@ -258,11 +281,15 @@ setLiveDistribution(liveDistRes.data.data);
           reasons={reasons}
           positions={positions}
           sectors={sectors}
+          turnoverKpis={turnoverKpis}         // 🆕 B3
+          resignationsDash={resignationsDash} // 🆕 B3
           onAdd={() => setShowResignationModal(true)}
           onDelete={async (id: string) => {
             await api.delete(`/turnover/resignations/${id}`);
             toast.success('Rescisão removida');
             loadData();
+            loadTurnoverKpis();
+            loadResignationsDash();
           }}
         />
       )}
@@ -1020,7 +1047,10 @@ function StatusBadge({ status, delta }: { status: 'OK' | 'OVER' | 'UNDER'; delta
 // =================================================================
 // 📤 TAB RESCISÕES
 // =================================================================
-function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sectors, onAdd, onDelete }: any) {
+function RescisoesTab({
+  subTab, setSubTab, resignations, reasons, positions, sectors,
+  turnoverKpis, resignationsDash, onAdd, onDelete,
+}: any) {
   return (
     <div className="space-y-6">
       <div className="flex gap-2 bg-slate-100 p-1 rounded-lg">
@@ -1033,9 +1063,7 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
             key={tab.key}
             onClick={() => setSubTab(tab.key)}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
-              subTab === tab.key
-                ? 'bg-white text-teal-700 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+              subTab === tab.key ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             {tab.label}
@@ -1044,11 +1072,63 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
       </div>
 
       {subTab === 'dashboard' && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <KpiCard icon={Users} label="Total de Desligamentos" value={resignations.length} color="teal" />
-          <KpiCard icon={TrendingUp} label="Turnover de Novatos" value="0" sublabel="0% das admissões" color="orange" />
-          <KpiCard icon={AlertCircle} label="Motivo Mais Frequente" value="N/A" sublabel="0 ocorrências" color="slate" />
-          <KpiCard icon={Briefcase} label="Setor Crítico" value="N/A" sublabel="0 desligamentos" color="slate" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            icon={Users}
+            label="Total de Desligamentos"
+            value={resignationsDash?.totalDismissals ?? 0}
+            sublabel={`Em ${resignationsDash?.year ?? new Date().getFullYear()}`}
+            color="teal"
+          />
+          <KpiCard
+            icon={TrendingUp}
+            label="Turnover de Novatos"
+            value={`${resignationsDash?.newbieTurnoverRate ?? 0}%`}
+            sublabel={`${resignationsDash?.newbieDismissals ?? 0} com tenure < 12m`}
+            color={(resignationsDash?.newbieTurnoverRate ?? 0) > 30 ? 'red' : 'orange'}
+          />
+          <KpiCard
+            icon={AlertCircle}
+            label="Motivo Mais Frequente"
+            value={resignationsDash?.topReason?.name ?? 'N/A'}
+            sublabel={`${resignationsDash?.topReason?.count ?? 0} ocorrências`}
+            color="slate"
+          />
+          <KpiCard
+            icon={Briefcase}
+            label="Setor Crítico"
+            value={resignationsDash?.topSector?.name ?? 'N/A'}
+            sublabel={`${resignationsDash?.topSector?.count ?? 0} desligamentos`}
+            color="slate"
+          />
+        </div>
+      )}
+
+      {/* 🆕 B3: Card extra com KPIs avançados (tenure + críticos) */}
+      {subTab === 'dashboard' && turnoverKpis && (
+        <div className="bg-gradient-to-r from-rose-50 to-amber-50 rounded-xl p-6 border border-rose-200">
+          <h3 className="text-lg font-bold text-rose-900 mb-4 flex items-center gap-2">
+            <Key className="h-5 w-5" />
+            KPIs Avançados de Turnover
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-xs text-rose-800 uppercase font-semibold">Equipe Ativa</p>
+              <p className="text-2xl font-bold text-rose-900">{turnoverKpis.activeCount}</p>
+            </div>
+            <div>
+              <p className="text-xs text-rose-800 uppercase font-semibold">🔑 Críticos Ativos</p>
+              <p className="text-2xl font-bold text-rose-900">{turnoverKpis.criticalActive}</p>
+            </div>
+            <div>
+              <p className="text-xs text-rose-800 uppercase font-semibold">Tenure Médio</p>
+              <p className="text-2xl font-bold text-rose-900">{turnoverKpis.avgTenureMonths}m</p>
+            </div>
+            <div>
+              <p className="text-xs text-rose-800 uppercase font-semibold">🔑 Críticos Perdidos</p>
+              <p className="text-2xl font-bold text-rose-900">{turnoverKpis.criticalDismissals}</p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1056,12 +1136,9 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 border-b border-slate-200 flex justify-between items-center">
             <h3 className="font-semibold text-slate-900">Registros de Rescisão</h3>
-            <button
-              onClick={onAdd}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors"
-            >
-              <Plus className="h-4 w-4" />
-              Adicionar Rescisão
+            <button onClick={onAdd}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors">
+              <Plus className="h-4 w-4" /> Adicionar Rescisão
             </button>
           </div>
           {resignations.length === 0 ? (
@@ -1074,7 +1151,7 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Colaborador</th>
-                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Data Desligamento</th>
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Desligamento</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Setor</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Cargo</th>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-slate-600 uppercase">Tipo</th>
@@ -1085,8 +1162,19 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
               <tbody className="divide-y divide-slate-200">
                 {resignations.map((r: any) => (
                   <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 font-medium text-slate-900">{r.employeeName}</td>
-                    <td className="px-6 py-4 text-slate-700">{new Date(r.dismissalDate).toLocaleDateString('pt-BR')}</td>
+                    <td className="px-6 py-4 font-medium text-slate-900">
+                      <div className="flex items-center gap-1.5">
+                        {r.isCritical && (
+                          <span title="Desligamento de colaborador crítico 🔑">
+                            <Key className="h-4 w-4 text-rose-500 flex-shrink-0" />
+                          </span>
+                        )}
+                        {r.employeeName}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-slate-700">
+                      {new Date(r.dismissalDate).toLocaleDateString('pt-BR')}
+                    </td>
                     <td className="px-6 py-4 text-slate-700">{r.sector?.name || '-'}</td>
                     <td className="px-6 py-4 text-slate-700">{r.position?.name || '-'}</td>
                     <td className="px-6 py-4 text-slate-700">{r.contractType}</td>
@@ -1106,6 +1194,7 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
 
       {subTab === 'config' && (
         <div className="space-y-6">
+          {/* Motivos de Desligamento (mantido) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-4">
               <div>
@@ -1145,6 +1234,7 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
             </div>
           </div>
 
+          {/* Cargos (mantido) */}
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-4">
               <div>
@@ -1188,7 +1278,6 @@ function RescisoesTab({ subTab, setSubTab, resignations, reasons, positions, sec
     </div>
   );
 }
-
 // =================================================================
 // 🧩 COMPONENTES AUXILIARES
 // =================================================================
@@ -1334,6 +1423,7 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
     contractType: 'CLT',
     positionId: '',
     dismissalReasonId: '',
+    isCritical: false, // 🆕 B3: flag crítico (cópia histórica — ADR-049)
     observations: '',
   });
 
@@ -1351,28 +1441,22 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Colaborador *</label>
             <input
-              type="text"
-              value={form.employeeName}
+              type="text" value={form.employeeName}
               onChange={(e) => setForm({ ...form, employeeName: e.target.value })}
-              className={inputClass}
-              placeholder="Nome completo"
+              className={inputClass} placeholder="Nome completo"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Data de Admissão *</label>
-              <input
-                type="date"
-                value={form.admissionDate}
+              <input type="date" value={form.admissionDate}
                 onChange={(e) => setForm({ ...form, admissionDate: e.target.value })}
                 className={inputClass}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Data de Desligamento *</label>
-              <input
-                type="date"
-                value={form.dismissalDate}
+              <input type="date" value={form.dismissalDate}
                 onChange={(e) => setForm({ ...form, dismissalDate: e.target.value })}
                 className={inputClass}
               />
@@ -1381,8 +1465,7 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Setor</label>
-              <select
-                value={form.sectorId}
+              <select value={form.sectorId}
                 onChange={(e) => setForm({ ...form, sectorId: e.target.value })}
                 className={inputClass}
               >
@@ -1394,8 +1477,7 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Tipo de Contrato</label>
-              <select
-                value={form.contractType}
+              <select value={form.contractType}
                 onChange={(e) => setForm({ ...form, contractType: e.target.value })}
                 className={inputClass}
               >
@@ -1407,8 +1489,7 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Cargo</label>
-            <select
-              value={form.positionId}
+            <select value={form.positionId}
               onChange={(e) => setForm({ ...form, positionId: e.target.value })}
               className={inputClass}
             >
@@ -1420,8 +1501,7 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Motivo de Desligamento</label>
-            <select
-              value={form.dismissalReasonId}
+            <select value={form.dismissalReasonId}
               onChange={(e) => setForm({ ...form, dismissalReasonId: e.target.value })}
               className={inputClass}
             >
@@ -1431,14 +1511,31 @@ function AddResignationModal({ reasons, positions, sectors, onClose, onSave }: a
               ))}
             </select>
           </div>
+
+          {/* 🆕 B3: checkbox "era crítico?" — grava Resignation.isCritical (ADR-049) */}
+          <label className="flex items-center gap-3 cursor-pointer p-4 rounded-lg border-2 border-slate-200 hover:border-rose-300 hover:bg-rose-50 transition-colors">
+            <input
+              type="checkbox"
+              checked={form.isCritical}
+              onChange={(e) => setForm({ ...form, isCritical: e.target.checked })}
+              className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 w-5 h-5"
+            />
+            <div className="flex items-center gap-2">
+              <Key className="h-5 w-5 text-rose-500" />
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Era colaborador crítico 🔑?</p>
+                <p className="text-xs text-slate-500">
+                  Marca esta perda como crítica — alimenta o KPI de turnover de críticos.
+                </p>
+              </div>
+            </div>
+          </label>
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Observações</label>
-            <textarea
-              value={form.observations}
+            <textarea value={form.observations}
               onChange={(e) => setForm({ ...form, observations: e.target.value })}
-              rows={3}
-              className={inputClass}
-              placeholder="Observações adicionais..."
+              rows={3} className={inputClass} placeholder="Observações adicionais..."
             />
           </div>
         </div>
