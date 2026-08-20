@@ -331,6 +331,24 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint B1] 2026-08 — Tipos Contratuais (Fase B — Pessoas)
+✅ Added
+Schema Prisma: enum `ContractType` (CLT/ESTAGIARIO/TERCEIRIZADO/SOCIO) +
+coluna `contractType` no model `Employee` (default CLT).
+Backend: `EmployeeService.create/update` aceita `contractType` (validação
+contra enum, fallback CLT p/ valores inválidos).
+Frontend `/dashboard/pessoas/page.tsx`:
+- Modal com select de tipo contratual (CLT/Estagiário/Terceirizado/Sócio)
+- Badge colorido na tabela ao lado do cargo (ADR-001)
+- Filtro por tipo contratual (select)
+- Gráfico de barras "Distribuição por Tipo" (CSS puro, zero dependências)
+🧠 Decisions
+ADR-047: tipo contratual vive no `Employee` (enum forte); `Resignation.contractType`
+continua como cópia histórica no desligamento (não quebrar sprints antigas).
+ADR-001: gráfico de distribuição em CSS puro (barras proporcionais).
+🏁 Status
+HOMOLOGADO localmente.
+
 [Sprint A7] 2026-08 — Dashboard de Desempenho Comercial (FASE A COMPLETA 🏁)
 ✅ Added
 `ProposalsService.getPerformance`: endpoint `GET /proposals/performance?period=`
