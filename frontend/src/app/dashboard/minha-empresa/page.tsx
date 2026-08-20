@@ -24,7 +24,8 @@ import { toast } from 'sonner';
 import {
   Building2, MapPin, Monitor, TrendingUp, Save, Loader2,
   X, Plus, Target, Briefcase, Users,
-  Palette,   // 🆕 Sprint A5: ícone da seção de branding
+  Palette, BarChart3, CheckCircle2, TrendingDown, Info, // 🆕 Sprint C1
+   // 🆕 Sprint A5: ícone da seção de branding
 } from 'lucide-react';
 
 // =================================================================
@@ -184,6 +185,9 @@ export default function MinhaEmpresaPage() {
     proposalFooterText: '',  // '' = sem rodapé customizado
   });
   const [savingBranding, setSavingBranding] = useState(false);
+    // 🆕 Sprint C1: benchmark de softwares (rede + catálogo)
+  const [benchmark, setBenchmark] = useState<any>(null);
+  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
 
   const initialSoftwareState = SOFTWARE_CATEGORIES.reduce((acc, cat) => {
     acc[cat.id] = { notUsed: false, items: [] };
@@ -253,6 +257,14 @@ export default function MinhaEmpresaPage() {
       } finally {
         setFetching(false);
       }
+        const brandRes = await api.get('/company/branding').catch(() => null);
+    if (brandRes?.data) {
+      setBranding({
+        primaryColor: brandRes.data.primaryColor === '#0d9488' ? '' : brandRes.data.primaryColor || '',
+        secondaryColor: brandRes.data.secondaryColor === '#f97316' ? '' : brandRes.data.secondaryColor || '',
+        proposalFooterText: brandRes.data.proposalFooterText || '',
+      });
+    }
     }
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -409,7 +421,121 @@ export default function MinhaEmpresaPage() {
             ))}
           </div>
         </div>
+    {/* ============================================================= */}
+    {/* 🆕 SPRINT C1: BENCHMARK DE SOFTWARES (rede + catálogo v1)     */}
+    {/* ============================================================= */}
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+      <div className="flex items-center gap-3 mb-2 pb-2 border-b border-slate-100">
+        <BarChart3 className="h-5 w-5 text-teal-600" />
+        <h2 className="text-lg font-semibold text-slate-900">📊 Benchmark de Mercado</h2>
+      </div>
+      <p className="text-xs text-slate-500 mb-4">
+        Comparação do seu stack com outros escritórios contábeis do Radar Conta Certa.
+        Percentuais baseados no catálogo de mercado v1 + rede real (ADR-052).
+      </p>
 
+      {loadingBenchmark && (
+        <div className="flex items-center justify-center py-8 text-slate-500">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          Calculando benchmark...
+        </div>
+      )}
+
+      {!loadingBenchmark && !benchmark && (
+        <div className="text-center py-8 text-slate-400">
+          <Info className="h-8 w-8 mx-auto mb-2" />
+          <p className="text-sm">Nenhum dado disponível. Cadastre seus softwares acima.</p>
+        </div>
+      )}
+
+      {!loadingBenchmark && benchmark && (
+        <div className="space-y-5">
+          {/* KPIs de coverage */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+              <p className="text-xs font-semibold text-slate-500 uppercase">Amostra</p>
+              <p className="text-2xl font-bold text-slate-900">{benchmark.sampleSize}</p>
+              <p className="text-xs text-slate-500">escritório(s) na rede</p>
+            </div>
+            <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
+              <p className="text-xs font-semibold text-teal-700 uppercase">Cobertura</p>
+              <p className="text-2xl font-bold text-teal-900">{benchmark.coveragePct}%</p>
+              <p className="text-xs text-teal-700">categorias essenciais cobertas</p>
+            </div>
+            <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+              <p className="text-xs font-semibold text-orange-700 uppercase">Fonte</p>
+              <p className="text-2xl font-bold text-orange-900 capitalize">{benchmark.source}</p>
+              <p className="text-xs text-orange-700">
+                {benchmark.source === 'rede' ? 'dados reais da rede' : 'catálogo curado v1'}
+              </p>
+            </div>
+          </div>
+
+          {/* Cards por categoria */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {benchmark.categories
+              .filter((c: any) => c.category !== 'Outros')
+              .map((cat: any) => (
+              <div key={cat.category} className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-slate-900 text-sm">{cat.category}</h3>
+                  {cat.youCovered ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                      <CheckCircle2 className="h-3 w-3" /> Você tem
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                      <TrendingDown className="h-3 w-3" /> Sem cobertura
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {cat.entries.slice(0, 5).map((e: any) => {
+                    const barColor = e.youUse ? 'bg-teal-500' : 'bg-slate-300';
+                    const pct = Math.max(e.marketPct, 3);
+                    return (
+                      <div key={e.name}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className={`font-medium ${e.youUse ? 'text-teal-900' : 'text-slate-700'}`}>
+                            {e.youUse && '✓ '}{e.name}
+                          </span>
+                          <span className="text-slate-500">{e.marketPct}% do mercado</span>
+                        </div>
+                        <div className="h-2 bg-white rounded-full overflow-hidden">
+                          <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {cat.recommendation && (
+                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 mt-3">
+                    💡 {cat.recommendation}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Insights finais */}
+          {benchmark.insights && benchmark.insights.length > 0 && (
+            <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+              <h4 className="text-sm font-bold text-teal-900 mb-2 flex items-center gap-1">
+                <TrendingUp className="h-4 w-4" /> Insights para sua diretoria
+              </h4>
+              <ul className="space-y-1">
+                {benchmark.insights.map((insight: string, i: number) => (
+                  <li key={i} className="text-sm text-teal-900 flex items-start gap-2">
+                    <span className="text-teal-600 font-bold">•</span>
+                    <span>{insight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
         {/* SEÇÃO 3: METAS E NÚMEROS */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100">

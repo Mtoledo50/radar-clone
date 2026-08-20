@@ -331,6 +331,28 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint C1] 2026-08 — Benchmark de Softwares (Fase C — Mercado)
+✅ Added
+`company/domain/software-benchmark.ts`: domínio puro (ADR-052) com
+catálogo curado v1 de softwares do mercado contábil BR, apportionment
+por maiores restos e matching bidirecional normalizado (NFD).
+`CompanyService.getSoftwareBenchmark` + rota
+`GET /company/software-benchmark`: agrega stack do tenant + rede de
+outros tenants, decide fonte ('rede'/'hibrido'/'catalogo' — ADR-052),
+retorna categorias + coverage + insights.
+Seção "📊 Benchmark de Mercado" em `/dashboard/minha-empresa`:
+KPIs de cobertura/amostra/fonte + cards por categoria (barras CSS puro
+ADR-001) com destaque verde se você usa + recomendações + insights.
+Seed `seed-company-network.ts`: 8 escritórios fake para popular a rede
+e evitar feature nascendo vazia.
+🧠 Decisions
+ADR-052: benchmark híbrido (rede real ≥10 = fonte primária; 1–9 = híbrido;
+0 = catálogo v1). A feature nunca nasce vazia.
+ADR-001: barras em CSS puro (zero dependências).
+Domínio puro: zero tabelas novas; tudo derivado de Company.softwareStack.
+🏁 Status
+EM HOMOLOGAÇÃO local.
+
 [Sprint B5] 2026-08 — Benchmark de Cargos por Setor (FASE B COMPLETA)
 ✅ Added
 `employee/domain/position-benchmark.ts`: domínio puro (ADR-051) com catálogo
