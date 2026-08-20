@@ -57,7 +57,11 @@ ponte + dashboard + auditoria + crons + NFS-e ABRASF).
 - Estratégia: manter vantagem operacional + atropelar na camada comercial/analítica/UX.
 
 ## 7) PLANO DE EXPANSÃO "CONTA CERTA 2.0"
-Fase A (Comercial): A1 ✅ • A2 ✅ • A3 ✅ • A4 ✅ • A5 white-label • A6 PDF v2+PNG • A7 dashboard desempenho.  mesa 
+Fase A (Comercial): A1 ✅ • A2 ✅ • A3 ✅ • A4 ✅ • A5 ✅ • A6 ✅ • A7 ✅ (FASE A COMPLETA!).
+
+Sprint A6 HOMOLOGADA: PDF v2 premium + PNG 1080×1350 + logo oficial proporcional.
+Sprint A7 HOMOLOGADA: Dashboard de Desempenho (funil + ganho/concessão + top fechamentos + motivos de perda, consumindo closingDetails da A4).
+
 • A3 versões de proposta 
 • A4 fechamento c/ ganho 
 • A5 white-label 
@@ -187,13 +191,16 @@ Aurora com 5 skills em produção controlada (98 clientes reais).
 - Postgres 18 local: radar_user sem CREATEDB → SQL manual + GRANT + resolve.
 - Backend: jspdf 2.5.2 / autotable 3.8.2 pinados; fast-xml-parser p/ NFS-e.
 - FD-3b (IMAP) e FD-3c (portal/OCR) adiados; `source` já preparado (ADR-037).
-### 🚀 IMEDIATO (escolher 1)
-- FD-5: Cobrança CNAB remessa/retorno (SkillKey BILLING já reservada).
-- A4: Fechamento com Ganho (plano comercial 2.0).
-- FD-3b real: configurar credenciais IMAP no .env e testar com caixa Gmail/Outlook.
+Fase A do plano 2.0 COMPLETA (A1–A7): herança, valor ref., versões, fechamento
+c/ ganho, white-label, PDF v2+PNG e dashboard de desempenho.
 
-### 📋 DEPOIS
-- FD-6→FD-9; A5→A7; Fases B→E (ordem do §7).
+🚀 IMEDIATO (escolher 1):
+- Fase B (Pessoas): B1 tipos contratuais • B2 distribuição por setor validada •
+  B3 KPIs novatos/crítico • B4 entrevista de desligamento (IA) • B5 cargos p/ setor.
+- FD-5: Cobrança CNAB 240/400 + régua de cobrança (SkillKey BILLING reservada).
+- FD-3b real: credenciais IMAP no .env + teste com caixa real.
+
+📋 DEPOIS: Fases C→E; FD-6→FD-9; Sprints 32–34 (nuvem/CI-CD/monitoramento).
 
 ## 10) COMANDOS ÚTEIS (PowerShell)
 docker compose up -d --build | docker compose ps | docker compose logs -f backend

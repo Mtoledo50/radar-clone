@@ -477,14 +477,17 @@ Conciliação Banco × NF-e com motor de score
 ✅ FASE 3 — PRODUÇÃO (Sprint 31)
 Docker Compose (Postgres 5433 / Backend 3001 / Frontend 3000)
 Build otimizado (Next standalone + NestJS multi-stage)
-🚀 FASE 4 — CONTA CERTA 2.0 (Plano de Expansão Comercial)
-✅ A1: Motor de Herança de Planos (domínio puro)
-✅ A2: Valor de Referência + Dinheiro na Mesa
-✅ A3: Versões de Proposta
-✅ A4: Fechamento com Ganho (memória em `closingDetails`)
-✅ A5: White-label (CSS variables + fallback)
-✅ A6: PDF v2 Premium + PNG 1080×1350 (Canvas 2D nativo)
-⏳ A7: Dashboard de Desempenho (funil + ganho acumulado)
+
+✅ FASE 4 — EXPANSÃO COMERCIAL (Plano Conta Certa 2.0) — FASE A COMPLETA
+A1: Motor de Herança de Planos (domínio puro) ✅
+A2: Valor de Referência + Dinheiro na Mesa ✅
+A3: Versões de Proposta ✅
+A4: Fechamento com Ganho (memória em closingDetails) ✅
+A5: White-label (CSS variables + fallback Conta Certa) ✅
+A6: PDF v2 Premium + PNG 1080×1350 (Canvas 2D) ✅
+A7: Dashboard de Desempenho (funil + ganho acumulado) ✅
+🚧 PRÓXIMAS: Fase B (Pessoas) • FD-5 CNAB • FD-3b IMAP real
+
 📋 FASE 5 — PESSOAS & MERCADO
 B1–B5: Tipos contratuais, distribuição por setor, entrevista de desligamento (IA)
 C1–C4: Benchmark de softwares, serviços extras, indicadores com fórmula, score 0–100

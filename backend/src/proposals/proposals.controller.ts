@@ -1,3 +1,24 @@
+// =================================================================
+// INÍCIO: backend/src/proposals/proposals.controller.ts
+// =================================================================
+/**
+ * =================================================================
+ * 📋 ProposalsController — Gestão de Propostas Comerciais
+ * =================================================================
+ * Sprints integradas: A1 (herança) • A2 (insights) • A3 (versões) •
+ * A4 (fechamento com ganho) • A5 (branding) • A6 (PDF/PNG) •
+ * A7 (🆕 Dashboard de Desempenho).
+ *
+ * 🛡️ PROTEÇÃO:
+ * - @UseGuards(JwtAuthGuard, RolesGuard): auth + RBAC em nível de classe
+ * - @Roles('ADMIN'): operações sensíveis (nova versão, exclusão)
+ *
+ * ⚠️ ORDEM DAS ROTAS (NestJS):
+ *    Rotas LITERAIS (ex: /dashboard, /performance) devem vir ANTES de
+ *    rotas com parâmetro (:id). Se /performance vier depois de @Get(':id'),
+ *    o NestJS interpreta "performance" como id e retorna 404.
+ * =================================================================
+ */
 import {
   Controller,
   Get,
@@ -12,19 +33,11 @@ import {
 import { ProposalsService } from './proposals.service';
 import { CloseProposalDto } from './dto/close-proposal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';           // 🆕 A3
-import { Roles } from '../common/decorators/roles.decorator';        // 🆕 A3
+import { RolesGuard } from '../common/guards/roles.guard';
+import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
-/**
- * =================================================================
- * 📋 ProposalsController — Gestão de Propostas Comerciais
- * =================================================================
- * 🛡️ PROTEÇÃO:
- * - @UseGuards(JwtAuthGuard, RolesGuard): auth + RBAC
- * - @Roles('ADMIN'): apenas em operações sensíveis (nova versão, exclusão)
- * =================================================================
- */
+/** Payload do JWT (espelho do que o JwtStrategy injeta). */
 interface UserPayload {
   id: string;
   companyId: string;
@@ -33,12 +46,12 @@ interface UserPayload {
 }
 
 @Controller('proposals')
-@UseGuards(JwtAuthGuard, RolesGuard)  // ✅ CORRIGIDO: adicionado RolesGuard
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ProposalsController {
   constructor(private readonly service: ProposalsService) {}
 
   // =================================================================
-  // 📊 DASHBOARDS E MÉTRICAS
+  // 📊 DASHBOARDS E MÉTRICAS (rotas LITERAIS — antes das parametrizadas)
   // =================================================================
 
   @Get('dashboard')
@@ -49,6 +62,22 @@ export class ProposalsController {
     return {
       success: true,
       data: await this.service.getDashboardStats(user.companyId, period),
+    };
+  }
+
+  /**
+   * 🆕 SPRINT A7 — Dashboard de Desempenho Comercial
+   * Funil + tempo médio + desconto médio + ganho acumulado (closingDetails)
+   * + top fechamentos + motivos de perda.
+   */
+  @Get('performance')
+  async getPerformance(
+    @CurrentUser() user: UserPayload,
+    @Query('period') period: string,
+  ) {
+    return {
+      success: true,
+      data: await this.service.getPerformance(user.companyId, period),
     };
   }
 
@@ -92,8 +121,6 @@ export class ProposalsController {
   /**
    * Lista todas as versões de proposta para um cliente específico.
    * Agrupa por originalProposalId e retorna a versão atual + histórico.
-   *
-   * GET /proposals/client/:clientId/versions
    */
   @Get('client/:clientId/versions')
   async getProposalsByClient(
@@ -109,11 +136,9 @@ export class ProposalsController {
   /**
    * Cria uma nova versão de uma proposta existente.
    * Duplica todos os dados, incrementa o version e marca como atual.
-   *
-   * POST /proposals/:id/new-version
    */
   @Post(':id/new-version')
-  @Roles('ADMIN')  // ✅ Agora funciona porque importamos Roles + RolesGuard
+  @Roles('ADMIN')
   async createNewVersion(
     @Param('id') id: string,
     @CurrentUser() user: UserPayload,
@@ -181,7 +206,6 @@ export class ProposalsController {
   // 🔄 MUDANÇAS DE STATUS
   // =================================================================
 
-
   @Post(':id/lose')
   async markAsLost(
     @Param('id') id: string,
@@ -201,7 +225,8 @@ export class ProposalsController {
       data: await this.service.markAsSent(id, user.companyId),
     };
   }
-    // =================================================================
+
+  // =================================================================
   // 💰 SPRINT A4 — Fechamento com Ganho (rota unificada)
   // =================================================================
   /**
@@ -225,3 +250,6 @@ export class ProposalsController {
     };
   }
 }
+// =================================================================
+// FIM: backend/src/proposals/proposals.controller.ts
+// =================================================================

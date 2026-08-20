@@ -136,8 +136,11 @@ const allMenuItems: MenuItem[] = [
     children: [
       { id: 'propostas', title: 'Propostas Comerciais', href: '/dashboard/precificacao' },
       { id: 'meus-planos', title: 'Meus Planos', href: '/dashboard/precificacao/meus-planos' },
+      { id: 'desempenho', title: 'Desempenho', href: '/dashboard/precificacao/desempenho' },
+
     ],
   },
+  
   {
     id: 'planejamento',
     title: 'Planejamento',

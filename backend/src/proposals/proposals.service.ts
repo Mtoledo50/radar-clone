@@ -3,7 +3,7 @@
 // =================================================================
 /**
  * =================================================================
- * ProposalsService — Sprints A1..A5 (ciclo comercial completo)
+ * ProposalsService — Sprints A1..A7 (ciclo comercial completo)
  * =================================================================
  * Responsabilidades:
  * - CRUD de propostas com itens relacionais (ProposalItem).
@@ -13,6 +13,7 @@
  * - Sprint A3: versões de proposta (cadeia por originalProposalId).
  * - Sprint A4: fechamento com ganho (domínio puro closing-gain).
  * - Sprint A5: findBySlug devolve `branding` white-label (ADR-043).
+ * - Sprint A7: 🆕 getPerformance (funil + ganho acumulado + top fechamentos).
  *
  * 🧠 ADRs: ADR-013 (propostas relacionais) • ADR-020 (round2 no
  *    domínio) • ADR-043 (fallback de cores no branding).
@@ -486,6 +487,165 @@ export class ProposalsService {
         return { month, created, won, lost };
       }),
     );
+  }
+
+  // =================================================================
+  // 🆕 SPRINT A7: DASHBOARD DE DESEMPENHO
+  // =================================================================
+
+  /**
+   * 🎯 getPerformance — métricas completas de desempenho comercial.
+   *
+   * Consome `closingDetails` (A4) para calcular:
+   * - Funil de conversão (total → sent → viewed → won/lost)
+   * - Taxa de conversão (won ÷ total)
+   * - Tempo médio de fechamento (sentAt → closedAt em dias)
+   * - Desconto médio praticado (do closingDetails)
+   * - Ganho acumulado (monthly/yearly do closingDetails)
+   * - Concessão acumulada (quanto abriu mão)
+   * - Top 5 fechamentos por ganho mensal
+   * - Motivos de perda (reaproveita getLossReasonsData)
+   *
+   * @param companyId - tenant logado
+   * @param period - período (7d, 30d, 90d, 12m, ytd)
+   * @returns objeto completo de desempenho
+   */
+  async getPerformance(companyId: string, period?: string) {
+    const dateFilter = this.getDateFilter(period);
+
+    // 1) Funil de conversão
+    const [total, sent, viewed, won, lost] = await Promise.all([
+      this.prisma.proposal.count({ where: { companyId, ...dateFilter } }),
+      this.prisma.proposal.count({
+        where: { companyId, status: ProposalStatus.SENT, ...dateFilter },
+      }),
+      this.prisma.proposal.count({
+        where: { companyId, status: ProposalStatus.VIEWED, ...dateFilter },
+      }),
+      this.prisma.proposal.count({
+        where: { companyId, status: ProposalStatus.CLOSED_WON, ...dateFilter },
+      }),
+      this.prisma.proposal.count({
+        where: { companyId, status: ProposalStatus.CLOSED_LOST, ...dateFilter },
+      }),
+    ]);
+
+    const conversionRate = total > 0 ? (won / total) * 100 : 0;
+
+    // 2) Tempo médio de fechamento (sentAt → closedAt)
+    const closedProposals = await this.prisma.proposal.findMany({
+      where: {
+        companyId,
+        status: ProposalStatus.CLOSED_WON,
+        sentAt: { not: null },
+        closedAt: { not: null },
+        ...dateFilter,
+      },
+      select: { sentAt: true, closedAt: true },
+    });
+
+    const avgDaysToClose =
+      closedProposals.length > 0
+        ? closedProposals.reduce((sum, p) => {
+            const days = Math.ceil(
+              ((p.closedAt as Date).getTime() - (p.sentAt as Date).getTime()) /
+                (1000 * 60 * 60 * 24),
+            );
+            return sum + days;
+          }, 0) / closedProposals.length
+        : 0;
+
+    // 3) Desconto médio praticado (do closingDetails)
+    const proposalsWithDetails = await this.prisma.proposal.findMany({
+      where: {
+        companyId,
+        status: ProposalStatus.CLOSED_WON,
+        closingDetails: { not: null },
+        ...dateFilter,
+      },
+      select: { closingDetails: true },
+    });
+
+    const discounts = proposalsWithDetails
+      .map((p) => (p.closingDetails as any)?.discountPercent)
+      .filter((d) => d !== undefined && d !== null);
+
+    const avgDiscountPercent =
+      discounts.length > 0
+        ? discounts.reduce((sum, d) => sum + d, 0) / discounts.length
+        : 0;
+
+    // 4) Ganho acumulado (monthly/yearly) + concessão
+    const gains = proposalsWithDetails.map((p) => {
+      const details = p.closingDetails as any;
+      return {
+        gainMonthly: details?.gainMonthly ?? 0,
+        gainYearly: details?.gainYearly ?? 0,
+        concessionMonthly: details?.concessionMonthly ?? 0,
+        concessionYearly: details?.concessionYearly ?? 0,
+      };
+    });
+
+    const totalGainMonthly = gains.reduce((sum, g) => sum + g.gainMonthly, 0);
+    const totalGainYearly = gains.reduce((sum, g) => sum + g.gainYearly, 0);
+    const totalConcessionMonthly = gains.reduce(
+      (sum, g) => sum + g.concessionMonthly,
+      0,
+    );
+    const totalConcessionYearly = gains.reduce(
+      (sum, g) => sum + g.concessionYearly,
+      0,
+    );
+
+    // 5) Top 5 fechamentos por ganho mensal
+    const topGains = await this.prisma.proposal.findMany({
+      where: {
+        companyId,
+        status: ProposalStatus.CLOSED_WON,
+        closingDetails: { not: null },
+        ...dateFilter,
+      },
+      select: {
+        clientName: true,
+        closedAt: true,
+        closedPrice: true,
+        closingDetails: true,
+      },
+      orderBy: { closedAt: 'desc' },
+      take: 50, // busca mais para ordenar em memória pelo ganho
+    });
+
+    const topGainsSorted = topGains
+      .map((p) => {
+        const details = p.closingDetails as any;
+        return {
+          clientName: p.clientName,
+          closedAt: p.closedAt,
+          closedPrice: p.closedPrice,
+          discountPercent: details?.discountPercent ?? 0,
+          gainMonthly: details?.gainMonthly ?? 0,
+        };
+      })
+      .sort((a, b) => b.gainMonthly - a.gainMonthly)
+      .slice(0, 5);
+
+    // 6) Motivos de perda (reaproveita método existente)
+    const lossReasons = await this.getLossReasonsData(companyId, period);
+
+    return {
+      funnel: { total, sent, viewed, won, lost },
+      conversionRate: Number(conversionRate.toFixed(2)),
+      avgDaysToClose: Number(avgDaysToClose.toFixed(1)),
+      avgDiscountPercent: Number(avgDiscountPercent.toFixed(1)),
+      gain: {
+        monthly: totalGainMonthly,
+        yearly: totalGainYearly,
+        concessionMonthly: totalConcessionMonthly,
+        concessionYearly: totalConcessionYearly,
+      },
+      topGains: topGainsSorted,
+      lossReasons,
+    };
   }
 
   // =================================================================

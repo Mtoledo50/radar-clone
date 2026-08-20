@@ -331,6 +331,30 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint A7] 2026-08 — Dashboard de Desempenho Comercial (FASE A COMPLETA 🏁)
+✅ Added
+`ProposalsService.getPerformance`: endpoint `GET /proposals/performance?period=`
+consolidando funil (total/sent/viewed/won/lost), taxa de conversão, tempo médio
+de fechamento (sentAt → closedAt), desconto médio praticado, ganho acumulado
+(monthly/yearly via `closingDetails` da A4), concessão acumulada, top 5
+fechamentos por ganho mensal e motivos de perda agregados.
+`/dashboard/precificacao/desempenho/page.tsx`: 4 KPIs (conversão, tempo,
+desconto, ganho), card "Dinheiro em Jogo" (Ganho × Concessão + balanço líquido
+anual), funil de conversão em CSS puro (ADR-001), top 5 fechamentos e motivos
+de perda com barras proporcionais; seletor de período (7d/30d/90d/12m/ytd).
+Item de menu "Desempenho" filho de "Precificação" no `layout.tsx`.
+🧠 Decisions
+ADR-001: gráficos em CSS puro — zero dependências novas.
+ADR-020: valores monetários já round2 no backend.
+Endpoint deriva 100% de `Proposal.closingDetails` (A4) — nenhuma tabela nova,
+nenhuma migration.
+📊 Resultados reais (validação local com seed de 5 propostas)
+Conversão 20% • desconto médio 10% • ganho +R$ 360/mês (+R$ 4.320/ano) •
+concessão R$ 240/mês • balanço líquido +R$ 1.440/ano • top ganho: Padaria
+Pão Quente (+R$ 360/mês) • perda: "fechou com concorrente mais barato".
+🏁 Status
+HOMOLOGADO localmente. **Fase A do plano 2.0 completa (A1–A7).**
+
 [Sprint A6] 2026-08 — PDF v2 Premium + PNG da Capa + Logo oficial (white-label)
 ✅ Added
 `lib/proposal-pdf.ts`: PDF v2 100% client-side (ADR-045) — capa com cores do
