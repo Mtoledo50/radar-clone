@@ -1041,6 +1041,10 @@ model Resignation {
   dismissalReasonId String?
   dismissalReason DismissalReason? @relation(fields: [dismissalReasonId], references: [id], onDelete: SetNull)
   observations    String?  @db.Text
+  // 🆕 Sprint B4: entrevista de desligamento + análise (ADR-050)
+  exitInterview         Json?   // { answers: string[5], conductedAt: ISO }
+  exitAnalysis          Json?   // ExitAnalysisResult: causas + plano + confiança
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)

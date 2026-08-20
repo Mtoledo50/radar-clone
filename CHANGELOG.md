@@ -331,6 +331,28 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint B4] 2026-08 — Entrevista de Desligamento com IA (Fase B — Pessoas)
+✅ Added
+Schema: `exitInterview Json?` + `exitAnalysis Json?` no model `Resignation`.
+`exit-interview-engine.ts`: motor DETERMINÍSTICO (domínio puro, zero deps) que
+classifica as 5 respostas em 7 causas-raiz por keywords normalizadas (NFD sem
+acento), pontua por score e sugere plano de ação por categoria.
+`TurnoverService`: `saveExitInterview`, `analyzeResignation`, `getExitAnalyses`
++ 3 rotas no controller (`POST :id/interview`, `POST :id/analyze`,
+`GET /exit-analyses`).
+`ExitInterviewModal.tsx`: modal 2 passos (formulário → causa primária +
+confiança + plano de ação).
+`turnover/page.tsx`: botão 📝 na tabela de Registros + sub-aba "Análises IA"
+com top causas-raiz e planos agregados.
+🛠️ Fixed (FIX B4.1)
+`GET /turnover/resignations` não estava registrado no controller (o método
+existia no service) → 404 derrubava o Promise.all e esvaziava todas as abas.
+🧠 Decisions
+ADR-050: motor intercambiável (`engine: "rules-v1"`; LLM amanhã sem tocar em
+service/controller/UI). ADR-031: IA só sugere, humano decide.
+🏁 Status
+HOMOLOGADO localmente.
+
 [Sprint B3] 2026-08 — KPIs Novatos & Críticos (Fase B — Pessoas)
 ✅ Added
 Schema Prisma: flag `isCritical Boolean @default(false)` nos models
