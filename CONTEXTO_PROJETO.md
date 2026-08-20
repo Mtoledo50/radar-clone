@@ -146,6 +146,13 @@ ADR-042 Conciliação Banco×NF-e apenas em DÉBITOS bancários c/ NF-e de ENTRA
         (estoque armazena notas de compra) (commit d61b657 — Sprint 29).
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
+Fase C (Mercado): C1 benchmark softwares (EM HOMOLOGAÇÃO) •
+C2 serviços extras c/ preço médio • C3 indicadores c/ fórmula • C4 score 0–100.
+
+Sprint C1 EM HOMOLOGAÇÃO: benchmark de softwares (ADR-052 híbrido rede+catálogo,
+seção em minha-empresa, seed de 8 empresas fake).
+IMEDIATO: validar C1 → abrir C2 (catálogo de serviços extras com preço médio).
+
 Fase B (Pessoas): B1 ✅ • B2 ✅ • B3 ✅ • B4 ✅ • B5 ✅ — FASE B COMPLETA.
 
 Sprint B5 HOMOLOGADA: benchmark de cargos por setor (domínio puro ADR-051,

@@ -126,6 +126,22 @@ export class CompanyController {
     const updated = await this.service.updateBranding(user.companyId, dto);
     return { success: true, data: updated };
   }
+  // =================================================================
+  // 🆕 SPRINT C1 — BENCHMARK DE SOFTWARES (rota PÚBLICA do tenant)
+  // =================================================================
+  /**
+   * GET /company/software-benchmark
+   * Benchmark do stack do tenant logado vs. rede + catálogo de mercado.
+   * Qualquer usuário logado do tenant pode ler (é dado estratégico,
+   * não confidencial — o próprio tenant cadastra o stack).
+   * 🧠 ADR-052: fonte híbrida (rede real + catálogo curado v1).
+   */
+  @Get('software-benchmark')
+  @UseGuards(JwtAuthGuard)
+  async getSoftwareBenchmark(@CurrentUser() user: UserPayload) {
+    const data = await this.service.getSoftwareBenchmark(user.companyId);
+    return { success: true, data };
+  }
 }
 // =================================================================
 // FIM: backend/src/company/company.controller.ts

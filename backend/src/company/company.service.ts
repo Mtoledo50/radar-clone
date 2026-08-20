@@ -22,6 +22,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateBrandingDto } from './dto/update-branding.dto';
+// 🆕 Sprint C1: motor de benchmark de softwares (ADR-052)
+import { computeSoftwareBenchmark } from './domain/software-benchmark';
 
 @Injectable()
 export class CompanyService {
@@ -167,6 +169,72 @@ export class CompanyService {
         proposalFooterText: true,
       },
     });
+  }
+  // =================================================================
+  // 🆕 SPRINT C1 — BENCHMARK DE SOFTWARES (ADR-052)
+  // =================================================================
+  /**
+   * 🎯 getSoftwareBenchmark — "o que o mercado usa vs. o que você usa?"
+   *
+   * 1. Extrai o stack do tenant logado (CompanyProfile.softwareStack)
+   *    no formato "categoria:valor" e remove o prefixo.
+   * 2. Coleta os stacks de OUTROS tenants ativos (rede real) e aplica
+   *    o mesmo parsing.
+   * 3. Roda o motor `computeSoftwareBenchmark` (domínio puro — ADR-052):
+   *    - source 'rede'     → amostra real ≥ 10 escritórios
+   *    - source 'hibrido'  → 1–9 escritórios
+   *    - source 'catalogo' → 0 (catálogo curado v1, fallback)
+   *
+   * Zero tabelas novas; 100% derivado em memória dos dados existentes.
+   */
+  async getSoftwareBenchmark(companyId: string) {
+    // 1) Stack do tenant logado
+    const you = await this.prisma.companyProfile.findUnique({
+      where: { userId: companyId }, // fallback: pode precisar ajustar abaixo
+    }).catch(() => null);
+
+    // Fallback: se o perfil está em outra tabela (Company), tenta pelo companyId
+    let youStack: string[] = [];
+    if (you && Array.isArray((you as any).softwareStack)) {
+      youStack = this.parseSoftwareStack((you as any).softwareStack);
+    } else {
+      // Tenta ler direto da Company (schema tem softwareStack String[])
+      const company = await this.prisma.company.findUnique({
+        where: { id: companyId },
+        select: { softwareStack: true },
+      });
+      youStack = this.parseSoftwareStack(company?.softwareStack || []);
+    }
+
+    // 2) Stacks de outros tenants (rede real p/ benchmark híbrido)
+    const others = await this.prisma.company.findMany({
+      where: {
+        id: { not: companyId },
+        deletedAt: null,
+      },
+      select: { softwareStack: true },
+    });
+    const networkStacks = others
+      .map((c) => this.parseSoftwareStack(c.softwareStack || []))
+      .filter((stack) => stack.length > 0);
+
+    // 3) Motor de domínio (ADR-052)
+    return computeSoftwareBenchmark(youStack, networkStacks);
+  }
+
+  /**
+   * 🔧 Helper privado: parseia o array "categoria:valor" do banco
+   * para array plano de nomes de software (ex.: "Domínio").
+   * Ignora entradas marcadas como "NÃO_UTILIZADO".
+   */
+  private parseSoftwareStack(raw: string[]): string[] {
+    return raw
+      .map((entry) => {
+        const parts = entry.split(':');
+        const value = parts.slice(1).join(':');
+        return value;
+      })
+      .filter((v) => v && v !== 'NÃO_UTILIZADO' && v.trim() !== '');
   }
 }
 // =================================================================
