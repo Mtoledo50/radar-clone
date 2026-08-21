@@ -1,10 +1,10 @@
 // =================================================================
 // RADAR CONTA CERTA - SCHEMA ENTERPRISE (SaaS Multi-Tenant)
 // =================================================================
-// Autor: Arquitetura de Software Sênior
-// Descrição: Modelagem de dados robusta para SaaS Contábil
-// Sprint 8: Adicionado clientId nos modelos fiscais para vínculo
-//           do estoque por cliente (multi-cliente por escritório)
+// Autor: Arquitetura de Software SÃªnior
+// DescriÃ§Ã£o: Modelagem de dados robusta para SaaS ContÃ¡bil
+// Sprint 8: Adicionado clientId nos modelos fiscais para vÃ­nculo
+//           do estoque por cliente (multi-cliente por escritÃ³rio)
 // =================================================================
 
 generator client {
@@ -17,37 +17,37 @@ datasource db {
 }
 
 // =================================================================
-// 🔠 ENUMS (Tipagem Forte e Regras de Negócio)
+// ðŸ”  ENUMS (Tipagem Forte e Regras de NegÃ³cio)
 // =================================================================
 
 enum UserRole {
   SUPER_ADMIN /// Administrador do Sistema (Plataforma)
-  ADMIN       /// Administrador do Escritório (Tenant)
+  ADMIN       /// Administrador do EscritÃ³rio (Tenant)
   MANAGER     /// Gerente de Setor
-  USER        /// Colaborador Padrão
+  USER        /// Colaborador PadrÃ£o
   CLIENTE     /// Acesso do Cliente (Portal)
 }
 
 enum EmployeeStatus {
   ACTIVE    /// Ativo
-  INACTIVE  /// Inativo / Férias
+  INACTIVE  /// Inativo / FÃ©rias
   DISMISSED /// Desligado
 }
 
 enum ClientStatus {
   ATIVO     /// Cliente ativo e pagante
-  PROSPECT  /// Em negociação (Lead)
+  PROSPECT  /// Em negociaÃ§Ã£o (Lead)
   INATIVO   /// Pausado temporariamente
   CHURN     /// Perdido / Cancelado
   SUSPENSO  /// Inadimplente / Suspenso
 }
 
 enum ServiceType {
-  CONTABIL    /// Contábil
+  CONTABIL    /// ContÃ¡bil
   FISCAL      /// Fiscal
   PESSOAL     /// Departamento Pessoal
   MEI         /// MEI
-  IRPF        /// Imposto de Renda Pessoa Física
+  IRPF        /// Imposto de Renda Pessoa FÃ­sica
   CONSULTORIA /// Consultoria
   OUTROS      /// Outros
 }
@@ -98,26 +98,26 @@ enum ProposalStatus {
 }
 
 enum Recurrence {
-  AVULSO      /// Pagamento único (ex: IRPF, Abertura)
-  MENSAL      /// Recorrência mensal (ex: Honorários)
-  TRIMESTRAL  /// Recorrência trimestral
-  ANUAL       /// Recorrência anual (ex: DASN, Balanço)
+  AVULSO      /// Pagamento Ãºnico (ex: IRPF, Abertura)
+  MENSAL      /// RecorrÃªncia mensal (ex: HonorÃ¡rios)
+  TRIMESTRAL  /// RecorrÃªncia trimestral
+  ANUAL       /// RecorrÃªncia anual (ex: DASN, BalanÃ§o)
 }
 // =================================================================
-// 🆕 SPRINT B1 — TIPOS CONTRATAIS (Fase B — Pessoas)
+// ðŸ†• SPRINT B1 â€” TIPOS CONTRATAIS (Fase B â€” Pessoas)
 // =================================================================
 enum ContractType {
-  CLT           /// Celetista (padrão brasileiro)
-  ESTAGIARIO    /// Estagiário (Lei 11.788/2008)
+  CLT           /// Celetista (padrÃ£o brasileiro)
+  ESTAGIARIO    /// EstagiÃ¡rio (Lei 11.788/2008)
   TERCEIRIZADO  /// Terceirizado/PJ (Lei 6.019/1974)
-  SOCIO         /// Sócio com pró-labore
+  SOCIO         /// SÃ³cio com prÃ³-labore
 }
 
 // =================================================================
-// 🏢 EMPRESA (TENANT / MULTI-TENANT)
+// ðŸ¢ EMPRESA (TENANT / MULTI-TENANT)
 // =================================================================
-/// Representa o escritório contábil (Tenant). 
-/// Todos os dados do sistema são isolados por companyId.
+/// Representa o escritÃ³rio contÃ¡bil (Tenant). 
+/// Todos os dados do sistema sÃ£o isolados por companyId.
 model Company {
   id                String   @id @default(uuid())
   name              String   
@@ -128,15 +128,15 @@ model Company {
   phone             String?
   address           String?
   logoUrl           String?
-  // 🆕 Sprint A5 — White-label da proposta pública
-  primaryColor      String?   // Cor primária (ex: "#dc2626"). Null = fallback teal #0d9488
+  // ðŸ†• Sprint A5 â€” White-label da proposta pÃºblica
+  primaryColor      String?   // Cor primÃ¡ria (ex: "#dc2626"). Null = fallback teal #0d9488
   secondaryColor    String?   // Cor de destaque (ex: "#facc15"). Null = fallback laranja #f97316
-  proposalFooterText String?  @db.Text  // Texto opcional no rodapé da proposta
+  proposalFooterText String?  @db.Text  // Texto opcional no rodapÃ© da proposta
 
   softwareStack     String[] @default([])
   businessGoals     String?  @db.Text
   
-  /// Plano de assinatura do próprio escritório na plataforma Radar
+  /// Plano de assinatura do prÃ³prio escritÃ³rio na plataforma Radar
   plan              String   @default("BASIC") 
   allowedModules    String[] @default(["dashboard", "pessoas", "clientes"]) 
   
@@ -147,12 +147,12 @@ model Company {
   users             User[]
   turnoverDistributions TurnoverSectorDistribution[] 
   
-  // Catálogo de Serviços
+  // CatÃ¡logo de ServiÃ§os
   serviceCategories ServiceCategory[]
   serviceItems      ServiceItem[]
   commercialPlans   CommercialPlan[]
   
-  // Precificação
+  // PrecificaÃ§Ã£o
   pricingConfigs      PricingConfig?
   pricingHourRules    PricingHourRule[]
   pricingCalculations PricingCalculation[]
@@ -160,10 +160,10 @@ model Company {
   // Comercial
   proposals           Proposal[]
   
-  // BI e Métricas
+  // BI e MÃ©tricas
   clientMonthlyData   ClientMonthlyData[]
   
-  // Planejamento Estratégico
+  // Planejamento EstratÃ©gico
   planningCycles      PlanningCycle[]
   planningAreas       PlanningArea[]
   planningObjectives  PlanningObjective[]
@@ -171,7 +171,7 @@ model Company {
   planningKpis        PlanningKPI[]
   actionPlans         ActionPlan[]
 
-  // Contábil
+  // ContÃ¡bil
   accountingAccounts  AccountingAccount[]
   accountingEntries   AccountingEntry[]
   
@@ -183,7 +183,7 @@ model Company {
   projects        Project[]
   tasks           Task[]
 
-   // 📦 Módulo Fiscal
+   // ðŸ“¦ MÃ³dulo Fiscal
   fiscalSuppliers       FiscalSupplier[]
   fiscalProducts        FiscalProduct[]
   fiscalInvoices        FiscalInvoice[]
@@ -191,20 +191,20 @@ model Company {
   fiscalBalances        FiscalInventoryBalance[]
   fiscalApurations    FiscalIcmsApuration[]
   bankStatements      BankStatement[]
-  fiscalServiceInvoices FiscalServiceInvoice[]   // 🆕 FD-3a
-  taxGuides           TaxGuide[]                 // 🆕 FD-4
-  // 🆕 Sprint C3: indicadores customizados do diretor
+  fiscalServiceInvoices FiscalServiceInvoice[]   // ðŸ†• FD-3a
+  taxGuides           TaxGuide[]                 // ðŸ†• FD-4
+  // ðŸ†• Sprint C3: indicadores customizados do diretor
   customIndicators CustomIndicator[]
 
-  // 🤖 Funcionário Digital (FD-1)
+  // ðŸ¤– FuncionÃ¡rio Digital (FD-1)
   robotWorker       RobotWorker?
-    // 📊 Relatórios Mensais (FD-2 final)
+    // ðŸ“Š RelatÃ³rios Mensais (FD-2 final)
   monthlyReports  MonthlyReport[]
   @@map("companies")
 }
 
 // =================================================================
-// 👤 USUÁRIO
+// ðŸ‘¤ USUÃRIO
 // =================================================================
 model User {
   id                    String                @id @default(uuid())
@@ -236,9 +236,9 @@ model User {
   proposals             Proposal[]
   clientMonthlyData     ClientMonthlyData[]
 
-  // Tarefas atribuídas
+  // Tarefas atribuÃ­das
 assignedTasks   Task[]
-  // 🆕 Sprint C3: indicadores que o usuário criou
+  // ðŸ†• Sprint C3: indicadores que o usuÃ¡rio criou
   customIndicators CustomIndicator[]
   
   @@index([companyId])
@@ -246,7 +246,7 @@ assignedTasks   Task[]
 }
 
 // =================================================================
-// 📊 PERFIL DA EMPRESA (ONBOARDING)
+// ðŸ“Š PERFIL DA EMPRESA (ONBOARDING)
 // =================================================================
 model CompanyProfile {
   id                  String   @id @default(uuid())
@@ -276,7 +276,7 @@ model CompanyProfile {
 }
 
 // =================================================================
-// 👷 COLABORADOR
+// ðŸ‘· COLABORADOR
 // =================================================================
 model Employee {
   id              String         @id @default(uuid())
@@ -293,7 +293,7 @@ model Employee {
   dismissalDate   DateTime?
   salary          Float?
   status          EmployeeStatus @default(ACTIVE)
-  contractType    ContractType   @default(CLT)  // 🆕 Sprint B1: tipo contratual
+  contractType    ContractType   @default(CLT)  // ðŸ†• Sprint B1: tipo contratual
   isCritical      Boolean        @default(false)
   
   createdAt       DateTime       @default(now())
@@ -306,7 +306,7 @@ model Employee {
 }
 
 // =================================================================
-// 🏢 CLIENTE
+// ðŸ¢ CLIENTE
 // =================================================================
 model Client {
   id                    String                @id @default(uuid())
@@ -317,7 +317,7 @@ model Client {
   companyName           String
   cnpj                  String?
   serviceType           ServiceType           @default(CONTABIL)
-  monthlyFee            Float                 /// Honorário atual (snapshot)
+  monthlyFee            Float                 /// HonorÃ¡rio atual (snapshot)
   status                ClientStatus          @default(ATIVO)
   
   startDate             DateTime
@@ -329,7 +329,7 @@ model Client {
   
     observations          String?               @db.Text
 
-  // 🆕 Sprint 23: dados contratuais importados (planilha de honorários)
+  // ðŸ†• Sprint 23: dados contratuais importados (planilha de honorÃ¡rios)
   lastPaymentDate       DateTime?
   installments          Int?
   openAmount            Float?
@@ -343,7 +343,7 @@ model Client {
   financialTransactions FinancialTransaction[]
   accountingEntries     AccountingEntry[]     
   
-  // Relações Contratuais
+  // RelaÃ§Ãµes Contratuais
   contracts             ClientContract[]
   services              ClientService[]
   
@@ -351,27 +351,27 @@ model Client {
   projects              Project[]
   tasks                 Task[]
 
-  // 📦 Sprint 8: Vínculo do Estoque Fiscal ao Cliente
+  // ðŸ“¦ Sprint 8: VÃ­nculo do Estoque Fiscal ao Cliente
   fiscalProducts        FiscalProduct[]
   fiscalInvoices        FiscalInvoice[]
   fiscalMovements       FiscalInventoryMovement[]
   fiscalApurations      FiscalIcmsApuration[]
   bankStatements        BankStatement[]
-  // 📊 Relatórios mensais do cliente
+  // ðŸ“Š RelatÃ³rios mensais do cliente
   monthlyReports  MonthlyReport[]
-  fiscalServiceInvoices FiscalServiceInvoice[]   // 🆕 FD-3a
-  taxGuides           TaxGuide[]                 // 🆕 FD-4
+  fiscalServiceInvoices FiscalServiceInvoice[]   // ðŸ†• FD-3a
+  taxGuides           TaxGuide[]                 // ðŸ†• FD-4
 
   @@index([userId])
-  @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
+  @@unique([companyId, companyName])  // ðŸ†• FD-2: upsert seguro por (tenant + nome)
   @@map("clients")
 }
 
 // =================================================================
-// 📦 CATÁLOGO DE SERVIÇOS (O CORAÇÃO DO SaaS)
+// ðŸ“¦ CATÃLOGO DE SERVIÃ‡OS (O CORAÃ‡ÃƒO DO SaaS)
 // =================================================================
 
-/// Categorias de Serviços (Ex: Fiscal, DP, Contábil, MEI)
+/// Categorias de ServiÃ§os (Ex: Fiscal, DP, ContÃ¡bil, MEI)
 model ServiceCategory {
   id          String        @id @default(uuid())
   companyId   String
@@ -391,24 +391,24 @@ model ServiceCategory {
   @@map("service_categories")
 }
 
-/// Item de Serviço (O que é vendido)
+/// Item de ServiÃ§o (O que Ã© vendido)
 model ServiceItem {
   id          String            @id @default(uuid())
   companyId   String
   categoryId  String
   
-  name        String            /// Ex: "Declaração Anual DASN-SIMEI"
-  description String?           /// Descrição curta para o cliente
+  name        String            /// Ex: "DeclaraÃ§Ã£o Anual DASN-SIMEI"
+  description String?           /// DescriÃ§Ã£o curta para o cliente
   
-  /// Escopo detalhado (O que está incluso)
+  /// Escopo detalhado (O que estÃ¡ incluso)
   scope       String?           @db.Text
-  /// O que NÃO está incluso (Gera cobrança extra)
+  /// O que NÃƒO estÃ¡ incluso (Gera cobranÃ§a extra)
   outOfScope  String?           @db.Text
   /// Documentos que o cliente precisa enviar
   requiredDocs String?          @db.Text
   
   basePrice   Decimal           @db.Decimal(10, 2) /// Valor de tabela
-  estimatedHours Float          /// Horas estimadas para precificação
+  estimatedHours Float          /// Horas estimadas para precificaÃ§Ã£o
   slaDays     Int               @default(5)        /// Prazo de entrega em dias
   
   recurrence  Recurrence        @default(MENSAL)
@@ -433,7 +433,7 @@ model ServiceItem {
 }
 
 // =================================================================
-// 💼 PLANOS COMERCIAIS (PACOTES)
+// ðŸ’¼ PLANOS COMERCIAIS (PACOTES)
 // =================================================================
 
 /// Plano Comercial (Ex: Plano MEI Essencial, Plano Lucro Presumido)
@@ -461,7 +461,7 @@ model CommercialPlan {
   @@map("commercial_plans")
 }
 
-/// Vínculo N:N entre Plano e Itens de Serviço
+/// VÃ­nculo N:N entre Plano e Itens de ServiÃ§o
 model PlanServiceItem {
   id            String        @id @default(uuid())
   planId        String
@@ -482,7 +482,7 @@ model PlanServiceItem {
 }
 
 // =================================================================
-// 📝 CONTRATO DO CLIENTE (HISTÓRICO E VIGÊNCIA)
+// ðŸ“ CONTRATO DO CLIENTE (HISTÃ“RICO E VIGÃŠNCIA)
 // =================================================================
 
 /// Contrato vinculando o Cliente a um Plano Comercial
@@ -510,7 +510,7 @@ model ClientContract {
   @@map("client_contracts")
 }
 
-/// Serviços Avulsos ou Recorrentes contratados FORA do plano principal
+/// ServiÃ§os Avulsos ou Recorrentes contratados FORA do plano principal
 model ClientService {
   id              String     @id @default(uuid())
   companyId       String
@@ -537,10 +537,10 @@ model ClientService {
 }
 
 // =================================================================
-// 💰 PRECIFICAÇÃO E PROPOSTAS
+// ðŸ’° PRECIFICAÃ‡ÃƒO E PROPOSTAS
 // =================================================================
 
-/// Cálculo de Precificação (Rascunho/Simulação)
+/// CÃ¡lculo de PrecificaÃ§Ã£o (Rascunho/SimulaÃ§Ã£o)
 model PricingCalculation {
   id                String   @id @default(uuid())
   companyId         String
@@ -608,18 +608,18 @@ model Proposal {
   closedAt          DateTime?
   closedPlanId      String?
   closedPrice       Float?
-  closingDetails    Json?          // 🆕 A4: memória do fechamento (desconto, ganho, steps)
+  closingDetails    Json?          // ðŸ†• A4: memÃ³ria do fechamento (desconto, ganho, steps)
   lossReason        String?
   
   views             Int            @default(0)
   whatsappClicks    Int            @default(0)
   
-  // 🆕 SPRINT A3: Controle de Versões
-  version           Int            @default(1)        // Número da versão (1, 2, 3...)
-  isCurrent         Boolean        @default(true)     // true = versão ativa do cliente
-  originalProposalId String?                          // ID da primeira versão da cadeia (para agrupar)
+  // ðŸ†• SPRINT A3: Controle de VersÃµes
+  version           Int            @default(1)        // NÃºmero da versÃ£o (1, 2, 3...)
+  isCurrent         Boolean        @default(true)     // true = versÃ£o ativa do cliente
+  originalProposalId String?                          // ID da primeira versÃ£o da cadeia (para agrupar)
   originalProposal  Proposal?      @relation("ProposalVersions", fields: [originalProposalId], references: [id], onDelete: SetNull)
-  versions          Proposal[]     @relation("ProposalVersions") // Outras versões desta proposta
+  versions          Proposal[]     @relation("ProposalVersions") // Outras versÃµes desta proposta
   
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -641,7 +641,7 @@ model ProposalItem {
   id                String   @id @default(uuid())
   proposalId        String
   
-  /// Pode ser um Plano inteiro ou um Serviço avulso
+  /// Pode ser um Plano inteiro ou um ServiÃ§o avulso
   commercialPlanId  String?
   serviceItemId     String?
   
@@ -660,7 +660,7 @@ model ProposalItem {
 }
 
 // =================================================================
-// 📊 DADOS MENSAIS DA CARTEIRA (BI / MRR / CHURN)
+// ðŸ“Š DADOS MENSAIS DA CARTEIRA (BI / MRR / CHURN)
 // =================================================================
 model ClientMonthlyData {
   id              String   @id @default(uuid())
@@ -695,7 +695,7 @@ model ClientMonthlyData {
 }
 
 // =================================================================
-// 💸 FINANCEIRO E CONTÁBIL
+// ðŸ’¸ FINANCEIRO E CONTÃBIL
 // =================================================================
 model FinancialTransaction {
   id          String          @id @default(uuid())
@@ -733,7 +733,7 @@ model AccountingEntry {
   counterpartyType    String?
   
   clientId            String?
-  bankTransactionId   String?   /// 🆕 Sprint 25.2: vínculo à transação bancária de origem
+  bankTransactionId   String?   /// ðŸ†• Sprint 25.2: vÃ­nculo Ã  transaÃ§Ã£o bancÃ¡ria de origem
   client              Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   
   debitAccountId      String?
@@ -758,7 +758,7 @@ model AccountingEntry {
 
 model AccountingAccount {
   id          String          @id @default(uuid())
-  companyId   String?         /// NULL = conta global/padrão do sistema
+  companyId   String?         /// NULL = conta global/padrÃ£o do sistema
   code        String   
   name        String   
   type        AccountType   
@@ -767,7 +767,7 @@ model AccountingAccount {
   parentId    String?
   isActive    Boolean         @default(true)
   sciCode     String?  
-  reducedCode Int?   // ✅ código reduzido SCI p/ match + exportação
+  reducedCode Int?   // âœ… cÃ³digo reduzido SCI p/ match + exportaÃ§Ã£o
 
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -778,20 +778,20 @@ model AccountingAccount {
   debitEntries  AccountingEntry[] @relation("DebitEntries")
   creditEntries AccountingEntry[] @relation("CreditEntries")
    
-  @@unique([companyId, code])  // 🔥 NOVA CONSTRAINT: Garante unicidade por empresa
+  @@unique([companyId, code])  // ðŸ”¥ NOVA CONSTRAINT: Garante unicidade por empresa
   @@index([companyId])
   @@index([code])
   @@map("accounting_accounts")
 }
 // =================================================================
-// 📋 TAREFAS E PROJETOS (Gestão Operacional)
+// ðŸ“‹ TAREFAS E PROJETOS (GestÃ£o Operacional)
 // =================================================================
 
 enum ProjectStatus {
   PLANNING    /// Planejamento
   ACTIVE      /// Ativo
   ON_HOLD     /// Pausado
-  COMPLETED   /// Concluído
+  COMPLETED   /// ConcluÃ­do
   CANCELLED   /// Cancelado
 }
 
@@ -799,23 +799,23 @@ enum TaskStatus {
   BACKLOG       /// Backlog
   TODO          /// A fazer
   IN_PROGRESS   /// Em andamento
-  REVIEW        /// Em revisão
+  REVIEW        /// Em revisÃ£o
   BLOCKED       /// Bloqueada
-  DONE          /// Concluída
+  DONE          /// ConcluÃ­da
 }
 
 enum TaskPriority {
   LOW      /// Baixa
-  MEDIUM   /// Média
+  MEDIUM   /// MÃ©dia
   HIGH     /// Alta
   URGENT   /// Urgente
 }
 
 enum TaskCategory {
   FISCAL                /// Fiscal
-  CONTABIL              /// Contábil
+  CONTABIL              /// ContÃ¡bil
   DEPARTAMENTO_PESSOAL  /// Departamento Pessoal
-  SOCIETARIO            /// Societário
+  SOCIETARIO            /// SocietÃ¡rio
   FINANCEIRO            /// Financeiro
   COMERCIAL             /// Comercial
   INTERNO               /// Interno
@@ -832,7 +832,7 @@ model Project {
   description String?       @db.Text
   status      ProjectStatus @default(PLANNING)
   priority    TaskPriority  @default(MEDIUM)
-  color       String?       /// Cor hexadecimal para identificação visual
+  color       String?       /// Cor hexadecimal para identificaÃ§Ã£o visual
   
   startDate   DateTime?
   dueDate     DateTime?
@@ -896,7 +896,7 @@ model Task {
 }
 
 // =================================================================
-// 🔄 LEGADO E RH (Mantidos para compatibilidade)
+// ðŸ”„ LEGADO E RH (Mantidos para compatibilidade)
 // =================================================================
 
 model Pricing {
@@ -1040,13 +1040,13 @@ model Resignation {
   positionId      String?
   position        Position? @relation(fields: [positionId], references: [id], onDelete: SetNull)
   contractType    String
-  isCritical      Boolean        @default(false)  // 🆕 Sprint B3: cópia histórica (ADR-049)
+  isCritical      Boolean        @default(false)  // ðŸ†• Sprint B3: cÃ³pia histÃ³rica (ADR-049)
   dismissalReasonId String?
   dismissalReason DismissalReason? @relation(fields: [dismissalReasonId], references: [id], onDelete: SetNull)
   observations    String?  @db.Text
-  // 🆕 Sprint B4: entrevista de desligamento + análise (ADR-050)
+  // ðŸ†• Sprint B4: entrevista de desligamento + anÃ¡lise (ADR-050)
   exitInterview         Json?   // { answers: string[5], conductedAt: ISO }
-  exitAnalysis          Json?   // ExitAnalysisResult: causas + plano + confiança
+  exitAnalysis          Json?   // ExitAnalysisResult: causas + plano + confianÃ§a
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -1112,7 +1112,7 @@ model PricingHourRule {
   @@map("pricing_hour_rules")
 }
 
-// Planejamento Estratégico
+// Planejamento EstratÃ©gico
 model PlanningCycle {
   id          String   @id @default(uuid())
   companyId   String
@@ -1210,13 +1210,13 @@ model ActionPlan {
   @@map("planning_action_plans")
 }
 // =================================================================
-//  PLANO DE CONTAS PADRÃO (Template Global - SCI 90113)
+//  PLANO DE CONTAS PADRÃƒO (Template Global - SCI 90113)
 // =================================================================
 model AccountTemplate {
   id          String   @id @default(uuid())
-  reducedCode Int      @unique // código da 1ª coluna (usado nos lançamentos)
-  code        String   // código hierárquico (04.2.1.03.008)
-  parentCode  String?  // código do pai (04.2.1.03)
+  reducedCode Int      @unique // cÃ³digo da 1Âª coluna (usado nos lanÃ§amentos)
+  code        String   // cÃ³digo hierÃ¡rquico (04.2.1.03.008)
+  parentCode  String?  // cÃ³digo do pai (04.2.1.03)
   name        String
   nickname    String?
   accountType String   // ATIVO | PASSIVO | RECEITA | DESPESA
@@ -1230,7 +1230,7 @@ model AccountTemplate {
   @@map("account_templates")
 }
 // ===============================================================
-//  BASE HISTÓRICA POR CLIENTE (memória do ano anterior)
+//  BASE HISTÃ“RICA POR CLIENTE (memÃ³ria do ano anterior)
 // ===============================================================
 model HistoricalEntry {
   id          String   @id @default(uuid())
@@ -1254,66 +1254,66 @@ model HistoricalEntry {
 }
 
 // =================================================================
-// 📦 MÓDULO FISCAL — ESTOQUE E APURAÇÃO DE ICMS
+// ðŸ“¦ MÃ“DULO FISCAL â€” ESTOQUE E APURAÃ‡ÃƒO DE ICMS
 // =================================================================
-// Fase 1: Upload de XMLs, Catálogo de Produtos, Kardex de Entradas
+// Fase 1: Upload de XMLs, CatÃ¡logo de Produtos, Kardex de Entradas
 // Multi-tenant: todos os modelos possuem companyId
-// Sprint 8: Vínculo por cliente (companyId + clientId)
+// Sprint 8: VÃ­nculo por cliente (companyId + clientId)
 // =================================================================
 
 // -----------------------------------------------------------------
-// ENUMS DO MÓDULO FISCAL
+// ENUMS DO MÃ“DULO FISCAL
 // -----------------------------------------------------------------
 
 /// Tipo de documento fiscal processado
 enum FiscalDocumentType {
   NFE_ENTRADA       /// NF-e de compra (entrada de mercadoria)
-  NFE_DEVOLUCAO     /// NF-e de devolução de compra
-  CTE               /// CT-e (conhecimento de transporte) — futuro
+  NFE_DEVOLUCAO     /// NF-e de devoluÃ§Ã£o de compra
+  CTE               /// CT-e (conhecimento de transporte) â€” futuro
 }
 
 /// Status de processamento do XML
 enum InvoiceStatus {
   UPLOADED          /// Arquivo recebido, aguardando parser
-  PARSING           /// Parser em execução
-  PARSED            /// Parser concluído com sucesso
-  PARSE_ERROR       /// Falha no parser (XML inválido ou incompleto)
-  AWAITING_REVIEW   /// Aguardando revisão humana (produtos não identificados)
+  PARSING           /// Parser em execuÃ§Ã£o
+  PARSED            /// Parser concluÃ­do com sucesso
+  PARSE_ERROR       /// Falha no parser (XML invÃ¡lido ou incompleto)
+  AWAITING_REVIEW   /// Aguardando revisÃ£o humana (produtos nÃ£o identificados)
   CONFIRMED         /// Confirmado e contabilizado no estoque
-  CANCELLED         /// Cancelado pelo usuário
+  CANCELLED         /// Cancelado pelo usuÃ¡rio
 }
 
-/// Tipo de movimentação no Kardex
+/// Tipo de movimentaÃ§Ã£o no Kardex
 enum MovementType {
   ENTRADA           /// Entrada via NF-e de compra
-  DEVOLUCAO         /// Devolução de compra (reduz estoque)
-  AJUSTE_POSITIVO   /// Ajuste manual de inventário (sobra)
-  AJUSTE_NEGATIVO   /// Ajuste manual de inventário (quebra/perda)
-  TRANSFERENCIA     /// Transferência entre filiais — futuro
-  SALDO_INICIAL     /// 🆕 Sprint 10: saldo inicial importado (abertura do estoque)
+  DEVOLUCAO         /// DevoluÃ§Ã£o de compra (reduz estoque)
+  AJUSTE_POSITIVO   /// Ajuste manual de inventÃ¡rio (sobra)
+  AJUSTE_NEGATIVO   /// Ajuste manual de inventÃ¡rio (quebra/perda)
+  TRANSFERENCIA     /// TransferÃªncia entre filiais â€” futuro
+  SALDO_INICIAL     /// ðŸ†• Sprint 10: saldo inicial importado (abertura do estoque)
 }
 
-/// Status de identificação de produto (matching)
+/// Status de identificaÃ§Ã£o de produto (matching)
 enum ProductMatchStatus {
-  IDENTIFIED        /// Produto já cadastrado, match automático
-  SUGGESTED         /// IA sugeriu match, aguardando confirmação
+  IDENTIFIED        /// Produto jÃ¡ cadastrado, match automÃ¡tico
+  SUGGESTED         /// IA sugeriu match, aguardando confirmaÃ§Ã£o
   NEW               /// Produto novo, precisa ser cadastrado
 }
 
 // -----------------------------------------------------------------
-// 🏢 FORNECEDOR
+// ðŸ¢ FORNECEDOR
 // -----------------------------------------------------------------
-/// Fornecedor da empresa (extraído automaticamente dos XMLs)
-/// Unique por companyId + cnpj (mesmo fornecedor não duplica)
+/// Fornecedor da empresa (extraÃ­do automaticamente dos XMLs)
+/// Unique por companyId + cnpj (mesmo fornecedor nÃ£o duplica)
 model FiscalSupplier {
   id                String   @id @default(cuid())
   companyId         String
   company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  cnpj              String              /// CNPJ do fornecedor (14 dígitos)
-  name              String              /// Razão social
+  cnpj              String              /// CNPJ do fornecedor (14 dÃ­gitos)
+  name              String              /// RazÃ£o social
   tradeName         String?             /// Nome fantasia
-  stateRegistration String?             /// Inscrição estadual
+  stateRegistration String?             /// InscriÃ§Ã£o estadual
   state             String?             /// UF (para regras de ST)
   email             String?
   phone             String?
@@ -1330,31 +1330,31 @@ model FiscalSupplier {
 }
 
 // -----------------------------------------------------------------
-// 📦 PRODUTO FISCAL (Catálogo)
+// ðŸ“¦ PRODUTO FISCAL (CatÃ¡logo)
 // -----------------------------------------------------------------
-/// Produto cadastrado no catálogo da empresa
+/// Produto cadastrado no catÃ¡logo da empresa
 /// Pode ser criado manualmente ou via parser de XML
-/// ncm é obrigatório para apuração de ICMS
-/// Sprint 8: vínculo opcional a um cliente específico (clientId)
-/// Sprint 16: código opcional (nullable)
-/// Sprint 19: unifiedCode (Código Unificado da planilha)
+/// ncm Ã© obrigatÃ³rio para apuraÃ§Ã£o de ICMS
+/// Sprint 8: vÃ­nculo opcional a um cliente especÃ­fico (clientId)
+/// Sprint 16: cÃ³digo opcional (nullable)
+/// Sprint 19: unifiedCode (CÃ³digo Unificado da planilha)
 model FiscalProduct {
   id                String   @id @default(cuid())
   companyId         String
   company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  /// 🆕 Sprint 8: cliente dono do produto (pode ser null = genérico)
+  /// ðŸ†• Sprint 8: cliente dono do produto (pode ser null = genÃ©rico)
   clientId          String?
   client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
-  code              String?   /// Código do produto (opcional - Sprint 16)
-  unifiedCode       String?   /// 🆕 Sprint 19: Código Unificado da planilha (coluna extra)
-  ean               String?   /// Código de barras (EAN-13)
-  description       String    /// Descrição padronizada
-  ncm               String    /// NCM (8 dígitos) — obrigatório
+  code              String?   /// CÃ³digo do produto (opcional - Sprint 16)
+  unifiedCode       String?   /// ðŸ†• Sprint 19: CÃ³digo Unificado da planilha (coluna extra)
+  ean               String?   /// CÃ³digo de barras (EAN-13)
+  description       String    /// DescriÃ§Ã£o padronizada
+  ncm               String    /// NCM (8 dÃ­gitos) â€” obrigatÃ³rio
   unit              String    /// Unidade de medida (UN, KG, L, CX, etc.)
 
-  averageCost       Decimal  @default(0) @db.Decimal(12, 4)  /// Custo médio atual
+  averageCost       Decimal  @default(0) @db.Decimal(12, 4)  /// Custo mÃ©dio atual
   currentStock      Decimal  @default(0) @db.Decimal(12, 4)  /// Saldo atual em estoque
 
   createdAt         DateTime @default(now())
@@ -1366,25 +1366,25 @@ model FiscalProduct {
   balances          FiscalInventoryBalance[]
 
   @@unique([companyId, clientId, code])   // unique inclui clientId
-  @@index([companyId, clientId])          // índice para filtro por cliente
+  @@index([companyId, clientId])          // Ã­ndice para filtro por cliente
   @@index([companyId, ncm])
   @@index([companyId, description])
   @@map("fiscal_products")
 }
 
 // -----------------------------------------------------------------
-// 📄 NOTA FISCAL DE ENTRADA (Cabeçalho)
+// ðŸ“„ NOTA FISCAL DE ENTRADA (CabeÃ§alho)
 // -----------------------------------------------------------------
 /// Representa uma NF-e de entrada processada
-/// accessKey é a chave de 44 dígitos (única por empresa)
+/// accessKey Ã© a chave de 44 dÃ­gitos (Ãºnica por empresa)
 /// Guarda os totais da nota e o caminho do XML original
-/// Sprint 8: vínculo opcional a um cliente específico (clientId)
+/// Sprint 8: vÃ­nculo opcional a um cliente especÃ­fico (clientId)
 model FiscalInvoice {
   id                String   @id @default(cuid())
   companyId         String
   company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  /// 🆕 Sprint 8: cliente dono da nota (pode ser null = geral)
+  /// ðŸ†• Sprint 8: cliente dono da nota (pode ser null = geral)
   clientId          String?
   client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
@@ -1394,14 +1394,14 @@ model FiscalInvoice {
   documentType      FiscalDocumentType @default(NFE_ENTRADA)
   status            InvoiceStatus      @default(UPLOADED)
 
-  number            String              /// Número da NF-e
-  series            String              /// Série da NF-e
-  accessKey         String              /// Chave de acesso (44 dígitos)
-  emissionDate      DateTime            /// Data de emissão
+  number            String              /// NÃºmero da NF-e
+  series            String              /// SÃ©rie da NF-e
+  accessKey         String              /// Chave de acesso (44 dÃ­gitos)
+  emissionDate      DateTime            /// Data de emissÃ£o
   entryDate         DateTime?           /// Data de entrada no sistema
 
   cfop              String?             /// CFOP principal da nota
-  natOp             String?             /// Natureza da operação
+  natOp             String?             /// Natureza da operaÃ§Ã£o
 
   totalValue        Decimal  @default(0) @db.Decimal(12, 2)
   discountValue     Decimal  @default(0) @db.Decimal(12, 2)
@@ -1423,13 +1423,13 @@ model FiscalInvoice {
   updatedAt         DateTime @updatedAt
 
   items             FiscalInvoiceItem[]
-  // ✅ Relação oposta com movimentos de estoque
+  // âœ… RelaÃ§Ã£o oposta com movimentos de estoque
   movements         FiscalInventoryMovement[]
-  bankMatches       BankNfeMatch[]   // 🆕 ADICIONAR ESTA LINHA
+  bankMatches       BankNfeMatch[]   // ðŸ†• ADICIONAR ESTA LINHA
 
 
   @@unique([companyId, accessKey])
-  @@index([companyId, clientId])          // 🆕 índice para filtro por cliente
+  @@index([companyId, clientId])          // ðŸ†• Ã­ndice para filtro por cliente
   @@index([companyId, supplierId])
   @@index([companyId, emissionDate])
   @@index([companyId, status])
@@ -1437,10 +1437,10 @@ model FiscalInvoice {
 }
 
 // -----------------------------------------------------------------
-// 📦 ITENS DA NOTA FISCAL
+// ðŸ“¦ ITENS DA NOTA FISCAL
 // -----------------------------------------------------------------
 /// Cada item (produto) dentro de uma NF-e
-/// Guarda os impostos individuais por item (necessário para apuração)
+/// Guarda os impostos individuais por item (necessÃ¡rio para apuraÃ§Ã£o)
 /// productMatchStatus indica se o produto foi identificado automaticamente
 model FiscalInvoiceItem {
   id                String   @id @default(cuid())
@@ -1452,9 +1452,9 @@ model FiscalInvoiceItem {
 
   productMatchStatus ProductMatchStatus @default(NEW)
 
-  itemNumber        Int                 /// Número do item na NF (1, 2, 3...)
-  supplierCode      String?             /// Código do produto no fornecedor
-  description       String              /// Descrição do produto na NF
+  itemNumber        Int                 /// NÃºmero do item na NF (1, 2, 3...)
+  supplierCode      String?             /// CÃ³digo do produto no fornecedor
+  description       String              /// DescriÃ§Ã£o do produto na NF
 
   ncm               String              /// NCM do item
   cfop              String              /// CFOP do item
@@ -1490,18 +1490,18 @@ model FiscalInvoiceItem {
 }
 
 // -----------------------------------------------------------------
-// 📊 MOVIMENTAÇÃO DE ESTOQUE (Kardex)
+// ðŸ“Š MOVIMENTAÃ‡ÃƒO DE ESTOQUE (Kardex)
 // -----------------------------------------------------------------
-/// Cada entrada/saída de produto no estoque
-/// Registra o custo unitário e o custo médio APÓS a movimentação
-/// Essencial para apuração de ICMS e Bloco H do SPED
-/// Sprint 8: vínculo opcional a um cliente específico (clientId)
+/// Cada entrada/saÃ­da de produto no estoque
+/// Registra o custo unitÃ¡rio e o custo mÃ©dio APÃ“S a movimentaÃ§Ã£o
+/// Essencial para apuraÃ§Ã£o de ICMS e Bloco H do SPED
+/// Sprint 8: vÃ­nculo opcional a um cliente especÃ­fico (clientId)
 model FiscalInventoryMovement {
   id                String   @id @default(cuid())
   companyId         String
   company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  /// 🆕 Sprint 8: cliente dono da movimentação
+  /// ðŸ†• Sprint 8: cliente dono da movimentaÃ§Ã£o
   clientId          String?
   client            Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
@@ -1512,18 +1512,18 @@ model FiscalInventoryMovement {
   invoice           FiscalInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   type              MovementType
-  date              DateTime            /// Data da movimentação
-  quantity          Decimal  @db.Decimal(12, 4)  /// Quantidade (+ entrada, - saída)
-  unitCost          Decimal  @db.Decimal(12, 4)  /// Custo unitário da movimentação
+  date              DateTime            /// Data da movimentaÃ§Ã£o
+  quantity          Decimal  @db.Decimal(12, 4)  /// Quantidade (+ entrada, - saÃ­da)
+  unitCost          Decimal  @db.Decimal(12, 4)  /// Custo unitÃ¡rio da movimentaÃ§Ã£o
   totalCost         Decimal  @db.Decimal(12, 2)  /// Custo total
-  averageCostAfter  Decimal  @db.Decimal(12, 4)  /// Custo médio APÓS a movimentação
+  averageCostAfter  Decimal  @db.Decimal(12, 4)  /// Custo mÃ©dio APÃ“S a movimentaÃ§Ã£o
 
   reason            String?             /// Justificativa (ajustes manuais)
-  userId            String?             /// Usuário que registrou (auditoria)
+  userId            String?             /// UsuÃ¡rio que registrou (auditoria)
 
   createdAt         DateTime @default(now())
 
-  @@index([companyId, clientId])          // 🆕 índice para filtro por cliente
+  @@index([companyId, clientId])          // ðŸ†• Ã­ndice para filtro por cliente
   @@index([companyId, productId, date])
   @@index([companyId, date])
   @@index([invoiceId])
@@ -1531,11 +1531,11 @@ model FiscalInventoryMovement {
 }
 
 // -----------------------------------------------------------------
-// 💰 SALDO MENSAL DE ESTOQUE (Snapshot)
+// ðŸ’° SALDO MENSAL DE ESTOQUE (Snapshot)
 // -----------------------------------------------------------------
 /// Snapshot mensal do estoque por produto
-/// Usado para o Bloco H do SPED Fiscal (Inventário)
-/// Calculado automaticamente ao final de cada mês
+/// Usado para o Bloco H do SPED Fiscal (InventÃ¡rio)
+/// Calculado automaticamente ao final de cada mÃªs
 model FiscalInventoryBalance {
   id                String   @id @default(cuid())
   companyId         String
@@ -1564,36 +1564,36 @@ model FiscalInventoryBalance {
   @@map("fiscal_inventory_balances")
 }
 // =================================================================
-// 🧮 APURAÇÃO DE ICMS MENSAL
+// ðŸ§® APURAÃ‡ÃƒO DE ICMS MENSAL
 // =================================================================
 /// Fechamento mensal do ICMS por empresa (tenant)
-/// Créditos são recalculados automaticamente das NF-e de entrada;
-/// débitos são informados manualmente (vendas × alíquota)
-/// Sprint 8: vínculo opcional a um cliente específico (clientId)
+/// CrÃ©ditos sÃ£o recalculados automaticamente das NF-e de entrada;
+/// dÃ©bitos sÃ£o informados manualmente (vendas Ã— alÃ­quota)
+/// Sprint 8: vÃ­nculo opcional a um cliente especÃ­fico (clientId)
 model FiscalIcmsApuration {
   id          String   @id @default(cuid())
   companyId   String
   company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  /// 🆕 Sprint 8: cliente dono da apuração
+  /// ðŸ†• Sprint 8: cliente dono da apuraÃ§Ã£o
   clientId    String?
   client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   year        Int
   month       Int                          /// 1-12
 
-  /// Créditos (automáticos das NF-e de entrada)
+  /// CrÃ©ditos (automÃ¡ticos das NF-e de entrada)
   creditsIcms   Decimal @default(0) @db.Decimal(12, 2)
   creditsIcmsSt Decimal @default(0) @db.Decimal(12, 2)
   purchasesValue Decimal @default(0) @db.Decimal(12, 2)
   invoicesCount  Int     @default(0)
 
-  /// Débitos (manuais: vendas × alíquota)
+  /// DÃ©bitos (manuais: vendas Ã— alÃ­quota)
   salesValue  Decimal @default(0) @db.Decimal(12, 2)
   debitRate   Decimal @default(0) @db.Decimal(5, 2)
   debitsIcms  Decimal @default(0) @db.Decimal(12, 2)
 
-  /// Resultado: positivo = a pagar | negativo = crédito acumulado
+  /// Resultado: positivo = a pagar | negativo = crÃ©dito acumulado
   balance     Decimal @default(0) @db.Decimal(12, 2)
 
   status      String   @default("ABERTA")  /// ABERTA | FECHADA
@@ -1603,70 +1603,70 @@ model FiscalIcmsApuration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([companyId, clientId, year, month])  // 🆕 unique inclui clientId
-  @@index([companyId, clientId, year])          // 🆕 índice
+  @@unique([companyId, clientId, year, month])  // ðŸ†• unique inclui clientId
+  @@index([companyId, clientId, year])          // ðŸ†• Ã­ndice
   @@index([companyId, year])
   @@map("fiscal_icms_apurations")
 }
 // =================================================================
-// 📥 NFS-e — NOTA FISCAL DE SERVIÇOS (FD-3a)
+// ðŸ“¥ NFS-e â€” NOTA FISCAL DE SERVIÃ‡OS (FD-3a)
 // =================================================================
-// Serviços ≠ mercadorias: NFS-e gera ISS + receita de serviço.
-// Foco inicial: EMITIDAS (cliente prestou o serviço).
-// Padrão: ABRASF 2.0 com adaptadores por município (ADR-036).
-// Origem (source) é atributo, não arquitetura: MANUAL hoje,
-// EMAIL/PORTAL/OCR amanhã despejam na mesma fila (ADR-037).
+// ServiÃ§os â‰  mercadorias: NFS-e gera ISS + receita de serviÃ§o.
+// Foco inicial: EMITIDAS (cliente prestou o serviÃ§o).
+// PadrÃ£o: ABRASF 2.0 com adaptadores por municÃ­pio (ADR-036).
+// Origem (source) Ã© atributo, nÃ£o arquitetura: MANUAL hoje,
+// EMAIL/PORTAL/OCR amanhÃ£ despejam na mesma fila (ADR-037).
 // =================================================================
 
 enum NfseDirection {
-  EMITIDA    /// Cliente prestou o serviço (receita + ISS a pagar)
-  RECEBIDA   /// Cliente contratou serviço (despesa)
+  EMITIDA    /// Cliente prestou o serviÃ§o (receita + ISS a pagar)
+  RECEBIDA   /// Cliente contratou serviÃ§o (despesa)
 }
 
 enum NfseStatus {
-  IMPORTED   /// Importada, aguardando revisão
-  REVIEW     /// Na fila 🟡 (divergência ou campo não reconhecido)
-  ACCOUNTED  /// Promovida ao contábil/financeiro
+  IMPORTED   /// Importada, aguardando revisÃ£o
+  REVIEW     /// Na fila ðŸŸ¡ (divergÃªncia ou campo nÃ£o reconhecido)
+  ACCOUNTED  /// Promovida ao contÃ¡bil/financeiro
   REJECTED   /// Rejeitada pelo humano
 }
 
-/// NFS-e processada (1 por emissor + número + série)
+/// NFS-e processada (1 por emissor + nÃºmero + sÃ©rie)
 model FiscalServiceInvoice {
   id        String   @id @default(cuid())
   companyId String
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  /// Cliente dono do documento (null = não vinculado ainda)
+  /// Cliente dono do documento (null = nÃ£o vinculado ainda)
   clientId  String?
   client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
-  // ── Identificação da NFS-e ─────────────────────────────────────
-  number           String             /// Número na prefeitura
+  // â”€â”€ IdentificaÃ§Ã£o da NFS-e â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  number           String             /// NÃºmero na prefeitura
   series           String   @default("")
-  verificationCode String?            /// Código de verificação (autenticidade)
+  verificationCode String?            /// CÃ³digo de verificaÃ§Ã£o (autenticidade)
   emissionDate     DateTime
-  competenceDate   DateTime?          /// Competência do ISS
+  competenceDate   DateTime?          /// CompetÃªncia do ISS
 
-  // ── Partes ─────────────────────────────────────────────────────
-  issuerCnpj String                  /// Prestador do serviço
+  // â”€â”€ Partes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  issuerCnpj String                  /// Prestador do serviÃ§o
   issuerName String
-  takerCnpj  String?                  /// Tomador do serviço
+  takerCnpj  String?                  /// Tomador do serviÃ§o
   takerName  String?
 
-  // ── Valores ────────────────────────────────────────────────────
-  serviceValue Decimal  @db.Decimal(12, 2)  /// Valor do serviço
+  // â”€â”€ Valores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  serviceValue Decimal  @db.Decimal(12, 2)  /// Valor do serviÃ§o
   deductions   Decimal  @default(0) @db.Decimal(12, 2)
   issBase      Decimal  @default(0) @db.Decimal(12, 2)
   issRate      Decimal  @default(0) @db.Decimal(5, 2)  /// % (ex: 3.5)
   issValue     Decimal  @default(0) @db.Decimal(12, 2)
   issRetained  Boolean  @default(false)     /// ISS retido pelo tomador?
 
-  // ── Serviço ────────────────────────────────────────────────────
-  serviceCode        String?  /// Código LC 116/03 (ex: "01.01")
+  // â”€â”€ ServiÃ§o â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  serviceCode        String?  /// CÃ³digo LC 116/03 (ex: "01.01")
   serviceDescription String?  @db.Text
-  municipalityCode   String?  /// IBGE do município de prestação
+  municipalityCode   String?  /// IBGE do municÃ­pio de prestaÃ§Ã£o
 
-  // ── Processamento (Pilar B: nunca descarta) ───────────────────
+  // â”€â”€ Processamento (Pilar B: nunca descarta) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   direction NfseDirection @default(EMITIDA)
   source    String        @default("MANUAL") /// MANUAL | EMAIL | PORTAL | OCR
   status    NfseStatus    @default(IMPORTED)
@@ -1675,7 +1675,7 @@ model FiscalServiceInvoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([companyId, issuerCnpj, number, series])  /// idempotência: 2× não duplica
+  @@unique([companyId, issuerCnpj, number, series])  /// idempotÃªncia: 2Ã— nÃ£o duplica
   @@index([companyId, clientId])
   @@index([companyId, status])
   @@index([companyId, emissionDate])
@@ -1683,12 +1683,12 @@ model FiscalServiceInvoice {
 }
 
 // =================================================================
-// 🏦 MÓDULO BANCÁRIO — Fechamento Mensal (Sprint 21)
+// ðŸ¦ MÃ“DULO BANCÃRIO â€” Fechamento Mensal (Sprint 21)
 // =================================================================
-// Extratos importados (CSV), classificação por natureza e memória
+// Extratos importados (CSV), classificaÃ§Ã£o por natureza e memÃ³ria
 // de aprendizado (regras). Multi-tenant + multi-cliente.
 
-/// Importação mensal do extrato (1 por cliente/mês/ano)
+/// ImportaÃ§Ã£o mensal do extrato (1 por cliente/mÃªs/ano)
 model BankStatement {
   id        String   @id @default(cuid())
   companyId String
@@ -1712,7 +1712,7 @@ model BankStatement {
   @@map("bank_statements")
 }
 
-/// Cada linha do extrato (débito/crédito) classificada
+/// Cada linha do extrato (dÃ©bito/crÃ©dito) classificada
 model BankTransaction {
   id          String        @id @default(cuid())
   statementId String
@@ -1721,10 +1721,10 @@ model BankTransaction {
 
   date        DateTime
   description String        /// Texto original do banco
-  counterparty String?      /// Nome extraído (após o "-")
-  amount      Decimal       @db.Decimal(12, 2) /// + crédito / - débito
+  counterparty String?      /// Nome extraÃ­do (apÃ³s o "-")
+  amount      Decimal       @db.Decimal(12, 2) /// + crÃ©dito / - dÃ©bito
   matches           BankNfeMatch[]
-  nature       String       @default("NAO_CLASSIFICADO") // 🆕 Sprint 24: categoria livre por cliente
+  nature       String       @default("NAO_CLASSIFICADO") // ðŸ†• Sprint 24: categoria livre por cliente
   classifiedBy String?      /// AUTO | MANUAL
 
   createdAt DateTime @default(now())
@@ -1734,7 +1734,7 @@ model BankTransaction {
   @@map("bank_transactions")
 }
 
-/// Memória de classificação: aprende com as revisões do contador
+/// MemÃ³ria de classificaÃ§Ã£o: aprende com as revisÃµes do contador
 model BankClassificationRule {
   id        String     @id @default(cuid())
   companyId String
@@ -1747,12 +1747,12 @@ model BankClassificationRule {
   @@map("bank_classification_rules")
 }
 
-/// 🆕 Sprint 24: categorias personalizadas por cliente (naturezas do extrato)
+/// ðŸ†• Sprint 24: categorias personalizadas por cliente (naturezas do extrato)
 model BankCategory {
   id        String   @id @default(cuid())
   companyId String
-  clientId  String?  /// null = modelo geral do escritório
-  label     String   /// "Mensalidades", "Energia", "Cartões"...
+  clientId  String?  /// null = modelo geral do escritÃ³rio
+  label     String   /// "Mensalidades", "Energia", "CartÃµes"...
   group     String   /// RECEITA | FINANCEIRA | DESPESA | IMPOSTO | SOCIO | PENDENTE
   isSystem  Boolean  @default(false)
   order     Int      @default(0)
@@ -1764,18 +1764,18 @@ model BankCategory {
 }
 
 // =================================================================
-// 🆕 SPRINT 29: CONCILIAÇÃO BANCO × NF-e
+// ðŸ†• SPRINT 29: CONCILIAÃ‡ÃƒO BANCO Ã— NF-e
 // =================================================================
 
 enum MatchStatus {
-  SUGESTAO    /// Sugestão do motor (aguardando confirmação)
-  CONFIRMADO  /// Confirmado pelo usuário
-  DESCARTADO  /// Descartado pelo usuário
+  SUGESTAO    /// SugestÃ£o do motor (aguardando confirmaÃ§Ã£o)
+  CONFIRMADO  /// Confirmado pelo usuÃ¡rio
+  DESCARTADO  /// Descartado pelo usuÃ¡rio
 }
 
 enum MatchType {
-  AUTO   /// Matching automático pelo motor
-  MANUAL /// Criado manualmente pelo usuário
+  AUTO   /// Matching automÃ¡tico pelo motor
+  MANUAL /// Criado manualmente pelo usuÃ¡rio
 }
 
 model BankNfeMatch {
@@ -1788,7 +1788,7 @@ model BankNfeMatch {
   fiscalInvoiceId   String
   fiscalInvoice     FiscalInvoice @relation(fields: [fiscalInvoiceId], references: [id], onDelete: Cascade)
   
-  score             Float       /// 0–100 (confiança do match)
+  score             Float       /// 0â€“100 (confianÃ§a do match)
   matchType         MatchType   @default(AUTO)
   status            MatchStatus @default(SUGESTAO)
   
@@ -1812,46 +1812,46 @@ model BankNfeMatch {
 // bankMatches       BankNfeMatch[]
 
 // =================================================================
-// 🤖 MÓDULO FUNCIONÁRIO DIGITAL — AURORA (Sprint FD-1 — Fundação)
+// ðŸ¤– MÃ“DULO FUNCIONÃRIO DIGITAL â€” AURORA (Sprint FD-1 â€” FundaÃ§Ã£o)
 // =================================================================
-// Aurora é a funcionária digital do Radar: roda automações
-// agendadas (conciliação, classificação, lançamentos) e entrega
-// tudo pronto para revisão humana.
+// Aurora Ã© a funcionÃ¡ria digital do Radar: roda automaÃ§Ãµes
+// agendadas (conciliaÃ§Ã£o, classificaÃ§Ã£o, lanÃ§amentos) e entrega
+// tudo pronto para revisÃ£o humana.
 //
 // ADR-025: Playwright em worker separado (futuro FD-7)
-// ADR-030: Regra de Ouro (ações LEGAL nunca AUTO)
-// ADR-031: Cálculo tributário determinístico (IA só sugere)
+// ADR-030: Regra de Ouro (aÃ§Ãµes LEGAL nunca AUTO)
+// ADR-031: CÃ¡lculo tributÃ¡rio determinÃ­stico (IA sÃ³ sugere)
 // ADR-032: LGPD + cofres criptografados
-// ADR-033: Perfis de aprovação (Auxiliar confere, Contador aprova)
+// ADR-033: Perfis de aprovaÃ§Ã£o (Auxiliar confere, Contador aprova)
 // =================================================================
 
-// ─────────────────────────────────────────────────────────────────
-// STATUS DA AURORA (1 por escritório)
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// STATUS DA AURORA (1 por escritÃ³rio)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 enum RobotWorkerStatus {
   ACTIVE    /// Trabalhando normalmente
-  PAUSED    /// Em pausa ("férias" — não executa agendamentos)
+  PAUSED    /// Em pausa ("fÃ©rias" â€” nÃ£o executa agendamentos)
 }
 // =================================================================
-// 🧾 GUIAS DE IMPOSTO (FD-4)
+// ðŸ§¾ GUIAS DE IMPOSTO (FD-4)
 // =================================================================
-// Cada linha é uma guia calculada pela Aurora para 1 cliente/mês/tipo.
+// Cada linha Ã© uma guia calculada pela Aurora para 1 cliente/mÃªs/tipo.
 // ADR-020: valores sempre round2 (sem erro de ponto flutuante).
-// ADR-038: memory JSON preserva CADA passo do cálculo p/ auditoria
-//          (contador vê a conta, não só o resultado).
+// ADR-038: memory JSON preserva CADA passo do cÃ¡lculo p/ auditoria
+//          (contador vÃª a conta, nÃ£o sÃ³ o resultado).
 // =================================================================
 
 enum TaxGuideType {
   DAS         /// Simples Nacional (LC 123/2006)
-  ISS         /// Imposto Sobre Serviços (LC 116/2003)
+  ISS         /// Imposto Sobre ServiÃ§os (LC 116/2003)
   DARF        /// Tributo federal retido (futuro)
 }
 
 enum TaxGuideStatus {
-  DRAFT       /// Calculada, aguardando conferência humana
+  DRAFT       /// Calculada, aguardando conferÃªncia humana
   APPROVED    /// Humano conferiu e aprovou
   TRANSMITTED /// Transmitida ao portal oficial (registro manual)
-  REJECTED    /// Humano rejeitou o cálculo
+  REJECTED    /// Humano rejeitou o cÃ¡lculo
 }
 /// Guia de imposto calculada pela Aurora (FD-4)
 model TaxGuide {
@@ -1862,12 +1862,12 @@ model TaxGuide {
   clientId  String
   client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  /// Período de apuração (YYYY-MM) — ex: "2026-07"
+  /// PerÃ­odo de apuraÃ§Ã£o (YYYY-MM) â€” ex: "2026-07"
   period    String
 
   type      TaxGuideType
 
-  /// Valor da guia (R$) — sempre round2
+  /// Valor da guia (R$) â€” sempre round2
   value     Decimal  @db.Decimal(12, 2)
 
   /// Vencimento da guia (data-limite p/ recolhimento)
@@ -1875,7 +1875,7 @@ model TaxGuide {
 
   status    TaxGuideStatus  @default(DRAFT)
 
-  /// MEMÓRIA DE CÁLCULO (ADR-038) — preserva tudo:
+  /// MEMÃ“RIA DE CÃLCULO (ADR-038) â€” preserva tudo:
   ///   { steps: string[], sources: string[], lawRef: string,
   ///     rbt12?, bracketIndex?, nominalRate?, effectiveRate?, ... }
   memory    Json     @default("{}")
@@ -1886,82 +1886,82 @@ model TaxGuide {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([companyId, clientId, period, type])   /// idempotência
+  @@unique([companyId, clientId, period, type])   /// idempotÃªncia
   @@index([companyId, period])
   @@index([companyId, status])
   @@index([companyId, type])
   @@map("tax_guides")
 }
 
-// ─────────────────────────────────────────────────────────────────
-// CATÁLOGO DE SKILLS (o que a Aurora sabe fazer)
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// CATÃLOGO DE SKILLS (o que a Aurora sabe fazer)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 enum SkillKey {
-  RECONCILIATION     /// Conciliação Banco × NF-e (FD-2)
-  CLASSIFICATION     /// Classificação c/ memória (FD-2)
-  ACCOUNTING_BRIDGE  /// Ponte Bancário → Contábil (FD-2)
-  MONTHLY_REPORT     /// Relatório PDF mensal (FD-2)
-  TAX_GUIDES         /// Emissão de DAS/ISS/DARF (FD-4) — futuro
-  NFSE_IMPORT        /// Importação NFS-e (FD-3) — futuro
-  NFSE_EMAIL_COLLECT /// Coleta IMAP de NFS-e (FD-3b) 🆕
-  BILLING            /// CNAB remessa/retorno (FD-5) — futuro
-  OBLIGATIONS        /// SPED/obrigações (FD-6) — futuro
+  RECONCILIATION     /// ConciliaÃ§Ã£o Banco Ã— NF-e (FD-2)
+  CLASSIFICATION     /// ClassificaÃ§Ã£o c/ memÃ³ria (FD-2)
+  ACCOUNTING_BRIDGE  /// Ponte BancÃ¡rio â†’ ContÃ¡bil (FD-2)
+  MONTHLY_REPORT     /// RelatÃ³rio PDF mensal (FD-2)
+  TAX_GUIDES         /// EmissÃ£o de DAS/ISS/DARF (FD-4) â€” futuro
+  NFSE_IMPORT        /// ImportaÃ§Ã£o NFS-e (FD-3) â€” futuro
+  NFSE_EMAIL_COLLECT /// Coleta IMAP de NFS-e (FD-3b) ðŸ†•
+  BILLING            /// CNAB remessa/retorno (FD-5) â€” futuro
+  OBLIGATIONS        /// SPED/obrigaÃ§Ãµes (FD-6) â€” futuro
 }
 
-// ─────────────────────────────────────────────────────────────────
-// NÍVEL DE AUTONOMIA (Pilar A — ADR-030)
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// NÃVEL DE AUTONOMIA (Pilar A â€” ADR-030)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 enum AutonomyLevel {
-  AUTO       /// Executa sozinho (score ≥80%)
-  REVIEW     /// Fila de revisão (score 50–79% ou riskLevel=LEGAL)
-  MANUAL     /// Só sugere, humano sempre decide
+  AUTO       /// Executa sozinho (score â‰¥80%)
+  REVIEW     /// Fila de revisÃ£o (score 50â€“79% ou riskLevel=LEGAL)
+  MANUAL     /// SÃ³ sugere, humano sempre decide
 }
 
-// ─────────────────────────────────────────────────────────────────
-// STATUS DA EXECUÇÃO (o "ponto" da Aurora)
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// STATUS DA EXECUÃ‡ÃƒO (o "ponto" da Aurora)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 enum RunStatus {
   RUNNING    /// Executando agora
   SUCCESS    /// Terminou tudo certo
-  PARTIAL    /// Terminou com pendências (parte foi pra fila)
-  FAILED     /// Erro catastrófico (ver errorMessage)
-  CANCELLED  /// Cancelado pelo usuário
+  PARTIAL    /// Terminou com pendÃªncias (parte foi pra fila)
+  FAILED     /// Erro catastrÃ³fico (ver errorMessage)
+  CANCELLED  /// Cancelado pelo usuÃ¡rio
 }
 
-// ─────────────────────────────────────────────────────────────────
-// STATUS DA PENDÊNCIA (fila de revisão)
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// STATUS DA PENDÃŠNCIA (fila de revisÃ£o)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 enum PendingStatus {
-  PENDING    /// Aguardando decisão humana
+  PENDING    /// Aguardando decisÃ£o humana
   APPROVED   /// Aprovado pelo humano
   REJECTED   /// Rejeitado pelo humano
   EXPIRED    /// Expirou sem resposta (30 dias)
 }
 
-// ─────────────────────────────────────────────────────────────────
-// DECISÃO HUMANA (ApprovalRecord)
-// ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// DECISÃƒO HUMANA (ApprovalRecord)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 enum ApprovalDecision {
   APPROVED   /// Aprovado
   REJECTED   /// Rejeitado
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 🤖 A AURORA (1 instância por tenant/escritório)
-// ─────────────────────────────────────────────────────────────────
-/// Representa a funcionária digital do escritório.
-/// É criada automaticamente no primeiro acesso (lazy).
-/// companyId único = ADR-004 (multi-tenant single-database).
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ðŸ¤– A AURORA (1 instÃ¢ncia por tenant/escritÃ³rio)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// Representa a funcionÃ¡ria digital do escritÃ³rio.
+/// Ã‰ criada automaticamente no primeiro acesso (lazy).
+/// companyId Ãºnico = ADR-004 (multi-tenant single-database).
 model RobotWorker {
   id        String            @id @default(cuid())
   companyId String            @unique
   company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   name      String            @default("Aurora")
-  avatar    String            @default("🌅")       /// Emoji do avatar
+  avatar    String            @default("ðŸŒ…")       /// Emoji do avatar
   status    RobotWorkerStatus @default(ACTIVE)
 
-  /// JSON com configurações globais da Aurora (ex.: timezone, idioma)
+  /// JSON com configuraÃ§Ãµes globais da Aurora (ex.: timezone, idioma)
   config    Json              @default("{}")
 
   skills    RobotWorkerSkill[]
@@ -1973,12 +1973,12 @@ model RobotWorker {
   @@map("robot_workers")
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 🧩 SKILL DA AURORA (1 por tipo, com cron individual)
-// ─────────────────────────────────────────────────────────────────
-/// Cada habilidade pode ser ligada/desligada e tem seu próprio cron.
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ðŸ§© SKILL DA AURORA (1 por tipo, com cron individual)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// Cada habilidade pode ser ligada/desligada e tem seu prÃ³prio cron.
 /// cronExpr usa formato POSIX cron (ex.: "0 2 * * *" = todo dia 02:00).
-/// riskLevel=LEGAL força REVIEW independente do score (Regra de Ouro).
+/// riskLevel=LEGAL forÃ§a REVIEW independente do score (Regra de Ouro).
 model RobotWorkerSkill {
   id          String         @id @default(cuid())
   companyId   String
@@ -1990,11 +1990,11 @@ model RobotWorkerSkill {
   cronExpr    String         @default("0 2 * * *") /// Cron POSIX
   autonomy    AutonomyLevel  @default(REVIEW)      /// ADR-030
 
-  /// Parâmetros específicos da skill (ex.: clientId-alvo, tolerâncias)
+  /// ParÃ¢metros especÃ­ficos da skill (ex.: clientId-alvo, tolerÃ¢ncias)
   params      Json           @default("{}")
 
   lastRunAt   DateTime?
-  lastRunId   String?        /// ID do último AutomationRun
+  lastRunId   String?        /// ID do Ãºltimo AutomationRun
 
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
@@ -2004,11 +2004,11 @@ model RobotWorkerSkill {
   @@map("robot_worker_skills")
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 📋 EXECUÇÃO (o "ponto" da Aurora)
-// ─────────────────────────────────────────────────────────────────
-/// Cada vez que uma skill é executada (cron ou botão manual),
-/// uma linha é criada aqui. É a prova do que a Aurora fez.
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ðŸ“‹ EXECUÃ‡ÃƒO (o "ponto" da Aurora)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// Cada vez que uma skill Ã© executada (cron ou botÃ£o manual),
+/// uma linha Ã© criada aqui. Ã‰ a prova do que a Aurora fez.
 model AutomationRun {
   id                String      @id @default(cuid())
   companyId         String
@@ -2024,17 +2024,17 @@ model AutomationRun {
   startedAt         DateTime    @default(now())
   finishedAt        DateTime?
 
-  /// Métricas da execução (o que o dashboard exibe)
+  /// MÃ©tricas da execuÃ§Ã£o (o que o dashboard exibe)
   itemsProcessed    Int         @default(0)
-  itemsAutoApproved Int         @default(0)         /// score ≥80%
-  itemsPendingHuman Int         @default(0)         /// 50–79% → fila
+  itemsAutoApproved Int         @default(0)         /// score â‰¥80%
+  itemsPendingHuman Int         @default(0)         /// 50â€“79% â†’ fila
   itemsFailed       Int         @default(0)
-  secondsSaved      Int         @default(0)         /// métrica de marketing
+  secondsSaved      Int         @default(0)         /// mÃ©trica de marketing
 
   errorMessage      String?     @db.Text
 
   pendings          AutomationPending[]
-  monthlyReports    MonthlyReport[]   // 🆕 FD-2 final: relatórios gerados por este run
+  monthlyReports    MonthlyReport[]   // ðŸ†• FD-2 final: relatÃ³rios gerados por este run
 
   @@index([companyId, startedAt])
   @@index([companyId, status])
@@ -2042,13 +2042,13 @@ model AutomationRun {
   @@map("automation_runs")
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 🟡 FILA DE REVISÃO (human-in-the-loop — Pilar B)
-// ─────────────────────────────────────────────────────────────────
-/// Itens que a Aurora não teve confiança suficiente para decidir
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ðŸŸ¡ FILA DE REVISÃƒO (human-in-the-loop â€” Pilar B)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// Itens que a Aurora nÃ£o teve confianÃ§a suficiente para decidir
 /// sozinha. O contador revisa, aprova ou rejeita.
 /// type = MATCH | CLASSIFICATION | DIVERGENCE | GUIDE_REVIEW etc.
-/// payload = JSON com os dados específicos (ids, scores, sugestões).
+/// payload = JSON com os dados especÃ­ficos (ids, scores, sugestÃµes).
 model AutomationPending {
   id         String        @id @default(cuid())
   companyId  String
@@ -2056,9 +2056,9 @@ model AutomationPending {
   run        AutomationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
 
   type       String                                  /// MATCH, CLASSIFICATION, etc.
-  confidence Float?                                  /// 0–100 (score da sugestão)
+  confidence Float?                                  /// 0â€“100 (score da sugestÃ£o)
 
-  /// JSON com os dados da pendência (ex.: {bankTxId, invoiceId, breakdown})
+  /// JSON com os dados da pendÃªncia (ex.: {bankTxId, invoiceId, breakdown})
   payload    Json
 
   status     PendingStatus @default(PENDING)
@@ -2074,11 +2074,11 @@ model AutomationPending {
   @@map("automation_pendings")
 }
 
-// ─────────────────────────────────────────────────────────────────
-// 📝 TRILHA DE AUDITORIA (compliance contábil — Pilar D)
-// ─────────────────────────────────────────────────────────────────
-/// 100% das ações da Aurora (e do humano revisando) ficam aqui.
-/// É o "histórico de trabalho" auditável — exigência fiscal.
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ðŸ“ TRILHA DE AUDITORIA (compliance contÃ¡bil â€” Pilar D)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// 100% das aÃ§Ãµes da Aurora (e do humano revisando) ficam aqui.
+/// Ã‰ o "histÃ³rico de trabalho" auditÃ¡vel â€” exigÃªncia fiscal.
 model AutomationAudit {
   id           String   @id @default(cuid())
   companyId    String
@@ -2092,7 +2092,7 @@ model AutomationAudit {
   /// Snapshot antes/depois + score + breakdown (JSON)
   detail       Json?
 
-  robotVersion String?                               /// Versão da Aurora (ex.: "1.0.0")
+  robotVersion String?                               /// VersÃ£o da Aurora (ex.: "1.0.0")
   ip           String?                               /// IP de origem (se humano)
 
   createdAt    DateTime @default(now())
@@ -2102,11 +2102,11 @@ model AutomationAudit {
   @@map("automation_audits")
 }
 
-// ─────────────────────────────────────────────────────────────────
-// ✅ APROVAÇÃO HUMANA (trava de transmissão — Regra de Ouro)
-// ─────────────────────────────────────────────────────────────────
-/// Nada que gere obrigação legal, pagamento ou transmissão oficial
-/// sai sem um ApprovalRecord vinculado. Isso é nossa proteção jurídica.
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// âœ… APROVAÃ‡ÃƒO HUMANA (trava de transmissÃ£o â€” Regra de Ouro)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// Nada que gere obrigaÃ§Ã£o legal, pagamento ou transmissÃ£o oficial
+/// sai sem um ApprovalRecord vinculado. Isso Ã© nossa proteÃ§Ã£o jurÃ­dica.
 /// entityType = GUIDE | SPED | RECONCILIATION | NFSE_BATCH | PAYROLL
 model ApprovalRecord {
   id         String   @id @default(cuid())
@@ -2125,21 +2125,21 @@ model ApprovalRecord {
   @@map("approval_records")
 }
 // =================================================================
-// 📊 RELATÓRIOS MENSAIS (MonthlyReportSkill — FD-2 final)
+// ðŸ“Š RELATÃ“RIOS MENSAIS (MonthlyReportSkill â€” FD-2 final)
 // =================================================================
 // PDF mensal gerado pela Aurora para cada cliente ativo.
-// Contém: resumo financeiro, métricas do mês, atividades da Aurora.
-// Arquivo físico em: backend/uploads/reports/{companyId}/{YYYY-MM}/{clientId}.pdf
+// ContÃ©m: resumo financeiro, mÃ©tricas do mÃªs, atividades da Aurora.
+// Arquivo fÃ­sico em: backend/uploads/reports/{companyId}/{YYYY-MM}/{clientId}.pdf
 // =================================================================
 
-/// Status de geração do relatório
+/// Status de geraÃ§Ã£o do relatÃ³rio
 enum ReportStatus {
-  GENERATING   /// Em produção
+  GENERATING   /// Em produÃ§Ã£o
   READY        /// Pronto para download
   FAILED       /// Falhou (ver errorMessage)
 }
 
-/// Registro de um relatório mensal gerado (1 por cliente/mês)
+/// Registro de um relatÃ³rio mensal gerado (1 por cliente/mÃªs)
 model MonthlyReport {
   id          String        @id @default(cuid())
   companyId   String
@@ -2148,19 +2148,19 @@ model MonthlyReport {
   clientId    String
   client      Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
-  /// Período do relatório (ex.: "2026-07")
+  /// PerÃ­odo do relatÃ³rio (ex.: "2026-07")
   period      String
 
   /// Caminho relativo do PDF (a partir de backend/uploads/)
   pdfPath     String?
 
-  /// Resumo em JSON (total honorários, transações, tempo economizado, etc.)
+  /// Resumo em JSON (total honorÃ¡rios, transaÃ§Ãµes, tempo economizado, etc.)
   summary     Json?
 
   status      ReportStatus  @default(GENERATING)
   errorMessage String?      @db.Text
 
-  /// Vínculo com o AutomationRun que gerou (opcional — geração manual não tem run)
+  /// VÃ­nculo com o AutomationRun que gerou (opcional â€” geraÃ§Ã£o manual nÃ£o tem run)
   runId       String?
   run         AutomationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
 
@@ -2170,13 +2170,13 @@ model MonthlyReport {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  @@unique([companyId, clientId, period])  /// 1 relatório por cliente/mês/tenant
+  @@unique([companyId, clientId, period])  /// 1 relatÃ³rio por cliente/mÃªs/tenant
   @@index([companyId, period])
   @@index([clientId])
   @@map("monthly_reports")
 }
 // =================================================================
-// 🆕 SPRINT C3 — INDICADORES CUSTOMIZADOS (ADR-054)
+// ðŸ†• SPRINT C3 â€” INDICADORES CUSTOMIZADOS (ADR-054)
 // =================================================================
 
 enum IndicatorCategory {
@@ -2193,9 +2193,9 @@ model CustomIndicator {
   userId      String              // quem criou (auditoria)
 
   name        String              // ex: "% da Meta de Clientes"
-  description String?             // ex: "Progresso em relação à meta"
+  description String?             // ex: "Progresso em relaÃ§Ã£o Ã  meta"
   formula     String              // ex: "(clientesHoje / clientesAno) * 100"
-  target      Float?              // meta numérica (opcional)
+  target      Float?              // meta numÃ©rica (opcional)
   unit        String              @default("%") // %, R$, un, dias
   category    IndicatorCategory   @default(CUSTOM)
   color       String              @default("#0d9488") // cor do card
@@ -2213,3 +2213,8 @@ model CustomIndicator {
   @@index([companyId, isActive])
   @@map("custom_indicators")
 }
+
+// =================================================================
+// ðŸ†• SPRINT C3 â€” INDICADORES CUSTOMIZADOS (ADR-054)
+// =================================================================
+
