@@ -146,6 +146,28 @@ ADR-042 Conciliação Banco×NF-e apenas em DÉBITOS bancários c/ NF-e de ENTRA
         (estoque armazena notas de compra) (commit d61b657 — Sprint 29).
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
+─── STATUS ATUAL E PRÓXIMOS PASSOS ───
+
+Fase A (Comercial): A1–A7 ✅ — FASE A COMPLETA.
+Fase B (Pessoas): B1–B5 ✅ — FASE B COMPLETA.
+Fase C (Mercado): C1–C4 ✅ — FASE C COMPLETA.
+  C1 benchmark softwares • C2 serviços extras (💰 dinheiro na mesa) •
+  C3 indicadores customizados (parser AST ADR-054) •
+  C4 score 0–100 (5 dimensões ponderadas ADR-055).
+  Score real: 51 (ATENÇÃO) — Comercial 90 / Pessoas 63 / Mercado 48 /
+  Gestão 40 / Crescimento 0.
+
+MÉTODO (ADR-034.2): sprints autocontidas em entrega única (código completo
++ seed + validação + docs) — mais rápido e ágil p/ o Marcos.
+
+IMEDIATO: Fase D (Mentoria & UX) — D1 Visão de Futuro • D2 checklist/Meu Plano
+• D3 ranking de níveis (gamificação).
+Recomendado começar pela D1 (reaproveita CompanyProfile + Score C4 para
+gerar um "Mapa Estratégico" visual do escritório).
+
+DEPOIS: Fase E (UX): E1 command palette • E2 boas-vindas/"onde parou" •
+E3 notificações. FD-5→FD-9 (Aurora avançada).
+
 Fase C (Mercado): C1 ✅ benchmark softwares • C2 ✅ serviços extras •
 C3 ✅ indicadores customizados • C4 score 0–100 (PRÓXIMA).
 

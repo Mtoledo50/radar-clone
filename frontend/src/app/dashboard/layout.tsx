@@ -33,6 +33,7 @@ import {
   Wallet,            // 🆕 Sprint 28: DRE do Cliente Bancário (extrato)
   Brain,
   Bot,               // 🆕 FD-1: Funcionário Digital (Aurora)
+  Gauge,               // 🆕 Sprint C4: Score do Escritório
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
@@ -280,6 +281,13 @@ const allMenuItems: MenuItem[] = [
     title: 'Indicadores Customizados',
     href: '/dashboard/indicadores-custom',
     icon: Calculator,
+    section: 'inteligencia',
+  },
+    {
+    id: 'score',
+    title: 'Score do Escritório',
+    href: '/dashboard/score',
+    icon: Gauge,
     section: 'inteligencia',
   },
   {
