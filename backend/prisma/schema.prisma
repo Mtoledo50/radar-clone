@@ -195,6 +195,8 @@ model Company {
   taxGuides           TaxGuide[]                 // 🆕 FD-4
   // 🆕 Sprint C3: indicadores customizados do diretor
   customIndicators CustomIndicator[]
+    // 🆕 Sprint D2: checklist de mentoria do escritório
+  mentorshipChecklist MentorshipChecklistItem[]
 
   // 🤖 Funcionário Digital (FD-1)
   robotWorker       RobotWorker?
@@ -2212,4 +2214,27 @@ model CustomIndicator {
   @@index([companyId, category])
   @@index([companyId, isActive])
   @@map("custom_indicators")
+}
+// =================================================================
+// 🆕 SPRINT D2 — CHECKLIST "MEU PLANO" (ADR-057)
+// =================================================================
+model MentorshipChecklistItem {
+  id        String    @id @default(uuid())
+  companyId String
+  userId    String    // quem criou (auditoria)
+
+  title     String    // texto da ação
+  source    String    @default("custom") // market|people|commercial|growth|management|custom
+  done      Boolean   @default(false)
+  doneAt    DateTime?
+  doneBy    String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, title, source]) // idempotência do generate (ADR-057)
+  @@index([companyId])
+  @@map("mentorship_checklist_items")
 }

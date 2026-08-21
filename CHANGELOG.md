@@ -327,6 +327,24 @@ fechamento) validado; crons ativos em produção controlada.
   sempre o **delta**, nunca substituição total.
 
 ### 🏁 Status
+[Sprint D2] 2026-08 — Checklist "Meu Plano" (Fase D — Mentoria)
+✅ Added
+Model `MentorshipChecklistItem` + tabela `mentorship_checklist_items`
+com `@@unique([companyId, title, source])` (idempotência — ADR-057).
+5 endpoints: `GET/POST /company/mentoria/checklist`,
+`POST .../generate` (importa ações dos focos), `PATCH .../:id/toggle`
+(registra doneAt/doneBy p/ auditoria), `DELETE .../:id`.
+Seção "Meu Plano de Execução" em `/dashboard/mentoria`: barra de
+execução (done/total %), itens com badge da dimensão de origem,
+itens customizados e botão "⚡ Importar ações dos focos" (idempotente).
+🧠 Decisions
+ADR-057: checklist de mentoria persistido por tenant; generate nunca
+duplica (unique composto).
+📊 Resultados reais (homologação)
+6 itens importados (3 Crescimento + 3 Gestão) • barra 0% → sobe ao
+marcar • F5 persiste • generate repetido cria 0.
+🏁 Status
+HOMOLOGADO localmente.
 
 [Sprint D1] 2026-08 — Visão de Futuro (Fase D — Mentoria)
 ✅ Added
