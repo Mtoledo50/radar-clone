@@ -6,13 +6,13 @@
  * Coleta inputs de módulos existentes e roda o domínio office-score.
  * v1: derivações leves inline (dívida consciente documentada).
  */
-import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeOfficeScore, ScoreInputs } from './domain/office-score';
 import { CustomIndicatorService } from './custom-indicator.service';
 // Reaproveita o domínio puro da B5 (cargos por setor)
 import { analyzeSectorPositions } from '../employee/domain/position-benchmark';
 import { computeMentorshipPlan } from './domain/mentorship-plan'; // 🆕 Sprint D1
+import { Injectable, BadRequestException } from '@nestjs/common';
 
 // Mini-benchmark de setores (mesmas keywords da B2 — cópia leve p/ score v1)
 const SECTOR_KEYWORDS: Array<{ name: string; keywords: string[] }> = [
@@ -175,6 +175,82 @@ export class ScoreService {
       funcionariosAno: profile?.funcionariosAno ?? 0,
       dimensions: score.dimensions.map((d) => ({ key: d.key, label: d.label, score: d.score })),
     });
+  }
+    // =================================================================
+  // 🆕 SPRINT D2 — CHECKLIST "MEU PLANO" (ADR-057)
+  // =================================================================
+
+  /** 📋 Lista itens + estatísticas de execução do plano. */
+  async getChecklist(companyId: string) {
+    const items = await this.prisma.mentorshipChecklistItem.findMany({
+      where: { companyId },
+      orderBy: [{ done: 'asc' }, { createdAt: 'asc' }],
+    });
+    const total = items.length;
+    const done = items.filter((i) => i.done).length;
+    return {
+      items,
+      stats: { total, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 },
+    };
+  }
+
+  /** ➕ Cria item customizado no plano. */
+  async createChecklistItem(
+    companyId: string,
+    userId: string,
+    data: { title: string; source?: string },
+  ) {
+    const title = (data.title || '').trim();
+    if (!title) throw new BadRequestException('Título obrigatório');
+    return this.prisma.mentorshipChecklistItem.create({
+      data: { companyId, userId, title, source: data.source || 'custom' },
+    });
+  }
+
+  /** ✅ Marca/desmarca item (registra doneAt/doneBy p/ auditoria). */
+  async toggleChecklistItem(id: string, companyId: string, userId: string) {
+    const item = await this.prisma.mentorshipChecklistItem.findFirst({
+      where: { id, companyId },
+    });
+    if (!item) throw new BadRequestException('Item não encontrado');
+    return this.prisma.mentorshipChecklistItem.update({
+      where: { id },
+      data: item.done
+        ? { done: false, doneAt: null, doneBy: null }
+        : { done: true, doneAt: new Date(), doneBy: userId },
+    });
+  }
+
+  /** 🗑️ Remove item do plano. */
+  async deleteChecklistItem(id: string, companyId: string) {
+    const item = await this.prisma.mentorshipChecklistItem.findFirst({
+      where: { id, companyId },
+    });
+    if (!item) throw new BadRequestException('Item não encontrado');
+    return this.prisma.mentorshipChecklistItem.delete({ where: { id } });
+  }
+
+  /**
+   * ⚡ Importa as ações dos 2 focos da mentoria (D1) como itens do plano.
+   * Idempotente: unique([companyId, title, source]) impede duplicar.
+   */
+  async generateFromFocus(companyId: string, userId: string) {
+    const mentoria = await this.getMentoria(companyId);
+    let created = 0;
+    for (const focus of mentoria.focusAreas) {
+      for (const action of focus.actions) {
+        const exists = await this.prisma.mentorshipChecklistItem.findFirst({
+          where: { companyId, title: action, source: focus.dimensionKey },
+        });
+        if (!exists) {
+          await this.prisma.mentorshipChecklistItem.create({
+            data: { companyId, userId, title: action, source: focus.dimensionKey },
+          });
+          created++;
+        }
+      }
+    }
+    return { created };
   }
 }
 // =================================================================

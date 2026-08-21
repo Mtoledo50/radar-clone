@@ -41,6 +41,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete, // 🆕 Sprint D2: DELETE /company/mentoria/checklist/:id
   Body,
   Param,
   UseGuards,
@@ -234,6 +235,59 @@ export class CompanyController {
     const data = await this.scoreService.getMentoria(user.companyId);
     return { success: true, data };
   }
+  // =================================================================
+  // 🆕 SPRINT D2 — CHECKLIST "MEU PLANO" (ADR-057)
+  // =================================================================
+
+  /** GET /company/mentoria/checklist — itens + % de execução. */
+  @Get('mentoria/checklist')
+  @UseGuards(JwtAuthGuard)
+  async getChecklist(@CurrentUser() user: UserPayload) {
+    const data = await this.scoreService.getChecklist(user.companyId);
+    return { success: true, data };
+  }
+
+  /** POST /company/mentoria/checklist — cria item customizado. */
+  @Post('mentoria/checklist')
+  @UseGuards(JwtAuthGuard)
+  async createChecklistItem(
+    @CurrentUser() user: UserPayload,
+    @Body() body: { title: string; source?: string },
+  ) {
+    const data = await this.scoreService.createChecklistItem(user.companyId, user.id, body);
+    return { success: true, data, message: 'Item adicionado ao plano!' };
+  }
+
+  /** POST /company/mentoria/checklist/generate — importa ações dos focos. */
+  @Post('mentoria/checklist/generate')
+  @UseGuards(JwtAuthGuard)
+  async generateChecklist(@CurrentUser() user: UserPayload) {
+    const data = await this.scoreService.generateFromFocus(user.companyId, user.id);
+    return { success: true, data, message: `${data.created} item(ns) importados dos focos!` };
+  }
+
+  /** PATCH /company/mentoria/checklist/:id/toggle — marca/desmarca. */
+  @Patch('mentoria/checklist/:id/toggle')
+  @UseGuards(JwtAuthGuard)
+  async toggleChecklistItem(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+  ) {
+    const data = await this.scoreService.toggleChecklistItem(id, user.companyId, user.id);
+    return { success: true, data };
+  }
+
+  /** DELETE /company/mentoria/checklist/:id — remove item. */
+  @Delete('mentoria/checklist/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteChecklistItem(
+    @CurrentUser() user: UserPayload,
+    @Param('id') id: string,
+  ) {
+    await this.scoreService.deleteChecklistItem(id, user.companyId);
+    return { success: true, message: 'Item removido' };
+  }
+
 }
 // =================================================================
 // FIM: backend/src/company/company.controller.ts

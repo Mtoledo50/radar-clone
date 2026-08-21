@@ -35,6 +35,8 @@ import {
   Bot,               // 🆕 FD-1: Funcionário Digital (Aurora)
   Gauge,               // 🆕 Sprint C4: Score do Escritório
   Telescope,
+
+  
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
@@ -253,14 +255,14 @@ const allMenuItems: MenuItem[] = [
     id: 'bi',
     title: 'DRE do Escritório',
     href: '/dashboard/bi',
-    icon: Building,  // 🆕 Sprint 28: ícone Empresa (visão consolidada)
+    icon: Building,
     section: 'inteligencia',
   },
   {
     id: 'bi-dre-cliente',
     title: 'DRE do Cliente (Oficial)',
     href: '/dashboard/bi/dre-cliente',
-    icon: BookOpen,  // 🆕 Sprint 28: livro contábil oficial
+    icon: BookOpen,
     section: 'inteligencia',
   },
   {
@@ -270,7 +272,7 @@ const allMenuItems: MenuItem[] = [
     icon: AlertTriangle,
     section: 'inteligencia',
   },
-    {
+  {
     id: 'indicadores',
     title: 'Indicadores',
     href: '/dashboard/indicadores',
@@ -284,14 +286,14 @@ const allMenuItems: MenuItem[] = [
     icon: Calculator,
     section: 'inteligencia',
   },
-    {
+  {
     id: 'score',
     title: 'Score do Escritório',
     href: '/dashboard/score',
     icon: Gauge,
     section: 'inteligencia',
   },
-    {
+  {
     id: 'mentoria',
     title: 'Visão de Futuro',
     href: '/dashboard/mentoria',

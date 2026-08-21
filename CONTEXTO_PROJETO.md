@@ -146,9 +146,13 @@ ADR-042 Conciliação Banco×NF-e apenas em DÉBITOS bancários c/ NF-e de ENTRA
         (estoque armazena notas de compra) (commit d61b657 — Sprint 29).
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
-─── STATUS ATUAL E PRÓXIMOS PASSOS ───
-Fase D (Mentoria): D1 ✅ Visão de Futuro • D2 checklist/Meu Plano (EM DESENVOLVIMENTO) •
-D3 ranking níveis.
+Fase D (Mentoria): D1 ✅ Visão de Futuro • D2 ✅ checklist/Meu Plano •
+D3 ranking níveis (EM DESENVOLVIMENTO).
+
+Sprint D2 HOMOLOGADA: checklist persistido com % de execução + import
+idempotente das ações dos focos (ADR-057).
+IMEDIATO: Sprint D3 = Ranking de Níveis (gamificação Bronze→Diamante +
+pódio da rede, derivado do Score C4 — ADR-058).
 
 Sprint D1 HOMOLOGADA: página /dashboard/mentoria (norte + metas + focos
 derivados do Score via ADR-056) + menu Telescope.
