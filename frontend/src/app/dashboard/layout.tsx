@@ -35,7 +35,7 @@ import {
   Bot,               // 🆕 FD-1: Funcionário Digital (Aurora)
   Gauge,               // 🆕 Sprint C4: Score do Escritório
   Telescope,
-
+  Trophy, // 🆕 Sprint D3
   
 } from 'lucide-react';
 // =================================================================
@@ -298,6 +298,13 @@ const allMenuItems: MenuItem[] = [
     title: 'Visão de Futuro',
     href: '/dashboard/mentoria',
     icon: Telescope,
+    section: 'inteligencia',
+  },
+    {
+    id: 'ranking',
+    title: 'Ranking de Níveis',
+    href: '/dashboard/ranking',
+    icon: Trophy,
     section: 'inteligencia',
   },
   {

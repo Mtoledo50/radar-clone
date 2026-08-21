@@ -246,6 +246,16 @@ export class CompanyController {
     const data = await this.scoreService.getChecklist(user.companyId);
     return { success: true, data };
   }
+    // =================================================================
+  // 🆕 SPRINT D3 — RANKING DE NÍVEIS (ADR-058)
+  // =================================================================
+  /** GET /company/ranking — seu nível + pódio da rede. */
+  @Get('ranking')
+  @UseGuards(JwtAuthGuard)
+  async getRanking(@CurrentUser() user: UserPayload) {
+    const data = await this.scoreService.getRanking(user.companyId);
+    return { success: true, data };
+  }
 
   /** POST /company/mentoria/checklist — cria item customizado. */
   @Post('mentoria/checklist')

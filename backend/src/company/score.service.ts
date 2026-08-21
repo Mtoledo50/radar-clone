@@ -13,6 +13,7 @@ import { CustomIndicatorService } from './custom-indicator.service';
 import { analyzeSectorPositions } from '../employee/domain/position-benchmark';
 import { computeMentorshipPlan } from './domain/mentorship-plan'; // 🆕 Sprint D1
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { buildRanking, getLevel, getNextLevel } from './domain/level-ranking'; // 🆕 Sprint D3
 
 // Mini-benchmark de setores (mesmas keywords da B2 — cópia leve p/ score v1)
 const SECTOR_KEYWORDS: Array<{ name: string; keywords: string[] }> = [
@@ -251,6 +252,52 @@ export class ScoreService {
       }
     }
     return { created };
+  }
+  // =================================================================
+  // 🆕 SPRINT D3 — RANKING DE NÍVEIS (ADR-058)
+  // =================================================================
+  /**
+   * 🏆 GET /company/ranking
+   * Calcula o Score de todos os tenants ativos, monta o ranking/pódio
+   * da rede e devolve seu nível + pontos p/ o próximo nível.
+   * v1: rede local pequena (≤ dezenas) — 1 getScore por tenant.
+   */
+  async getRanking(companyId: string) {
+    const companies = await this.prisma.company.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true },
+    });
+
+    const inputs: Array<{ companyId: string; name: string; score: number }> = [];
+    for (const c of companies) {
+      try {
+        const s = await this.getScore(c.id);
+        inputs.push({ companyId: c.id, name: c.name, score: s.total });
+      } catch {
+        inputs.push({ companyId: c.id, name: c.name, score: 0 }); // sem dados → 0
+      }
+    }
+
+    const ranking = buildRanking(inputs, companyId);
+    const you = ranking.find((r) => r.isYou) || null;
+    const score = you?.score ?? 0;
+    const level = getLevel(score);
+    const next = getNextLevel(score);
+
+    return {
+      you: you
+        ? {
+            position: you.position,
+            score: you.score,
+            level,
+            next,
+            pointsToNext: next ? next.minScore - score : 0,
+          }
+        : null,
+      podium: ranking.slice(0, 3),
+      ranking,
+      total: ranking.length,
+    };
   }
 }
 // =================================================================
