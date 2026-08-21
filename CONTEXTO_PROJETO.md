@@ -147,7 +147,13 @@ ADR-042 Conciliação Banco×NF-e apenas em DÉBITOS bancários c/ NF-e de ENTRA
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
 Fase C (Mercado): C1 ✅ benchmark softwares • C2 ✅ serviços extras •
-C3 indicadores c/ fórmula (PRÓXIMA) • C4 score 0–100.
+C3 ✅ indicadores customizados • C4 score 0–100 (PRÓXIMA).
+
+Sprint C3 HOMOLOGADA: indicadores customizados com fórmula segura
+(ADR-054), parser AST sem eval/Function, dashboard em
+`/dashboard/indicadores-custom` + item de menu na seção INTELIGÊNCIA.
+Coexiste com `/dashboard/indicadores` (BI de eficiência hard-coded).
+IMEDIATO: Sprint C4 = Score 0–100 Consolidado (fecha a Fase C).
 
 Sprint C2 HOMOLOGADA: benchmark de serviços extras (ADR-053 catálogo v1 +
 ServiceItem do tenant + "💰 dinheiro na mesa" em R$/mês).

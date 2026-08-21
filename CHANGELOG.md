@@ -331,6 +331,37 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint C3] 2026-08 — Indicadores Customizados com Fórmula (Fase C — Mercado)
+✅ Added
+`company/domain/formula-engine.ts`: parser/avaliador determinístico de
+fórmulas matemáticas simples com AST minimalista. Aceita apenas números,
+variáveis whitelisted, operadores +−*/ e parênteses. Zero eval/Function.
+Enum `IndicatorCategory` + model `CustomIndicator` + tabela `custom_indicators`:
+KPIs customizados por tenant, com fórmula, meta, unidade, categoria, cor,
+favorito e soft delete.
+`CustomIndicatorService` + `CustomIndicatorController`: CRUD completo,
+preview de fórmula, lista de variáveis permitidas e dashboard calculado.
+`GET /company/indicators/dashboard`: avalia os indicadores contra contexto
+real do tenant (CompanyProfile, clientes, colaboradores, serviços,
+softwareCoverage C1 e servicesCoverage C2).
+Frontend `/dashboard/indicadores-custom`: dashboard de cards, modal
+criar/editar com validação ao vivo, favoritos, exclusão e barras de progresso.
+Seed `seed-custom-indicators.ts`: 4 indicadores exemplo.
+Item de menu "Indicadores Customizados" na seção INTELIGÊNCIA.
+🧠 Decisions
+ADR-054: fórmula segura por whitelist; proibido eval/Function.
+Variáveis expostas: clientesHoje/clientesAno/funcionariosHoje/
+funcionariosAno + derivadas operacionais e de cobertura C1/C2.
+Descoberta do status "ativo" do cliente em runtime (ACTIVE_CLIENT_STATUS)
+p/ ser agnóstico ao schema (fix TS2322).
+Tipagem de tupla `Array<[string, string[]]>` em essentialCategories
+(fix TS2339).
+Divisão por zero retorna erro controlado no card, nunca quebra a página.
+Página `/dashboard/indicadores` (BI de eficiência hard-coded) mantida
+intacta; nova página `/dashboard/indicadores-custom` coexiste.
+🏁 Status
+HOMOLOGADO localmente.
+
 [Sprint C2] 2026-08 — Serviços Extras com Preço Médio (Fase C — Mercado)
 ✅ Added
 `company/domain/extra-services-benchmark.ts`: domínio puro (ADR-053) com

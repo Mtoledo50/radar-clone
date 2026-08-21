@@ -268,11 +268,18 @@ const allMenuItems: MenuItem[] = [
     icon: AlertTriangle,
     section: 'inteligencia',
   },
-  {
+    {
     id: 'indicadores',
     title: 'Indicadores',
     href: '/dashboard/indicadores',
     icon: Activity,
+    section: 'inteligencia',
+  },
+  {
+    id: 'indicadores-custom',
+    title: 'Indicadores Customizados',
+    href: '/dashboard/indicadores-custom',
+    icon: Calculator,
     section: 'inteligencia',
   },
   {
