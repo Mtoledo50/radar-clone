@@ -328,28 +328,6 @@ fechamento) validado; crons ativos em produção controlada.
 
 ### 🏁 Status
 
-[Sprints C1–D3] 2026-08 — Conta Certa 2.0: FASES C (Mercado) e D (Mentoria) COMPLETAS 🏁
-✅ Added
-C1: Benchmark de softwares (ADR-052 híbrido rede+catálogo) + persistência
-`GET/PATCH /company/software-stack` + seção em Minha Empresa + seed de rede.
-C2: Serviços extras c/ preço médio (ADR-053) + "💰 dinheiro na mesa" de serviços.
-C3: Indicadores customizados c/ fórmula (ADR-054 — parser AST, ZERO eval) +
-`/dashboard/indicadores-custom` + seed de 4 indicadores.
-C4: Score 0–100 do Escritório (ADR-055 — 5 dimensões ponderadas) +
-`/dashboard/score` (nota real 51 = Prata 🥈 na homologação).
-D1: Visão de Futuro (ADR-056) + `/dashboard/mentoria` (norte + metas + focos
-derivados das 2 dimensões mais fracas do Score).
-D2: Checklist "Meu Plano" (ADR-057 — persistido, % execução, import
-idempotente das ações dos focos via @@unique).
-D3: Ranking de Níveis (ADR-058 — Bronze→Diamante + pódio multi-tenant) +
-`/dashboard/ranking`.
-🧠 Decisions
-ADR-052→058 (domínios puros, zero IA generativa, zero tabelas onde possível).
-ADR-034.2: sprints autocontidas em entrega única (código+seed+validação+docs).
-🏁 Status
-HOMOLOGADO localmente. FASES C e D COMPLETAS. Plano 2.0: A–D ✅.
-
-
 [Sprint D3] 2026-08 — Ranking de Níveis (FASE D COMPLETA 🏁)
 ✅ Added
 `company/domain/level-ranking.ts`: domínio puro (ADR-058) com níveis

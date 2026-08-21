@@ -525,17 +525,6 @@ B5: Benchmark de Cargos por Setor (domínio puro ADR-051, maiores restos, gaps V
 | Benchmark de cargos | "Minha equipe tem os cargos certos em cada setor?" |
 | Análises IA agregadas | Top causas-raiz e planos de ação do ano inteiro |
 
-✅ FASE C — MERCADO (Plano Conta Certa 2.0) — COMPLETA
-C1: Benchmark de softwares (híbrido rede+catálogo) ✅
-C2: Serviços extras c/ preço médio + dinheiro na mesa ✅
-C3: Indicadores c/ fórmula (parser seguro, zero eval) ✅
-C4: Score 0–100 do Escritório (5 dimensões) ✅
-✅ FASE D — MENTORIA & GAMIFICAÇÃO — COMPLETA
-D1: Visão de Futuro (norte + focos do Score) ✅
-D2: Checklist Meu Plano (persistido + % execução) ✅
-D3: Ranking de Níveis (Bronze→Diamante + pódio) ✅
-🚧 PRÓXIMO: Aurora FD-5/6/8 → depois Fase E + Produção (32–34).
-
 🚧 PRÓXIMAS FASES
 Fase C (Mercado): C1 benchmark de softwares • C2 serviços extras c/ preço médio • C3 indicadores c/ fórmula • C4 score 0–100.
 Fase D (Mentoria): D1 Visão de Futuro • D2 checklist/Meu Plano • D3 ranking níveis.
