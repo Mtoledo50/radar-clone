@@ -331,6 +331,34 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint C4] 2026-08 — Score 0–100 do Escritório (FASE C COMPLETA 🏁)
+✅ Added
+`company/domain/office-score.ts`: domínio puro (ADR-055) que consolida
+5 dimensões ponderadas (Mercado 25 / Pessoas 20 / Comercial 20 /
+Crescimento 15 / Gestão 20) em nota única 0–100 com níveis
+EXCELENTE(≥80)/SAUDÁVEL(≥60)/ATENÇÃO(≥40)/CRÍTICO(<40) e insights
+automáticos (2 pontos fracos + 1 forte).
+`ScoreService` + `GET /company/score`: coleta inputs de C1/C2 (coberturas),
+B2/B3 (setores/novatos), B5 (cargos via domínio position-benchmark),
+A4/A7 (conversão/desconto via closingDetails), CompanyProfile (metas)
+e C3 (progresso médio via CustomIndicatorService.getDashboard).
+Página `/dashboard/score`: nota total 7xl com barra colorida, cards por
+dimensão (peso + barra + detalhe), insights da diretoria e painel
+"como é calculado" (ADR-055). Menu "Score do Escritório" na seção INTELIGÊNCIA.
+🧠 Decisions
+ADR-055: score v1 determinístico e explicável (zero IA); sub-scores com
+fórmulas documentadas; neutro 50 quando não há dados (ex.: sem propostas).
+ADR-034.2: sprints autocontidas entregues em mensagem única
+(código completo + validação + docs) — método preferido do Marcos.
+Coberturas C1/C2 recalculadas inline no ScoreService (dívida consciente v1;
+refatorar para compartilhar com CustomIndicatorService quando estabilizar).
+📊 Resultados reais (homologação)
+Score total 51 (ATENÇÃO) • Comercial 90 (ponto forte) • Pessoas 63 •
+Mercado 48 • Gestão 40 • Crescimento 0 (metas zeradas no CompanyProfile).
+Insight automático: "Prioridade: Crescimento (0/100)".
+🏁 Status
+HOMOLOGADO localmente. 🎉 FASE C (Mercado) COMPLETA: C1–C4.
+
 [Sprint C3] 2026-08 — Indicadores Customizados com Fórmula (Fase C — Mercado)
 ✅ Added
 `company/domain/formula-engine.ts`: parser/avaliador determinístico de

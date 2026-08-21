@@ -53,6 +53,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UpdateBrandingDto } from './dto/update-branding.dto';
+import { ScoreService } from './score.service';
 
 /** Payload do JWT (espelho do que o JwtStrategy injeta). */
 interface UserPayload {
@@ -64,7 +65,10 @@ interface UserPayload {
 
 @Controller('company')
 export class CompanyController {
-  constructor(private readonly service: CompanyService) {}
+  constructor(private readonly service: CompanyService,    
+             private readonly scoreService: ScoreService, // 🆕 Sprint C4
+) {}
+  
 
   // =================================================================
   // 📋 PERFIL DA EMPRESA (CompanyProfile — onboarding/visão)
@@ -205,6 +209,19 @@ export class CompanyController {
   @UseGuards(JwtAuthGuard)
   async getExtraServicesBenchmark(@CurrentUser() user: UserPayload) {
     const data = await this.service.getExtraServicesBenchmark(user.companyId);
+    return { success: true, data };
+  }
+  // =================================================================
+  // 🆕 SPRINT C4 — SCORE 0–100 DO ESCRITÓRIO (ADR-055)
+  // =================================================================
+  /**
+   * GET /company/score
+   * Nota única de saúde do escritório (5 dimensões ponderadas).
+   */
+  @Get('score')
+  @UseGuards(JwtAuthGuard)
+  async getScore(@CurrentUser() user: UserPayload) {
+    const data = await this.scoreService.getScore(user.companyId);
     return { success: true, data };
   }
 }
