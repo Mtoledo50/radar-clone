@@ -23,11 +23,19 @@
 import { Module } from '@nestjs/common';
 import { CompanyService } from './company.service';
 import { CompanyController } from './company.controller';
+import { CustomIndicatorService } from './custom-indicator.service';
+import { CustomIndicatorController } from './custom-indicator.controller';
 
 @Module({
-  controllers: [CompanyController],
-  providers: [CompanyService],
-  exports: [CompanyService], // permite reuso do service em outros módulos
+controllers: [
+  CompanyController,
+  CustomIndicatorController,  // 🆕 Sprint C3
+], 
+exports: [CompanyService, CustomIndicatorService],
+  providers: [
+  CompanyService,
+  CustomIndicatorService,  // 🆕 Sprint C3
+],
 })
 export class CompanyModule {}
 // =================================================================

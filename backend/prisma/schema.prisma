@@ -193,7 +193,8 @@ model Company {
   bankStatements      BankStatement[]
   fiscalServiceInvoices FiscalServiceInvoice[]   // 🆕 FD-3a
   taxGuides           TaxGuide[]                 // 🆕 FD-4
-
+  // 🆕 Sprint C3: indicadores customizados do diretor
+  customIndicators CustomIndicator[]
 
   // 🤖 Funcionário Digital (FD-1)
   robotWorker       RobotWorker?
@@ -237,6 +238,8 @@ model User {
 
   // Tarefas atribuídas
 assignedTasks   Task[]
+  // 🆕 Sprint C3: indicadores que o usuário criou
+  customIndicators CustomIndicator[]
   
   @@index([companyId])
   @@map("users")
@@ -2171,4 +2174,42 @@ model MonthlyReport {
   @@index([companyId, period])
   @@index([clientId])
   @@map("monthly_reports")
+}
+// =================================================================
+// 🆕 SPRINT C3 — INDICADORES CUSTOMIZADOS (ADR-054)
+// =================================================================
+
+enum IndicatorCategory {
+  COMERCIAL
+  OPERACIONAL
+  FINANCEIRO
+  EQUIPE
+  CUSTOM
+}
+
+model CustomIndicator {
+  id          String              @id @default(uuid())
+  companyId   String
+  userId      String              // quem criou (auditoria)
+
+  name        String              // ex: "% da Meta de Clientes"
+  description String?             // ex: "Progresso em relação à meta"
+  formula     String              // ex: "(clientesHoje / clientesAno) * 100"
+  target      Float?              // meta numérica (opcional)
+  unit        String              @default("%") // %, R$, un, dias
+  category    IndicatorCategory   @default(CUSTOM)
+  color       String              @default("#0d9488") // cor do card
+  isFavorite  Boolean             @default(false)
+  isActive    Boolean             @default(true)
+
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, category])
+  @@index([companyId, isActive])
+  @@map("custom_indicators")
 }
