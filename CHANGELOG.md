@@ -327,6 +327,27 @@ fechamento) validado; crons ativos em produção controlada.
   sempre o **delta**, nunca substituição total.
 
 ### 🏁 Status
+
+[Sprint D3] 2026-08 — Ranking de Níveis (FASE D COMPLETA 🏁)
+✅ Added
+`company/domain/level-ranking.ts`: domínio puro (ADR-058) com níveis
+determinísticos por faixa do Score (🥉 Bronze 0–39 • 🥈 Prata 40–59 •
+🥇 Ouro 60–79 • 💎 Diamante 80–100), progresso p/ próximo nível e
+ranking/pódio da rede ordenado por score.
+`ScoreService.getRanking` + `GET /company/ranking`: calcula o Score (C4)
+de todos os tenants ativos, monta o ranking e devolve seu nível +
+pontos p/ próximo + pódio + classificação completa.
+Página `/dashboard/ranking`: card do seu nível (badge, barra, pontos p/
+próximo), pódio da rede (colunas 2º/1º/3º em CSS puro) e ranking completo
+com "você" destacado. Menu "Ranking de Níveis" (Trophy) na INTELIGÊNCIA.
+🧠 Decisions
+ADR-058: gamificação derivada do Score — zero métricas voláteis; ranking
+multi-tenant (efeito de rede SaaS).
+📊 Resultados reais (homologação)
+Você: Prata 🥈 (51 pts) • 9 pontos p/ Ouro 🥇 • pódio com a rede (9 empresas).
+🏁 Status
+HOMOLOGADO localmente. 🎉 FASE D (Mentoria) COMPLETA: D1–D3.
+
 [Sprint D2] 2026-08 — Checklist "Meu Plano" (Fase D — Mentoria)
 ✅ Added
 Model `MentorshipChecklistItem` + tabela `mentorship_checklist_items`
