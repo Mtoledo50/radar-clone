@@ -3,16 +3,22 @@
 // =================================================================
 /**
  * =================================================================
- * MinhaEmpresaPage — Perfil do Escritório + 🎨 Branding (Sprint A5)
+ * MinhaEmpresaPage — Perfil + Branding + Stack + Benchmark (A5 + C1)
  * =================================================================
- * Duas responsabilidades (espelho do backend):
- * 1. PERFIL (CompanyProfile): razão social, CNPJ, softwares, metas.
+ * Quatro responsabilidades (espelho do backend):
+ * 1. PERFIL (CompanyProfile) — razão social, CNPJ, metas, visão.
  *    Salva via POST/PUT /company (mantido como estava).
- * 2. BRANDING (Company): cores primária/secundária + rodapé da
- *    proposta pública. Salva via PATCH /company/branding (Sprint A5).
+ * 2. BRANDING (Company) — cores primária/secundária + rodapé da
+ *    proposta pública. Salva via PATCH /company/branding (A5).
+ * 3. STACK DE SOFTWARES (Company.softwareStack) — persiste via
+ *    PATCH /company/software-stack (C1). Fonte da verdade.
+ * 4. BENCHMARK DE MERCADO (C1) — exibe comparação do stack do
+ *    tenant com rede + catálogo curado v1.
  *
- * 🧠 ADR-043: campos de cor vazios = fallback Conta Certa
- * (teal #0d9488 / laranja #f97316) aplicado pelo backend.
+ * 🧠 ADRs:
+ *   - ADR-043: campos de cor vazios = fallback Conta Certa.
+ *   - ADR-052: benchmark híbrido (rede + catálogo).
+ *   - ADR-001: barras em CSS puro (zero dependências).
  * =================================================================
  */
 'use client';
@@ -24,8 +30,11 @@ import { toast } from 'sonner';
 import {
   Building2, MapPin, Monitor, TrendingUp, Save, Loader2,
   X, Plus, Target, Briefcase, Users,
-  Palette, BarChart3, CheckCircle2, TrendingDown, Info, // 🆕 Sprint C1
-   // 🆕 Sprint A5: ícone da seção de branding
+  Palette,             // Sprint A5: ícone da seção de branding
+  BarChart3,           // 🆕 Sprint C1: benchmark
+  CheckCircle2,        // 🆕 Sprint C1: selo "Você tem"
+  TrendingDown,        // 🆕 Sprint C1: selo "Sem cobertura"
+  Info,                // 🆕 Sprint C1: empty state
 } from 'lucide-react';
 
 // =================================================================
@@ -67,7 +76,7 @@ const inputClass =
 const HEX_REGEX = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/;
 
 // =================================================================
-// COMPONENTE AUXILIAR: Software Category (mantido da versão anterior)
+// COMPONENTE AUXILIAR: Software Category
 // =================================================================
 function SoftwareCategory({
   title,
@@ -185,20 +194,25 @@ export default function MinhaEmpresaPage() {
     proposalFooterText: '',  // '' = sem rodapé customizado
   });
   const [savingBranding, setSavingBranding] = useState(false);
-    // 🆕 Sprint C1: benchmark de softwares (rede + catálogo)
-  const [benchmark, setBenchmark] = useState<any>(null);
-  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
 
+  // ----- Estado do STACK DE SOFTWARES -----
   const initialSoftwareState = SOFTWARE_CATEGORIES.reduce((acc, cat) => {
     acc[cat.id] = { notUsed: false, items: [] };
     return acc;
-  }, {} as Record<string, { notUsed: boolean; items: [] }>);
+  }, {} as Record<string, { notUsed: boolean; items: string[] }>);
 
   const [softwareData, setSoftwareData] =
     useState<Record<string, { notUsed: boolean; items: string[] }>>(initialSoftwareState);
 
+  // ----- 🆕 SPRINT C1: BENCHMARK DE MERCADO -----
+  const [benchmark, setBenchmark] = useState<any>(null);
+  const [loadingBenchmark, setLoadingBenchmark] = useState(false);
+    // ----- 🆕 SPRINT C2: BENCHMARK DE SERVIÇOS EXTRAS -----
+  const [extraBenchmark, setExtraBenchmark] = useState<any>(null);
+  const [loadingExtraBenchmark, setLoadingExtraBenchmark] = useState(false);
+
   // =================================================================
-  // CARREGAR DADOS (perfil + branding em paralelo)
+  // CARREGAR DADOS (perfil + branding + stack + benchmark em paralelo)
   // =================================================================
   useEffect(() => {
     async function fetchData() {
@@ -222,28 +236,9 @@ export default function MinhaEmpresaPage() {
             maiorDesafio: data.maiorDesafio || '',
             compromisso: data.compromisso || '',
           });
-
-          // Softwares no formato "categoria:valor"
-          const loadedSoftware = { ...initialSoftwareState };
-          if (data.softwareStack && Array.isArray(data.softwareStack)) {
-            data.softwareStack.forEach((entry: string) => {
-              const parts = entry.split(':');
-              const catId = parts[0];
-              const value = parts.slice(1).join(':');
-              if (loadedSoftware[catId]) {
-                if (value === 'NÃO_UTILIZADO') {
-                  loadedSoftware[catId].notUsed = true;
-                } else {
-                  loadedSoftware[catId].items.push(value);
-                }
-              }
-            });
-          }
-          setSoftwareData(loadedSoftware);
         }
 
-        // 2) 🆕 Branding (Company) — Sprint A5. .catch p/ não quebrar a página
-        //    se o backend ainda não tiver a rota (compatibilidade).
+        // 2) 🆕 SPRINT A5: Branding (Company)
         const brandRes = await api.get('/company/branding').catch(() => null);
         if (brandRes?.data) {
           setBranding({
@@ -252,26 +247,50 @@ export default function MinhaEmpresaPage() {
             proposalFooterText: brandRes.data.proposalFooterText || '',
           });
         }
+
+        // 3) 🆕 SPRINT C1: Stack de softwares (Company.softwareStack)
+        //    Esta é a FONTE DA VERDADE real dos softwares do tenant.
+        const stackRes = await api.get('/company/software-stack').catch(() => null);
+        if (stackRes?.data?.data && Array.isArray(stackRes.data.data)) {
+          const loaded = { ...initialSoftwareState };
+          stackRes.data.data.forEach((entry: string) => {
+            const idx = entry.indexOf(':');
+            if (idx === -1) return;
+            const catId = entry.slice(0, idx);
+            const value = entry.slice(idx + 1);
+            if (!loaded[catId]) return;
+            if (value === 'NÃO_UTILIZADO') {
+              loaded[catId].notUsed = true;
+              loaded[catId].items = [];
+            } else if (value && !loaded[catId].items.includes(value)) {
+              loaded[catId].items.push(value);
+            }
+          });
+          setSoftwareData(loaded);
+        }
+
+        // 4) 🆕 SPRINT C1: Benchmark de mercado (rede + catálogo v1)
+        const benchRes = await api.get('/company/software-benchmark').catch(() => null);
+        if (benchRes?.data?.data) {
+          setBenchmark(benchRes.data.data);
+        }
       } catch (error) {
         console.error('Erro ao carregar dados da empresa:', error);
       } finally {
         setFetching(false);
       }
-        const brandRes = await api.get('/company/branding').catch(() => null);
-    if (brandRes?.data) {
-      setBranding({
-        primaryColor: brandRes.data.primaryColor === '#0d9488' ? '' : brandRes.data.primaryColor || '',
-        secondaryColor: brandRes.data.secondaryColor === '#f97316' ? '' : brandRes.data.secondaryColor || '',
-        proposalFooterText: brandRes.data.proposalFooterText || '',
-      });
-    }
+            // 5) 🆕 SPRINT C2: Benchmark de serviços extras (dinheiro na mesa)
+        const extraRes = await api.get('/company/extra-services-benchmark').catch(() => null);
+        if (extraRes?.data?.data) {
+          setExtraBenchmark(extraRes.data.data);
+        }
     }
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // =================================================================
-  // SALVAR PERFIL (mantido)
+  // SALVAR PERFIL + STACK (único botão — salva tudo de uma vez)
   // =================================================================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -283,9 +302,10 @@ export default function MinhaEmpresaPage() {
       return data.items.map((item) => `${categoryId}:${item}`);
     });
 
-    const payload = { ...formData, softwareStack: flattenedSoftware };
+    const payload = { ...formData };
 
     try {
+      // 1) Salva o perfil (CompanyProfile — metas, visão, etc.)
       let response;
       if (companyId) {
         response = await api.put(`/company/${companyId}`, payload);
@@ -295,6 +315,21 @@ export default function MinhaEmpresaPage() {
           setCompanyId(response.data.data.id);
         }
       }
+
+      // 2) 🆕 SPRINT C1: salva o stack em Company.softwareStack
+      //    (fonte da verdade que o benchmark e a memória da UI consomem)
+      await api
+        .patch('/company/software-stack', { softwareStack: flattenedSoftware })
+        .catch(() => null);
+
+        // 3) Recarrega benchmarks (stack ou catálogo podem ter mudado)
+      const [benchRes, extraRes] = await Promise.all([
+        api.get('/company/software-benchmark').catch(() => null),
+        api.get('/company/extra-services-benchmark').catch(() => null),
+      ]);
+      if (benchRes?.data?.data) setBenchmark(benchRes.data.data);
+      if (extraRes?.data?.data) setExtraBenchmark(extraRes.data.data);
+
       toast.success(response.data.message || 'Dados da empresa salvos com sucesso!');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao salvar dados. Tente novamente.');
@@ -304,7 +339,7 @@ export default function MinhaEmpresaPage() {
   };
 
   // =================================================================
-  // 🆕 SPRINT A5: SALVAR BRANDING (PATCH /company/branding)
+  // 🆕 SPRINT A5: SALVAR BRANDING (PATCH /company/branding — separado)
   // =================================================================
   const handleSaveBranding = async () => {
     // Validação client-side (espelho do DTO backend)
@@ -421,121 +456,7 @@ export default function MinhaEmpresaPage() {
             ))}
           </div>
         </div>
-    {/* ============================================================= */}
-    {/* 🆕 SPRINT C1: BENCHMARK DE SOFTWARES (rede + catálogo v1)     */}
-    {/* ============================================================= */}
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-      <div className="flex items-center gap-3 mb-2 pb-2 border-b border-slate-100">
-        <BarChart3 className="h-5 w-5 text-teal-600" />
-        <h2 className="text-lg font-semibold text-slate-900">📊 Benchmark de Mercado</h2>
-      </div>
-      <p className="text-xs text-slate-500 mb-4">
-        Comparação do seu stack com outros escritórios contábeis do Radar Conta Certa.
-        Percentuais baseados no catálogo de mercado v1 + rede real (ADR-052).
-      </p>
 
-      {loadingBenchmark && (
-        <div className="flex items-center justify-center py-8 text-slate-500">
-          <Loader2 className="h-5 w-5 animate-spin mr-2" />
-          Calculando benchmark...
-        </div>
-      )}
-
-      {!loadingBenchmark && !benchmark && (
-        <div className="text-center py-8 text-slate-400">
-          <Info className="h-8 w-8 mx-auto mb-2" />
-          <p className="text-sm">Nenhum dado disponível. Cadastre seus softwares acima.</p>
-        </div>
-      )}
-
-      {!loadingBenchmark && benchmark && (
-        <div className="space-y-5">
-          {/* KPIs de coverage */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-              <p className="text-xs font-semibold text-slate-500 uppercase">Amostra</p>
-              <p className="text-2xl font-bold text-slate-900">{benchmark.sampleSize}</p>
-              <p className="text-xs text-slate-500">escritório(s) na rede</p>
-            </div>
-            <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
-              <p className="text-xs font-semibold text-teal-700 uppercase">Cobertura</p>
-              <p className="text-2xl font-bold text-teal-900">{benchmark.coveragePct}%</p>
-              <p className="text-xs text-teal-700">categorias essenciais cobertas</p>
-            </div>
-            <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-              <p className="text-xs font-semibold text-orange-700 uppercase">Fonte</p>
-              <p className="text-2xl font-bold text-orange-900 capitalize">{benchmark.source}</p>
-              <p className="text-xs text-orange-700">
-                {benchmark.source === 'rede' ? 'dados reais da rede' : 'catálogo curado v1'}
-              </p>
-            </div>
-          </div>
-
-          {/* Cards por categoria */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {benchmark.categories
-              .filter((c: any) => c.category !== 'Outros')
-              .map((cat: any) => (
-              <div key={cat.category} className="border border-slate-200 rounded-lg p-4 bg-slate-50">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-slate-900 text-sm">{cat.category}</h3>
-                  {cat.youCovered ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-800">
-                      <CheckCircle2 className="h-3 w-3" /> Você tem
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                      <TrendingDown className="h-3 w-3" /> Sem cobertura
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {cat.entries.slice(0, 5).map((e: any) => {
-                    const barColor = e.youUse ? 'bg-teal-500' : 'bg-slate-300';
-                    const pct = Math.max(e.marketPct, 3);
-                    return (
-                      <div key={e.name}>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className={`font-medium ${e.youUse ? 'text-teal-900' : 'text-slate-700'}`}>
-                            {e.youUse && '✓ '}{e.name}
-                          </span>
-                          <span className="text-slate-500">{e.marketPct}% do mercado</span>
-                        </div>
-                        <div className="h-2 bg-white rounded-full overflow-hidden">
-                          <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {cat.recommendation && (
-                  <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 mt-3">
-                    💡 {cat.recommendation}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Insights finais */}
-          {benchmark.insights && benchmark.insights.length > 0 && (
-            <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
-              <h4 className="text-sm font-bold text-teal-900 mb-2 flex items-center gap-1">
-                <TrendingUp className="h-4 w-4" /> Insights para sua diretoria
-              </h4>
-              <ul className="space-y-1">
-                {benchmark.insights.map((insight: string, i: number) => (
-                  <li key={i} className="text-sm text-teal-900 flex items-start gap-2">
-                    <span className="text-teal-600 font-bold">•</span>
-                    <span>{insight}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
         {/* SEÇÃO 3: METAS E NÚMEROS */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-100">
@@ -656,7 +577,6 @@ export default function MinhaEmpresaPage() {
             Personalize as cores e o rodapé das propostas enviadas aos seus clientes.
             Deixe em branco para usar a identidade padrão Conta Certa.
           </p>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             {/* Cor primária */}
             <div>
@@ -694,7 +614,6 @@ export default function MinhaEmpresaPage() {
                 <p className="text-xs text-red-600 mt-1">Hex inválido — use ex: #0d9488</p>
               )}
             </div>
-
             {/* Cor de destaque */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -732,7 +651,6 @@ export default function MinhaEmpresaPage() {
               )}
             </div>
           </div>
-
           {/* Rodapé customizado */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -747,7 +665,6 @@ export default function MinhaEmpresaPage() {
               placeholder="Ex: Contato: (11) 9999-9999 • contato@seuescritorio.com.br"
             />
           </div>
-
           {/* Preview ao vivo */}
           <div className="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 mb-4">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">👁️ Preview ao vivo</p>
@@ -770,7 +687,6 @@ export default function MinhaEmpresaPage() {
               <p className="text-center text-xs text-slate-500 mt-3 italic">{branding.proposalFooterText}</p>
             )}
           </div>
-
           {/* Salvar branding (independente do submit do perfil) */}
           <button
             type="button"
@@ -783,7 +699,7 @@ export default function MinhaEmpresaPage() {
           </button>
         </div>
 
-        {/* BOTÃO SALVAR PERFIL */}
+        {/* BOTÃO SALVAR PERFIL (+ stack) */}
         <div className="flex justify-end pt-4 sticky bottom-4 bg-slate-50/80 backdrop-blur-sm p-4 -mx-4 rounded-b-xl">
           <button
             type="submit"
@@ -795,6 +711,238 @@ export default function MinhaEmpresaPage() {
           </button>
         </div>
       </form>
+
+      {/* ============================================================= */}
+      {/* 🆕 SPRINT C1: BENCHMARK DE MERCADO (abaixo do form)            */}
+      {/* ============================================================= */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex items-center gap-3 mb-2 pb-2 border-b border-slate-100">
+          <BarChart3 className="h-5 w-5 text-teal-600" />
+          <h2 className="text-lg font-semibold text-slate-900">📊 Benchmark de Mercado</h2>
+        </div>
+        <p className="text-xs text-slate-500 mb-4">
+          Comparação do seu stack com outros escritórios contábeis do Radar Conta Certa.
+          Percentuais baseados no catálogo de mercado v1 + rede real (ADR-052).
+        </p>
+
+        {loadingBenchmark && (
+          <div className="flex items-center justify-center py-8 text-slate-500">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Calculando benchmark...
+          </div>
+        )}
+
+        {!loadingBenchmark && !benchmark && (
+          <div className="text-center py-8 text-slate-400">
+            <Info className="h-8 w-8 mx-auto mb-2" />
+            <p className="text-sm">Nenhum dado disponível. Cadastre seus softwares acima.</p>
+          </div>
+        )}
+
+        {!loadingBenchmark && benchmark && (
+          <div className="space-y-5">
+            {/* KPIs de coverage */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Amostra</p>
+                <p className="text-2xl font-bold text-slate-900">{benchmark.sampleSize}</p>
+                <p className="text-xs text-slate-500">escritório(s) na rede</p>
+              </div>
+              <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
+                <p className="text-xs font-semibold text-teal-700 uppercase">Cobertura</p>
+                <p className="text-2xl font-bold text-teal-900">{benchmark.coveragePct}%</p>
+                <p className="text-xs text-teal-700">categorias essenciais cobertas</p>
+              </div>
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <p className="text-xs font-semibold text-orange-700 uppercase">Fonte</p>
+                <p className="text-2xl font-bold text-orange-900 capitalize">{benchmark.source}</p>
+                <p className="text-xs text-orange-700">
+                  {benchmark.source === 'rede' ? 'dados reais da rede' : 'catálogo curado v1'}
+                </p>
+              </div>
+            </div>
+
+            {/* Cards por categoria */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {benchmark.categories
+                .filter((c: any) => c.category !== 'Outros')
+                .map((cat: any) => (
+                <div key={cat.category} className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-slate-900 text-sm">{cat.category}</h3>
+                    {cat.youCovered ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                        <CheckCircle2 className="h-3 w-3" /> Você tem
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                        <TrendingDown className="h-3 w-3" /> Sem cobertura
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {cat.entries.slice(0, 5).map((e: any) => {
+                      const barColor = e.youUse ? 'bg-teal-500' : 'bg-slate-300';
+                      const pct = Math.max(e.marketPct, 3);
+                      return (
+                        <div key={e.name}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className={`font-medium ${e.youUse ? 'text-teal-900' : 'text-slate-700'}`}>
+                              {e.youUse && '✓ '}{e.name}
+                            </span>
+                            <span className="text-slate-500">{e.marketPct}% do mercado</span>
+                          </div>
+                          <div className="h-2 bg-white rounded-full overflow-hidden">
+                            <div className={`h-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {cat.recommendation && (
+                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 mt-3">
+                      💡 {cat.recommendation}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Insights finais */}
+            {benchmark.insights && benchmark.insights.length > 0 && (
+              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4">
+                <h4 className="text-sm font-bold text-teal-900 mb-2 flex items-center gap-1">
+                  <TrendingUp className="h-4 w-4" /> Insights para sua diretoria
+                </h4>
+                <ul className="space-y-1">
+                  {benchmark.insights.map((insight: string, i: number) => (
+                    <li key={i} className="text-sm text-teal-900 flex items-start gap-2">
+                      <span className="text-teal-600 font-bold">•</span>
+                      <span>{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+          {/* ============================================================= */}
+      {/* 🆕 SPRINT C2: BENCHMARK DE SERVIÇOS EXTRAS (dinheiro na mesa) */}
+      {/* ============================================================= */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex items-center gap-3 mb-2 pb-2 border-b border-slate-100">
+          <Briefcase className="h-5 w-5 text-orange-600" />
+          <h2 className="text-lg font-semibold text-slate-900">💼 Serviços Extras — Mercado</h2>
+        </div>
+        <p className="text-xs text-slate-500 mb-4">
+          Quanto você deixa na mesa por não oferecer os serviços extras que o mercado contábil cobra à parte?
+          Cruzamento do seu catálogo com o catálogo curado v1 (ADR-053).
+        </p>
+
+        {loadingExtraBenchmark && (
+          <div className="flex items-center justify-center py-8 text-slate-500">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Calculando...
+          </div>
+        )}
+
+        {!loadingExtraBenchmark && !extraBenchmark && (
+          <div className="text-center py-8 text-slate-400">
+            <Info className="h-8 w-8 mx-auto mb-2" />
+            <p className="text-sm">Sem dados. Cadastre serviços em "Catálogo de Serviços".</p>
+          </div>
+        )}
+
+        {!loadingExtraBenchmark && extraBenchmark && (
+          <div className="space-y-5">
+            {/* KPIs de dinheiro na mesa */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <p className="text-xs font-semibold text-slate-500 uppercase">Catálogo</p>
+                <p className="text-2xl font-bold text-slate-900">{extraBenchmark.catalogSize}</p>
+                <p className="text-xs text-slate-500">serviços no radar</p>
+              </div>
+              <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
+                <p className="text-xs font-semibold text-teal-700 uppercase">Você oferece</p>
+                <p className="text-2xl font-bold text-teal-900">{extraBenchmark.offeredCount}</p>
+                <p className="text-xs text-teal-700">{extraBenchmark.coveragePct}% de cobertura</p>
+              </div>
+              <div className="bg-orange-50 p-4 rounded-lg border-2 border-orange-300">
+                <p className="text-xs font-semibold text-orange-800 uppercase">💰 Dinheiro na Mesa</p>
+                <p className="text-2xl font-bold text-orange-900">
+                  R$ {extraBenchmark.potentialMonthly.toFixed(2)}
+                </p>
+                <p className="text-xs text-orange-700">/mês em serviços mensais não oferecidos</p>
+              </div>
+              <div className="bg-rose-50 p-4 rounded-lg border border-rose-200">
+                <p className="text-xs font-semibold text-rose-700 uppercase">Avulsos/Hora</p>
+                <p className="text-2xl font-bold text-rose-900">{extraBenchmark.notOfferedOneOff}</p>
+                <p className="text-xs text-rose-700">serviços pontuais não oferecidos</p>
+              </div>
+            </div>
+
+            {/* Lista de serviços (oferecidos em verde, não em laranja) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {extraBenchmark.services.map((s: any) => {
+                const isOffered = s.youOffer;
+                return (
+                  <div
+                    key={s.name}
+                    className={`p-3 rounded-lg border ${
+                      isOffered
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-orange-50 border-orange-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-sm text-slate-900">{s.name}</span>
+                      {isOffered ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                          <CheckCircle2 className="h-3 w-3" /> Você vende
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800">
+                          <TrendingDown className="h-3 w-3" /> Não vende
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 mb-2">{s.description}</p>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500">
+                        Média mercado: <strong className="text-slate-900">R$ {s.avgPrice.toFixed(2)}</strong>
+                        {s.unit === 'mensal' ? '/mês' : s.unit === 'hora' ? '/hora' : ''}
+                      </span>
+                      {isOffered && s.yourPrice !== null && (
+                        <span className="font-semibold text-teal-700">
+                          Seu preço: R$ {s.yourPrice.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Insights */}
+            {extraBenchmark.insights && extraBenchmark.insights.length > 0 && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <h4 className="text-sm font-bold text-orange-900 mb-2 flex items-center gap-1">
+                  💡 Insights para sua diretoria
+                </h4>
+                <ul className="space-y-1">
+                  {extraBenchmark.insights.map((insight: string, i: number) => (
+                    <li key={i} className="text-sm text-orange-900 flex items-start gap-2">
+                      <span className="text-orange-600 font-bold">•</span>
+                      <span>{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

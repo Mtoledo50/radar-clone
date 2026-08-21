@@ -331,6 +331,31 @@ HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ �
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
 
+[Sprint C2] 2026-08 — Serviços Extras com Preço Médio (Fase C — Mercado)
+✅ Added
+`company/domain/extra-services-benchmark.ts`: domínio puro (ADR-053) com
+catálogo curado v1 de 12 serviços extras do mercado contábil BR (BPO,
+IRPF, LGPD, CNDs, DP de terceiros, etc.) com preço médio (mensal/avulso/hora),
+unidade, keywords normalizadas e descrição.
+`CompanyService.getExtraServicesBenchmark` + rota
+`GET /company/extra-services-benchmark`: lê ServiceItem ativos do tenant,
+cruza com o catálogo v1 (keywords normalizadas), deriva coveragePct,
+potentialMonthly (soma dos MENSAIS não oferecidos) e insights.
+Seção "💼 Serviços Extras — Mercado" em Minha Empresa: KPIs (catálogo/
+oferecidos/💰 dinheiro na mesa/avulsos não oferecidos), cards por serviço
+com selo "Você vende"/"Não vende", preço médio de mercado vs. seu preço.
+🧠 Decisions
+ADR-053: catálogo v1 de preços médios (curadoria 2026) — sugestão, não
+promessa (filosofia ADR-031: humano decide preço final).
+`potentialMonthly` soma APENAS serviços mensais não oferecidos
+(determinístico — ADR-031).
+Zero tabelas novas; derivado em memória dos ServiceItem do tenant.
+📊 Resultados reais (homologação)
+Catálogo 12 serviços • 92% coverage (11/12) • 💰 R$ 120/mês na mesa
+(apenas Gestão de CNDs não oferecida) • todos avulsos/hora já oferecidos.
+🏁 Status
+HOMOLOGADO localmente.
+
 [Sprint C1] 2026-08 — Benchmark de Softwares (Fase C — Mercado)
 ✅ Added
 `company/domain/software-benchmark.ts`: domínio puro (ADR-052) com

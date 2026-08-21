@@ -3,22 +3,36 @@
 // =================================================================
 /**
  * =================================================================
- * CompanyController — Perfil da Empresa + Branding (Sprint A5)
+ * CompanyController — Perfil + Branding + Software Stack + Benchmark
  * =================================================================
- * Responsabilidades:
- * 1. Perfil da empresa (CompanyProfile) — onboarding/visão estratégica.
- *    Rotas: GET /company • POST /company • PUT /company/:id
- * 2. Branding white-label (Company) — cores/logo/rodapé das propostas.
- *    Rotas: GET /company/branding • PATCH /company/branding
+ * Rotas (todas exigem JWT; algumas só ADMIN):
+ *
+ * PERFIL (CompanyProfile — onboarding/visão):
+ *   GET    /company             → busca perfil
+ *   POST   /company             → cria perfil
+ *   PUT    /company/:id         → atualiza perfil (id ignorado p/ segurança)
+ *
+ * BRANDING (Company — white-label das propostas):
+ *   GET    /company/branding    → cores/logo/rodapé (com fallback)
+ *   PATCH  /company/branding    → atualiza (só ADMIN)
+ *
+ * SOFTWARE STACK (Company.softwareStack — Sprint C1):
+ *   GET    /company/software-stack      → lê stack salvo
+ *   PATCH  /company/software-stack      → salva stack (memória da UI)
+ *
+ * BENCHMARK (Sprint C1):
+ *   GET    /company/software-benchmark  → benchmark de mercado (ADR-052)
  *
  * 🛡️ Segurança:
- * - Todas as rotas exigem JWT (JwtAuthGuard).
- * - PATCH /company/branding é restrito a ADMIN (RolesGuard + @Roles).
- *   (mudar a identidade visual é ato de gestão, não de colaborador)
- * - Rotas de perfil usam req.user.id como fonte da verdade
- *   (usuário A nunca edita o perfil do usuário B).
+ *   - Todas as rotas exigem JWT (JwtAuthGuard).
+ *   - PATCH /company/branding é restrito a ADMIN (RolesGuard + @Roles).
+ *   - Rotas de perfil usam req.user.id como fonte da verdade
+ *     (usuário A nunca edita o perfil do usuário B).
  *
- * 🧠 ADRs: ADR-025 (RBAC @Roles) • ADR-043 (fallback de cores).
+ * 🧠 ADRs:
+ *   - ADR-025: RBAC com @Roles + 3 camadas.
+ *   - ADR-043: fallback de cores Conta Certa.
+ *   - ADR-052: benchmark híbrido (rede + catálogo v1).
  * =================================================================
  */
 import {
@@ -126,9 +140,45 @@ export class CompanyController {
     const updated = await this.service.updateBranding(user.companyId, dto);
     return { success: true, data: updated };
   }
+
   // =================================================================
-  // 🆕 SPRINT C1 — BENCHMARK DE SOFTWARES (rota PÚBLICA do tenant)
+  // 🆕 SPRINT C1 — SOFTWARE STACK (persistência real — Company)
   // =================================================================
+
+  /**
+   * GET /company/software-stack
+   * Lê o stack salvo no tenant (memória da UI).
+   * Fonte da verdade do Benchmark de Mercado.
+   */
+  @Get('software-stack')
+  @UseGuards(JwtAuthGuard)
+  async getSoftwareStack(@CurrentUser() user: UserPayload) {
+    const data = await this.service.getSoftwareStack(user.companyId);
+    return { success: true, data };
+  }
+
+  /**
+   * PATCH /company/software-stack
+   * Salva o stack no tenant (resolve o "sem memória de atualização").
+   * Qualquer usuário logado pode salvar (não é decisão de branding).
+   */
+  @Patch('software-stack')
+  @UseGuards(JwtAuthGuard)
+  async updateSoftwareStack(
+    @CurrentUser() user: UserPayload,
+    @Body() body: { softwareStack: string[] },
+  ) {
+    const data = await this.service.updateSoftwareStack(
+      user.companyId,
+      body?.softwareStack ?? [],
+    );
+    return { success: true, data, message: 'Stack de softwares atualizado!' };
+  }
+
+  // =================================================================
+  // 🆕 SPRINT C1 — BENCHMARK DE SOFTWARES (ADR-052)
+  // =================================================================
+
   /**
    * GET /company/software-benchmark
    * Benchmark do stack do tenant logado vs. rede + catálogo de mercado.
@@ -140,6 +190,21 @@ export class CompanyController {
   @UseGuards(JwtAuthGuard)
   async getSoftwareBenchmark(@CurrentUser() user: UserPayload) {
     const data = await this.service.getSoftwareBenchmark(user.companyId);
+    return { success: true, data };
+  }
+  // =================================================================
+  // 🆕 SPRINT C2 — BENCHMARK DE SERVIÇOS EXTRAS (ADR-053)
+  // =================================================================
+
+  /**
+   * GET /company/extra-services-benchmark
+   * Quanto você deixa na mesa de serviços extras que o mercado cobra.
+   * Cruza ServiceItem do tenant com catálogo curado v1.
+   */
+  @Get('extra-services-benchmark')
+  @UseGuards(JwtAuthGuard)
+  async getExtraServicesBenchmark(@CurrentUser() user: UserPayload) {
+    const data = await this.service.getExtraServicesBenchmark(user.companyId);
     return { success: true, data };
   }
 }
