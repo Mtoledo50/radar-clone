@@ -202,6 +202,12 @@ model Company {
   robotWorker       RobotWorker?
     // 📊 Relatórios Mensais (FD-2 final)
   monthlyReports  MonthlyReport[]
+    // 🆕 FD-8: cofre + obrigações legais
+  vaultItems   SecretVaultItem[]
+  legalDeadlines LegalDeadline[]
+    // 🆕 FD-5: instruções de cobrança CNAB
+  billingInstructions BillingInstruction[]
+  
   @@map("companies")
 }
 
@@ -2237,4 +2243,59 @@ model MentorshipChecklistItem {
   @@unique([companyId, title, source]) // idempotência do generate (ADR-057)
   @@index([companyId])
   @@map("mentorship_checklist_items")
+}
+
+// =================================================================
+// 🆕 FD-8 — COFRE DE LEGALIZAÇÃO (ADR-059) + FD-6 (cert A1)
+// =================================================================
+model SecretVaultItem {
+  id              String    @id @default(uuid())
+  companyId       String
+  label           String    // ex: "Senha eCAC", "Certificado A1"
+  category        String    // PASSWORD | CERT_A1 | PROCURACAO | ECAC
+  encryptedSecret String?   // AES-256-GCM (null p/ itens só-link)
+  url             String?   // p/ PROCURACAO/ECAC
+  expiresAt       DateTime? // alerta de vencimento (cert/procuração)
+  meta            Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("secret_vault_items")
+}
+
+model LegalDeadline {
+  id        String   @id @default(uuid())
+  companyId String
+  title     String   // ex: "DEFIS 2026", "Renovação eCAC"
+  dueDate   DateTime
+  status    String   @default("ABERTO") // ABERTO | CONCLUIDO
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, dueDate])
+  @@map("legal_deadlines")
+}
+// =================================================================
+// 🆕 FD-5 — COBRANÇA CNAB 240 + RÉGUA (ADR-061)
+// =================================================================
+model BillingInstruction {
+  id        String   @id @default(uuid())
+  companyId String
+  clientName String  // razão social do cliente
+  document  String?  // CNPJ/CPF
+  amount    Decimal  @db.Decimal(10,2)
+  dueDate   DateTime
+  ourNumber String   // nosso número sequencial
+  status    String   @default("PENDENTE") // PENDENTE|GERADA|ENVIADA|PAGA
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, status])
+  @@map("billing_instructions")
 }

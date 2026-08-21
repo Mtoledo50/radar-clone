@@ -36,6 +36,8 @@ import {
   Gauge,               // 🆕 Sprint C4: Score do Escritório
   Telescope,
   Trophy, // 🆕 Sprint D3
+  ShieldCheck, // 🆕 FD-8
+  
   
 } from 'lucide-react';
 // =================================================================
@@ -249,6 +251,21 @@ const allMenuItems: MenuItem[] = [
     title: 'Guias de Imposto',
     href: '/dashboard/funcionario-digital/guias',
     icon: Scale,
+    section: 'inteligencia',
+  },
+  
+    {
+    id: 'legalizacao',
+    title: 'Legalização & Cofre',
+    href: '/dashboard/funcionario-digital/legalizacao',
+    icon: ShieldCheck,
+    section: 'inteligencia',
+  },
+    {
+    id: 'cobranca',
+    title: 'Cobrança CNAB',
+    href: '/dashboard/funcionario-digital/cobranca',
+    icon: Landmark,
     section: 'inteligencia',
   },
   {

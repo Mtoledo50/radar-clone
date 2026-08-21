@@ -1,4 +1,8 @@
+// =================================================================
+// INÍCIO: backend/src/app.module.ts
+// =================================================================
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 
 // Core
 import { PrismaModule } from './prisma/prisma.module';
@@ -26,24 +30,32 @@ import { BiModule } from './bi/bi.module';
 // Strategic Planning
 import { PlanningModule } from './planning/planning.module';
 
-// Operational Management (NOVO)
+// Operational Management
 import { TasksModule } from './tasks/tasks.module';
 import { ProjectsModule } from './projects/projects.module';
 
-// Operational Fiscal (NOVO)
+// Operational Fiscal
 import { FiscalModule } from './fiscal/fiscal.module';
 import { BankingModule } from './banking/banking.module';
 import { ClientImportModule } from './client/client-import.module';
+
 // 🆕 Digital Employee (FD-1) — Aurora
 import { DigitalEmployeeModule } from './digital-employee/digital-employee.module';
-import { ScheduleModule } from '@nestjs/schedule';
-import { TaxModule } from './tax/tax.module';
+import { TaxModule } from './tax/tax.module'; // 🆕 FD-4
+
+// 🆕 Aurora FD-5 + FD-8 (batch atual)
+import { LegalModule } from './legal/legal.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
     // Core
     PrismaModule,
     AuthModule,
+
+    // 🆕 Aurora — Legalização & Cobrança (FD-5 + FD-8)
+    LegalModule,
+    BillingModule,
 
     // Tenant & Admin
     CompanyModule,
@@ -70,11 +82,12 @@ import { TaxModule } from './tax/tax.module';
     // Operational Management
     TasksModule,
     ProjectsModule,
-    
+
+    // Fiscal & Banking
     FiscalModule,
     BankingModule,
     ClientImportModule,
-    
+
     // 🆕 Digital Employee (FD-1) — Aurora
     ScheduleModule.forRoot(),
     DigitalEmployeeModule,
@@ -82,3 +95,6 @@ import { TaxModule } from './tax/tax.module';
   ],
 })
 export class AppModule {}
+// =================================================================
+// FIM: backend/src/app.module.ts
+// =================================================================

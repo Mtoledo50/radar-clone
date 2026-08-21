@@ -328,6 +328,35 @@ fechamento) validado; crons ativos em produção controlada.
 
 ### 🏁 Status
 
+[Sprints FD-5/6/8] 2026-08-21 — Aurora: Cofre Legal, Certificado A1, EFD e CNAB
+✅ Added
+FD-8: cofre AES-256-GCM (`common/crypto/vault.ts`, ADR-059) + LegalModule:
+senhas/procurações/eCAC cifrados; listagem SEM o segredo (só `hasSecret`);
+reveal só ADMIN (RolesGuard); obrigações legais com alerta de prazo
+(vencido/≤30d/OK); upload de Certificado A1 (.pfx + senha cifrados).
+FD-6: geração da EFD-Contribuições v1 (bases PIS/COFINS da auditoria F6 →
+txt M200/M600, ADR-060) com download direto no frontend.
+FD-5: model `BillingInstruction` + régua de cobrança
+(PENDENTE→GERADA→ENVIADA→PAGA, VENCIDA derivada) + gerador CNAB 240 v1
+(`billing/domain/cnab240.ts`, domínio puro, ADR-061) + página
+`/dashboard/funcionario-digital/cobranca` com KPIs, tabela e download.
+🧠 Decisions
+ADR-059: cofre local c/ chave em env (reveal auditável); ADR-060: EFD v1
+sem filtro de competência; ADR-061: CNAB v1 c/ entradas explícitas
+(layout bancário homologa no v2).
+🏁 Status
+HOMOLOGADO localmente. Aurora: FD-1→FD-6 + FD-8 ✅.
+
+$login = Invoke-RestMethod -Uri "http://localhost:3001/auth/login" -Method POST -ContentType "application/json" -Body '{"email":"admin@demo.com","password":"123456"}'
+$headers = @{ Authorization = "Bearer $($login.token)" }
+
+# FD-8: cofre
+Invoke-RestMethod -Uri "http://localhost:3001/digital-employee/legal/vault" -Method POST -Headers $headers -ContentType "application/json" -Body '{"label":"Senha eCAC","category":"ECAC","secret":"ultra-secreta"}' | ConvertTo-Json
+
+# FD-5: cria 2 cobranças e gera remessa
+Invoke-RestMethod -Uri "http://localhost:3001/digital-employee/billing" -Method POST -Headers $headers -ContentType "application/json" -Body '{"clientName":"Academia do Renan","document":"12345678000199","amount":660,"dueDate":"2026-09-05"}' | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3001/digital-employee/billing/cnab" -Headers $headers | ConvertTo-Json -Depth 4
+
 [Sprints C1–D3] 2026-08 — Conta Certa 2.0: FASES C (Mercado) e D (Mentoria) COMPLETAS 🏁
 ✅ Added
 C1: Benchmark de softwares (ADR-052 híbrido rede+catálogo) + persistência
