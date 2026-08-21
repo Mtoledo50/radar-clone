@@ -34,6 +34,7 @@ import {
   Brain,
   Bot,               // 🆕 FD-1: Funcionário Digital (Aurora)
   Gauge,               // 🆕 Sprint C4: Score do Escritório
+  Telescope,
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
@@ -288,6 +289,13 @@ const allMenuItems: MenuItem[] = [
     title: 'Score do Escritório',
     href: '/dashboard/score',
     icon: Gauge,
+    section: 'inteligencia',
+  },
+    {
+    id: 'mentoria',
+    title: 'Visão de Futuro',
+    href: '/dashboard/mentoria',
+    icon: Telescope,
     section: 'inteligencia',
   },
   {

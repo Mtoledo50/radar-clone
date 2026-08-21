@@ -327,9 +327,29 @@ fechamento) validado; crons ativos em produção controlada.
   sempre o **delta**, nunca substituição total.
 
 ### 🏁 Status
+
+[Sprint D1] 2026-08 — Visão de Futuro (Fase D — Mentoria)
+✅ Added
+`company/domain/mentorship-plan.ts`: domínio puro (ADR-056) que deriva o
+plano de mentoria: progresso das metas (clientes/equipe), 2 focos =
+dimensões mais fracas do Score (<70) com catálogo determinístico de
+3 ações por dimensão, e frase de "próximo marco".
+`ScoreService.getMentoria` + `GET /company/mentoria`: agrega CompanyProfile
+(visão/desafio/compromisso/metas) + Score (C4) e roda o domínio.
+Página `/dashboard/mentoria`: hero teal com o norte da empresa (ou CTA
+p/ criar visão), barras de progresso das metas, cards laranja de focos
+com ações e faixa de próximo marco. Menu "Visão de Futuro" (Telescope).
+🧠 Decisions
+ADR-056: mentoria determinística derivada do Score — zero IA generativa;
+catálogo de ações referencia features existentes (A2, B4, B5, C2, C3).
+🏁 Status
+HOMOLOGADO localmente (focos: Crescimento 0/100 + Gestão 40/100).
+
 HOMOLOGADO em banco local (5432): login JWT ✅ • lazy create da Aurora ✅ •
 run MANUAL com métricas (3ms) ✅ • auditoria `SKILL_FINISHED:RECONCILIATION` ✅ •
 dashboard renderizando dados reais ✅ • menu lateral integrado ✅.
+
+
 
 [Sprint C4] 2026-08 — Score 0–100 do Escritório (FASE C COMPLETA 🏁)
 ✅ Added

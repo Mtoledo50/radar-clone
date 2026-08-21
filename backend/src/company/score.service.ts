@@ -12,6 +12,7 @@ import { computeOfficeScore, ScoreInputs } from './domain/office-score';
 import { CustomIndicatorService } from './custom-indicator.service';
 // Reaproveita o domínio puro da B5 (cargos por setor)
 import { analyzeSectorPositions } from '../employee/domain/position-benchmark';
+import { computeMentorshipPlan } from './domain/mentorship-plan'; // 🆕 Sprint D1
 
 // Mini-benchmark de setores (mesmas keywords da B2 — cópia leve p/ score v1)
 const SECTOR_KEYWORDS: Array<{ name: string; keywords: string[] }> = [
@@ -145,6 +146,35 @@ export class ScoreService {
     ];
     const covered = cats.filter((kws) => names.some((n) => kws.some((k) => n.includes(k)))).length;
     return (covered / cats.length) * 100;
+  }
+  // =================================================================
+  // 🆕 SPRINT D1 — MENTORIA: VISÃO DE FUTURO + PLANO (ADR-056)
+  // =================================================================
+  /**
+   * 🧭 GET /company/mentoria
+   * Agrega Visão de Futuro (CompanyProfile) + Score (C4) e deriva
+   * progresso de metas + focos da mentoria com ações determinísticas.
+   */
+  async getMentoria(companyId: string) {
+    const admin = await this.prisma.user.findFirst({
+      where: { companyId, role: 'ADMIN' },
+      select: { id: true },
+    });
+    const profile = admin
+      ? await this.prisma.companyProfile.findUnique({ where: { userId: admin.id } })
+      : null;
+    const score = await this.getScore(companyId);
+
+    return computeMentorshipPlan({
+      visaoEmpresa: profile?.visaoEmpresa ?? null,
+      maiorDesafio: profile?.maiorDesafio ?? null,
+      compromisso: profile?.compromisso ?? null,
+      clientesHoje: profile?.clientesHoje ?? 0,
+      clientesAno: profile?.clientesAno ?? 0,
+      funcionariosHoje: profile?.funcionariosHoje ?? 0,
+      funcionariosAno: profile?.funcionariosAno ?? 0,
+      dimensions: score.dimensions.map((d) => ({ key: d.key, label: d.label, score: d.score })),
+    });
   }
 }
 // =================================================================
