@@ -453,6 +453,11 @@ Pendências:
 ---
 
 ## 9. Próximo passo imediato
+
+Aurora: FD-1→FD-6 ✅ + FD-8 ✅ (cofre/cert/EFD/CNAB) • FD-7/FD-9 backlog pós-launch.
+IMEDIATO: Fase E (UX) — E1 command palette • E2 "onde parou" • E3 notificações.
+DEPOIS: Sprints 32–34 (produção em nuvem).
+
 9) STATUS ATUAL
 Ordem decidida pelo Marcos: 0) docs ✅ → 1) Aurora FD-5/6/8 → 2) Fase E + 32–34 por último.
 ADRs novos: 052 (benchmark híbrido) • 053 (catálogo serviços) • 054 (parser sem eval) •
