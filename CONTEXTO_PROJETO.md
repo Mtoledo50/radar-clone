@@ -147,6 +147,14 @@ ADR-042 Conciliação Banco×NF-e apenas em DÉBITOS bancários c/ NF-e de ENTRA
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
 ─── STATUS ATUAL E PRÓXIMOS PASSOS ───
+Fase D (Mentoria): D1 ✅ Visão de Futuro • D2 checklist/Meu Plano (EM DESENVOLVIMENTO) •
+D3 ranking níveis.
+
+Sprint D1 HOMOLOGADA: página /dashboard/mentoria (norte + metas + focos
+derivados do Score via ADR-056) + menu Telescope.
+IMEDIATO: Sprint D2 = Checklist "Meu Plano" (itens persistidos + % execução
++ importação das ações dos focos com 1 clique).
+
 
 Fase A (Comercial): A1–A7 ✅ — FASE A COMPLETA.
 Fase B (Pessoas): B1–B5 ✅ — FASE B COMPLETA.

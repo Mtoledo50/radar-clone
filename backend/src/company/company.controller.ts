@@ -224,6 +224,16 @@ export class CompanyController {
     const data = await this.scoreService.getScore(user.companyId);
     return { success: true, data };
   }
+  // =================================================================
+  // 🆕 SPRINT D1 — MENTORIA: VISÃO DE FUTURO (ADR-056)
+  // =================================================================
+  /** GET /company/mentoria — visão + metas + focos derivados do Score. */
+  @Get('mentoria')
+  @UseGuards(JwtAuthGuard)
+  async getMentoria(@CurrentUser() user: UserPayload) {
+    const data = await this.scoreService.getMentoria(user.companyId);
+    return { success: true, data };
+  }
 }
 // =================================================================
 // FIM: backend/src/company/company.controller.ts
