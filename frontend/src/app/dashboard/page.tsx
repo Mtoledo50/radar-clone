@@ -270,34 +270,40 @@ export default function DashboardPage() {
   // api.get(...).catch(() => null) → retorna null se falhar
   // → UI se adapta graciosamente a dados ausentes
   // ---------------------------------------------------------------
+  // ---------------------------------------------------------------
+  // EFEITO COLATERAL: BUSCA DE DADOS
+  // ---------------------------------------------------------------
   useEffect(() => {
     async function loadData() {
       try {
-        // Ativa loading e limpa erros anteriores
         setLoading(true);
         setError(null);
 
-        // Promise.all executa em paralelo
-        // .catch(() => null) transforma erros em null (fallback gracioso)
-        const [companyRes, employeesRes] = await Promise.all([
-          api.get('/company').catch(() => null),
-          api.get('/employees/metrics').catch(() => null),
-          // 🆕 PRÓXIMA ITERAÇÃO: Adicionar módulos novos aqui
-          // api.get('/projects/metrics').catch(() => null),
-          // api.get('/tasks/metrics').catch(() => null),
-        ]);
+        // Busca as métricas reais do banco de dados
+        const metricsRes = await api.get('/dashboard/metrics').catch(() => null);
+        const employeesRes = await api.get('/employees/metrics').catch(() => null);
 
-        // Extrai dados da resposta com fallback seguro
-        // Estrutura esperada: { data: { data: {...} } }
-        setCompanyData(companyRes?.data?.data || null);
-        setEmployeeMetrics(employeesRes?.data?.data || null);
+        const metrics = metricsRes?.data?.data || {};
+        const empMetrics = employeesRes?.data?.data || {};
+
+        // Popula os dados com os valores REAIS do banco
+        setCompanyData({
+          clientesHoje: metrics.activeClients || 0,
+          clientesAno: metrics.totalClients || 0,
+        });
+        
+        setEmployeeMetrics({
+          totalActive: metrics.totalEmployees || 0,
+          totalEmployees: metrics.totalEmployees || 0,
+          admissionsThisMonth: metrics.admissionsThisMonth || empMetrics.admissionsThisMonth || 0,
+          dismissalsThisMonth: empMetrics.dismissalsThisMonth || 0,
+          turnoverRate: empMetrics.turnoverRate || 0,
+        });
+
       } catch (err) {
-        // Este catch só é acionado se HOUVER erro de código (não HTTP)
-        // Erros HTTP (404, 500) são tratados pelos .catch() individuais
         console.error('Erro ao carregar dashboard:', err);
         setError('Não foi possível carregar os dados.');
       } finally {
-        // finally SEMPRE executa, independente de sucesso/falha
         setLoading(false);
       }
     }
