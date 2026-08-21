@@ -6,6 +6,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import PageHelp from '@/components/common/PageHelp';
 import {
   LayoutDashboard,
   Building2,
@@ -581,6 +582,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <main className="flex-1 p-4 lg:p-8 overflow-x-hidden transition-all duration-300">
         <div className="lg:hidden h-12" />
+        
+        {/* 🆕 Botão de ajuda universal */}
+        <div className="flex justify-end mb-4">
+          <PageHelp pathname={pathname} />
+        </div>
+        
         {children}
       </main>
     </div>

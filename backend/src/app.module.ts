@@ -3,6 +3,7 @@
 // =================================================================
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 // Core
 import { PrismaModule } from './prisma/prisma.module';
@@ -52,6 +53,7 @@ import { BillingModule } from './billing/billing.module';
     // Core
     PrismaModule,
     AuthModule,
+    DashboardModule, 
 
     // 🆕 Aurora — Legalização & Cobrança (FD-5 + FD-8)
     LegalModule,
