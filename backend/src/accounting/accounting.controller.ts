@@ -1,25 +1,30 @@
-// =================================================================
-// INÍCIO: accounting.controller.ts
+﻿// =================================================================
+// INÃCIO: backend/src/accounting/accounting.controller.ts
 // =================================================================
 /**
  * AccountingController
- * Gerencia os endpoints REST para contas contábeis, lançamentos 
- * e exportação de arquivos para o sistema SCI.
+ * Gerencia os endpoints REST para contas contÃ¡beis, lanÃ§amentos
+ * e exportaÃ§Ã£o de arquivos para o sistema SCI.
  * 
- * 🆕 Sprint 25.2: endpoint promote-from-banking
+ * ðŸ†• Sprint 25.2: endpoint promote-from-banking
+ * ðŸ†• ImportaÃ§Ã£o: endpoint para upload de CSV de plano de contas
  */
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
   Query,
-  UseGuards, 
-  Request 
+  UseGuards,
+  Request,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AccountingService } from './accounting.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -29,7 +34,7 @@ export class AccountingController {
   constructor(private readonly service: AccountingService) {}
 
   // =================================================================
-  // ENDPOINTS DE CONTAS CONTÁBEIS (CRUD)
+  // ENDPOINTS DE CONTAS CONTÃBEIS (CRUD)
   // =================================================================
 
   @Get('accounts')
@@ -65,7 +70,7 @@ export class AccountingController {
   }
 
   // =================================================================
-  // CONCILIAÇÃO DE LANÇAMENTOS
+  // CONCILIAÃ‡ÃƒO DE LANÃ‡AMENTOS
   // =================================================================
 
   @Put('entries/:id/conciliate')
@@ -79,7 +84,7 @@ export class AccountingController {
   }
 
   // =================================================================
-  // ENDPOINTS DE LANÇAMENTOS CONTÁBEIS (CRUD)
+  // ENDPOINTS DE LANÃ‡AMENTOS CONTÃBEIS (CRUD)
   // =================================================================
 
   @Get('entries')
@@ -113,7 +118,7 @@ export class AccountingController {
   }
 
   // =================================================================
-  // EXPORTAÇÃO PARA SCI
+  // EXPORTAÃ‡ÃƒO PARA SCI
   // =================================================================
 
   @Get('export-sci')
@@ -136,16 +141,9 @@ export class AccountingController {
   }
 
   // =================================================================
-  // 🆕 SPRINT 25.2: PROMOVER TRANSAÇÕES BANCÁRIAS P/ CONTÁBIL
+  // ðŸ†• SPRINT 25.2: PROMOVER TRANSAÃ‡Ã•ES BANCÃRIAS P/ CONTÃBIL
   // =================================================================
-  /**
-   * POST /accounting/promote-from-banking
-   * Body: { statementId, clientId?, accountMapping, bankAccountId }
-   * 
-   * Transforma todas as transações de um mês FECHADO em lançamentos
-   * contábeis de partida dobrada, usando o mapeamento categoria → conta.
-   * Idempotente: não duplica lançamentos já promovidos.
-   */
+
   @Post('promote-from-banking')
   async promoteFromBanking(@Request() req, @Body() body: any) {
     const result = await this.service.promoteFromBanking(req.user.companyId, {
@@ -154,13 +152,13 @@ export class AccountingController {
       accountMapping: body.accountMapping || {},
       bankAccountId: body.bankAccountId,
     });
-
     return { success: true, data: result };
   }
-    /**
-   * 🆕 Sprint 26: DRE oficial do cliente + confronto bancário
-   * GET /accounting/dre?clientId=X&year=2026&month=7
-   */
+
+  // =================================================================
+  // ðŸ†• SPRINT 26: DRE OFICIAL DO CLIENTE + CONFRONTO BANCÃRIO
+  // =================================================================
+
   @Get('dre')
   async getClientDRE(
     @Request() req,
@@ -179,7 +177,9 @@ export class AccountingController {
       ),
     };
   }
+
+
 }
 // =================================================================
-// FIM: accounting.controller.ts
+// FIM: backend/src/accounting/accounting.controller.ts
 // =================================================================

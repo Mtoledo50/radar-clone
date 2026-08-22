@@ -766,7 +766,8 @@ model AccountingEntry {
 
 model AccountingAccount {
   id          String          @id @default(uuid())
-  companyId   String?         /// NULL = conta global/padrão do sistema
+  companyId   String?         /// NULL = conta global/padrão do sistema (template)
+  planName    String?         @default("Padrão") /// Nome do plano (ex: "Padrão", "SCI 90113")
   code        String   
   name        String   
   type        AccountType   
@@ -775,7 +776,7 @@ model AccountingAccount {
   parentId    String?
   isActive    Boolean         @default(true)
   sciCode     String?  
-  reducedCode Int?   // ✅ código reduzido SCI p/ match + exportação
+  reducedCode Int?   
 
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -786,7 +787,8 @@ model AccountingAccount {
   debitEntries  AccountingEntry[] @relation("DebitEntries")
   creditEntries AccountingEntry[] @relation("CreditEntries")
    
-  @@unique([companyId, code])  // 🔥 NOVA CONSTRAINT: Garante unicidade por empresa
+  // 🔥 ATUALIZADO: Unicidade por empresa + plano + código
+  @@unique([companyId, planName, code])
   @@index([companyId])
   @@index([code])
   @@map("accounting_accounts")
@@ -2299,3 +2301,4 @@ model BillingInstruction {
   @@index([companyId, status])
   @@map("billing_instructions")
 }
+

@@ -1,13 +1,14 @@
-// =================================================================
-// INÍCIO: accounting.service.ts
+﻿// =================================================================
+// INÃCIO: backend/src/accounting/accounting.service.ts
 // =================================================================
 /**
  * AccountingService
- * Gerencia toda a lógica de contabilidade: contas, lançamentos,
- * conciliação, exportação SCI e promoção bancária.
+ * Gerencia toda a lÃ³gica de contabilidade: contas, lanÃ§amentos,
+ * conciliaÃ§Ã£o, exportaÃ§Ã£o SCI e promoÃ§Ã£o bancÃ¡ria.
  * 
- * 🆕 Sprint 25.2: ponte Bancário → Contábil com partida dobrada
- * 🆕 Sprint 25.2.1: inferência automática de type + nature
+ * ðŸ†• Sprint 25.2: ponte BancÃ¡rio â†’ ContÃ¡bil com partida dobrada
+ * ðŸ†• Sprint 25.2.1: inferÃªncia automÃ¡tica de type + nature
+ * ðŸ†• ImportaÃ§Ã£o: ImportaÃ§Ã£o em massa de plano de contas (SCI 90113)
  */
 import {
   Injectable,
@@ -21,12 +22,9 @@ export class AccountingService {
   constructor(private prisma: PrismaService) {}
 
   // =================================================================
-  // 🏦 CONTAS CONTÁBEIS (CRUD)
+  // ðŸ¦ CONTAS CONTÃBEIS (CRUD)
   // =================================================================
 
-  /**
-   * Lista todas as contas ativas (globais + específicas da empresa)
-   */
   async getAccounts(companyId: string) {
     return this.prisma.accountingAccount.findMany({
       where: {
@@ -37,29 +35,6 @@ export class AccountingService {
     });
   }
 
-  /**
-   * 🆕 Sprint 25.2.1: cria conta contábil com inferência automática de
-   * `type` (AccountType) e `nature` (AccountNature) pelo prefixo do código.
-   *
-   * Enum AccountType:   ATIVO | PASSIVO | PATRIMONIO_LIQUIDO | RECEITA | DESPESA
-   * Enum AccountNature: DEVEDORA | CREDORA
-   *
-   * Regra contábil:
-   *   ATIVO + DESPESA          → DEVEDORA (saldo cresce no débito)
-   *   PASSIVO + PL + RECEITA   → CREDORA  (saldo cresce no crédito)
-   */
-    /**
-   * 🆕 Sprint 25.2.1: cria conta contábil com inferência automática de
-   * `type` e `nature` + IDEMPOTÊNCIA (upsert por companyId+code).
-   *
-   * Comportamento:
-   *   - Se a conta já existe → retorna a existente (sem erro)
-   *   - Se não existe → cria com type/nature inferidos pelo prefixo
-   *
-   * Regra contábil:
-   *   ATIVO + DESPESA          → DEVEDORA
-   *   PASSIVO + PL + RECEITA   → CREDORA
-   */
   async createAccount(companyId: string, data: any) {
     const inferType = (code: string): string => {
       const prefix = (code || '').replace(/\D/g, '').charAt(0);
@@ -80,9 +55,11 @@ export class AccountingService {
 
     const resolvedType = data.type || inferType(data.code);
     const resolvedNature = data.nature || inferNature(resolvedType);
+    const planName = data.planName || 'PadrÃ£o';
 
     const payload = {
       companyId,
+      planName,
       code: data.code,
       name: data.name,
       type: resolvedType,
@@ -92,13 +69,11 @@ export class AccountingService {
       ...(data.parentId ? { parentId: data.parentId } : {}),
     };
 
-    // 🆕 UPSERT idempotente: cria se não existe, retorna se já existe
     return this.prisma.accountingAccount.upsert({
       where: {
-        companyId_code: { companyId, code: data.code },
+        companyId_planName_code: { companyId, planName, code: data.code },
       },
       update: {
-        // Se já existe, só atualiza o nome (permite renomear sem perder vínculo)
         name: payload.name,
         type: payload.type as any,
         nature: payload.nature as any,
@@ -107,9 +82,6 @@ export class AccountingService {
     });
   }
 
-  /**
-   * Atualiza os dados de uma conta contábil
-   */
   async updateAccount(id: string, data: any) {
     return this.prisma.accountingAccount.update({
       where: { id },
@@ -117,9 +89,6 @@ export class AccountingService {
     });
   }
 
-  /**
-   * Soft delete: marca a conta como inativa (não exclui do banco)
-   */
   async deleteAccount(id: string) {
     return this.prisma.accountingAccount.update({
       where: { id },
@@ -128,12 +97,9 @@ export class AccountingService {
   }
 
   // =================================================================
-  // 📝 LANÇAMENTOS CONTÁBEIS (CRUD)
+  // ðŸ“ LANÃ‡AMENTOS CONTÃBEIS (CRUD)
   // =================================================================
 
-  /**
-   * Lista todos os lançamentos da empresa, incluindo nomes das contas
-   */
   async getEntries(companyId: string) {
     return this.prisma.accountingEntry.findMany({
       where: { companyId },
@@ -145,9 +111,6 @@ export class AccountingService {
     });
   }
 
-  /**
-   * Cria um lançamento contábil manual
-   */
   async createEntry(companyId: string, data: any) {
     return this.prisma.accountingEntry.create({
       data: {
@@ -173,18 +136,15 @@ export class AccountingService {
     });
   }
 
-  /**
-   * Atualiza lançamento existente (preserva campos não enviados)
-   */
   async updateEntry(id: string, companyId: string, data: any) {
     const entry = await this.prisma.accountingEntry.findFirst({
       where: { id, companyId },
     });
-    if (!entry) throw new NotFoundException('Lançamento não encontrado');
+    if (!entry) throw new NotFoundException('LanÃ§amento nÃ£o encontrado');
 
     const entryDate = data.entryDate ? new Date(data.entryDate) : entry.entryDate;
     if (isNaN(entryDate.getTime())) {
-      throw new BadRequestException('Data inválida');
+      throw new BadRequestException('Data invÃ¡lida');
     }
 
     return this.prisma.accountingEntry.update({
@@ -210,14 +170,11 @@ export class AccountingService {
     });
   }
 
-  /**
-   * Concilia um lançamento: atualiza contas e marca status como CONCILIADO
-   */
   async conciliateEntry(id: string, companyId: string, data: any) {
     const entry = await this.prisma.accountingEntry.findFirst({
       where: { id, companyId },
     });
-    if (!entry) throw new NotFoundException('Lançamento não encontrado');
+    if (!entry) throw new NotFoundException('LanÃ§amento nÃ£o encontrado');
 
     return this.prisma.accountingEntry.update({
       where: { id },
@@ -233,25 +190,18 @@ export class AccountingService {
     });
   }
 
-  /**
-   * Exclui permanentemente um lançamento
-   */
   async deleteEntry(id: string, companyId: string) {
     const entry = await this.prisma.accountingEntry.findFirst({
       where: { id, companyId },
     });
-    if (!entry) throw new NotFoundException('Lançamento não encontrado');
+    if (!entry) throw new NotFoundException('LanÃ§amento nÃ£o encontrado');
     return this.prisma.accountingEntry.delete({ where: { id } });
   }
 
   // =================================================================
-  // 📤 EXPORTAÇÃO SCI
+  // ðŸ“¤ EXPORTAÃ‡ÃƒO SCI
   // =================================================================
 
-  /**
-   * Gera arquivo de texto formatado para importação no SCI.
-   * Aceita filtros opcionais de ano/mês.
-   */
   async exportToSCI(companyId: string, year?: number, month?: number) {
     const where: any = { companyId, status: 'CONCILIADO' };
     if (year && month) {
@@ -273,7 +223,7 @@ export class AccountingService {
       const debitVal = Number(entry.debitValue);
       const creditVal = Number(entry.creditValue);
       const value = (debitVal > 0 ? debitVal : creditVal).toFixed(2);
-      const description = (entry.description || 'Lançamento Importado')
+      const description = (entry.description || 'LanÃ§amento Importado')
         .substring(0, 100)
         .replace(/,/g, ' ');
       return `${date},${debitCode},${creditCode},${value},,${description},,,,`;
@@ -283,52 +233,36 @@ export class AccountingService {
   }
 
   // =================================================================
-  // 🆕 SPRINT 25.2: PROMOVER TRANSAÇÕES BANCÁRIAS → CONTÁBIL
+  // ðŸ†• SPRINT 25.2: PROMOVER TRANSAÃ‡Ã•ES BANCÃRIAS â†’ CONTÃBIL
   // =================================================================
-  /**
-   * Transforma transações bancárias de um mês FECHADO em lançamentos
-   * contábeis de partida dobrada.
-   *
-   * 🛡️ Regras:
-   *   - Idempotente: ignora transações já promovidas (sem duplicar)
-   *   - Rastreável: `bankTransactionId` vincula ao extrato original
-   *   - Partida dobrada automática:
-   *       • Crédito bancário → D Banco / C Receita
-   *       • Débito bancário  → D Despesa / C Banco
-   *   - Só aceita meses com status = FECHADO
-   */
+
   async promoteFromBanking(
     companyId: string,
     payload: {
       statementId: string;
       clientId?: string | null;
-      accountMapping: Record<string, string>; // natureza → código contábil
-      bankAccountId: string; // ID da conta bancária (Caixa)
+      accountMapping: Record<string, string>;
+      bankAccountId: string;
     },
   ) {
-    // 1. Valida o fechamento
     const statement = await this.prisma.bankStatement.findFirst({
       where: { id: payload.statementId, companyId },
     });
-    if (!statement) throw new NotFoundException('Fechamento não encontrado.');
+    if (!statement) throw new NotFoundException('Fechamento nÃ£o encontrado.');
     if (statement.status !== 'FECHADO') {
       throw new BadRequestException('Apenas meses FECHADOS podem ser promovidos.');
     }
 
-    // 2. Busca todas as transações do mês
     const transactions = await this.prisma.bankTransaction.findMany({
       where: { statementId: payload.statementId },
     });
 
-    // 3. Resolve categoria → grupo DRE
     const categories = await this.prisma.bankCategory.findMany({
       where: { companyId, clientId: statement.clientId },
     });
     const catMap = new Map(categories.map((c) => [c.label, c.group]));
 
-    // 4. Busca todas as contas contábeis necessárias pelo código
-      const accountCodes = [...new Set(Object.values(payload.accountMapping))];
-
+    const accountCodes = [...new Set(Object.values(payload.accountMapping))];
     const accounts = await this.prisma.accountingAccount.findMany({
       where: {
         OR: [{ companyId: null }, { companyId }],
@@ -338,7 +272,6 @@ export class AccountingService {
     });
     const accountByCode = new Map(accounts.map((a) => [a.code, a.id]));
 
-    // 🆕 26.1: conta bancária chega como ID (combobox) — resolve por ID ou código
     const bankAccount = await this.prisma.accountingAccount.findFirst({
       where: {
         isActive: true,
@@ -351,11 +284,10 @@ export class AccountingService {
       },
     });
     if (!bankAccount) {
-      throw new BadRequestException('Conta bancária não encontrada no Plano de Contas.');
+      throw new BadRequestException('Conta bancÃ¡ria nÃ£o encontrada no Plano de Contas.');
     }
     const bankAccountId = bankAccount.id;
 
-    // 5. Identifica transações já promovidas (idempotência)
     const alreadyPromoted = await this.prisma.accountingEntry.findMany({
       where: {
         companyId,
@@ -365,27 +297,23 @@ export class AccountingService {
     });
     const promotedIds = new Set(alreadyPromoted.map((e) => e.bankTransactionId!));
 
-    // 6. Processa cada transação em uma transação ACID
     let promoted = 0;
     let skipped = 0;
     let failed = 0;
 
     await this.prisma.$transaction(async (tx) => {
       for (const t of transactions) {
-        // Já promovida anteriormente
         if (promotedIds.has(t.id)) {
           skipped++;
           continue;
         }
 
-        // Resolve grupo da categoria
         const group = catMap.get(t.nature) || 'PENDENTE';
         if (group === 'PENDENTE') {
           failed++;
           continue;
         }
 
-        // Resolve conta contábil mapeada
         const accountCode = payload.accountMapping[t.nature];
         if (!accountCode) {
           failed++;
@@ -397,9 +325,6 @@ export class AccountingService {
           continue;
         }
 
-              // bankAccountId já resolvido acima (por ID ou código)
-
-        // Partida dobrada
         const amount = Number(t.amount);
         const isCredit = amount > 0;
         const debitAccountId = isCredit ? bankAccountId : mappedAccountId;
@@ -430,25 +355,15 @@ export class AccountingService {
 
     return { promoted, skipped, failed };
   }
-    // =================================================================
-  // 🆕 SPRINT 26: DRE OFICIAL DO CLIENTE (lançamentos promovidos)
+
   // =================================================================
-  /**
-   * Agrega AccountingEntry do cliente no mês por tipo de conta:
-   *   • Receitas  = contas tipo RECEITA creditadas
-   *   • Despesas  = contas tipo DESPESA debitadas
-   * E retorna o confronto com o DRE bancário (gerencial) do mesmo mês.
-   */
-  async getClientDRE(
-    companyId: string,
-    clientId: string,
-    year: number,
-    month: number,
-  ) {
+  // ðŸ†• SPRINT 26: DRE OFICIAL DO CLIENTE
+  // =================================================================
+
+  async getClientDRE(companyId: string, clientId: string, year: number, month: number) {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0, 23, 59, 59);
 
-    // 1. Lançamentos contábeis do cliente no mês
     const entries = await this.prisma.accountingEntry.findMany({
       where: { companyId, clientId, entryDate: { gte: start, lte: end } },
       include: {
@@ -457,12 +372,9 @@ export class AccountingService {
       },
     });
 
-      const recMap = new Map<string, { code: string; name: string; total: number }>();
+    const recMap = new Map<string, { code: string; name: string; total: number }>();
     const despMap = new Map<string, { code: string; name: string; total: number }>();
 
-    // 🆕 26.1: lançamentos promovidos classificam pelo SINAL da transação
-    // bancária original (crédito → receita / débito → despesa), independente
-    // da convenção do plano de contas. Manuais caem no tipo da conta.
     const bankIds = entries.map((e) => e.bankTransactionId).filter(Boolean) as string[];
     const bankTxs = bankIds.length
       ? await this.prisma.bankTransaction.findMany({
@@ -508,13 +420,13 @@ export class AccountingService {
     const totalReceitas = receitas.reduce((s, r) => s + r.total, 0);
     const totalDespesas = despesas.reduce((s, d) => s + d.total, 0);
 
-    // 2. Confronto com o DRE BANCÁRIO (gerencial) do mesmo mês
     const statements = await this.prisma.bankStatement.findMany({
       where: { companyId, clientId, year, month },
     });
     let bankResultado = 0;
     let bankReceita = 0;
     let bankDespesa = 0;
+    
     if (statements.length > 0) {
       const txs = await this.prisma.bankTransaction.findMany({
         where: { statementId: { in: statements.map((s) => s.id) } },
@@ -522,8 +434,8 @@ export class AccountingService {
       const cats = await this.prisma.bankCategory.findMany({
         where: { companyId, clientId },
       });
-      const groupOf = (nature: string) =>
-        cats.find((c) => c.label === nature)?.group || 'PENDENTE';
+      const groupOf = (nature: string) => cats.find((c) => c.label === nature)?.group || 'PENDENTE';
+      
       for (const t of txs) {
         const g = groupOf(t.nature);
         const v = Number(t.amount);
@@ -552,7 +464,8 @@ export class AccountingService {
       },
     };
   }
+
 }
 // =================================================================
-// FIM: accounting.service.ts
+// FIM: backend/src/accounting/accounting.service.ts
 // =================================================================
