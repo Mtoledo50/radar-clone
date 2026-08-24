@@ -7,11 +7,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
+import SmartImportTab from '@/components/accounting/SmartImportTab';
 import {
   Users, Plus, Search, Edit2, Trash2, Eye, Download,
   Loader2, X, Save, FileText, Briefcase, Mail, Phone,
   BookOpen, UploadCloud, BarChart3, Zap, CheckCircle,
   CheckSquare, Square, AlertTriangle, Clock, FolderOpen
+  
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS
@@ -764,8 +766,7 @@ export default function LancamentosPage() {
         )}
 
         {/* ================= ABA 3: IMPORTAR EXTRATO ================= */}
-        {activeTab === 'importar' && <ImportTab onImportSuccess={loadData} accounts={accounts} />}
-
+{activeTab === 'importar' && <SmartImportTab onImportSuccess={loadData} accounts={accounts} />}
         {/* ================= ABA 4: EXTRATOS CONCILIADOS ================= */}
         {activeTab === 'extratos' && (
           <div className="space-y-4">

@@ -351,10 +351,18 @@ Objetivo: integração leve com folha existente. Não construir folha do zero.
 
 ## 7. Páginas principais atuais
 7) PLANO DE EXPANSÃO "CONTA CERTA 2.0"
-Fase A ✅ (A1–A7) • Fase B ✅ (B1–B5) • Fase C ✅ (C1–C4) • Fase D ✅ (D1–D3).
-Fase E (UX): E1 command palette • E2 "onde parou" • E3 notificações (POR ÚLTIMO).
-Aurora: FD-1→FD-4 ✅ • FD-5 CNAB + FD-6 SPED/A1 + FD-8 Legalização (EM DESENVOLVIMENTO, batch único) • FD-7/FD-9 backlog.
-Produção: Sprints 32–34 (POR ÚLTIMO, após Aurora).
+...
+Fase E (UX): E1 command palette (EM HOMOLOGAÇÃO) • E2 "onde parou" • E3 notificações.
+
+12) BACKLOG PÓS-PRODUÇÃO (análise competitiva de 22/08 — visão dev + contábil)
+DEV: testes de domínio (Vitest: score/mentoria/cnab/vault/guias/promote) • retorno
+CNAB (baixa automática) • auditoria do cofre + rate limit + LGPD • paginação/máscaras •
+busca de ENTIDADES no Ctrl+K • Sentry + logs • BullMQ p/ Aurora • Portal do Cliente.
+CONTÁBIL: calendário real de obrigações por regime/município • retenções NFS-e
+(ISS/IRRF/PIS/COFINS/CSLL) • Simples c/ Fator R • Score de Compliance por CLIENTE •
+checklist de fechamento mensal por cliente • ECD/ECF • ICMS-ST por NCM/CEST •
+ISS por município • DP/eSocial via integração (FD-9) • créditos tributários.
+REGRA: nada disso entra antes das Sprints 32–34 homologadas.
 
 ### Operacional
 

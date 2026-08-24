@@ -207,6 +207,9 @@ model Company {
   legalDeadlines LegalDeadline[]
     // 🆕 FD-5: instruções de cobrança CNAB
   billingInstructions BillingInstruction[]
+
+  trialBalances  TrialBalance[]   // 🆕 ETAPA 1 - ciclo contábil
+  ledgerImports  LedgerImport[]   // 🆕 ETAPA 1 - ciclo contábil
   
   @@map("companies")
 }
@@ -369,7 +372,8 @@ model Client {
   monthlyReports  MonthlyReport[]
   fiscalServiceInvoices FiscalServiceInvoice[]   // 🆕 FD-3a
   taxGuides           TaxGuide[]                 // 🆕 FD-4
-
+  trialBalances  TrialBalance[]   // 🆕 ETAPA 1 - ciclo contábil
+  ledgerImports  LedgerImport[]   // 🆕 ETAPA 1 - ciclo contábil
   @@index([userId])
   @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
   @@map("clients")
@@ -768,8 +772,8 @@ model AccountingAccount {
   id          String          @id @default(uuid())
   companyId   String?         /// NULL = conta global/padrão do sistema (template)
   planName    String?         @default("Padrão") /// Nome do plano (ex: "Padrão", "SCI 90113")
-  code        String   
-  name        String   
+  accountNumber  String?               // 🆕 número da conta (opcional; vem do balancete do cliente)
+  code           String                // classificação contábil (obrigatório)  name        String   
   type        AccountType   
   nature      AccountNature   
   level       Int             @default(1)
@@ -2302,3 +2306,87 @@ model BillingInstruction {
   @@map("billing_instructions")
 }
 
+// =================================================================
+// 🆕 ETAPA 1 (SCI-1): CICLO CONTÁBIL POR CLIENTE (ADR-066/067)
+// =================================================================
+
+// ── BALANCETE INICIAL (cabeçalho) — 1 por cliente/competência ──
+model TrialBalance {
+  id          String   @id @default(uuid())
+  companyId   String
+  clientId    String   // 🔒 "esse e somente esse cliente"
+  competence  String   // 'YYYY-MM' (ex.: 2026-04 = base inicial)
+  fileName    String?
+  rowCount    Int      @default(0)
+  totalDebit  Decimal  @default(0) @db.Decimal(14, 2)
+  totalCredit Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+
+  company Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  rows    TrialBalanceRow[]
+
+  @@unique([companyId, clientId, competence]) // reimportar substitui (ADR-067)
+  @@index([companyId, clientId])
+  @@map("trial_balances")
+}
+
+// ── LINHAS DO BALANCETE (contas c/ saldos) ──
+model TrialBalanceRow {
+  id             String  @id @default(uuid())
+  trialBalanceId String
+  accountNumber  String?               // 🆕 número da conta (col 0 do balancete, ex: "819")
+  code           String                // classificação contábil (ex: "01.1.1.02.026")
+  name           String
+  isSynthetic    Boolean @default(false) // Tipo = 'T'
+  prevBalance    Decimal @default(0) @db.Decimal(14, 2)
+  debit          Decimal @default(0) @db.Decimal(14, 2)
+  credit         Decimal @default(0) @db.Decimal(14, 2)
+  currentBalance Decimal @default(0) @db.Decimal(14, 2)
+
+  trialBalance TrialBalance @relation(fields: [trialBalanceId], references: [id], onDelete: Cascade)
+
+  @@index([trialBalanceId, code])
+  @@map("trial_balance_rows")
+}
+
+// ── RAZÃO IMPORTADO (cabeçalho do arquivo) ──
+model LedgerImport {
+  id          String   @id @default(uuid())
+  companyId   String
+  clientId    String
+  periodLabel String   // ex.: '2026-05_a_2026-06'
+  fileName    String?
+  months      Json     // ['2026-05','2026-06']
+  accounts    Json     // [{code,name,opening}] saldos anteriores por conta
+  createdAt   DateTime @default(now())
+
+  company Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  entries ClientLedgerEntry[]
+
+  @@unique([companyId, clientId, periodLabel]) // reimportar substitui (ADR-067)
+  @@map("ledger_imports")
+}
+
+// ── LANÇAMENTOS DO RAZÃO (a base mensal p/ comparação) ──
+model ClientLedgerEntry {
+  id            String   @id @default(uuid())
+  ledgerImportId String
+  companyId     String
+  clientId      String
+  accountCode   String   // 03.2.1.01.011
+  accountName   String
+  entryDate     DateTime
+  counterparty  String   // 👈 alimenta o sugeridor de conta
+  debit         Decimal  @default(0) @db.Decimal(14, 2)
+  credit        Decimal  @default(0) @db.Decimal(14, 2)
+  balance       Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt     DateTime @default(now())
+
+  ledgerImport LedgerImport @relation(fields: [ledgerImportId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, clientId, accountCode, entryDate])
+  @@index([companyId, clientId, counterparty])
+  @@map("client_ledger_entries")
+}
