@@ -222,7 +222,13 @@ const allMenuItems: MenuItem[] = [
     icon: Brain,
     section: 'contabil',
   },
-
+  {
+    id: 'ciclo-contabil',
+    title: 'Ciclo Contábil do Cliente',
+    href: '/dashboard/contabil/ciclo-contabil',
+    icon: BookOpen,
+    section: 'contabil',
+  },
   // ─────────────────────────────────────────────────────────
   // 📈 INTELIGÊNCIA
   // ─────────────────────────────────────────────────────────

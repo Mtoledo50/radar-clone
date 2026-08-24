@@ -328,6 +328,20 @@ fechamento) validado; crons ativos em produção controlada.
 
 ### 🏁 Status
 
+[Sprint Contábil+] 2026-08-22 — Plano de Contas SCI 90113: importação + CRUD
+✅ Added
+Seed idempotente `seed-chart-of-accounts.ts` (ADR-062): 1.207 contas,
+encoding Windows-1252 autodetectado, código real na coluna 2 do CSV,
+hierarquia pai→filho, reimportação desativa contas antigas do plano.
+Página /dashboard/contabil/plano-contas: árvore indentada por nível,
+KPIs por tipo, busca, ordenação código/nome ↑↓, filtro por plano,
+toggle de analíticas, ✏️ editar / ➕ criar / 🗑️ desativar.
+🗑️ Removed
+Endpoint morto de upload de CSV (multipart) removido do backend —
+seed é o canal oficial (ADR-062).
+🏁 Status
+HOMOLOGADO localmente (1.207 contas ativas + CRUD validado).
+
 [Sprints FD-5/6/8] 2026-08-21 — Aurora: Cofre Legal, Certificado A1, EFD e CNAB
 ✅ Added
 FD-8: cofre AES-256-GCM (`common/crypto/vault.ts`, ADR-059) + LegalModule:

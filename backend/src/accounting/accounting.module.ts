@@ -1,15 +1,28 @@
+// =================================================================
+// INÍCIO: backend/src/accounting/accounting.module.ts
+// =================================================================
+/**
+ * AccountingModule
+ * ⚠️ REGRA NESTJS: controllers[] = @Controller() • providers[] = @Injectable()
+ * 🆕 ETAPA 1: TrialBalanceService + LedgerService como PROVIDERS.
+ */
 import { Module } from '@nestjs/common';
-import { AccountingController } from './accounting.controller';
-import { AccountingService } from './accounting.service';
-import { ImportController } from './import.controller';
-import { ImportService } from './import.service';
-import { ReconciliationController } from './reconciliation.controller';
-import { ReconciliationService } from './reconciliation.service';
-import { HistoryController } from './history.controller';
-import { HistoryService } from './history.service';
-import { AccountTemplateController } from './template.controller';
-import { PrismaModule } from '../prisma/prisma.module';
 import { MulterModule } from '@nestjs/platform-express';
+import { PrismaModule } from '../prisma/prisma.module';
+
+import { AccountingController } from './accounting.controller';
+import { ImportController } from './import.controller';
+import { ReconciliationController } from './reconciliation.controller';
+import { HistoryController } from './history.controller';
+import { AccountTemplateController } from './template.controller';
+
+import { AccountingService } from './accounting.service';
+import { ImportService } from './import.service';
+import { ReconciliationService } from './reconciliation.service';
+import { HistoryService } from './history.service';
+import { TrialBalanceService } from './trial-balance.service'; // 🆕 ETAPA 1
+import { LedgerService } from './ledger.service'; // 🆕 ETAPA 1
+import { SmartImportService } from './smart-import.service'; // 🆕 no topo
 
 @Module({
   imports: [PrismaModule, MulterModule.register({ dest: './uploads' })],
@@ -17,20 +30,29 @@ import { MulterModule } from '@nestjs/platform-express';
     AccountingController,
     ImportController,
     ReconciliationController,
-    HistoryController,         // ✅ Pipeline contábil
-    AccountTemplateController, // ✅ Plano de contas padrão
+    HistoryController,
+    AccountTemplateController,
   ],
   providers: [
     AccountingService,
     ImportService,
     ReconciliationService,
-    HistoryService,            // ✅
+    HistoryService,
+    TrialBalanceService, // 🆕 services vão em PROVIDERS
+    LedgerService,       // 🆕
+    SmartImportService, // 🆕 ETAPA 2
+
   ],
   exports: [
     AccountingService,
     ImportService,
     ReconciliationService,
     HistoryService,
+    TrialBalanceService,
+    LedgerService,
   ],
 })
 export class AccountingModule {}
+// =================================================================
+// FIM: backend/src/accounting/accounting.module.ts
+// =================================================================
