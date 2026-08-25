@@ -2,6 +2,32 @@
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
+[Sprints SCI-1/2/3 — Ciclo Contábil por Cliente] 2026-08 — ✅ HOMOLOGADO
+Added
+- Ciclo Contábil do Cliente: balancete inicial + razão/livro caixa + sugeridor
+  contraparte→conta (memória do passado p/ classificar o futuro).
+- Importação inteligente de extrato: sugestões 🟢 Auto / 🟡 Regra / 🟠 Revisar,
+  multi-conta bancária por seção do CSV, revisão humana com autocomplete
+  (nome / código / nº unificado), anti-duplicidade (somente novos OU substituir)
+  e lixeira do extrato importado.
+- Multi-planos por cliente (ADR-072): `Client.accountingPlan`, múltipla escolha
+  no cadastro (aba 1), badge 📒 na carteira, importação do plano SCI 90132 e
+  exclusão de plano com trava de integridade.
+- Extratos Conciliados: 🖨️ Imprimir (impressora) e 📄 PDF por cliente;
+  atalho 📤 Exportar p/ SCI após conciliação (Lançamentos → Integração SCI).
+- Partida dobrada manual: D e C obrigatórios com espelhamento de valor e
+  auto-CONCILIADO + botão ✓ de conciliação rápida (ADR-074).
+Changed
+- Exportação SCI (history + accounting): números REDUZIDOS do plano ativo do
+  cliente (ex.: 489;819) e decimal com PONTO (1500.00) — ADR-073.
+- Sincronização do balancete e sugestões do extrato passam a respeitar o plano
+  ativo do cliente; re-importação da base aceita números reduzidos.
+Fixed
+- Imports quebrados do lancamentos/page.tsx (api/useRouter/jsPDF/autoTable).
+Decisions
+ADR-072 (multi-planos por cliente) • ADR-073 (SCI reduzido + decimal ponto) •
+ADR-074 (partida dobrada c/ espelho e auto-conciliação).
+
 
 ## [Sprint FD — Funcionário Digital] 2026-08-17/18 — Aurora: 7 skills, NFS-e, guias e relatórios
 
@@ -329,7 +355,7 @@ fechamento) validado; crons ativos em produção controlada.
 ### 🏁 Status
 
 [Sprint Contábil+] 2026-08-22 — Plano de Contas SCI 90113: importação + CRUD
-✅ Added
+✅ Added 
 Seed idempotente `seed-chart-of-accounts.ts` (ADR-062): 1.207 contas,
 encoding Windows-1252 autodetectado, código real na coluna 2 do CSV,
 hierarquia pai→filho, reimportação desativa contas antigas do plano.

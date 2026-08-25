@@ -21,7 +21,7 @@ import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 import {
-  BookOpen, Upload, Lightbulb, Eye, FileSpreadsheet, X, Loader2, Plus,
+  BookOpen, Upload, Lightbulb, Eye, FileSpreadsheet, X, Loader2, Plus,Trash2,
 } from 'lucide-react';
 
 // Formata número como R$ (Decimal chega como string do Prisma)
@@ -35,6 +35,20 @@ interface DropzoneProps {
   file: File | null;
   onFile: (f: File | null) => void;
   accent?: 'teal' | 'orange';
+}
+
+// =================================================================
+// 🛡️ Leitor de CSV com detecção de encoding (ADR-071 proposto)
+// O SCI exporta balancetes em ANSI (Windows-1252); extratos/razão
+// costumam vir em UTF-8. Detecta pelo caractere de substituição
+// (U+FFFD) e re-decodifica — nunca mais "APLICAES".
+// =================================================================
+async function readCsvText(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const utf8 = new TextDecoder('utf-8').decode(buf);
+  return utf8.includes('\uFFFD')
+    ? new TextDecoder('windows-1252').decode(buf)
+    : utf8;
 }
 
 function Dropzone({ file, onFile, accent = 'teal' }: DropzoneProps) {
@@ -123,29 +137,40 @@ export default function CicloContabilPage() {
 
   const [busy, setBusy] = useState(false);
 
-  // Carrega a carteira de clientes ao montar
+   // Carrega a carteira de clientes ao montar — COM diagnóstico visível
   useEffect(() => {
-    api.get('/clients').then((r) => setClients(r.data.data || [])).catch(() => {});
+    (async () => {
+      try {
+        const r = await api.get('/clients');
+        const payload: any = r.data;
+        // Tolera os 3 formatos possíveis de resposta do backend
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : Array.isArray(payload?.clients)
+              ? payload.clients
+              : [];
+        setClients(list);
+        if (list.length === 0) {
+          toast.error('Backend respondeu, mas sem clientes (verifique o tenant logado).');
+        }
+      } catch (e: any) {
+        // 👇 Agora o erro APARECE em vez de ficar silencioso
+        toast.error(
+          `Erro ao carregar clientes (HTTP ${e.response?.status ?? 'sem resposta'}): ` +
+          (e.response?.data?.message ?? e.message),
+        );
+      }
+    })();
   }, []);
-
-  // Ao trocar de cliente: recarrega balancetes, razões e sugeridor
-  useEffect(() => {
-    if (!clientId) return;
-    setTbRows(null);
-    api.get('/accounting/trial-balance', { params: { clientId } })
-      .then((r) => setTbList(r.data.data || [])).catch(() => setTbList([]));
-    api.get('/accounting/ledger', { params: { clientId } })
-      .then((r) => setLgList(r.data.data || [])).catch(() => setLgList([]));
-    api.get('/accounting/ledger/counterparty-map', { params: { clientId } })
-      .then((r) => setCpMap(r.data.data || {})).catch(() => setCpMap({}));
-  }, [clientId]);
 
   // ── Importa BALANCETE (texto → JSON, sem multipart) ──
   async function importTrialBalance() {
     if (!clientId || !tbFile) return toast.error('Selecione cliente e arquivo do balancete.');
     setBusy(true);
     try {
-      const content = await tbFile.text();
+      const content = await readCsvText(tbFile);
       const r = await api.post('/accounting/trial-balance/import', {
         clientId, competence: tbCompetence, content, fileName: tbFile.name,
       });
@@ -161,14 +186,25 @@ export default function CicloContabilPage() {
       toast.error(e.response?.data?.message || 'Erro ao importar balancete.');
     } finally { setBusy(false); }
   }
-
+  // ──  Excluir balancete importado ──
+  async function handleDeleteTrialBalance(id: string) {
+    if (!window.confirm('Excluir este balancete importado? As linhas serão removidas.')) return;
+    try {
+      await api.delete(`/accounting/trial-balance/${id}`);
+      toast.success('Balancete excluído.');
+      const l = await api.get('/accounting/trial-balance', { params: { clientId } });
+      setTbList(l.data.data || []);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao excluir balancete.');
+    }
+  }
   // ── Importa RAZÃO (mesmo padrão) ──
   async function importLedger() {
     if (!clientId || !lgFile) return toast.error('Selecione cliente e arquivo do razão.');
     setBusy(true);
     try {
-      const content = await lgFile.text();
-      const r = await api.post('/accounting/ledger/import', {
+        const content = await readCsvText(lgFile);      
+        const r = await api.post('/accounting/ledger/import', {
         clientId, periodLabel: lgPeriod, content, fileName: lgFile.name,
       });
       toast.success(`Razão ${lgPeriod}: ${r.data.data.entryCount} lançamentos.`);
@@ -287,7 +323,19 @@ export default function CicloContabilPage() {
                 ))}
               </div>
             </div>
-
+                {tbList.map((tb) => (
+                  <div key={tb.id} className="flex items-center justify-between text-sm bg-slate-50 rounded-lg px-3 py-2">
+                    <span>{tb.competence} • {tb.rowCount} contas • D {fmtBRL(tb.totalDebit)}</span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => openRows(tb.id)} className="text-teal-600 hover:underline" title="Ver linhas">
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button onClick={() => handleDeleteTrialBalance(tb.id)} className="text-red-500 hover:underline" title="Excluir balancete">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
             {/* ── Card Razão ── */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">

@@ -23,7 +23,8 @@ export class HistoryService {
     lineEnding: '\r\n',
     formatDate: (d: Date) =>
       `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`,
-    formatValue: (v: number) => v.toFixed(2).replace('.', ','),
+    // 🆕 ADR-073: decimal com PONTO (1500.00) — vírgula viraria coluna no re-import
+    formatValue: (v: number) => v.toFixed(2),
   };
 
   // =================================================================
@@ -232,11 +233,11 @@ export class HistoryService {
     const lines = valid.map((e) => {
       const amount =
         Number(e.debitValue) > 0 ? Number(e.debitValue) : Number(e.creditValue);
-      return [
+            return [
         L.formatDate(new Date(e.entryDate)),
-        e.debitAccount!.reducedCode ?? e.debitAccount!.code,
-        e.creditAccount!.reducedCode ?? e.creditAccount!.code,
-        L.formatValue(amount),
+        this.sciAccountNumber(e.debitAccount),   // 🆕 ADR-073: nº unificado (489/819)
+        this.sciAccountNumber(e.creditAccount),
+        L.formatValue(amount),                   // 🆕 1500.00 (ponto)
         e.description.replace(/;/g, '/'),
       ].join(L.delimiter);
     });
@@ -324,13 +325,33 @@ export class HistoryService {
     }
     return best;
   }
-
+  /**
+   * 🆕 ADR-073: número unificado da conta p/ o arquivo SCI.
+   * Prioridade: seq (90132) → accountNumber → reducedCode (legado) → code.
+   */
+  private sciAccountNumber(acc: any): string {
+    return (
+      acc?.seq ||
+      acc?.accountNumber ||
+      (acc?.reducedCode != null ? String(acc.reducedCode) : '') ||
+      acc?.code ||
+      ''
+    );
+  }
   private async resolveAccount(companyId: string, code: string | null) {
     if (!code) return null;
+    const c = String(code).trim();
+    const isInt = /^\d+$/.test(c);
+    // 🆕 ADR-073: casa por classificação OU nº unificado (arquivos novos saem reduzidos)
     return this.prisma.accountingAccount.findFirst({
       where: {
         companyId,
-        OR: [{ reducedCode: Number(code) }, { code: String(code) }],
+        OR: [
+          { code: c },
+          { seq: c },
+          { accountNumber: c },
+          ...(isInt ? [{ reducedCode: Number(c) }] : []),
+        ],
       },
     });
   }

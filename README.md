@@ -529,7 +529,7 @@ B5: Benchmark de Cargos por Setor (domínio puro ADR-051, maiores restos, gaps V
 C1: Benchmark de softwares (híbrido rede+catálogo) ✅
 C2: Serviços extras c/ preço médio + dinheiro na mesa ✅
 C3: Indicadores c/ fórmula (parser seguro, zero eval) ✅
-C4: Score 0–100 do Escritório (5 dimensões) ✅
+C4: Score 0–100 do Escritório (5 dimensões) ✅ 
 ✅ FASE D — MENTORIA & GAMIFICAÇÃO — COMPLETA
 D1: Visão de Futuro (norte + focos do Score) ✅
 D2: Checklist Meu Plano (persistido + % execução) ✅
@@ -588,3 +588,132 @@ Feito com ❤️ para transformar a contabilidade brasileira
 ⭐ Útil para você? Dê uma estrela no repositório!
 </div>
 
+# 🎯 RADAR CONTA CERTA
+O cérebro digital do escritório contábil
+
+Next.js 16 • NestJS 10 • PostgreSQL 15 • Prisma 5 • Sprints 1–31 + Conta Certa 2.0 + Aurora
+
+Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — importa extratos
+e notas, classifica sozinho, concilia com inteligência, entrega DREs prontos e agora
+fecha o ciclo contábil SCI por cliente (balancete → razão → extrato → exportação).
+
+## 📌 Resumo Executivo (para quem não programa)
+💡 Em uma frase: sistema na nuvem que automatiza a rotina contábil de ponta a ponta —
+do extrato do banco ao relatório final — com segurança, rastreabilidade e regras
+determinísticas (zero "caixa-preta").
+
+😫 Antes: digitar extrato planilha por planilha (2–4 h/cliente), classificar "na mão",
+conferir Pix × NF-e no olho, montar DRE no Excel.
+🤖 Com o Radar: importar extrato em 10 s; classificação com memória que aprende com o
+contador; conferência Banco × NF-e automática; DRE e arquivo SCI em 1 clique.
+
+🔢 Resultados reais medidos:
+• Cliente-piloto Academia: 74 transações classificadas em segundos; DRE fechado batendo
+com o banco; 90% classificado sozinho no mês seguinte.
+• Ciclo SCI (Grupo Escoteiros): 810 contas sincronizadas do balancete; 56 pares
+contraparte→conta aprendidos; exportação SCI com nºs reduzidos (489;819) e decimal
+com ponto; extratos imprimíveis/PDF por cliente.
+• Conta Certa 2.0: Score do escritório 51 (Atenção) c/ plano de mentoria e ranking;
+propostas com versões, fechamento com ganho e white-label.
+
+## 🗺️ Mapa do Sistema
+Operacional: Dashboard → Pessoas/Turnover → Clientes/CRM → Projetos/Tarefas.
+Comercial 2.0: Precificação → Planos (herança) → Propostas (versões/white-label) →
+Fechamento c/ ganho → Desempenho.
+Fiscal: NF-e → Kardex → ICMS → SPED Bloco H.
+Bancário: Extrato → Classificação c/ memória → DRE Bancário → Fechamento c/ trava.
+Contábil SCI: Balancete+Razão (base) → Extrato inteligente 🟢🟡🟠 → Partidas dobradas →
+Exportação SCI reduzida → DRE Oficial × Bancário.
+Aurora: crons preparam/conferem/sugerem; humano aprova obrigação legal.
+Inteligência: DRE Escritório • Ponto Fora da Curva • Simulador • Score • Mentoria • Ranking.
+
+## ✨ Módulos e Funcionalidades
+🔐 Plataforma: JWT+refresh • multi-tenant por companyId • RBAC 3 camadas • módulos por
+plano de assinatura.
+📊 Dashboard executivo c/ gráficos CSS puro (ADR-001).
+👥 Pessoas & Clientes: turnover, carteira MRR/Churn, importação em massa sem duplicar,
+onboarding 3 abas c/ plano de contas vinculado (ADR-072).
+💰 Comercial 2.0: herança de planos (ADR-020), dinheiro na mesa, versões de proposta,
+fechamento com desconto+ganho, white-label (cores do cliente), PDF v2 premium + PNG.
+🧾 Fiscal: NF-e em lote, Kardex c/ custo médio, ICMS, SPED H010 17 colunas, auditoria.
+🏦 Bancário: parser à prova de erros, memória por contraparte, naturezas por cliente,
+fechamento com trava de compliance.
+📒 Contábil SCI (ETAPAS 1–3 ✅): ciclo por cliente; multi-planos 90113/90132/...;
+sugeridor contraparte→conta; anti-duplicidade (somente novos/substituir); exportação
+SCI com nºs reduzidos e decimal ponto (ADR-073); impressão/PDF de extratos (ADR-074).
+🤖 Aurora (FD-1→4 ✅): conciliação, classificação, ponte contábil, relatórios PDF,
+NFS-e ABRASF + IMAP, guias DAS/ISS/DARF com memória de cálculo e aprovação humana.
+🔗 Conciliação Banco × NF-e c/ score 🟢≥80 / 🟡50–79 e revisão obrigatória.
+📈 BI & 2.0: DREs, ponto fora da curva, simulador, indicadores c/ fórmula (ADR-054),
+Score 0–100 (ADR-055), mentoria (ADR-056), checklist (ADR-057), ranking (ADR-058).
+
+## 🏆 O Diferencial: os 3 DREs
+🏢 Escritório (diretoria) • 💼 Bancário do Cliente (caixa) • 📒 Oficial do Cliente
+(obrigações) — conversam por cards cruzados; Oficial mostra a diferença em R$ contra o
+Bancário (auditoria em tempo real).
+
+## 🏗️ Arquitetura
+FE Next.js 16 (React 19 + Tailwind + Zustand + Sonner) → REST+JWT → BE NestJS 10
+(Controllers→Services→DTOs, Guards, RBAC) → Prisma → PostgreSQL 15 (~40 tabelas,
+isolamento por companyId, enums fortes, soft delete, índices).
+Princípios: enums como verdade • idempotência por upsert • revisão humana obrigatória •
+compliance primeiro (SPED layout fixo, mês fechado imutável) • cálculo determinístico no
+backend • zero dependência pesada de gráfico.
+
+## 🗄️ Modelo de Dados (destaques)
+Plataforma: Company/User • Gestão: Employee/Client(+accountingPlan)/ClientContract/
+ClientService • Comercial: Proposal/CommercialPlan/ServiceItem • Fiscal: FiscalInvoice/
+Product/InventoryMovement/IcmsApuration • Contábil: AccountingAccount(seq/accountNumber/
+planName)/AccountingEntry/TrialBalance/LedgerImport/HistoricalEntry/AccountTemplate •
+Bancário: BankStatement/Transaction/Category/ClassificationRule • Conciliação:
+BankNfeMatch • Aurora: ApprovalRecord • Operação: Project/Task.
+
+## 🔌 API (rotas-chave por módulo)
+Auth • Clients(+import/metrics) • Fiscal(invoices/upload, inventory, icms, sped) •
+Banking(import/statement/close/reopen, reconcile) • Accounting(accounts, entries,
+promote-from-banking, dre, export-sci, trial-balance/import, ledger/import,
+import/parse-smart, import/save-smart, plans, client-plan, chart/import) •
+History(import-base, reconcile, export-sci) • BI(dre/outliers/simulate-tax, score,
+mentoria, ranking) • Aurora(relatorios/nfse/guias).
+
+## 📜 Jornada de Desenvolvimento
+1–7 Fundação 🟢 • 8–19 Fiscal 🟢 • 20 Contábil SCI v1 🟢 • 21–24 Bancário 🟢 •
+25–26 Ponte+DRE Oficial 🟢 • 27–28 UX/menu 🟢 • 29 Conciliação Banco×NF-e 🟢 •
+30 Docs 🟢 • A1–A7 Comercial 2.0 🟢 • B1–B5 Pessoas 2.0 🟢 • C1–C4 Mercado 2.0 🟢 •
+D1–D3 Mentoria 🟢 • FD-1→4 Aurora 🟢 • Ciclo SCI ETAPAS 1–3 🟢 (25/08) •
+31 Docker Compose 🟡 (homologando).
+
+## 🔧 Decisões técnicas que salvaram o produto (ADR-resumo)
+Parser por conteúdo • datas por máscara • memória por contraparte normalizada •
+upsert (companyId,code) • DRE pelo sinal da transação • estorno por replay no Kardex •
+CSV UTF-8+BOM • Sonner action c/ onClick • Lucide title via wrapper • nºs reduzidos na
+exportação SCI c/ decimal ponto • plano de contas por cliente.
+
+## 🚀 Instalação (3 passos)
+1) Backend: cd backend && npm i && cp .env.example .env && npx prisma migrate deploy &&
+npx prisma generate && npm run start:dev (→ :3001).
+2) Frontend: cd frontend && npm i && cp .env.example .env.local && npm run dev (→ :3000).
+3) Docker (opcional): docker compose up -d --build (postgres :5433 virgem; app sobe junto).
+Acesso: http://localhost:3000 (admin do seed).
+
+## 🗺️ Roadmap — onde chegamos e onde vamos
+✅ FASES 1–2.5 + 2.0 (A–D) + Aurora FD-1→4 + Ciclo SCI (Sprints 1–31).
+ FASE 3 — PRODUÇÃO: 32 VPS+nginx+HTTPS • 33 CI/CD • 34 Sentry+backup.
+🔜 AURORA FD-5→FD-8 (CNAB, SPED completo+A1, integrações, cofre AES-256-GCM) — próxima
+entrega all-in-one.
+🔜 FASE E UX: Ctrl+K (homologando) • "onde parou" • notificações.
+📦 EXPANSÃO: Portal do Cliente • eSocial/Sintegra • app mobile.
+
+## 📖 Glossário (para a diretoria)
+SaaS • Multi-tenant • DRE • NF-e/NFS-e • Kardex • SPED • Partidas dobradas • Conciliação •
+Score • Plano de contas (90113/90132) • Nº reduzido (819) • Aurora (funcionário digital).
+
+## 🧠 Continuidade (Sistema de Memória)
+CONTEXTO_PROJETO.md (cole inteiro na 1ª mensagem) • CHANGELOG.md (atualizar a cada
+sprint) • Skill_RadarContaCerta-Architect.txt. Fluxo: colar contexto → IA confirma →
+trabalha no sprint atual → atualiza docs → valida com o Marcos.
+
+## 🤝 Licença & Autor
+Proprietary License — Copyright © 2026 Conta Certa Soluções Empresariais.
+Autor: Marcos — Full Stack. Suporte: contato@contacerta.com.br • www.contacerta.com.br
+Feito com ❤️ para transformar a contabilidade brasileira.

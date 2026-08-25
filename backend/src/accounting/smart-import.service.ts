@@ -1,13 +1,19 @@
 // =================================================================
-// INÍCIO: backend/src/accounting/smart-import.service.ts
+// INÍCIO: backend/src/accounting/smart-import.service.ts (v3)
 // =================================================================
 /**
- * 🧠 SmartImportService — ETAPA 2 (ADR-066/068/069)
- * Fluxo "extrato bruto → rascunhos com contas sugeridas":
- *   1. parseStatement()  → linhas + conta bancária por seção (multi-conta)
- *   2. bankBySection     → "07417-6" → 01.1.1.02.026 • "82048-5" → 01.1.1.02.027
- *   3. counterpartyMap   → memória do razão (contraparte→conta de resultado)
- *   4. buildDrafts()     → rascunhos 🟢🟡🟠 p/ revisão humana obrigatória
+ * 🧠 SmartImportService — ETAPA 2 (ADR-066/068/069/071)
+ *
+ * 🆕 v3 — ANTI-DUPLICIDADE DE LANÇAMENTOS (pedido do Marcos):
+ *   • getOverlap(): avisa quantos lançamentos já existem no período
+ *     ("extrato 06/2026 já existe, até que dia?")
+ *   • saveSmart(mode): 'ONLY_NEW' = importa só o que não tem (padrão)
+ *                      'REPLACE' = apaga o período e reimporta tudo
+ *   • deleteImportedStatement(): 🗑 exclui o extrato importado
+ *     (faixa de datas ou tudo do cliente)
+ *
+ * 🛡️ REGRA DE OURO: NUNCA toca nas contas (AccountingAccount).
+ * Só cria/apaga LANÇAMENTOS (AccountingEntry) com source='IMPORTACAO_EXTRATO'.
  */
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,37 +25,31 @@ import { LedgerService } from './ledger.service';
 export class SmartImportService {
   constructor(
     private prisma: PrismaService,
-    private ledgerService: LedgerService, // memória contraparte→conta (ETAPA 1)
+    private ledgerService: LedgerService,
   ) {}
 
   // =================================================================
-  // 1) ANALISAR: extrato → rascunhos com sugestões
+  // 1) ANALISAR (sem mudanças da v2)
   // =================================================================
   async parseSmart(companyId: string, clientId: string, content: string, bankCode?: string) {
-    // ── Parser de domínio: extrato real do banco (multi-conta) ──
     const { rows, linhasIgnoradas } = parseStatement(content);
-    if (rows.length === 0) {
-      throw new BadRequestException('Nenhuma linha válida no extrato.');
-    }
+    if (rows.length === 0) throw new BadRequestException('Nenhuma linha válida no extrato.');
 
-    // ── Plano de contas (globais + do tenant) → mapa código→conta ──
+    // 🧭 ADR-072: sugestões usam o plano ATIVO do cliente (ex.: SCI 90132)
+    const client = await this.prisma.client.findFirst({ where: { id: clientId, companyId } });
     const accounts = await this.prisma.accountingAccount.findMany({
-      where: { OR: [{ companyId: null }, { companyId }], isActive: true },
-      select: { id: true, code: true, name: true },
+      where: client?.accountingPlan
+        ? { companyId, planName: client.accountingPlan, isActive: true }
+        : { OR: [{ companyId: null }, { companyId }], isActive: true },
+      select: { id: true, code: true, name: true, seq: true },
     });
     const accountsByCode = new Map<string, AccountRef>(
       accounts.map((a) => [a.code, { id: a.id, code: a.code, name: a.name }]),
     );
 
-    // ── 🆕 MULTI-CONTA (ADR-069): seção "Conta: XXXX-X" → conta contábil ──
-    // Pool = contas de caixa/bancos/aplicações; casa pelo NÚMERO da seção
-    // aparecer no NOME da conta ("Sicredi 07417-6" contém "074176")
     const digits = (s: string) => s.replace(/\D/g, '');
     const bankPool = accounts.filter(
-      (a) =>
-        a.code.startsWith('01.1.1.01') ||
-        a.code.startsWith('01.1.1.02') ||
-        a.code.startsWith('01.1.1.03'),
+      (a) => a.code.startsWith('01.1.1.01') || a.code.startsWith('01.1.1.02') || a.code.startsWith('01.1.1.03'),
     );
     const bankBySection = new Map<string, AccountRef>();
     for (const row of rows) {
@@ -57,23 +57,17 @@ export class SmartImportService {
       const sec = digits(row.bankAccount);
       if (sec.length < 4) continue;
       const match = bankPool.find((a) => digits(a.name).includes(sec));
-      if (match) bankBySection.set(row.bankAccount, match);
+      if (match) bankBySection.set(row.bankAccount, { id: match.id, code: match.code, name: match.name });
     }
-
-    // ── Fallback: banco selecionado na UI (ou 1ª conta 01.1.1.02.*) ──
     const defaultBank =
       (bankCode && accountsByCode.get(bankCode)) ||
       bankPool.find((a) => a.code.startsWith('01.1.1.02')) ||
       null;
 
-    // ── Memória do razão: contraparte → conta de resultado ──
     const counterpartyMap = await this.ledgerService.getCounterpartyMap(companyId, clientId);
-
-    // ── Motor de sugestão (domínio puro, testável) ──
     const ctx: SuggestContext = { accountsByCode, counterpartyMap, bankBySection, defaultBank };
     const drafts = buildDrafts(rows, ctx);
 
-    // ── Estatísticas p/ os cards do preview ──
     const stats = {
       total: drafts.length,
       alta: drafts.filter((d) => d.confidence === 'ALTA').length,
@@ -82,60 +76,110 @@ export class SmartImportService {
       totalEntradas: rows.filter((r) => r.side === 'ENTRADA').reduce((s, r) => s + r.amount, 0),
       totalSaidas: rows.filter((r) => r.side === 'SAIDA').reduce((s, r) => s + r.amount, 0),
     };
-
     return {
-      drafts,
-      stats,
-      linhasIgnoradas,
+      drafts, stats, linhasIgnoradas,
       contasDetectadas: [...bankBySection.values()].map((a) => `${a.code} ${a.name}`),
     };
   }
 
   // =================================================================
-  // 2) SALVAR: rascunhos revisados → partidas dobradas (idempotente)
+  // 🆕 2) OVERLAP — "já existe extrato nesse período?"
   // =================================================================
-  async saveSmart(companyId: string, clientId: string, drafts: any[]) {
-    let created = 0;
-    let skipped = 0;
+  async getOverlap(companyId: string, clientId: string, start: string, end: string) {
+    const where = {
+      companyId,
+      clientId,
+      source: 'IMPORTACAO_EXTRATO',
+      entryDate: { gte: new Date(start + 'T00:00:00'), lte: new Date(end + 'T23:59:59') },
+    };
+    const existingCount = await this.prisma.accountingEntry.count({ where });
+    const last = await this.prisma.accountingEntry.findFirst({
+      where, orderBy: { entryDate: 'desc' }, select: { entryDate: true },
+    });
+    const days = await this.prisma.accountingEntry.findMany({
+      where, select: { entryDate: true }, distinct: ['entryDate'], orderBy: { entryDate: 'asc' },
+    });
+    const months = [...new Set(days.map((d) => d.entryDate.toISOString().slice(0, 7)))].sort();
+    return {
+      hasExisting: existingCount > 0,
+      existingCount,
+      lastDate: last?.entryDate ?? null,
+      firstDate: days[0]?.entryDate ?? null,
+      months, // ex.: ['2026-05','2026-06','2026-07']
+    };
+  }
 
-    for (const d of drafts) {
-      // Segurança: nunca grava partida incompleta
-      if (!d.debit?.id || !d.credit?.id) { skipped++; continue; }
+  // =================================================================
+  // 3) SALVAR c/ modo: ONLY_NEW (padrão) | REPLACE (substitui período)
+  // =================================================================
+  async saveSmart(
+    companyId: string,
+    clientId: string,
+    drafts: any[],
+    mode: 'ONLY_NEW' | 'REPLACE' = 'ONLY_NEW',
+  ) {
+    let created = 0, skipped = 0, deleted = 0;
+    const valid = drafts.filter((d) => d.debit?.id && d.credit?.id);
+    skipped += drafts.length - valid.length; // incompletos (🟠 sem conta)
 
-      // Idempotência por fingerprint (cliente+data+descrição+valor)
-      const exists = await this.prisma.accountingEntry.findFirst({
+    // REPLACE: apaga SOMENTE lançamentos de extrato na faixa do arquivo
+    if (mode === 'REPLACE' && valid.length > 0) {
+      const times = valid.map((d) => new Date(d.date + 'T00:00:00').getTime());
+      const min = new Date(Math.min(...times));
+      const max = new Date(Math.max(...times) + 86_399_000); // fim do dia
+      const del = await this.prisma.accountingEntry.deleteMany({
         where: {
-          companyId,
-          clientId,
-          entryDate: new Date(d.date),
-          description: d.description,
-          debitValue: d.amount,
+          companyId, clientId, source: 'IMPORTACAO_EXTRATO',
+          entryDate: { gte: min, lte: max },
         },
       });
-      if (exists) { skipped++; continue; }
+      deleted = del.count;
+    }
 
+    for (const d of valid) {
+      // ONLY_NEW: fingerprint (cliente+data+descrição+valor) anti-duplicidade
+      if (mode !== 'REPLACE') {
+        const exists = await this.prisma.accountingEntry.findFirst({
+          where: {
+            companyId, clientId,
+            entryDate: new Date(d.date),
+            description: d.description,
+            debitValue: d.amount,
+          },
+        });
+        if (exists) { skipped++; continue; }
+      }
       await this.prisma.accountingEntry.create({
         data: {
-          companyId,
-          clientId,
+          companyId, clientId,
           entryDate: new Date(d.date),
           description: d.description,
           counterpartyName: d.counterparty || '',
           debitAccountId: d.debit.id,
           creditAccountId: d.credit.id,
-          debitValue: d.amount,   // partida dobrada: mesmo valor dos 2 lados
+          debitValue: d.amount,
           creditValue: d.amount,
           source: 'IMPORTACAO_EXTRATO',
-          // 🛡️ Compliance: REVISAR fica PENDENTE p/ dupla checagem
           status: d.confidence === 'REVISAR' ? 'PENDENTE' : 'CONCILIADO',
         },
       });
       created++;
     }
+    return { created, skipped, deleted };
+  }
 
-    return { created, skipped };
+  // =================================================================
+  // 🆕 4) 🗑 EXCLUIR EXTRATO IMPORTADO (faixa ou tudo do cliente)
+  // =================================================================
+  async deleteImportedStatement(companyId: string, clientId: string, start?: string, end?: string) {
+    const where: any = { companyId, clientId, source: 'IMPORTACAO_EXTRATO' };
+    if (start && end) {
+      where.entryDate = { gte: new Date(start + 'T00:00:00'), lte: new Date(end + 'T23:59:59') };
+    }
+    const res = await this.prisma.accountingEntry.deleteMany({ where });
+    return { deleted: res.count };
   }
 }
 // =================================================================
-// FIM: backend/src/accounting/smart-import.service.ts
+// FIM: backend/src/accounting/smart-import.service.ts (v3)
 // =================================================================

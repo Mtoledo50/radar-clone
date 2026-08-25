@@ -1,14 +1,18 @@
 ﻿// =================================================================
-// INÃCIO: backend/src/accounting/accounting.service.ts
+// INÍCIO: backend/src/accounting/accounting.service.ts
 // =================================================================
 /**
- * AccountingService
- * Gerencia toda a lÃ³gica de contabilidade: contas, lanÃ§amentos,
- * conciliaÃ§Ã£o, exportaÃ§Ã£o SCI e promoÃ§Ã£o bancÃ¡ria.
- * 
- * ðŸ†• Sprint 25.2: ponte BancÃ¡rio â†’ ContÃ¡bil com partida dobrada
- * ðŸ†• Sprint 25.2.1: inferÃªncia automÃ¡tica de type + nature
- * ðŸ†• ImportaÃ§Ã£o: ImportaÃ§Ã£o em massa de plano de contas (SCI 90113)
+ * AccountingService — VERSÃO ESTÁVEL (ETAPA 2/3 • ADR-066..072)
+ *
+ * Responsabilidades:
+ *   • CRUD de contas contábeis (multi-tenant, inferência type/nature)
+ *   • CRUD de lançamentos de partida dobrada + conciliação
+ *   • Ponte Bancário→Contábil (promoção de meses FECHADOS)
+ *   • DRE Oficial do Cliente com confronto Contábil × Bancário
+ *   • 📤 Exportação SCI v2: números REDUZIDOS do plano ativo do cliente
+ *   • 📥 Importação de plano de contas SCI (ex.: 90132) — ADR-072
+ *
+ * 🛡️ REGRA DE OURO: todas as queries filtram por companyId (multi-tenant).
  */
 import {
   Injectable,
@@ -22,9 +26,10 @@ export class AccountingService {
   constructor(private prisma: PrismaService) {}
 
   // =================================================================
-  // ðŸ¦ CONTAS CONTÃBEIS (CRUD)
+  // 🏦 CONTAS CONTÁBEIS (CRUD)
   // =================================================================
 
+  /** Lista contas ativas (globais + do tenant), ordenadas por código. */
   async getAccounts(companyId: string) {
     return this.prisma.accountingAccount.findMany({
       where: {
@@ -35,27 +40,31 @@ export class AccountingService {
     });
   }
 
+  /**
+   * Cria ou atualiza conta com upsert por (companyId, planName, code).
+   * Inferência automática de type/nature pelo prefixo do código.
+   */
   async createAccount(companyId: string, data: any) {
     const inferType = (code: string): string => {
-      const prefix = (code || '').replace(/\D/g, '').charAt(0);
+      const c = (code || '').trim();
+      if (c.startsWith('02.3')) return 'PATRIMONIO_LIQUIDO';
+      const prefix = c.replace(/\D/g, '').charAt(0);
       const map: Record<string, string> = {
         '1': 'ATIVO',
         '2': 'PASSIVO',
-        '3': 'PATRIMONIO_LIQUIDO',
-        '4': 'RECEITA',
-        '5': 'DESPESA',
+        '3': 'RECEITA',
+        '4': 'DESPESA',
+        '5': 'PATRIMONIO_LIQUIDO',
       };
       return map[prefix] || 'ATIVO';
     };
 
-    const inferNature = (type: string): string => {
-      if (type === 'ATIVO' || type === 'DESPESA') return 'DEVEDORA';
-      return 'CREDORA';
-    };
+    const inferNature = (type: string): string =>
+      type === 'ATIVO' || type === 'DESPESA' ? 'DEVEDORA' : 'CREDORA';
 
     const resolvedType = data.type || inferType(data.code);
     const resolvedNature = data.nature || inferNature(resolvedType);
-    const planName = data.planName || 'PadrÃ£o';
+    const planName = data.planName || 'Padrão';
 
     const payload = {
       companyId,
@@ -82,6 +91,7 @@ export class AccountingService {
     });
   }
 
+  /** Atualiza conta por id (parcial). */
   async updateAccount(id: string, data: any) {
     return this.prisma.accountingAccount.update({
       where: { id },
@@ -89,17 +99,34 @@ export class AccountingService {
     });
   }
 
-  async deleteAccount(id: string) {
-    return this.prisma.accountingAccount.update({
-      where: { id },
-      data: { isActive: false },
+  /**
+   * 🗑 Exclui conta do plano (ADR-070).
+   * 🛡️ Trava de integridade: conta com lançamentos NÃO pode ser excluída.
+   * 🛡️ Multi-tenant: valida companyId antes de excluir.
+   */
+  async deleteAccount(companyId: string, id: string) {
+    const acc = await this.prisma.accountingAccount.findFirst({
+      where: { id, OR: [{ companyId }, { companyId: null }] },
     });
+    if (!acc) throw new NotFoundException('Conta não encontrada.');
+
+    const used = await this.prisma.accountingEntry.findFirst({
+      where: { OR: [{ debitAccountId: id }, { creditAccountId: id }] },
+    });
+    if (used) {
+      throw new BadRequestException(
+        'Esta conta possui lançamentos — não pode ser excluída (integridade contábil).',
+      );
+    }
+    await this.prisma.accountingAccount.delete({ where: { id } });
+    return { deleted: true, code: acc.code, name: acc.name };
   }
 
   // =================================================================
-  // ðŸ“ LANÃ‡AMENTOS CONTÃBEIS (CRUD)
+  // 📝 LANÇAMENTOS CONTÁBEIS (CRUD)
   // =================================================================
 
+  /** Lista lançamentos do tenant com nomes das contas. */
   async getEntries(companyId: string) {
     return this.prisma.accountingEntry.findMany({
       where: { companyId },
@@ -111,6 +138,7 @@ export class AccountingService {
     });
   }
 
+  /** Cria lançamento de partida dobrada (source=MANUAL, status=PENDENTE). */
   async createEntry(companyId: string, data: any) {
     return this.prisma.accountingEntry.create({
       data: {
@@ -136,15 +164,16 @@ export class AccountingService {
     });
   }
 
+  /** Atualiza lançamento com validação de data e posse multi-tenant. */
   async updateEntry(id: string, companyId: string, data: any) {
     const entry = await this.prisma.accountingEntry.findFirst({
       where: { id, companyId },
     });
-    if (!entry) throw new NotFoundException('LanÃ§amento nÃ£o encontrado');
+    if (!entry) throw new NotFoundException('Lançamento não encontrado');
 
     const entryDate = data.entryDate ? new Date(data.entryDate) : entry.entryDate;
     if (isNaN(entryDate.getTime())) {
-      throw new BadRequestException('Data invÃ¡lida');
+      throw new BadRequestException('Data inválida');
     }
 
     return this.prisma.accountingEntry.update({
@@ -170,11 +199,12 @@ export class AccountingService {
     });
   }
 
+  /** Marca lançamento como CONCILIADO (atualizando contas se necessário). */
   async conciliateEntry(id: string, companyId: string, data: any) {
     const entry = await this.prisma.accountingEntry.findFirst({
       where: { id, companyId },
     });
-    if (!entry) throw new NotFoundException('LanÃ§amento nÃ£o encontrado');
+    if (!entry) throw new NotFoundException('Lançamento não encontrado');
 
     return this.prisma.accountingEntry.update({
       where: { id },
@@ -190,52 +220,81 @@ export class AccountingService {
     });
   }
 
+  /** Exclusão permanente do lançamento (com validação multi-tenant). */
   async deleteEntry(id: string, companyId: string) {
     const entry = await this.prisma.accountingEntry.findFirst({
       where: { id, companyId },
     });
-    if (!entry) throw new NotFoundException('LanÃ§amento nÃ£o encontrado');
+    if (!entry) throw new NotFoundException('Lançamento não encontrado');
     return this.prisma.accountingEntry.delete({ where: { id } });
   }
 
   // =================================================================
-  // ðŸ“¤ EXPORTAÃ‡ÃƒO SCI
+  // 📤 EXPORTAÇÃO SCI — v2 (ADR-072)
+  // Formato ALVO:
+  //   20/07/2026;503;819;1500,00;PAGAMENTO PIX 88534936072 SILON DALL BOSCO
+  //   data ; NºreduzidoDébito ; NºreduzidoCrédito ; valor ; histórico
+  // Os números vêm do PLANO ATIVO do cliente (client.accountingPlan).
   // =================================================================
+  async exportToSCI(companyId: string, clientId?: string, year?: number, month?: number) {
+    // 1) Cliente → plano ativo (fallback: SCI 90132)
+    const client = clientId
+      ? await this.prisma.client.findFirst({ where: { id: clientId, companyId } })
+      : null;
+    const planName = client?.accountingPlan || 'SCI 90132';
 
-  async exportToSCI(companyId: string, year?: number, month?: number) {
-    const where: any = { companyId, status: 'CONCILIADO' };
-    if (year && month) {
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 0, 23, 59, 59);
-      where.entryDate = { gte: startDate, lte: endDate };
+    // 2) Mapa classificação → número reduzido do plano ativo
+    const planAccounts = await this.prisma.accountingAccount.findMany({
+      where: { companyId, planName },
+      select: { code: true, seq: true, accountNumber: true, reducedCode: true },
+    });
+    const numByCode = new Map<string, string>();
+    for (const a of planAccounts) {
+      const n = a.seq || a.accountNumber || (a.reducedCode != null ? String(a.reducedCode) : '');
+      if (n) numByCode.set(a.code, n);
     }
 
+    // 3) Lançamentos CONCILIADOS do período
+    const where: any = { companyId, status: 'CONCILIADO' };
+    if (clientId) where.clientId = clientId;
+    if (year && month) {
+      where.entryDate = {
+        gte: new Date(year, month - 1, 1),
+        lte: new Date(year, month, 0, 23, 59, 59),
+      };
+    }
     const entries = await this.prisma.accountingEntry.findMany({
       where,
-      include: { debitAccount: true, creditAccount: true },
+      include: {
+        debitAccount: { select: { code: true, seq: true, accountNumber: true } },
+        creditAccount: { select: { code: true, seq: true, accountNumber: true } },
+      },
       orderBy: { entryDate: 'asc' },
     });
 
-    const lines = entries.map((entry) => {
-      const date = new Date(entry.entryDate).toLocaleDateString('pt-BR');
-      const debitCode = entry.debitAccount?.code?.replace(/\D/g, '') || '0';
-      const creditCode = entry.creditAccount?.code?.replace(/\D/g, '') || '0';
-      const debitVal = Number(entry.debitValue);
-      const creditVal = Number(entry.creditValue);
-      const value = (debitVal > 0 ? debitVal : creditVal).toFixed(2);
-      const description = (entry.description || 'LanÃ§amento Importado')
-        .substring(0, 100)
-        .replace(/,/g, ' ');
-      return `${date},${debitCode},${creditCode},${value},,${description},,,,`;
+    // 4) Linhas no layout SCI reduzido
+    const lines = entries.map((e) => {
+      const date = new Date(e.entryDate).toLocaleDateString('pt-BR');
+      const dNum =
+        numByCode.get(e.debitAccount?.code || '') ||
+        e.debitAccount?.seq || e.debitAccount?.accountNumber || '';
+      const cNum =
+        numByCode.get(e.creditAccount?.code || '') ||
+        e.creditAccount?.seq || e.creditAccount?.accountNumber || '';
+      const value = (Number(e.debitValue) > 0 ? Number(e.debitValue) : Number(e.creditValue))
+        .toFixed(2).replace('.', ',');
+      const desc = (e.description || '').replace(/;/g, ' ').substring(0, 100);
+      return `${date};${dNum};${cNum};${value};${desc}`;
     });
 
     return lines.join('\n');
   }
 
   // =================================================================
-  // ðŸ†• SPRINT 25.2: PROMOVER TRANSAÃ‡Ã•ES BANCÃRIAS â†’ CONTÃBIL
+  // 🔄 PONTE BANCÁRIO → CONTÁBIL (Sprint 25.2)
+  // Transforma transações de meses FECHADOS em partidas dobradas.
+  // Idempotente por bankTransactionId (re-promover não duplica).
   // =================================================================
-
   async promoteFromBanking(
     companyId: string,
     payload: {
@@ -248,7 +307,7 @@ export class AccountingService {
     const statement = await this.prisma.bankStatement.findFirst({
       where: { id: payload.statementId, companyId },
     });
-    if (!statement) throw new NotFoundException('Fechamento nÃ£o encontrado.');
+    if (!statement) throw new NotFoundException('Fechamento não encontrado.');
     if (statement.status !== 'FECHADO') {
       throw new BadRequestException('Apenas meses FECHADOS podem ser promovidos.');
     }
@@ -284,10 +343,11 @@ export class AccountingService {
       },
     });
     if (!bankAccount) {
-      throw new BadRequestException('Conta bancÃ¡ria nÃ£o encontrada no Plano de Contas.');
+      throw new BadRequestException('Conta bancária não encontrada no Plano de Contas.');
     }
     const bankAccountId = bankAccount.id;
 
+    // Idempotência: pula transações já promovidas
     const alreadyPromoted = await this.prisma.accountingEntry.findMany({
       where: {
         companyId,
@@ -303,27 +363,15 @@ export class AccountingService {
 
     await this.prisma.$transaction(async (tx) => {
       for (const t of transactions) {
-        if (promotedIds.has(t.id)) {
-          skipped++;
-          continue;
-        }
+        if (promotedIds.has(t.id)) { skipped++; continue; }
 
         const group = catMap.get(t.nature) || 'PENDENTE';
-        if (group === 'PENDENTE') {
-          failed++;
-          continue;
-        }
+        if (group === 'PENDENTE') { failed++; continue; }
 
         const accountCode = payload.accountMapping[t.nature];
-        if (!accountCode) {
-          failed++;
-          continue;
-        }
+        if (!accountCode) { failed++; continue; }
         const mappedAccountId = accountByCode.get(accountCode);
-        if (!mappedAccountId) {
-          failed++;
-          continue;
-        }
+        if (!mappedAccountId) { failed++; continue; }
 
         const amount = Number(t.amount);
         const isCredit = amount > 0;
@@ -348,7 +396,6 @@ export class AccountingService {
             bankTransactionId: t.id,
           },
         });
-
         promoted++;
       }
     });
@@ -357,9 +404,9 @@ export class AccountingService {
   }
 
   // =================================================================
-  // ðŸ†• SPRINT 26: DRE OFICIAL DO CLIENTE
+  // 📊 DRE OFICIAL DO CLIENTE (Sprint 26)
+  // Confronta Contábil × Bancário no mesmo período.
   // =================================================================
-
   async getClientDRE(companyId: string, clientId: string, year: number, month: number) {
     const start = new Date(year, month - 1, 1);
     const end = new Date(year, month, 0, 23, 59, 59);
@@ -386,7 +433,6 @@ export class AccountingService {
 
     for (const e of entries) {
       const orig = e.bankTransactionId ? bankAmount.get(e.bankTransactionId) : undefined;
-
       if (orig !== undefined) {
         if (orig > 0 && e.creditAccount) {
           const k = e.creditAccount.code;
@@ -420,13 +466,14 @@ export class AccountingService {
     const totalReceitas = receitas.reduce((s, r) => s + r.total, 0);
     const totalDespesas = despesas.reduce((s, d) => s + d.total, 0);
 
+    // DRE bancário (confronto)
     const statements = await this.prisma.bankStatement.findMany({
       where: { companyId, clientId, year, month },
     });
     let bankResultado = 0;
     let bankReceita = 0;
     let bankDespesa = 0;
-    
+
     if (statements.length > 0) {
       const txs = await this.prisma.bankTransaction.findMany({
         where: { statementId: { in: statements.map((s) => s.id) } },
@@ -435,7 +482,7 @@ export class AccountingService {
         where: { companyId, clientId },
       });
       const groupOf = (nature: string) => cats.find((c) => c.label === nature)?.group || 'PENDENTE';
-      
+
       for (const t of txs) {
         const g = groupOf(t.nature);
         const v = Number(t.amount);
@@ -447,10 +494,8 @@ export class AccountingService {
 
     return {
       contabil: {
-        receitas,
-        despesas,
-        totalReceitas,
-        totalDespesas,
+        receitas, despesas,
+        totalReceitas, totalDespesas,
         resultado: totalReceitas - totalDespesas,
         lancamentos: entries.length,
         conciliados: entries.filter((e) => e.status === 'CONCILIADO').length,
@@ -465,6 +510,135 @@ export class AccountingService {
     };
   }
 
+  // =================================================================
+  // 📥 IMPORTAR PLANO DE CONTAS SCI (ADR-072)
+  // Layout REAL do 90132: ;seq;code;T?;nome;apelido;tipo;relatório;...;90132;
+  // Varredura de tokens: imune a arquivo sem quebras de linha.
+  // Ao final, o plano importado vira o ATIVO do cliente.
+  // =================================================================
+    async importChartOfAccounts(
+    companyId: string,
+    clientId: string | null,   // null = importa só o catálogo, sem vincular cliente
+    planName: string,
+    content: string,
+  ) {
+    const tokens = content.split(';').map((t) => t.trim());
+    const isNum = (s: string) => /^\d{1,5}$/.test(s);
+    const isCode = (s: string) => /^\d+(\.\d+)*$/.test(s);
+    const normT = (s: string) =>
+      (s || '').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const TYPE_MAP: Record<string, string> = {
+      ATIVO: 'ATIVO', PASSIVO: 'PASSIVO', RECEITA: 'RECEITA', DESPESA: 'DESPESA',
+    };
+
+    // Detecta o nº do plano no próprio arquivo (ex.: 90132 → "SCI 90132")
+    const planToken = tokens.find((t) => /^9\d{4}$/.test(t));
+    const finalPlan = planName?.trim() || (planToken ? `SCI ${planToken}` : 'SCI 90132');
+
+    // Varredura: procura pares (numérico, código) e valida pelos campos seguintes
+    const rows: { seq: string; code: string; name: string; nickname: string; isSynthetic: boolean; type: string }[] = [];
+    let i = 0;
+    while (i < tokens.length - 6) {
+      if (isNum(tokens[i]) && isCode(tokens[i + 1])) {
+        const seq = tokens[i];
+        const code = tokens[i + 1];
+        const tipo = tokens[i + 2];                 // 'T' = sintética
+        const name = tokens[i + 3];
+        const nickname = tokens[i + 4];             // apelido (DEPESP...) → sciCode
+        const tRaw = normT(tokens[i + 5]);
+        const type = TYPE_MAP[tRaw] || (tRaw.startsWith('PATRIMONIO') ? 'PATRIMONIO_LIQUIDO' : null);
+        if (name && type) {
+          rows.push({ seq, code, name, nickname, isSynthetic: tipo === 'T', type });
+          i += 7;
+          continue;
+        }
+      }
+      i++;
+    }
+    if (rows.length === 0) {
+      throw new BadRequestException('Layout do plano não reconhecido (esperado SCI 90132).');
+    }
+
+    let created = 0, updated = 0;
+    for (const r of rows) {
+      const nature = r.type === 'ATIVO' || r.type === 'DESPESA' ? 'DEVEDORA' : 'CREDORA';
+      const existing = await this.prisma.accountingAccount.findFirst({
+        where: { companyId, planName: finalPlan, code: r.code },
+      });
+      if (existing) {
+        await this.prisma.accountingAccount.update({
+          where: { id: existing.id },
+          data: { name: r.name, seq: r.seq, accountNumber: r.seq, sciCode: r.nickname || existing.sciCode },
+        });
+        updated++;
+      } else {
+        await this.prisma.accountingAccount.create({
+          data: {
+            companyId, planName: finalPlan,
+            code: r.code, name: r.name,
+            seq: r.seq, accountNumber: r.seq, sciCode: r.nickname || null,
+            type: r.type as any, nature: nature as any,
+            level: (r.code.match(/\./g) || []).length + 1,
+            isActive: true,
+          },
+        });
+        created++;
+      }
+    }
+
+    // 🧭 ADR-072: se veio com cliente, o plano importado vira o ATIVO dele
+    if (clientId) {
+      await this.prisma.client.update({
+        where: { id: clientId },
+        data: { accountingPlan: finalPlan },
+      });
+    }
+    return { created, updated, planName: finalPlan, total: rows.length };
+  }
+   // =================================================================
+  // 📚 PLANOS DE CONTAS (ADR-072)
+  // =================================================================
+  /** Lista os planos distintos do tenant (p/ selects da UI). */
+  async listPlans(companyId: string) {
+    const rows = await this.prisma.accountingAccount.findMany({
+      where: { OR: [{ companyId }, { companyId: null }] },
+      select: { planName: true },
+      distinct: ['planName'],
+    });
+    return (rows.map((r) => r.planName).filter(Boolean) as string[]).sort();
+  }
+  /**
+   * 🗑 Exclui um plano de contas inteiro (ADR-072).
+   * 🛡️ Trava: se alguma conta do plano tiver lançamentos, bloqueia.
+   */
+  async deletePlan(companyId: string, planName: string) {
+    const accounts = await this.prisma.accountingAccount.findMany({
+      where: { companyId, planName },
+      select: { id: true },
+    });
+    if (accounts.length === 0) return { deleted: 0 };
+    const ids = accounts.map((a) => a.id);
+    const used = await this.prisma.accountingEntry.findFirst({
+      where: { OR: [{ debitAccountId: { in: ids } }, { creditAccountId: { in: ids } }] },
+    });
+    if (used) {
+      throw new BadRequestException(
+        'Este plano possui contas com lançamentos — não pode ser excluído (integridade).',
+      );
+    }
+    const res = await this.prisma.accountingAccount.deleteMany({ where: { id: { in: ids } } });
+    return { deleted: res.count };
+  }
+  /** 🧭 Vincula/troca o plano ATIVO do cliente — PERMANENTE (1× só). */
+  async setClientPlan(companyId: string, clientId: string, planName: string) {
+    const client = await this.prisma.client.findFirst({ where: { id: clientId, companyId } });
+    if (!client) throw new NotFoundException('Cliente não encontrado.');
+    const updated = await this.prisma.client.update({
+      where: { id: clientId },
+      data: { accountingPlan: planName },
+    });
+    return { clientId, accountingPlan: updated.accountingPlan };
+  } 
 }
 // =================================================================
 // FIM: backend/src/accounting/accounting.service.ts

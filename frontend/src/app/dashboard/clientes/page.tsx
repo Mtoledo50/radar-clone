@@ -2,10 +2,9 @@
 // INÍCIO: frontend/src/app/dashboard/clientes/page.tsx
 // =================================================================
 // 🚀 MOTOR DE ONBOARDING E CONTRATOS (Enterprise Edition)
-// Transforma o cadastro de clientes em um motor de vendas de planos
-// e serviços avulsos, integrado ao Catálogo Dinâmico do SaaS.
-//
 // 🆕 Sprint 23: Importação em massa de clientes via CSV
+// 🆕 ADR-072: Plano de Contas (SCI) vinculado ao cliente — UM select,
+//    populado com TODOS os planos do sistema, busca isolada (não quebra a página)
 // =================================================================
 'use client';
 
@@ -17,14 +16,13 @@ import autoTable from 'jspdf-autotable';
 import {
   Users, Plus, Search, Edit2, Trash2, Eye, Loader2, X, Save, FileText,
   Mail, Phone, Building2, Crown, Package, CheckCircle2, AlertTriangle,
-  ChevronRight, ChevronLeft, DollarSign, Sparkles, Upload
+  ChevronRight, ChevronLeft, DollarSign, Sparkles, Upload,
 } from 'lucide-react';
-import ImportClientsModal from '@/components/clients/ImportClientsModal'; // 🆕 Sprint 23
+import ImportClientsModal from '@/components/clients/ImportClientsModal';
 
 // =================================================================
-// TIPOS E INTERFACES (Tipagem Forte alinhada ao Backend)
+// TIPOS E INTERFACES
 // =================================================================
-
 interface CommercialPlan {
   id: string;
   name: string;
@@ -33,35 +31,31 @@ interface CommercialPlan {
   color?: string;
   description?: string;
 }
-
 interface ServiceItem {
   id: string;
   name: string;
   description?: string;
   basePrice: number;
-  recurrence: string; // AVULSO, MENSAL, ANUAL
+  recurrence: string;
   category?: { name: string };
 }
-
 interface ClientContract {
   id: string;
   commercialPlan: CommercialPlan;
   monthlyFee: number;
   status: string;
 }
-
 interface ClientService {
   id: string;
   serviceItem: ServiceItem;
   customPrice?: number;
   status: string;
 }
-
 interface Client {
   id: string;
   companyName: string;
   cnpj?: string;
-  serviceType: string; // Mantido para compatibilidade legada
+  serviceType: string;
   monthlyFee: number;
   status: string;
   startDate: string;
@@ -70,6 +64,7 @@ interface Client {
   contactEmail?: string;
   contactPhone?: string;
   observations?: string;
+  accountingPlan?: string | null; // 🆕 ADR-072
   contracts?: ClientContract[];
   services?: ClientService[];
 }
@@ -78,29 +73,21 @@ interface Client {
 // COMPONENTE PRINCIPAL
 // =================================================================
 export default function ClientesPage() {
-  // =================================================================
-  // ESTADOS GLOBAIS
-  // =================================================================
   const [clients, setClients] = useState<Client[]>([]);
   const [plans, setPlans] = useState<CommercialPlan[]>([]);
   const [serviceItems, setServiceItems] = useState<ServiceItem[]>([]);
-  
+  const [accountingPlans, setAccountingPlans] = useState<string[]>([]); // 🆕 ADR-072
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [sortOrder, setSortOrder] = useState('az'); // 🆕 padrão: A → Z  
-  // Modais (incluindo o novo de importação)
+  const [sortOrder, setSortOrder] = useState('az');
   const [showFormModal, setShowFormModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false); // 🆕 Sprint 23
+  const [showImportModal, setShowImportModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  
-  // Wizard (Abas)
   const [currentTab, setCurrentTab] = useState(1);
-
-  // Estado do Formulário (Alinhado ao CreateClientDto do Backend)
   const [form, setForm] = useState({
     companyName: '',
     cnpj: '',
@@ -111,14 +98,14 @@ export default function ClientesPage() {
     status: 'ATIVO',
     startDate: new Date().toISOString().split('T')[0],
     endDate: '',
-    // 🚀 NOVOS CAMPOS ENTERPRISE
     commercialPlanId: '',
     avulsoServiceIds: [] as string[],
-    manualMonthlyFee: 0, // Permite override manual se não houver plano
+    manualMonthlyFee: 0,
+    accountingPlan: '', // 🆕 ADR-072
   });
 
   // =================================================================
-  // CARREGAR DADOS (Clientes + Catálogo)
+  // CARREGAR DADOS — planos contábeis em chamada ISOLADA (ADR-072)
   // =================================================================
   useEffect(() => {
     loadInitialData();
@@ -127,13 +114,11 @@ export default function ClientesPage() {
   async function loadInitialData() {
     try {
       setLoading(true);
-      // ✅ URLs CORRETAS do catálogo
       const [clientsRes, plansRes, itemsRes] = await Promise.all([
         api.get('/clients'),
         api.get('/commercial-plans/plans').catch(() => ({ data: { data: [] } })),
         api.get('/commercial-plans/items').catch(() => ({ data: { data: [] } })),
       ]);
-
       setClients(clientsRes.data.data || []);
       setPlans(plansRes.data.data || []);
       setServiceItems(itemsRes.data.data || []);
@@ -142,37 +127,37 @@ export default function ClientesPage() {
     } finally {
       setLoading(false);
     }
+    // ️ Busca isolada: se falhar, a página continua funcionando
+    try {
+      const accRes = await api.get('/accounting/plans');
+      setAccountingPlans(accRes.data.data || []);
+    } catch {
+      setAccountingPlans([]);
+    }
   }
 
   // =================================================================
-  // LÓGICA DE NEGÓCIO: CALCULADORA DE HONORÁRIOS
+  // CALCULADORA DE HONORÁRIOS
   // =================================================================
   const calculatedFee = useMemo(() => {
     let total = 0;
-    
-    // 1. Soma o valor do Plano Comercial (se selecionado)
     if (form.commercialPlanId) {
       total += form.manualMonthlyFee;
     }
-    
-    // 2. Soma os Serviços Avulsos Recorrentes
-    const avulsos = serviceItems.filter(item => form.avulsoServiceIds.includes(item.id));
-    avulsos.forEach(item => {
+    const avulsos = serviceItems.filter((item) => form.avulsoServiceIds.includes(item.id));
+    avulsos.forEach((item) => {
       if (item.recurrence === 'MENSAL') {
         total += Number(item.basePrice);
       }
     });
-    
-    // Se não houver plano nem avulsos mensais, usa o fee manual
     if (total === 0 && form.manualMonthlyFee > 0) {
       total = form.manualMonthlyFee;
     }
-    
     return total;
   }, [form.commercialPlanId, form.avulsoServiceIds, form.manualMonthlyFee, serviceItems]);
 
-   // =================================================================
-  // FILTRAGEM + ORDENAÇÃO INTELIGENTES
+  // =================================================================
+  // FILTRAGEM + ORDENAÇÃO
   // =================================================================
   const filteredClients = useMemo(() => {
     const filtered = clients.filter((client) => {
@@ -180,13 +165,9 @@ export default function ClientesPage() {
         client.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.cnpj?.includes(searchTerm) ||
         client.contactName?.toLowerCase().includes(searchTerm.toLowerCase());
-
       const matchesStatus = filterStatus === 'all' || client.status === filterStatus;
-
       return matchesSearch && matchesStatus;
     });
-
-    // 🆕 Ordenação (A→Z é o padrão)
     const sorted = [...filtered];
     switch (sortOrder) {
       case 'az':
@@ -202,13 +183,13 @@ export default function ClientesPage() {
         sorted.sort((a, b) => (a.monthlyFee || 0) - (b.monthlyFee || 0));
         break;
       default:
-        break; // 'default' = ordem de cadastro (como vem do servidor)
+        break;
     }
     return sorted;
   }, [clients, searchTerm, filterStatus, sortOrder]);
 
   // =================================================================
-  // FUNÇÕES DE UI: ABRIR MODAIS
+  // MODAIS
   // =================================================================
   function openCreateModal() {
     setSelectedClient(null);
@@ -219,6 +200,7 @@ export default function ClientesPage() {
       commercialPlanId: plans[0]?.id || '',
       avulsoServiceIds: [],
       manualMonthlyFee: 0,
+      accountingPlan: '', // 🆕 ADR-072
     });
     setCurrentTab(1);
     setShowFormModal(true);
@@ -226,15 +208,10 @@ export default function ClientesPage() {
 
   function openEditModal(client: Client) {
     setSelectedClient(client);
-    
-    // Extrai dados do contrato ativo (se existir)
-    const activeContract = client.contracts?.find(c => c.status === 'ATIVO');
-    
-    // Extrai IDs dos serviços avulsos ativos
+    const activeContract = client.contracts?.find((c) => c.status === 'ATIVO');
     const activeAvulsos = client.services
-      ?.filter(s => s.status === 'ATIVO')
-      .map(s => s.serviceItem.id) || [];
-
+      ?.filter((s) => s.status === 'ATIVO')
+      .map((s) => s.serviceItem.id) || [];
     setForm({
       companyName: client.companyName,
       cnpj: client.cnpj || '',
@@ -248,6 +225,7 @@ export default function ClientesPage() {
       commercialPlanId: activeContract?.commercialPlan.id || '',
       avulsoServiceIds: activeAvulsos,
       manualMonthlyFee: client.monthlyFee,
+      accountingPlan: client.accountingPlan || '', // 🆕 ADR-072: mostra o plano gravado
     });
     setCurrentTab(1);
     setShowFormModal(true);
@@ -264,17 +242,15 @@ export default function ClientesPage() {
   }
 
   // =================================================================
-  // FUNÇÕES CRUD: SALVAR (INTEGRAÇÃO COM BACKEND ENTERPRISE)
+  // CRUD
   // =================================================================
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
     if (!form.companyName) {
       toast.error('Preencha a Razão Social na aba 1');
       setCurrentTab(1);
       return;
     }
-
     setSubmitting(true);
     try {
       const payload = {
@@ -291,8 +267,8 @@ export default function ClientesPage() {
         observations: form.observations,
         commercialPlanId: form.commercialPlanId || undefined,
         avulsoServiceIds: form.avulsoServiceIds,
+        accountingPlan: form.accountingPlan || null, // 🆕 ADR-072: grava no cliente
       };
-
       if (selectedClient) {
         await api.put(`/clients/${selectedClient.id}`, payload);
         toast.success('Cliente e contrato atualizados!');
@@ -300,7 +276,6 @@ export default function ClientesPage() {
         await api.post('/clients', payload);
         toast.success('Cliente, contrato e serviços criados!');
       }
-      
       setShowFormModal(false);
       loadInitialData();
     } catch (err: any) {
@@ -333,16 +308,13 @@ export default function ClientesPage() {
     doc.setFontSize(20);
     doc.setTextColor(13, 148, 136);
     doc.text('Conta Certa - Carteira de Clientes', 14, 20);
-    
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Relatório gerado em: ${new Date().toLocaleDateString('pt-BR')}`, 14, 28);
     doc.text(`Total de clientes: ${filteredClients.length}`, 14, 34);
-    
-    const tableData = filteredClients.map(client => {
+    const tableData = filteredClients.map((client) => {
       const planName = client.contracts?.[0]?.commercialPlan.name || '-';
       const avulsosCount = client.services?.length || 0;
-      
       return [
         client.companyName,
         client.cnpj || '-',
@@ -352,7 +324,6 @@ export default function ClientesPage() {
         client.status,
       ];
     });
-    
     autoTable(doc, {
       startY: 40,
       head: [['Empresa', 'CNPJ', 'Plano Ativo', 'Add-ons', 'Honorário', 'Status']],
@@ -361,13 +332,12 @@ export default function ClientesPage() {
       headStyles: { fillColor: [13, 148, 136] },
       styles: { fontSize: 9 },
     });
-    
     doc.save(`carteira_clientes_${new Date().toISOString().split('T')[0]}.pdf`);
     toast.success('PDF exportado com sucesso!');
   }
 
   // =================================================================
-  // CLASSES DE ESTILO (DESIGN SYSTEM)
+  // ESTILOS
   // =================================================================
   const inputClass = 'w-full px-3 py-2.5 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all bg-white';
   const btnPrimary = 'flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-50';
@@ -381,9 +351,6 @@ export default function ClientesPage() {
     );
   }
 
-  // =================================================================
-  // RENDERIZAÇÃO
-  // =================================================================
   return (
     <div className="space-y-6">
       {/* CABEÇALHO */}
@@ -396,7 +363,6 @@ export default function ClientesPage() {
           <p className="text-slate-600 mt-1">Gerencie contratos, planos e serviços avulsos</p>
         </div>
         <div className="flex gap-3 flex-wrap">
-          {/* 🆕 Sprint 23: Botão de importação CSV */}
           <button onClick={() => setShowImportModal(true)} className={btnSecondary}>
             <Upload className="h-5 w-5" /> Importar CSV
           </button>
@@ -411,7 +377,7 @@ export default function ClientesPage() {
 
       {/* FILTROS */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
             <input
@@ -422,7 +388,7 @@ export default function ClientesPage() {
               className={`pl-10 ${inputClass}`}
             />
           </div>
-                  <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={inputClass}>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className={inputClass}>
             <option value="all">Todos os status</option>
             <option value="ATIVO">Ativos</option>
             <option value="INATIVO">Inativos</option>
@@ -438,7 +404,7 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      {/* TABELA ENTERPRISE */}
+      {/* TABELA */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -454,14 +420,18 @@ export default function ClientesPage() {
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredClients.map((client) => {
-                const activeContract = client.contracts?.find(c => c.status === 'ATIVO');
-                const activeServices = client.services?.filter(s => s.status === 'ATIVO') || [];
-                
+                const activeContract = client.contracts?.find((c) => c.status === 'ATIVO');
+                const activeServices = client.services?.filter((s) => s.status === 'ATIVO') || [];
                 return (
                   <tr key={client.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-900">{client.companyName}</div>
                       <div className="text-xs text-slate-500">{client.cnpj || 'Sem CNPJ'}</div>
+                      {client.accountingPlan && (
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
+                          📒 {client.accountingPlan}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       {activeContract ? (
@@ -476,7 +446,7 @@ export default function ClientesPage() {
                     <td className="px-6 py-4">
                       {activeServices.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {activeServices.slice(0, 2).map(s => (
+                          {activeServices.slice(0, 2).map((s) => (
                             <span key={s.id} className="px-2 py-0.5 rounded text-xs bg-purple-100 text-purple-700">
                               {s.serviceItem.name}
                             </span>
@@ -523,13 +493,10 @@ export default function ClientesPage() {
         </div>
       </div>
 
-      {/* ================================================================= */}
-      {/* MODAL: WIZARD DE CADASTRO (3 ETAPAS) */}
-      {/* ================================================================= */}
+      {/* MODAL: WIZARD (3 ETAPAS) */}
       {showFormModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            {/* HEADER DO MODAL */}
             <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50 rounded-t-2xl">
               <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                 <Sparkles className="h-6 w-6 text-teal-600" />
@@ -537,8 +504,6 @@ export default function ClientesPage() {
               </h2>
               <button onClick={() => setShowFormModal(false)} className="text-slate-400 hover:text-slate-600"><X className="h-6 w-6" /></button>
             </div>
-
-            {/* TABS (WIZARD) */}
             <div className="flex border-b border-slate-200 px-6 bg-white">
               <button
                 onClick={() => setCurrentTab(1)}
@@ -565,13 +530,10 @@ export default function ClientesPage() {
                 <Package className="h-4 w-4" /> 3. Serviços Avulsos
               </button>
             </div>
-
-            {/* CONTEÚDO DAS ABAS */}
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
-              
-              {/* ABA 1: DADOS DA EMPRESA */}
+              {/* ABA 1: EMPRESA */}
               {currentTab === 1 && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-slate-700 mb-1">Razão Social *</label>
@@ -609,6 +571,23 @@ export default function ClientesPage() {
                       <label className="block text-sm font-semibold text-slate-700 mb-1">Telefone</label>
                       <input type="text" value={form.contactPhone} onChange={(e) => setForm({ ...form, contactPhone: e.target.value })} className={inputClass} />
                     </div>
+                    {/* 🆕 ADR-072: ÚNICO select de plano de contas (múltipla escolha) */}
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Plano de Contas (SCI)</label>
+                      <select
+                        value={form.accountingPlan}
+                        onChange={(e) => setForm({ ...form, accountingPlan: e.target.value })}
+                        className={inputClass}
+                      >
+                        <option value="">— definir depois —</option>
+                        {accountingPlans.map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Todos os extratos, lançamentos e exportações SCI deste cliente usarão este plano.
+                      </p>
+                    </div>
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-slate-700 mb-1">Observações Internas</label>
                       <textarea value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} rows={3} className={inputClass} />
@@ -616,22 +595,18 @@ export default function ClientesPage() {
                   </div>
                 </div>
               )}
-
-              {/* ABA 2: PLANO COMERCIAL (MRR) */}
+              {/* ABA 2: PLANO COMERCIAL */}
               {currentTab === 2 && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-4">
                   <p className="text-sm text-slate-600 mb-4">
                     Selecione o plano de honorários mensais. Isso criará um <strong>Contrato de Prestação de Serviços</strong> vinculado a este cliente.
                   </p>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {plans.length === 0 && (
                       <div className="col-span-3 text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300">
                         <p className="text-slate-500">Nenhum plano comercial cadastrado no sistema.</p>
-                        <p className="text-xs text-slate-400 mt-1">Cadastre planos em "Configurações → Planos"</p>
                       </div>
                     )}
-                    
                     {plans.map((plan) => {
                       const isSelected = form.commercialPlanId === plan.id;
                       return (
@@ -640,8 +615,8 @@ export default function ClientesPage() {
                           type="button"
                           onClick={() => setForm({ ...form, commercialPlanId: plan.id })}
                           className={`p-4 rounded-xl border-2 text-left transition-all relative ${
-                            isSelected 
-                              ? 'border-teal-600 bg-teal-50 shadow-md scale-[1.02]' 
+                            isSelected
+                              ? 'border-teal-600 bg-teal-50 shadow-md scale-[1.02]'
                               : 'border-slate-200 hover:border-slate-300 bg-white'
                           }`}
                         >
@@ -664,52 +639,41 @@ export default function ClientesPage() {
                       );
                     })}
                   </div>
-
                   <div className="pt-4 border-t border-slate-200">
                     <label className="block text-sm font-semibold text-slate-700 mb-1">
                       Honorário Base do Plano (R$) *
                     </label>
-                    <input 
-                      type="number" 
-                      step="0.01" 
-                      value={form.manualMonthlyFee} 
-                      onChange={(e) => setForm({ ...form, manualMonthlyFee: parseFloat(e.target.value) || 0 })} 
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={form.manualMonthlyFee}
+                      onChange={(e) => setForm({ ...form, manualMonthlyFee: parseFloat(e.target.value) || 0 })}
                       className={inputClass}
                       placeholder="Ex: 450.00"
                     />
-                    <p className="text-xs text-slate-500 mt-1">
-                      Valor base que será somado aos serviços avulsos mensais.
-                    </p>
                   </div>
                 </div>
               )}
-
-              {/* ABA 3: SERVIÇOS AVULSOS (ADD-ONS) */}
+              {/* ABA 3: SERVIÇOS AVULSOS */}
               {currentTab === 3 && (
-                <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-4">
                   <p className="text-sm text-slate-600 mb-4">
-                    Adicione serviços extras ao contrato (ex: IRPF, Abertura de Empresa, Consultoria). 
-                    Serviços <strong>MENSAIS</strong> serão somados ao honorário. <strong>AVULSOS</strong> serão cobrados à parte.
+                    Adicione serviços extras ao contrato. Serviços <strong>MENSAIS</strong> serão somados ao honorário.
                   </p>
-                  
                   <div className="space-y-2">
                     {serviceItems.length === 0 && (
                       <div className="text-center py-8 bg-slate-50 rounded-lg border border-dashed border-slate-300">
                         <p className="text-slate-500">Nenhum serviço cadastrado no catálogo.</p>
                       </div>
                     )}
-                    
                     {serviceItems.map((item) => {
                       const isSelected = form.avulsoServiceIds.includes(item.id);
                       const isMonthly = item.recurrence === 'MENSAL';
-                      
                       return (
                         <label
                           key={item.id}
                           className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                            isSelected 
-                              ? 'border-purple-500 bg-purple-50' 
-                              : 'border-slate-200 hover:bg-slate-50'
+                            isSelected ? 'border-purple-500 bg-purple-50' : 'border-slate-200 hover:bg-slate-50'
                           }`}
                         >
                           <input
@@ -719,7 +683,7 @@ export default function ClientesPage() {
                               if (e.target.checked) {
                                 setForm({ ...form, avulsoServiceIds: [...form.avulsoServiceIds, item.id] });
                               } else {
-                                setForm({ ...form, avulsoServiceIds: form.avulsoServiceIds.filter(id => id !== item.id) });
+                                setForm({ ...form, avulsoServiceIds: form.avulsoServiceIds.filter((id) => id !== item.id) });
                               }
                             }}
                             className="mt-1 h-4 w-4 text-purple-600 rounded focus:ring-purple-500"
@@ -733,9 +697,7 @@ export default function ClientesPage() {
                                 {item.recurrence}
                               </span>
                             </div>
-                            {item.description && (
-                              <p className="text-xs text-slate-500 mt-1">{item.description}</p>
-                            )}
+                            {item.description && <p className="text-xs text-slate-500 mt-1">{item.description}</p>}
                             <p className="text-sm font-semibold text-teal-600 mt-1">
                               R$ {Number(item.basePrice).toFixed(2)}
                               {isMonthly && <span className="text-xs text-slate-500 font-normal"> /mês</span>}
@@ -748,19 +710,14 @@ export default function ClientesPage() {
                 </div>
               )}
             </form>
-
-            {/* RODAPÉ: NAVEGAÇÃO + RESUMO FINANCEIRO */}
             <div className="p-4 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
               <div className="flex items-center justify-between mb-4 p-3 bg-white rounded-lg border border-slate-200">
                 <div className="flex items-center gap-2 text-sm text-slate-600">
                   <DollarSign className="h-4 w-4 text-teal-600" />
                   <span>Honorário Mensal Total:</span>
                 </div>
-                <div className="text-xl font-bold text-teal-600">
-                  R$ {calculatedFee.toFixed(2)}
-                </div>
+                <div className="text-xl font-bold text-teal-600">R$ {calculatedFee.toFixed(2)}</div>
               </div>
-              
               <div className="flex justify-between">
                 <button
                   type="button"
@@ -770,27 +727,16 @@ export default function ClientesPage() {
                 >
                   <ChevronLeft className="h-4 w-4" /> Anterior
                 </button>
-                
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setShowFormModal(false)} className={btnSecondary}>
                     Cancelar
                   </button>
-                  
                   {currentTab < 3 ? (
-                    <button
-                      type="button"
-                      onClick={() => setCurrentTab(currentTab + 1)}
-                      className={btnPrimary}
-                    >
+                    <button type="button" onClick={() => setCurrentTab(currentTab + 1)} className={btnPrimary}>
                       Próximo <ChevronRight className="h-4 w-4" />
                     </button>
                   ) : (
-                     <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={submitting}
-                      className={btnPrimary}
-                    >
+                    <button type="button" onClick={handleSubmit} disabled={submitting} className={btnPrimary}>
                       {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                       {selectedClient ? 'Atualizar Contrato' : 'Criar Contrato'}
                     </button>
@@ -802,9 +748,7 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* ================================================================= */}
-      {/* MODAL: VISUALIZAR DETALHES (COM ESCOPO) */}
-      {/* ================================================================= */}
+      {/* MODAL: VISUALIZAR */}
       {showViewModal && selectedClient && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -815,7 +759,6 @@ export default function ClientesPage() {
               <button onClick={() => setShowViewModal(false)} className="text-slate-400 hover:text-slate-600"><X className="h-6 w-6" /></button>
             </div>
             <div className="p-6 space-y-6">
-              {/* DADOS BÁSICOS */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-500 uppercase">CNPJ</label>
@@ -826,8 +769,12 @@ export default function ClientesPage() {
                   <p className="text-slate-900">{selectedClient.contactName || '-'}</p>
                 </div>
               </div>
-
-              {/* CONTRATO ATIVO */}
+              {selectedClient.accountingPlan && (
+                <div>
+                  <label className="text-xs font-bold text-slate-500 uppercase">Plano de Contas (SCI)</label>
+                  <p className="text-sm font-bold text-blue-700">📒 {selectedClient.accountingPlan}</p>
+                </div>
+              )}
               <div className="border-t pt-4">
                 <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
                   <Crown className="h-4 w-4 text-teal-600" /> Contrato Ativo
@@ -845,15 +792,13 @@ export default function ClientesPage() {
                   <p className="text-sm text-slate-500 italic">Sem plano mensal ativo.</p>
                 )}
               </div>
-
-              {/* SERVIÇOS AVULSOS */}
               <div className="border-t pt-4">
                 <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
                   <Package className="h-4 w-4 text-purple-600" /> Serviços Avulsos Contratados
                 </h3>
                 {selectedClient.services && selectedClient.services.length > 0 ? (
                   <ul className="space-y-2">
-                    {selectedClient.services.map(s => (
+                    {selectedClient.services.map((s) => (
                       <li key={s.id} className="flex justify-between items-center p-2 bg-slate-50 rounded">
                         <span className="text-sm font-medium text-slate-900">{s.serviceItem.name}</span>
                         <span className="text-xs text-slate-500">{s.serviceItem.recurrence}</span>
@@ -864,7 +809,6 @@ export default function ClientesPage() {
                   <p className="text-sm text-slate-500 italic">Nenhum serviço avulso.</p>
                 )}
               </div>
-
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button onClick={() => setShowViewModal(false)} className={btnSecondary}>Fechar</button>
                 <button onClick={() => { setShowViewModal(false); openEditModal(selectedClient); }} className={btnPrimary}>
@@ -876,9 +820,7 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* ================================================================= */}
-      {/* MODAL: CONFIRMAÇÃO DE EXCLUSÃO (SUBSTITUI O `confirm()`) */}
-      {/* ================================================================= */}
+      {/* MODAL: EXCLUSÃO */}
       {showDeleteModal && selectedClient && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -889,7 +831,7 @@ export default function ClientesPage() {
               <h3 className="text-lg font-bold text-slate-900">Encerrar Contrato?</h3>
             </div>
             <p className="text-slate-600 mb-6">
-              O cliente <strong>{selectedClient.companyName}</strong> será marcado como <strong>CHURN</strong>. 
+              O cliente <strong>{selectedClient.companyName}</strong> será marcado como <strong>CHURN</strong>.
               O histórico financeiro e contábil será preservado por lei.
             </p>
             <div className="flex justify-end gap-3">
@@ -903,9 +845,7 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* ================================================================= */}
-      {/* 🆕 SPRINT 23: MODAL DE IMPORTAÇÃO DE CLIENTES VIA CSV */}
-      {/* ================================================================= */}
+      {/* MODAL: IMPORTAR CSV */}
       {showImportModal && (
         <ImportClientsModal
           onClose={() => setShowImportModal(false)}
@@ -915,3 +855,6 @@ export default function ClientesPage() {
     </div>
   );
 }
+// =================================================================
+// FIM: frontend/src/app/dashboard/clientes/page.tsx
+// =================================================================
