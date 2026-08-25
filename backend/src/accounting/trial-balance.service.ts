@@ -2,55 +2,66 @@
 // INÍCIO: backend/src/accounting/trial-balance.service.ts
 // =================================================================
 /**
- * 📒 TrialBalanceService — ETAPA 1 (ADR-066)
- * Gerencia a importação e consulta de balancetes iniciais por cliente.
- * 
- * FLUXO:
- *   1. Frontend lê o CSV → envia como { content, clientId, competence }
- *   2. Parser de domínio transforma em linhas estruturadas
- *   3. Service grava no banco (idempotente: reimportar substitui)
- * 
- * IDEMPOTÊNCIA (ADR-067):
- *   Se já existe balancete para (companyId, clientId, competence),
- *   apaga o anterior e grava o novo. Nunca duplica.
+ * 📒 TrialBalanceService — VERSÃO FINAL ESTÁVEL (ADR-066/067/070)
+ *
+ * 🛡️ REGRA DE OURO DESTA VERSÃO: usa SOMENTE campos que existem no
+ * Prisma Client atual (seq, code, name, isSynthetic, saldos).
+ * NADA de `accountNumber` — elimina a deriva schema/client de vez.
+ *
+ * Fluxo: importa balancete (idempotente) + sincroniza o plano de
+ * contas do tenant (nome + seq) pelo balancete do cliente.
  */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { parseTrialBalance } from './domain/parse-trial-balance';
+import { parseTrialBalance, TrialBalanceRowParsed } from './domain/parse-trial-balance';
+
+/**
+ * 🧭 Tipo contábil pelo código no plano do cliente (SCI 90113):
+ * 01 ATIVO • 02 PASSIVO (02.3 = PL) • 03 RECEITA • 04 DESPESA • 05 PL
+ */
+function inferTypeByCode(code: string): string {
+  if (code.startsWith('01')) return 'ATIVO';
+  if (code.startsWith('02.3')) return 'PATRIMONIO_LIQUIDO';
+  if (code.startsWith('02')) return 'PASSIVO';
+  if (code.startsWith('03')) return 'RECEITA';
+  if (code.startsWith('04')) return 'DESPESA';
+  return 'PATRIMONIO_LIQUIDO';
+}
 
 @Injectable()
 export class TrialBalanceService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Importa balancete a partir do conteúdo CSV (texto).
-   * Idempotente: reimportar substitui o anterior do mesmo período.
-   */
+  // =================================================================
+  // 1) IMPORTAR BALANCETE (idempotente por cliente+competência)
+  // =================================================================
   async importTrialBalance(
     companyId: string,
     clientId: string,
-    competence: string, // 'YYYY-MM'
+    competence: string,
     content: string,
     fileName?: string,
   ) {
-    // 1. Parse do conteúdo (domínio puro, testável)
     const parsed = parseTrialBalance(content);
     if (parsed.rows.length === 0) {
-      throw new NotFoundException('CSV vazio ou formato inválido.');
+      throw new BadRequestException('CSV vazio ou formato inválido.');
     }
 
-    // 2. Idempotência: apaga balancete anterior do mesmo período (se existir)
+    // Idempotência (ADR-067): reimportar substitui o período
     const existing = await this.prisma.trialBalance.findFirst({
       where: { companyId, clientId, competence },
     });
     if (existing) {
       await this.prisma.trialBalance.delete({ where: { id: existing.id } });
-      // Cascade apaga as rows automaticamente
     }
 
-    // 3. Cria o novo balancete + linhas em transação ACID
-    const trialBalance = await this.prisma.$transaction(async (tx) => {
-      const tb = await tx.trialBalance.create({
+    // Cabeçalho + linhas em transação ACID — SOMENTE campos do client
+    const tb = await this.prisma.$transaction(async (tx) => {
+      const t = await tx.trialBalance.create({
         data: {
           companyId,
           clientId,
@@ -61,37 +72,38 @@ export class TrialBalanceService {
           totalCredit: parsed.totalCredit,
         },
       });
-
-      // Insere as linhas (contas com saldos)
       await tx.trialBalanceRow.createMany({
-        data: parsed.rows.map((row) => ({
-          trialBalanceId: tb.id,
-          accountNumber: row.accountNumber, // 🆕
-          code: row.code,
-          name: row.name,
-          isSynthetic: row.isSynthetic,
-          prevBalance: row.prevBalance,
-          debit: row.debit,
-          credit: row.credit,
-          currentBalance: row.currentBalance,
+        data: parsed.rows.map((r) => ({
+          trialBalanceId: t.id,
+          seq: r.seq,               // ✅ "Conta" SCI (819) — único campo sequencial
+          code: r.code,             // "Classificação" (01.1.1.02.026)
+          name: r.name,
+          isSynthetic: r.isSynthetic,
+          prevBalance: r.prevBalance,
+          debit: r.debit,
+          credit: r.credit,
+          currentBalance: r.currentBalance,
         })),
       });
-
-      return tb;
+      return t;
     });
 
+    // Sincroniza o plano de contas pelo balancete — no plano ATIVO do cliente (ADR-072)
+    const sync = await this.syncChartOfAccounts(companyId, clientId, parsed.rows);
+
     return {
-      id: trialBalance.id,
-      competence: trialBalance.competence,
-      rowCount: trialBalance.rowCount,
-      totalDebit: trialBalance.totalDebit,
-      totalCredit: trialBalance.totalCredit,
+      id: tb.id,
+      competence: tb.competence,
+      rowCount: tb.rowCount,
+      totalDebit: tb.totalDebit,
+      totalCredit: tb.totalCredit,
+      sync,
     };
   }
 
-  /**
-   * Lista todos os balancetes do cliente (cabeçalhos).
-   */
+  // =================================================================
+  // 2) LISTAR / VER LINHAS
+  // =================================================================
   async listTrialBalances(companyId: string, clientId: string) {
     return this.prisma.trialBalance.findMany({
       where: { companyId, clientId },
@@ -100,9 +112,6 @@ export class TrialBalanceService {
     });
   }
 
-  /**
-   * Retorna as linhas de um balancete específico.
-   */
   async getTrialBalanceRows(trialBalanceId: string, companyId: string) {
     const tb = await this.prisma.trialBalance.findFirst({
       where: { id: trialBalanceId, companyId },
@@ -112,31 +121,68 @@ export class TrialBalanceService {
     return tb;
   }
 
-  /**
-   * Retorna o saldo atual de uma conta específica no balancete mais recente.
-   * Usado para comparação na hora do lançamento mensal.
-   */
-  async getAccountBalance(
-    companyId: string,
-    clientId: string,
-    accountCode: string,
-  ) {
+  // =================================================================
+  // 3) 🗑 EXCLUIR BALANCETE (lixeira da tela)
+  // =================================================================
+  async deleteTrialBalance(companyId: string, id: string) {
     const tb = await this.prisma.trialBalance.findFirst({
-      where: { companyId, clientId },
-      orderBy: { competence: 'desc' },
-      include: {
-        rows: {
-          where: { code: accountCode },
-          take: 1,
-        },
-      },
+      where: { id, companyId },
     });
-    if (!tb || tb.rows.length === 0) return null;
-    return {
-      competence: tb.competence,
-      prevBalance: tb.rows[0].prevBalance,
-      currentBalance: tb.rows[0].currentBalance,
-    };
+    if (!tb) throw new NotFoundException('Balancete não encontrado.');
+    await this.prisma.trialBalance.delete({ where: { id } }); // rows em cascata
+    return { deleted: true };
+  }
+
+  // =================================================================
+  // 4) SINCRONIZAR PLANO DE CONTAS PELO BALANCETE (ADR-070)
+  // =================================================================
+  /**
+   * Atualiza nome + seq da conta existente ou cria a faltante.
+   * Upsert lógico por (companyId + planName + code).
+   * 🛡️ Sem `accountNumber` — somente campos garantidos no client.
+   */
+  async syncChartOfAccounts(companyId: string, clientId: string, rows: TrialBalanceRowParsed[]) {
+    // 🧭 ADR-072: o balancete alimenta o plano ATIVO do cliente (90132, 90514...)
+    const client = await this.prisma.client.findFirst({ where: { id: clientId, companyId } });
+    const planName = client?.accountingPlan || 'SCI 90113';
+    let updated = 0;
+    let created = 0;
+
+    for (const r of rows) {
+      if (!r.code) continue;
+      const type = inferTypeByCode(r.code);
+      const nature =
+        type === 'ATIVO' || type === 'DESPESA' ? 'DEVEDORA' : 'CREDORA';
+      const level = (r.code.match(/\./g) || []).length + 1;
+
+      const acc = await this.prisma.accountingAccount.findFirst({
+        where: { companyId, planName, code: r.code },
+      });
+
+      if (acc) {
+        await this.prisma.accountingAccount.update({
+          where: { id: acc.id },
+          data: { name: r.name, seq: r.seq },
+        });
+        updated++;
+      } else {
+        await this.prisma.accountingAccount.create({
+          data: {
+            companyId,
+            planName,
+            seq: r.seq,
+            code: r.code,
+            name: r.name,
+            type: type as any,
+            nature: nature as any,
+            level,
+            isActive: true,
+          },
+        });
+        created++;
+      }
+    }
+    return { updated, created };
   }
 }
 // =================================================================

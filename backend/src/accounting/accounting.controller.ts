@@ -2,65 +2,96 @@
 // INÍCIO: backend/src/accounting/accounting.controller.ts
 // =================================================================
 /**
- * AccountingController
- * Endpoints REST do módulo contábil:
- *   • CRUD de contas e lançamentos + conciliação
- *   • Exportação SCI • ponte Bancário→Contábil • DRE do cliente
- *   • 🆕 ETAPA 1: Balancete inicial + Razão + Sugeridor de conta
+ * AccountingController — VERSÃO ESTÁVEL (ETAPA 2/3 • ADR-066..072)
+ *
+ * Endpoints organizados por domínio:
+ *   • CRUD de contas contábeis
+ *   • CRUD de lançamentos + conciliação
+ *   • Exportação SCI • Ponte Bancário→Contábil • DRE do Cliente
+ *   • 🆕 ETAPA 1: Balancete + Razão + Sugeridor de contraparte
+ *   • 🆕 ETAPA 2: Importação inteligente de extrato (overlap + anti-dup)
+ *   • 🆕 ADR-072: planos de contas por cliente
+ *   • (ANTIGO) Import multipart (mantido para compatibilidade)
  */
 import {
   Controller, Get, Post, Put, Delete,
   Body, Param, Query, UseGuards, Request,
-  UseInterceptors, UploadedFile, BadRequestException,
+  UseInterceptors, UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AccountingService } from './accounting.service';
-import { TrialBalanceService } from './trial-balance.service'; // 🆕 ETAPA 1
-import { LedgerService } from './ledger.service'; // 🆕 ETAPA 1
+import { TrialBalanceService } from './trial-balance.service';
+import { LedgerService } from './ledger.service';
+import { SmartImportService } from './smart-import.service';
+import { ImportService } from './import.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Controller('accounting')
 @UseGuards(JwtAuthGuard)
 export class AccountingController {
   constructor(
     private readonly service: AccountingService,
-    private readonly trialBalanceService: TrialBalanceService, // 🆕
-    private readonly ledgerService: LedgerService, // 🆕
+    private readonly trialBalanceService: TrialBalanceService,
+    private readonly ledgerService: LedgerService,
+    private readonly smartImport: SmartImportService,
+    private readonly importService: ImportService,
   ) {}
 
   // =================================================================
-  // CONTAS CONTÁBEIS (CRUD)
+  // 🏦 CONTAS CONTÁBEIS (CRUD)
   // =================================================================
 
-  /** GET /accounting/accounts — contas ativas (globais + da empresa) */
   @Get('accounts')
   async getAccounts(@Request() req) {
     return { success: true, data: await this.service.getAccounts(req.user.companyId) };
   }
 
-  /** POST /accounting/accounts — cria conta c/ inferência de type/nature */
   @Post('accounts')
   async createAccount(@Request() req, @Body() body: any) {
     return { success: true, data: await this.service.createAccount(req.user.companyId, body) };
   }
 
-  /** PUT /accounting/accounts/:id — atualiza conta */
   @Put('accounts/:id')
   async updateAccount(@Param('id') id: string, @Body() body: any) {
     return { success: true, data: await this.service.updateAccount(id, body) };
   }
 
-  /** DELETE /accounting/accounts/:id — soft delete */
   @Delete('accounts/:id')
-  async deleteAccount(@Param('id') id: string) {
-    return { success: true, data: await this.service.deleteAccount(id) };
+  async deleteAccount(@Request() req, @Param('id') id: string) {
+    try {
+      return { success: true, data: await this.service.deleteAccount(req.user.companyId, id) };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
   }
 
   // =================================================================
-  // LANÇAMENTOS CONTÁBEIS (CRUD) + CONCILIAÇÃO
+  // 📝 LANÇAMENTOS CONTÁBEIS + CONCILIAÇÃO
   // =================================================================
 
-  /** PUT /accounting/entries/:id/conciliate — marca como CONCILIADO */
+  @Get('entries')
+  async getEntries(@Request() req) {
+    return { success: true, data: await this.service.getEntries(req.user.companyId) };
+  }
+
+  @Post('entries')
+  async createEntry(@Request() req, @Body() body: any) {
+    return { success: true, data: await this.service.createEntry(req.user.companyId, body) };
+  }
+
+  @Put('entries/:id')
+  async updateEntry(@Request() req, @Param('id') id: string, @Body() body: any) {
+    return { success: true, data: await this.service.updateEntry(id, req.user.companyId, body) };
+  }
+
+  @Delete('entries/:id')
+  async deleteEntry(@Request() req, @Param('id') id: string) {
+    await this.service.deleteEntry(id, req.user.companyId);
+    return { success: true };
+  }
+
   @Put('entries/:id/conciliate')
   async conciliateEntry(@Param('id') id: string, @Request() req, @Body() body: any) {
     try {
@@ -71,47 +102,26 @@ export class AccountingController {
     }
   }
 
-  /** GET /accounting/entries — lançamentos c/ nomes das contas */
-  @Get('entries')
-  async getEntries(@Request() req) {
-    return { success: true, data: await this.service.getEntries(req.user.companyId) };
-  }
-
-  /** POST /accounting/entries — lançamento manual de partida dobrada */
-  @Post('entries')
-  async createEntry(@Request() req, @Body() body: any) {
-    return { success: true, data: await this.service.createEntry(req.user.companyId, body) };
-  }
-
-  /** PUT /accounting/entries/:id — atualiza lançamento */
-  @Put('entries/:id')
-  async updateEntry(@Request() req, @Param('id') id: string, @Body() body: any) {
-    return { success: true, data: await this.service.updateEntry(id, req.user.companyId, body) };
-  }
-
-  /** DELETE /accounting/entries/:id — exclusão permanente */
-  @Delete('entries/:id')
-  async deleteEntry(@Request() req, @Param('id') id: string) {
-    await this.service.deleteEntry(id, req.user.companyId);
-    return { success: true };
-  }
-
   // =================================================================
-  // EXPORTAÇÃO SCI + PONTE BANCÁRIO + DRE
+  // 📤 EXPORTAÇÃO SCI + PONTE BANCÁRIO + DRE
   // =================================================================
 
-  /** GET /accounting/export-sci?year&month — gera CSV p/ SCI */
   @Get('export-sci')
-  async exportToSCI(@Request() req, @Query('year') year?: string, @Query('month') month?: string) {
+  async exportToSCI(
+    @Request() req,
+    @Query('clientId') clientId?: string,
+    @Query('year') year?: string,
+    @Query('month') month?: string,
+  ) {
     const content = await this.service.exportToSCI(
       req.user.companyId,
+      clientId || undefined,
       year ? parseInt(year) : undefined,
       month ? parseInt(month) : undefined,
     );
     return { success: true, content, message: 'Arquivo gerado com sucesso!' };
   }
 
-  /** POST /accounting/promote-from-banking — mês FECHADO → partidas dobradas */
   @Post('promote-from-banking')
   async promoteFromBanking(@Request() req, @Body() body: any) {
     const result = await this.service.promoteFromBanking(req.user.companyId, {
@@ -123,15 +133,18 @@ export class AccountingController {
     return { success: true, data: result };
   }
 
-  /** GET /accounting/dre?clientId&year&month — DRE oficial + confronto */
   @Get('dre')
-  async getClientDRE(@Request() req, @Query('clientId') clientId: string, @Query('year') year?: string, @Query('month') month?: string) {
+  async getClientDRE(
+    @Request() req,
+    @Query('clientId') clientId: string,
+    @Query('year') year?: string,
+    @Query('month') month?: string,
+  ) {
     const now = new Date();
     return {
       success: true,
       data: await this.service.getClientDRE(
-        req.user.companyId,
-        clientId,
+        req.user.companyId, clientId,
         year ? parseInt(year) : now.getFullYear(),
         month ? parseInt(month) : now.getMonth() + 1,
       ),
@@ -139,68 +152,177 @@ export class AccountingController {
   }
 
   // =================================================================
-  // 🆕 ETAPA 1 — CICLO CONTÁBIL DO CLIENTE (ADR-066/067)
+  // 🆕 ETAPA 1 — CICLO CONTÁBIL DO CLIENTE (Balancete + Razão)
   // =================================================================
 
-  /**
-   * POST /accounting/trial-balance/import
-   * Body: { clientId, competence, content, fileName? }
-   * Upload via TEXTO (zero multipart/boundary). Idempotente por período.
-   */
   @Post('trial-balance/import')
   async importTrialBalance(@Request() req, @Body() body: any) {
     const result = await this.trialBalanceService.importTrialBalance(
-      req.user.companyId,
-      body.clientId,
-      body.competence,
-      body.content,
-      body.fileName,
+      req.user.companyId, body.clientId, body.competence, body.content, body.fileName,
     );
     return { success: true, data: result };
   }
 
-  /** GET /accounting/trial-balance?clientId — lista balancetes do cliente */
   @Get('trial-balance')
   async listTrialBalances(@Request() req, @Query('clientId') clientId: string) {
     return { success: true, data: await this.trialBalanceService.listTrialBalances(req.user.companyId, clientId) };
   }
 
-  /** GET /accounting/trial-balance/:id/rows — linhas de um balancete */
   @Get('trial-balance/:id/rows')
   async getTrialBalanceRows(@Request() req, @Param('id') id: string) {
     return { success: true, data: await this.trialBalanceService.getTrialBalanceRows(id, req.user.companyId) };
   }
 
-  /**
-   * POST /accounting/ledger/import
-   * Body: { clientId, periodLabel, content, fileName? }
-   * Importa Razão/Livro Caixa (base mensal p/ comparação). Idempotente.
-   */
+  @Delete('trial-balance/:id')
+  async deleteTrialBalance(@Request() req, @Param('id') id: string) {
+    return { success: true, data: await this.trialBalanceService.deleteTrialBalance(req.user.companyId, id) };
+  }
+
   @Post('ledger/import')
   async importLedger(@Request() req, @Body() body: any) {
     const result = await this.ledgerService.importLedger(
-      req.user.companyId,
-      body.clientId,
-      body.periodLabel,
-      body.content,
-      body.fileName,
+      req.user.companyId, body.clientId, body.periodLabel, body.content, body.fileName,
     );
     return { success: true, data: result };
   }
 
-  /** GET /accounting/ledger?clientId — lista importações de razão */
   @Get('ledger')
   async listLedgerImports(@Request() req, @Query('clientId') clientId: string) {
     return { success: true, data: await this.ledgerService.listLedgerImports(req.user.companyId, clientId) };
   }
 
-  /**
-   * 👑 GET /accounting/ledger/counterparty-map?clientId
-   * Mapa contraparte→conta (ouro do razão) p/ sugerir conta no lançamento.
-   */
   @Get('ledger/counterparty-map')
   async getCounterpartyMap(@Request() req, @Query('clientId') clientId: string) {
     return { success: true, data: await this.ledgerService.getCounterpartyMap(req.user.companyId, clientId) };
+  }
+
+  // =================================================================
+  // 🆕 ETAPA 2 — EXTRATO INTELIGENTE (anti-duplicidade ADR-066/067)
+  // =================================================================
+
+  @Get('import/overlap')
+  async overlap(
+    @Request() req,
+    @Query('clientId') clientId: string,
+    @Query('start') start: string,
+    @Query('end') end: string,
+  ) {
+    return { success: true, data: await this.smartImport.getOverlap(req.user.companyId, clientId, start, end) };
+  }
+
+  @Delete('import/extrato')
+  async deleteExtrato(
+    @Request() req,
+    @Query('clientId') clientId: string,
+    @Query('start') start?: string,
+    @Query('end') end?: string,
+  ) {
+    return { success: true, data: await this.smartImport.deleteImportedStatement(req.user.companyId, clientId, start, end) };
+  }
+
+  @Post('import/parse-smart')
+  async parseSmart(@Request() req, @Body() body: any) {
+    try {
+      const data = await this.smartImport.parseSmart(req.user.companyId, body.clientId, body.content, body.bankCode);
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Post('import/save-smart')
+  async saveSmart(@Request() req, @Body() body: any) {
+    try {
+      const result = await this.smartImport.saveSmart(
+        req.user.companyId, body.clientId, body.drafts || [], body.mode || 'ONLY_NEW',
+      );
+      const msg = result.deleted > 0
+        ? `${result.deleted} antigo(s) removido(s) • ${result.created} criado(s) • ${result.skipped} ignorado(s).`
+        : `${result.created} lançamento(s) criado(s) • ${result.skipped} ignorado(s)/duplicado(s).`;
+      return { success: true, message: msg, data: result };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  // =================================================================
+  // 🆕 ADR-072 — PLANOS DE CONTAS POR CLIENTE
+  // =================================================================
+  /** 🗑 DELETE /accounting/chart/:planName — exclui o plano inteiro */
+  @Delete('chart/:planName')
+  async deletePlan(@Request() req, @Param('planName') planName: string) {
+    try {
+      const data = await this.service.deletePlan(req.user.companyId, decodeURIComponent(planName));
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+  @Get('plans')
+  async listPlans(@Request() req) {
+    return { success: true, data: await this.service.listPlans(req.user.companyId) };
+  }
+
+  @Put('client-plan')
+  async setClientPlan(@Request() req, @Body() body: any) {
+    try {
+      const data = await this.service.setClientPlan(req.user.companyId, body.clientId, body.planName);
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Post('chart/import')
+  async importChart(@Request() req, @Body() body: any) {
+    try {
+      const data = await this.service.importChartOfAccounts(
+        req.user.companyId, body.clientId || null, body.planName || '', body.content,
+      );
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  // =================================================================
+  // (ANTIGO, intacto) IMPORT MULTIPART — compatibilidade
+  // =================================================================
+
+  @Post('import/parse')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `import-${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (/csv|txt/.test(extname(file.originalname).toLowerCase())) cb(null, true);
+        else cb(new Error('Apenas .csv ou .txt'), false);
+      },
+    }),
+  )
+  async parseStatement(@UploadedFile() file: Express.Multer.File, @Request() req) {
+    if (!file) return { success: false, message: 'Nenhum arquivo enviado' };
+    try {
+      const result = await this.importService.parseBankStatement(file.path, file.originalname, req.user.companyId);
+      return { success: true, data: result };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
+
+  @Post('import/save')
+  async saveStatement(@Request() req, @Body() body: any) {
+    try {
+      const result = await this.importService.saveImportedEntries(body.entries, req.user.companyId, req.user.id, body.clientId);
+      return { success: true, message: `${result.length} lançamentos salvos com sucesso!`, data: result };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
   }
 }
 // =================================================================

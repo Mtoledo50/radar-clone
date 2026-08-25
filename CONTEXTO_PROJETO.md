@@ -1,492 +1,142 @@
 ﻿# CONTEXTO DO PROJETO — Radar Conta Certa
-
-Última atualização: 2026-08-21
+Última atualização: 2026-08-25 (Bloco 0 — casa arrumada)
 
 ## 1. Método oficial de trabalho
-
-Este projeto segue o método de entrega em sprints autocontidas.
-
-### ADR-034.2 — Entrega all-in-one
-
-A partir da Sprint C3/C4, o método preferido é:
-
-- entregar arquivos completos sempre que possível;
-- evitar deltas soltos quando o arquivo for novo ou estiver quebrado;
-- incluir backend + frontend + seed + validação + documentação na mesma entrega;
-- usar scripts únicos quando isso acelerar homologação;
-- arquivos estruturais grandes, como `schema.prisma`, `app.module.ts` e layouts, podem receber delta cirúrgico quando for mais seguro.
-
-Preferência do Marcos: **mais rápido, ágil e testável**, com tudo em um bloco só.
-
----
+Sprints autocontidas. ADR-034.2 — entrega all-in-one:
+- arquivos completos sempre que possível (novos ou quebrados);
+- delta cirúrgico só em arquivo estrutural em produção (schema, app.module, layouts);
+- backend + frontend + seed + validação + docs na mesma entrega;
+- scripts únicos quando aceleram homologação.
+Preferência do Marcos: mais rápido, ágil e testável, tudo em um bloco só.
+Regra de ouro: nenhum sprint novo começa sem o anterior homologado.
 
 ## 2. Stack atual
-
-### Backend
-
-- NestJS
-- Prisma ORM
-- PostgreSQL
-- JWT Auth
-- RBAC com decorator `@Roles()`
-- Serviços determinísticos no backend
-- PDFs no backend com `jspdf` 2.5.2 + `jspdf-autotable` 3.8.2
-
-### Frontend
-
-- Next.js App Router
-- React
-- Tailwind CSS
-- Axios com interceptor JWT
-- Sonner para toasts
-- Lucide React para ícones
-- Gráficos preferencialmente com CSS puro quando possível
-
-### Banco
-
-- PostgreSQL local
-- Porta padrão atual: `5433`
-- Database: `radar_db`
-- Usuário app: `radar_user`
-- Observação: `radar_user` não possui `CREATEDB`; evitar `migrate dev` quando exigir shadow database.
-
----
+Backend: NestJS • Prisma • PostgreSQL • JWT • RBAC @Roles() • serviços
+determinísticos • PDFs no backend (jspdf 2.5.2 + jspdf-autotable 3.8.2 pinados).
+Frontend: Next.js App Router • React • Tailwind • Axios c/ interceptor JWT •
+Sonner • Lucide • gráficos CSS puro quando possível.
+Banco:
+- Postgres LOCAL porta 5432 = dados REAIS (usuário postgres; NÃO tocar).
+- Docker Compose porta 5433 = banco virgem p/ testes (radar_user/radar_password/
+  radar_db; radar_user SEM CREATEDB → evitar migrate dev c/ shadow database;
+  usar db push ou migrate deploy).
 
 ## 3. ADRs principais
+ADR-001 Gráficos CSS puro (Recharts incompatível c/ React 19+Turbopack).
+ADR-002 CSV com UTF-8+BOM (acentos no Excel).
+ADR-003 Zustand persist p/ SSR seguro.
+ADR-004 Multi-tenant single-database por companyId.
+ADR-020 Herança de planos derivada em memória; independente não herda e não doa; round2.
+ADR-021 Lucide: tooltip via wrapper <span title> (title não existe no tipo).
+ADR-022 Proibido arquivo de backup dentro de src/ (quebra next build).
+ADR-023 Optional chaining (?.) em .map de opcionais no JSX.
+ADR-024 Sonner: action/cancel exigem onClick (usar () => {} p/ só fechar).
+ADR-025 RBAC em 3 camadas (Middleware/UI → @Roles() → RolesGuard).
+ADR-030 Regra de Ouro da Aurora: prepara/classifica/calcula/sugere; obrigação
+legal nunca é transmitida sem aprovação humana.
+ADR-031 Cálculo determinístico no backend (tributos, scores, guias, métricas).
+ADR-032 Cofres AES-256-GCM p/ credenciais/certificados (implementa na FD-8).
+ADR-034 Arquivos estruturais recebem delta cirúrgico, salvo quebrados.
+ADR-034.1 Delta cirúrgico p/ produção; completo p/ novo/quebrado.
+ADR-034.2 Sprints autocontidas (all-in-one).
+ADR-035 PDFs no backend c/ versões pinadas.
+ADR-036 NFS-e ABRASF 2.0 c/ adaptadores municipais; XML desconhecido preserva rawXml.
+ADR-037 Origem do documento em source: MANUAL/EMAIL/PORTAL/OCR.
+ADR-038 Memória de cálculo auditável (steps/sources/lawRef em JSON).
+ADR-039 IMAP como coletor (source = EMAIL).
+ADR-043.1 Logo proporcional (chip branco, nunca clipar em círculo).
+ADR-051 Benchmark de cargos: catálogo estático versionado, gaps em memória.
+ADR-054 Fórmulas seguras por whitelist (proibido eval/Function).
+ADR-055 Score 0–100 determinístico, 5 dimensões ponderadas.
+ADR-056 Mentoria derivada do Score, catálogo fixo, zero IA generativa.
+ADR-057 Checklist persistido por tenant (idempotente companyId+title+source).
+ADR-058 Ranking de níveis (Bronze→Diamante) multi-tenant.
+ADR-066 Ciclo Contábil por cliente: balancete+razão+sugeridor ("esse e somente
+esse cliente").
+ADR-067 Idempotência de imports contábeis (reimportar substitui, nunca duplica).
+ADR-068 Sugestão em 3 camadas (memória do razão → regras → revisão) c/ revisão
+humana obrigatória; upload por texto (zero multipart).
+ADR-069 Conta bancária da partida detectada pela seção do extrato (multi-conta).
+ADR-070 Plano sincronizado do balancete: seq ("Conta") + code ("Classificação").
+ADR-071 Encoding de CSV detectado (UTF-8 → Windows-1252 fallback).
+ADR-072 Multi-planos por cliente: Client.accountingPlan é a fonte da verdade;
+planos em (companyId, planName); wizard lista todos (GET /accounting/plans);
+balancete/sugestões/exportação usam o plano ativo; troca a qualquer momento.
+ADR-073 Exportação SCI c/ nºs reduzidos (seq→accountNumber→reducedCode→code) e
+decimal com PONTO; conciliação resolve por classificação OU nº reduzido.
+ADR-074 Partida dobrada manual: D e C obrigatórios, valor espelhado (D=C),
+auto-CONCILIADO ao preencher as duas contas; conciliação em lote; impressão/PDF
+dos extratos por cliente.
 
-### ADR-020 — Herança de planos
-
-Herança de planos derivada em memória. Banco guarda apenas itens próprios de cada plano. Plano independente não herda e não doa. Preços com `round2`.
-
-### ADR-025 — RBAC
-
-RBAC em 3 camadas:
-
-1. Middleware/UI
-2. Decorator `@Roles()`
-3. `RolesGuard`
-
-### ADR-030 — Regra de Ouro da Aurora
-
-A Aurora prepara, classifica, calcula e sugere.  
-Ações de risco legal nunca são transmitidas automaticamente.  
-Tudo que envolve obrigação legal exige aprovação humana.
-
-### ADR-031 — Cálculo determinístico
-
-Cálculos tributários, score, indicadores, guias e métricas críticas devem ser determinísticos no backend.
-
-### ADR-032 — Cofres AES-256-GCM
-
-Credenciais e certificados sensíveis devem ser protegidos por cofre com AES-256-GCM. Implementação prevista na FD-8.
-
-### ADR-034 — Arquivos estruturais
-
-Arquivos estruturais devem receber delta cirúrgico, salvo quando estiverem quebrados. Arquivos novos ou quebrados podem ser entregues completos.
-
-### ADR-034.1 — Delta cirúrgico vs arquivo completo
-
-Arquivo em produção recebe delta cirúrgico. Arquivo novo/quebrado recebe versão completa.
-
-### ADR-034.2 — Sprints autocontidas
-
-Entrega preferida do Marcos: código completo + seed + validação + docs em uma única resposta.
-
-### ADR-035 — PDFs no backend
-
-PDFs no backend com `jspdf` 2.5.2 + `jspdf-autotable` 3.8.2 pinados.
-
-### ADR-036 — NFS-e ABRASF
-
-Parser ABRASF 2.0 com adaptadores municipais. XML não reconhecido preserva `rawXml`.
-
-### ADR-037 — Origem do documento
-
-Origem do documento é atributo `source`: `MANUAL`, `EMAIL`, `PORTAL`, `OCR`.
-
-### ADR-038 — Memória de cálculo auditável
-
-Toda guia preserva `steps`, `sources` e `lawRef` em JSON. O contador consegue reproduzir a conta.
-
-### ADR-039 — IMAP como coletor
-
-IMAP coleta NFS-e por e-mail e usa `source = EMAIL`.
-
-### ADR-043.1 — Logo proporcional
-
-Logo horizontal deve ser tratado como chip branco com proporção original. Nunca clipar em círculo.
-
-### ADR-051 — Benchmark de cargos
-
-Catálogo estático versionado, zero tabelas novas. Gaps derivados em memória dos employees.
-
-### ADR-054 — Fórmulas seguras
-
-Indicadores customizados usam parser seguro por whitelist. Proibido `eval`, `Function` ou execução dinâmica.
-
-### ADR-055 — Score determinístico
-
-Score 0–100 do escritório é determinístico e explicável, com 5 dimensões ponderadas.
-
-### ADR-056 — Mentoria determinística
-
-Plano de mentoria derivado do Score, com catálogo fixo de ações. Zero IA generativa.
-
-### ADR-057 — Checklist persistido
-
-Checklist de mentoria persistido por tenant, com geração idempotente por `companyId + title + source`.
-
-### ADR-058 — Ranking de níveis
-
-Gamificação derivada do Score: Bronze, Prata, Ouro e Diamante. Ranking multi-tenant.
-
----
-
-## 4. Status macro do projeto
-
-### Fundação / Operacional / Fiscal / Bancário / Contábil
-
-Status: concluído.
-
-Inclui sprints 1–30:
-
-- Dashboard base
-- Clientes
-- Operacional
-- Fiscal
-- Estoque
-- NF-e
-- SPED
-- Bancário
-- Fechamento
-- DREs
-- Contábil
-- Plano de contas
-- Revisão inteligente
-- BI do escritório
-- DRE do cliente
-- Ponto fora da curva
-
-### Sprint 31 — Docker
-
-Status: concluído.
-
-Inclui:
-
-- `docker-compose.yml`
-- Postgres
-- Backend
-- Frontend
-- Dockerfiles
-- Next standalone
-
----
+## 4. Status macro
+Sprints 1–30 concluídas: dashboard, clientes, operacional, fiscal (NF-e/estoque/
+ICMS/SPED), bancário (fechamento/DREs), contábil (plano/partidas/SCI), revisão
+inteligente, BI, ponto fora da curva.
+CICLO CONTÁBIL SCI (ETAPAS 1–3) ✅ HOMOLOGADO em 25/08/2026: balancete+razão+
+sugeridor • extrato inteligente 🟢🟡🟠 c/ revisão e anti-duplicidade • multi-planos
+90113/90132 por cliente • exportação SCI reduzida c/ decimal ponto • impressão/PDF
+de extratos • atalho Lançamentos → Integração SCI.
+Sprint 31 (Docker Compose) EM HOMOLOGAÇÃO: arquivos prontos; AGUARDANDO
+docker compose ps com 3 Up.
 
 ## 5. Plano 2.0 — Fases concluídas
-
-### Fase A — Comercial
-
-Status: completa.
-
-Sprints:
-
-- A1 — Herança de planos
-- A2 — Valor de referência + dinheiro na mesa
-- A3 — Versões de proposta
-- A4 — Fechamento com ganho
-- A5 — White-label
-- A6 — PDF v2 Premium + PNG social
-- A7 — Dashboard de desempenho
-
-### Fase B — Pessoas
-
-Status: completa.
-
-Sprints:
-
-- B1 — Tipos contratuais
-- B2 — Distribuição por setor
-- B3 — Turnover de novatos e críticos
-- B4 — Entrevista de desligamento com IA
-- B5 — Benchmark de cargos
-
-### Fase C — Mercado
-
-Status: completa.
-
-Sprints:
-
-- C1 — Benchmark de softwares
-- C2 — Serviços extras
-- C3 — Indicadores customizados com fórmula
-- C4 — Score 0–100 do escritório
-
-Resultado real homologado:
-
-- Score: 51
-- Nível: Atenção
-- Comercial: 90
-- Crescimento: 0 por metas zeradas
-- Gestão: 40
-- Mercado: 48
-- Pessoas: 63
-
-### Fase D — Mentoria
-
-Status: completa.
-
-Sprints:
-
-- D1 — Visão de Futuro
-- D2 — Checklist “Meu Plano”
-- D3 — Ranking de Níveis
-
-Resultado real homologado:
-
-- Mentoria em `/dashboard/mentoria`
-- Checklist persistido com 6 itens importados dos focos
-- Ranking em `/dashboard/ranking`
-- Nível atual: Prata
-- 9 pontos para Ouro
-
----
+Fase A (Comercial) completa: A1 herança • A2 valor ref.+dinheiro na mesa •
+A3 versões de proposta • A4 fechamento c/ ganho • A5 white-label • A6 PDF v2+PNG •
+A7 dashboard desempenho.
+Fase B (Pessoas) completa: B1 tipos contratuais • B2 distribuição por setor •
+B3 turnover novatos/críticos • B4 entrevista de desligamento c/ IA • B5 benchmark.
+Fase C (Mercado) completa: C1 benchmark softwares • C2 serviços extras •
+C3 indicadores c/ fórmula • C4 Score 0–100. Resultado real: Score 51 (Atenção);
+Comercial 90 • Crescimento 0 • Gestão 40 • Mercado 48 • Pessoas 63.
+Fase D (Mentoria) completa: D1 Visão de Futuro • D2 Checklist "Meu Plano" •
+D3 Ranking. Resultado real: /dashboard/mentoria c/ checklist persistido (6 itens);
+/dashboard/ranking; nível Prata; 9 pts p/ Ouro.
 
 ## 6. Funcionário Digital Aurora
-
-Nome: Aurora — Automação Unificada de Rotinas e Obrigações, com Revisão e Auditoria.
-
-Conceito: JARVIS contábil.  
-A Aurora acorda, prepara, confere e sugere. Nunca executa sozinha obrigações legais.
-
-### Aurora concluída
-
-#### FD-1 — Fundação
-
-Status: concluída.
-
-Inclui:
-
-- Skills
-- Crons
-- Auditoria
-- Dashboard
-- Toggles
-- Execução manual
-- ApprovalRecord
-
-#### FD-2 — Relatórios e aprovações
-
-Status: concluída.
-
-Inclui:
-
-- ReconciliationSkill
-- ClassificationSkill
-- AccountingBridgeSkill
-- MonthlyReportSkill
-- Central de aprovações
-- Relatórios mensais em PDF
-- PDFs homologados
-
-#### FD-3a — NFS-e ABRASF
-
-Status: concluída.
-
-Inclui:
-
-- Upload/listagem
-- Parser ABRASF
-- `NfseImportSkill`
-- Fila amarela quando necessário
-- Vínculo por CNPJ
-- `source`
-
-#### FD-3b — Coleta IMAP
-
-Status: concluída/controlada.
-
-Inclui:
-
-- Coletor IMAP
-- SKIP gracioso quando não configurado
-- `source = EMAIL`
-
-#### FD-4 — Guias de imposto
-
-Status: concluída.
-
-Inclui:
-
-- DAS
-- ISS
-- DARF preparado
-- Memória de cálculo
-- Aprovação humana
-- PDF imprimível
-- Regra de Ouro
-
-### Aurora pendente
-
-#### FD-5 — CNAB 240/400 + régua de cobrança
-
-Objetivo: gerar/remessar cobranças, controlar retorno bancário e automatizar lembretes.
-
-#### FD-6 — SPED completo + certificado A1
-
-Objetivo: avançar obrigações acessórias e uso de certificado A1 criptografado.
-
-#### FD-7 — Integrações Domínio/Questor/Sage
-
-Objetivo: exportar/importar dados em formatos compatíveis com sistemas contábeis externos.
-
-#### FD-8 — Legalização + cofre AES-256-GCM
-
-Objetivo: cofre seguro para credenciais, procurações, e-CAC e rotinas de legalização.
-
-#### FD-9 — DP leve
-
-Objetivo: integração leve com folha existente. Não construir folha do zero.
-
----
-
-## 7. Páginas principais atuais
-7) PLANO DE EXPANSÃO "CONTA CERTA 2.0"
-...
-Fase E (UX): E1 command palette (EM HOMOLOGAÇÃO) • E2 "onde parou" • E3 notificações.
-
-12) BACKLOG PÓS-PRODUÇÃO (análise competitiva de 22/08 — visão dev + contábil)
-DEV: testes de domínio (Vitest: score/mentoria/cnab/vault/guias/promote) • retorno
-CNAB (baixa automática) • auditoria do cofre + rate limit + LGPD • paginação/máscaras •
-busca de ENTIDADES no Ctrl+K • Sentry + logs • BullMQ p/ Aurora • Portal do Cliente.
-CONTÁBIL: calendário real de obrigações por regime/município • retenções NFS-e
-(ISS/IRRF/PIS/COFINS/CSLL) • Simples c/ Fator R • Score de Compliance por CLIENTE •
-checklist de fechamento mensal por cliente • ECD/ECF • ICMS-ST por NCM/CEST •
-ISS por município • DP/eSocial via integração (FD-9) • créditos tributários.
-REGRA: nada disso entra antes das Sprints 32–34 homologadas.
-
-### Operacional
-
-- `/dashboard`
-- `/dashboard/minha-empresa`
-- `/dashboard/pessoas`
-- `/dashboard/pessoas/benchmark`
-- `/dashboard/clientes`
-- `/dashboard/projetos`
-- `/dashboard/tarefas`
-
-### Comercial
-
-- `/dashboard/precificacao`
-- `/dashboard/precificacao/meus-planos`
-- `/dashboard/precificacao/desempenho`
-- `/dashboard/planejamento`
-
-### Fiscal / Bancário / Contábil
-
-- `/dashboard/fiscal`
-- `/dashboard/fiscal/notas`
-- `/dashboard/fiscal/estoque`
-- `/dashboard/fiscal/apuracao`
-- `/dashboard/fiscal/sped`
-- `/dashboard/fiscal/comparativo`
-- `/dashboard/fechamento`
-- `/dashboard/lancamentos`
-- `/dashboard/contabil`
-
-### Inteligência
-
-- `/dashboard/funcionario-digital`
-- `/dashboard/funcionario-digital/relatorios`
-- `/dashboard/funcionario-digital/nfse`
-- `/dashboard/funcionario-digital/guias`
-- `/dashboard/bi`
-- `/dashboard/bi/dre-cliente`
-- `/dashboard/ponto-fora-da-curva`
-- `/dashboard/indicadores`
-- `/dashboard/indicadores-custom`
-- `/dashboard/score`
-- `/dashboard/mentoria`
-- `/dashboard/ranking`
-- `/dashboard/planejamento-tributario`
-- `/dashboard/reforma-tributaria`
-
----
-
-## 8. O que falta para terminar o projeto
-
-### Bloco 0 — Casa arrumada
-
-Status: em execução agora.
-
-Tarefas:
-
-- Sincronizar `CONTEXTO_PROJETO.md`
-- Sincronizar `README.md`
-- Sincronizar `CHANGELOG.md`
-
-### Bloco Aurora — próximo
-
-Prioridade escolhida pelo Marcos.
-
-Implementar em entrega all-in-one:
-
-- FD-5
-- FD-6
-- FD-7
-- FD-8
-
-Observação: o Marcos pediu todos os arquivos de uma vez para essas FDs.
-
-### Fase E — UX
-
-Deixar para depois.
-
-Pendências:
-
-- E1 — Command palette Ctrl+K
-- E2 — Boas-vindas + onde parou
-- E3 — Central de notificações
-
-### Produção 32–34
-
-Deixar para depois.
-
-Pendências:
-
-- Sprint 32 — Deploy VPS + nginx + HTTPS
-- Sprint 33 — CI/CD GitHub Actions
-- Sprint 34 — Sentry + backup automático
-- Hardening de produção
-
----
+Conceito: JARVIS contábil — acorda, prepara, confere, sugere; nunca executa
+sozinho obrigação legal (ADR-030).
+Concluída: FD-1 fundação (skills/crons/auditoria/dashboard/toggles/approvals) •
+FD-2 relatórios+aprovações (PDFs homologados) • FD-3a NFS-e ABRASF • FD-3b coleta
+IMAP controlada • FD-4 guias (DAS/ISS/DARF c/ memória de cálculo + Regra de Ouro).
+Pendente: FD-5 CNAB 240/400 + régua • FD-6 SPED completo + A1 • FD-7 integrações
+Domínio/Questor/Sage • FD-8 legalização + cofre AES-256-GCM • FD-9 DP leve.
+
+## 7. Páginas principais
+Operacional: /dashboard • /dashboard/minha-empresa • /dashboard/pessoas •
+/dashboard/pessoas/benchmark • /dashboard/clientes • /dashboard/projetos •
+/dashboard/tarefas.
+Comercial: /dashboard/precificacao • .../meus-planos • .../desempenho •
+/dashboard/planejamento.
+Fiscal/Bancário/Contábil: /dashboard/fiscal(+notas/estoque/apuracao/sped/
+comparativo) • /dashboard/fechamento • /dashboard/lancamentos •
+/dashboard/contabil • /dashboard/contabil/plano-contas •
+/dashboard/contabil/ciclo-contabil.
+Inteligência: /dashboard/funcionario-digital(+relatorios/nfse/guias) •
+/dashboard/bi • /dashboard/bi/dre-cliente • /dashboard/ponto-fora-da-curva •
+/dashboard/indicadores • /dashboard/indicadores-custom • /dashboard/score •
+/dashboard/mentoria • /dashboard/ranking • /dashboard/planejamento-tributario •
+/dashboard/reforma-tributaria.
+
+## 8. O que falta para terminar
+Bloco 0 — Casa arrumada: ✅ concluído nesta data (CONTEXTO + README + CHANGELOG
+sincronizados).
+Bloco Aurora (prioridade do Marcos, all-in-one): FD-5 • FD-6 • FD-7 • FD-8.
+Fase E (UX, depois): E1 command palette Ctrl+K (EM HOMOLOGAÇÃO) • E2 "onde parou" •
+E3 notificações.
+Produção 32–34 (depois): VPS+nginx+HTTPS • CI/CD • Sentry+backup.
+Backlog pós-produção (22/08): DEV: testes de domínio (Vitest) • retorno CNAB •
+auditoria cofre+rate limit+LGPD • paginação/máscaras • busca de entidades no Ctrl+K •
+Sentry+logs • BullMQ p/ Aurora • Portal do Cliente. CONTÁBIL: calendário de
+obrigações por regime/município • retenções NFS-e • Simples c/ Fator R • Score de
+Compliance por cliente • checklist de fechamento • ECD/ECF • ICMS-ST por NCM/CEST •
+ISS por município • créditos tributários. REGRA: nada entra antes das Sprints 32–34.
 
 ## 9. Próximo passo imediato
+1) ✅ Bloco 0 (esta sincronização).
+2) Aurora FD-5→FD-8 em entrega all-in-one (prioridade escolhida).
+3) Homologar Sprint 31: docker compose ps → 3 Up.
+4) Depois: Fase E e Produção 32–34.
 
-Aurora: FD-1→FD-6 ✅ + FD-8 ✅ (cofre/cert/EFD/CNAB) • FD-7/FD-9 backlog pós-launch.
-IMEDIATO: Fase E (UX) — E1 command palette • E2 "onde parou" • E3 notificações.
-DEPOIS: Sprints 32–34 (produção em nuvem).
-
-9) STATUS ATUAL
-Ordem decidida pelo Marcos: 0) docs ✅ → 1) Aurora FD-5/6/8 → 2) Fase E + 32–34 por último.
-ADRs novos: 052 (benchmark híbrido) • 053 (catálogo serviços) • 054 (parser sem eval) •
-055 (score 5 dimensões) • 056 (mentoria determinística) • 057 (checklist idempotente) •
-058 (gamificação por score) • 034.2 (entrega única).
-
-Depois desta casa arrumada:
-
-1. Confirmar docs atualizados.
-2. Abrir macro-entrega Aurora:
-   - FD-5 CNAB
-   - FD-6 SPED/certificado A1
-   - FD-7 integrações
-   - FD-8 legalização/cofre
-3. Entregar no método all-in-one:
-   - migrations/schema
-   - services/controllers
-   - frontend
-   - seeds
-   - validação
-   - documentação
-
-Não reimplementar sprints concluídas.
-
+## 10. Instrução para a nova IA
+Leia este arquivo, confirme com "Yes" e continue EXATAMENTE do §9.
+Não reimplementar sprints concluídas; não mudar stack; seguir método do §1.

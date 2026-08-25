@@ -324,7 +324,7 @@ model Client {
   userId                String
   companyId             String                
   user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  accountingPlan    String?   // 🆕 ADR-072: plano de contas ativo do cliente (ex.: "SCI 90132")
   companyName           String
   cnpj                  String?
   serviceType           ServiceType           @default(CONTABIL)
@@ -767,13 +767,16 @@ model AccountingEntry {
   @@index([entryDate])
   @@map("accounting_entries")
 }
-
 model AccountingAccount {
   id          String          @id @default(uuid())
   companyId   String?         /// NULL = conta global/padrão do sistema (template)
   planName    String?         @default("Padrão") /// Nome do plano (ex: "Padrão", "SCI 90113")
-  accountNumber  String?               // 🆕 número da conta (opcional; vem do balancete do cliente)
-  code           String                // classificação contábil (obrigatório)  name        String   
+  
+  // 🆕 ADR-070: campos do balancete SCI
+  seq           String?       // "Conta" sequencial (ex.: 819, 820)
+  accountNumber String?       // legado — pode manter se já usa
+  code          String        // classificação contábil (obrigatório)
+  name          String   @default("")  // ADR-070 — default p/ não resetar as 2.412 contas existentes  
   type        AccountType   
   nature      AccountNature   
   level       Int             @default(1)
@@ -788,13 +791,14 @@ model AccountingAccount {
   company     Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
   parent      AccountingAccount? @relation("AccountHierarchy", fields: [parentId], references: [id])
   children    AccountingAccount[] @relation("AccountHierarchy")
+  
+  // ✅ RELAÇÕES CORRIGIDAS (nomes idênticos aos do AccountingEntry)
   debitEntries  AccountingEntry[] @relation("DebitEntries")
   creditEntries AccountingEntry[] @relation("CreditEntries")
-   
-  // 🔥 ATUALIZADO: Unicidade por empresa + plano + código
+
   @@unique([companyId, planName, code])
-  @@index([companyId])
-  @@index([code])
+  @@index([companyId, code])
+  @@index([companyId, type])
   @@map("accounting_accounts")
 }
 // =================================================================
@@ -2305,7 +2309,6 @@ model BillingInstruction {
   @@index([companyId, status])
   @@map("billing_instructions")
 }
-
 // =================================================================
 // 🆕 ETAPA 1 (SCI-1): CICLO CONTÁBIL POR CLIENTE (ADR-066/067)
 // =================================================================
@@ -2335,14 +2338,19 @@ model TrialBalance {
 model TrialBalanceRow {
   id             String  @id @default(uuid())
   trialBalanceId String
-  accountNumber  String?               // 🆕 número da conta (col 0 do balancete, ex: "819")
-  code           String                // classificação contábil (ex: "01.1.1.02.026")
-  name           String
-  isSynthetic    Boolean @default(false) // Tipo = 'T'
-  prevBalance    Decimal @default(0) @db.Decimal(14, 2)
-  debit          Decimal @default(0) @db.Decimal(14, 2)
-  credit         Decimal @default(0) @db.Decimal(14, 2)
-  currentBalance Decimal @default(0) @db.Decimal(14, 2)
+  accountNumber   String?   // 🆕 ADR-072: nº reduzido (ex.: "819" p/ "01.1.1.02.026")
+
+  // ✅ CAMPOS DO BALANCETE SCI (ADR-070)
+  seq            String?   // "Conta" sequencial SCI (ex: "819", "820")
+  code           String    // "Classificação" contábil (ex: "01.1.1.02.026")
+  name           String    // Nome da conta (ex: "Sicredi 07417-6")
+  isSynthetic    Boolean   @default(false) // Tipo = 'T'
+  
+  // Valores contábeis
+  prevBalance    Decimal   @default(0) @db.Decimal(14, 2)
+  debit          Decimal   @default(0) @db.Decimal(14, 2)
+  credit         Decimal   @default(0) @db.Decimal(14, 2)
+  currentBalance Decimal   @default(0) @db.Decimal(14, 2)
 
   trialBalance TrialBalance @relation(fields: [trialBalanceId], references: [id], onDelete: Cascade)
 

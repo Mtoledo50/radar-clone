@@ -28,6 +28,8 @@ export interface CreateClientData {
   observations?: string;
   commercialPlanId?: string;
   avulsoServiceIds?: string[];
+  accountingPlan?: string | null; // 🆕 ADR-072: plano de contas do cliente
+
 }
 
 /**
@@ -48,6 +50,7 @@ export interface UpdateClientData {
   observations?: string;
   commercialPlanId?: string;
   avulsoServiceIds?: string[];
+  accountingPlan?: string | null; // 🆕 ADR-072
 }
 
 /**
@@ -270,6 +273,8 @@ export class ClientService {
           contactEmail: clientData.contactEmail,
           contactPhone: clientData.contactPhone,
           observations: clientData.observations,
+          accountingPlan: clientData.accountingPlan, // 🆕 ADR-072 (undefined = não mexe)
+
         },
       });
 
