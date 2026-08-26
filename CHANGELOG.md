@@ -2,6 +2,48 @@
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
+
+[Sprint FD-5 — Aurora: CNAB 240/400 + Régua de Cobrança] 2026-08-26 — ✅ HOMOLOGADO
+Added
+- Domínio puro CNAB 240/400 em `backend/src/billing/domain/` (parsers de retorno,
+  builder de remessa) — 7 testes unitários verdes.
+- Prisma: 4 tabelas (`cnab_arquivos`, `cnab_movimentos`, `cobranca_regras`,
+  `cobranca_eventos`) + 5 enums.
+- `BillingModule` c/ 17 endpoints: CRUD de cobranças, upload de retorno CNAB
+  (multipart), processamento de movimentos (baixa), regras, execução da régua,
+  aprovação humana e históricos.
+Fixed
+- Type-check do projeto inteiro (seeds + tests); CORS do backend p/ portas dev 3003/3005.
+Decisions
+ADR-084 Domínio puro CNAB isolado (sem banco/HTTP); aprovação humana obrigatória
+em toda ação automática de cobrança.
+ADR-085 Arquitetura híbrida FD-5: BillingInstruction = fonte de verdade;
+CnabArquivo/Movimento = histórico CNAB; CobrancaRegra/Evento = régua c/ workflow humano.
+Provas
+- 7/7 testes CNAB • `tsc --noEmit` 0 erros • E2E visual (porta 3003).
+
+[Fase 4 — Tela "Cobrança & CNAB" (4 abas)] 2026-08-26 — ✅ HOMOLOGADO
+Added
+- Página `/dashboard/funcionario-digital/cobranca` c/ abas: Cobranças (CRUD+KPIs+
+  status), Remessas (gerar+download+histórico), Retornos (upload+movimentos+baixa),
+  Régua (regras + eventos c/ aprovar / aprovar+enviar / rejeitar).
+- Endpoint `GET /billing/eventos` (histórico de todos os status).
+
+[Fase 5 — Notificações Plugáveis (SendGrid/Twilio/Log)] 2026-08-27 — ✅ HOMOLOGADO
+Added
+- Subsistema `backend/src/billing/notifications/`: types, LogProvider,
+  SendgridProvider (REST v3 via fetch), TwilioProvider (REST 2010 via fetch) e
+  NotificationDispatcherService (roteamento por canal).
+- Auditoria de envio no `CobrancaEvento`: `destinatario`, `provider`, `externalId`
+  (migration 20260827120000).
+- 5 testes unitários do dispatcher (roteamento, fallback log, falha sem fallback).
+Decisions
+ADR-086 Providers plugáveis por estratégia; integração REST via fetch nativo
+(zero dependências novas); MODO LOG sem chaves (dev seguro/grátis); falha real →
+evento FALHOU (sem fallback silencioso).
+Provas
+- 5/5 testes dispatcher • E2E: aprovar → enviar → caixa 📨 [MODO LOG] + ENVIADO/log no banco.
+
 [Sprint FD-5 — Aurora: CNAB 240/400 + Régua de Cobrança] 2026-08-26 — ✅ HOMOLOGADO
 Added
 - Domínio puro CNAB 240/400 em `backend/src/billing/domain/` (parsers de retorno,

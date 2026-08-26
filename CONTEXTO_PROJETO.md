@@ -155,17 +155,17 @@ Evento para régua com workflow humano.
 
 ## 9. Próximo passo imediato
 9) STATUS ATUAL E PRÓXIMOS PASSOS
-SPRINT FD-5 ✅ HOMOLOGADA em 26/08/2026: Aurora CNAB 240/400 + Régua de Cobrança
-c/ aprovação humana (ADR-084/085). Backend NestJS c/ 17 endpoints billing, domínio
-puro testado (7/7), Prisma c/ 4 tabelas novas, frontend c/ página de 4 abas.
-PENDENTE: rebuild das imagens Docker (radar-backend/radar-frontend) p/ paridade
-dev/prod — Docker Desktop instável em 26/08; dev local (3001/3003) é o ambiente ativo.
+SPRINT FD-5 ✅ + FASE 4 ✅ + FASE 5 ✅ HOMOLOGADAS em 27/08/2026: Aurora CNAB 240/400
++ régua de cobrança c/ aprovação humana + notificações plugáveis. Backend c/ 18
+endpoints billing, domínio puro testado (7 CNAB + 5 dispatcher), Prisma c/ 4 tabelas
+novas + auditoria de envio, frontend c/ página de 4 abas. Ambiente dev ativo:
+backend 3001 + frontend 3003 (Docker Desktop instável em 26/08; rebuild das imagens
+radar-backend/radar-frontend PENDENTE p/ paridade).
 PRÓXIMAS (à escolha do Marcos):
-  • Fase 5 — provider real de envio (SendGrid e-mail / Twilio WhatsApp)
+  • Fase 6 — vínculo Client→evento (destinatário real) + seletor de destinatário na tela
   • Sprint 33 — CI/CD (GitHub Actions) + Sentry + backup automático
   • Fase E (Plano 2.0) — UX: command palette, "onde parou", notificações
   • Fase A2 — herança de planos nos endpoints (Plano 2.0)
-  • Fase E do Plano 2.0 — UX (command palette, "onde parou", notificações)
 
 ## 10. Instrução para a nova IA
 Leia este arquivo, confirme com "Yes" e continue EXATAMENTE do §9.

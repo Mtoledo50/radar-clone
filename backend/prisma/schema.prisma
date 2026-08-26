@@ -2599,6 +2599,9 @@ model CobrancaEvento {
   aprovadoPor     User?  @relation("CobrancaAprovador", fields: [aprovadoPorId], references: [id])
   dataAprovacao   DateTime?
   motivoRejeicao  String?         @db.Text
+  destinatario    String?   // 🆕 Fase 5: p/ quem foi enviado (email/phone)
+  provider        String?   // 🆕 Fase 5: sendgrid | twilio | log
+  externalId      String?   // 🆕 Fase 5: id externo (SendGrid msg id / Twilio sid)
 
   // execução do envio (após aprovado)
   dataEnvio       DateTime?
