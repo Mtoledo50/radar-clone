@@ -377,7 +377,15 @@ export class BillingService {
       orderBy: { createdAt: 'desc' },
     });
   }
-
+  /** Lista os últimos 50 eventos de cobrança (todos os status) p/ auditoria. */
+  async listCobrancaEventos(companyId: string) {
+    return this.prisma.cobrancaEvento.findMany({
+      where: { companyId },
+      include: { regra: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
   /**
    * Aprova ou rejeita um evento (aprovação humana — ADR-084).
    * Rejeição exige motivo.

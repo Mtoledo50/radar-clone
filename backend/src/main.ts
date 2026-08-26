@@ -19,10 +19,14 @@ async function bootstrap() {
   const allowedOrigins = frontendUrlEnv
     ? frontendUrlEnv.split(',').map((u) => u.trim()).filter(Boolean)
     : [
-        'http://localhost:3000',  // Next.js dev (padrão)
-        'http://localhost:3002',  // Next.js dev (fallback quando 3000 ocupado)
+        'http://localhost:3000',
+        'http://localhost:3002',
+        'http://localhost:3003',   // 🆕 dev Radar (3000 ocupado pelo site)
+        'http://localhost:3005',   // 🆕 dev Radar alternativo
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3002',
+        'http://127.0.0.1:3003',
+        'http://127.0.0.1:3005',
       ];
 
   app.enableCors({
