@@ -192,9 +192,9 @@ export default function IndicadoresPage() {
     return 'Crítico';
   };
 
-  // Insights automáticos
   const getInsights = () => {
-    const insights = [];
+    type Insight = { type: 'success' | 'warning' | 'info'; message: string };
+    const insights: Insight[] = [];
     
     if (data.margemMes < 20) {
       insights.push({

@@ -3,33 +3,50 @@
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 
-[Sprint 32 — Produção local: Radar + Site Conta Certa no mesmo Docker] 2026-08-26 — ✅ HOMOLOGADO
-Added
-- docker-compose unificado em C:\Site conta-certa: site (frontend Vite/nginx
-  3000→80, backend Express 4000) + Radar (radar-backend NestJS 3003→3001,
-  radar-frontend Next standalone 3002→3000) + cloudflared na mesma rede.
-- Public hostnames no túnel: radar.contacerta.com.br → radar-frontend:3000 e
-  radar-api.contacerta.com.br → radar-backend:3001 (site intacto nos domínios dele).
-- radar-backend aplica `prisma migrate deploy` no boot (self-healing) contra o
-  Postgres REAL da máquina (5432, database radar_db).
+[Sprint Limpeza TS — 17 erros TypeScript corrigidos] 2026-08-26 — ✅ HOMOLOGADO
 Changed
+- `indicadores/page.tsx`: tipado `insights: Insight[]` com
+  `type Insight = { type: 'success' | 'warning' | 'info'; message: string }`
+  (eliminou 10 erros de `never[]`).
+- `ClosingModal.tsx:32`: `import { api }` → `import api` (axios exporta default).
+- `proposal-png.ts`: alias `const c = ctx as CanvasRenderingContext2D` em
+  `roundRect` fallback (eliminou 6 erros de `never` no Canvas 2D API).
+- `next.config.mjs`: removido `typescript.ignoreBuildErrors: true` — build Docker
+  agora roda com type-check rigoroso, igual ao dev.
+Decisions
+ADR-083 Limpeza técnica: corrigir erros de tipo legados ANTES de remover
+`ignoreBuildErrors` do build Docker (evita regressão silenciosa em CI futuro).
+Ordem dos edits: 1) tsc --noEmit zero erros → 2) remover flag → 3) rebuild Docker
+verde.
+Provas
+- `npx tsc --noEmit` retorna "Found 0 errors".
+- `next build` mostra "Finished TypeScript in 8.5s" (sem fail).
+- Todos os 5 containers do compose permanecem Up após o rebuild.
+
+
+[Sprint 32 — Produção local: Radar + Site Conta Certa] 2026-08-26 — ✅ HOMOLOGADO
+Added
+- docker-compose unificado (site Vite/nginx + backend Express + Radar Next/Nest + cloudflared).
+- Public hostnames no túnel Cloudflare: radar.contacerta.com.br + radar-api.contacerta.com.br.
+- Radar aplica `prisma migrate deploy` no boot contra o Postgres real da máquina (5432).
+- Botão "Administração" no menu do site institucional → abre o Radar em nova aba.
+Changed
+- Header do site: `<Link to="/#secao">` substituído por `<a href="#secao">` +
+  `scrollIntoView({ behavior: 'smooth' })` (react-router não faz scroll em hash).
 - Dockerfile radar-frontend: ARG/ENV NEXT_PUBLIC_API_URL=https://radar-api.contacerta.com.br
-  antes do build (env real vence .env.local) — ADR-081.
-- Dockerfile radar-backend: CMD à prova de layout (detecta dist/main.js ou
-  dist/src/main.js).
-- next.config.mjs: typescript.ignoreBuildErrors só no build Docker — ADR-078.
+  antes do build (env real vence .env.local).
+- Dockerfile radar-backend: CMD à prova de layout (detecta dist/main.js ou dist/src/main.js).
+- next.config.mjs: typescript.ignoreBuildErrors só no build Docker.
+- CORS do radar-backend liberado para radar.contacerta.com.br + localhost.
 Fixed
-- Prisma P3009 (migrations failed): resolve --applied em 6 migrations cujo DDL já
-  existia no schema — ADR-080.
+- Prisma P3009: `migrate resolve --applied` em 6 migrations cujo DDL já existia.
 - Cloudflare "DNS record already exists": removido registro `radar` velho; túnel
   recriou o CNAME.
+- Site: menu institucional agora rola ao clicar nas âncoras (#servicos, #planos, etc).
 Decisions
 ADR-077 (Postgres real via host.docker.internal) • ADR-078 (ignoreBuildErrors no
 build) • ADR-079 (túnel único site+Radar) • ADR-080 (migrate resolve --applied) •
-ADR-081 (env de build > .env.local).
-Pendências
-- Menu do site institucional não navega (aguardando Header.jsx/App.jsx).
-- 17 erros TS não-críticos no Radar (ignorados só no build; dev mantém checagem).
+ADR-081 (env de build > .env.local) • ADR-082 (scroll suave nativo em vez de hash do router).
 
 
 [Sprints SCI-1/2/3 — Ciclo Contábil por Cliente] 2026-08 — ✅ HOMOLOGADO

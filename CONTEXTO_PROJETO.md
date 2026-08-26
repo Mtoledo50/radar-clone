@@ -141,14 +141,18 @@ Sentry+logs • BullMQ p/ Aurora • Portal do Cliente. CONTÁBIL: calendário d
 obrigações por regime/município • retenções NFS-e • Simples c/ Fator R • Score de
 Compliance por cliente • checklist de fechamento • ECD/ECF • ICMS-ST por NCM/CEST •
 ISS por município • créditos tributários. REGRA: nada entra antes das Sprints 32–34.
+ADR-083 Limpeza técnica de erros TS antes de remover `ignoreBuildErrors` do
+build Docker: tipagem explícita em arrays vazios (`Insight[]`), correção de
+import default vs named (axios), e alias em `ctx` do Canvas 2D API. Garante que
+o build de produção tenha o mesmo rigor do `tsc` de desenvolvimento (paridade
+dev/prod).
 
 ## 9. Próximo passo imediato
-SPRINT 32 ✅ HOMOLOGADA em 26/08/2026: Radar em "produção" no mesmo Docker do site
-institucional (C:\Site conta-certa), exposto pelo túnel Cloudflare
-(radar.contacerta.com.br + radar-api.contacerta.com.br) e usando o Postgres real
-(5432/radar_db) via host.docker.internal. Site intacto. ADR-077..081.
-PRÓXIMO: Aurora FD-5 (CNAB 240/400 + régua de cobrança) all-in-one.
-PENDENTE: menu do site (Header.jsx) • limpeza dos 17 erros TS • Sprints 33–34.
+SPRINT 32 ✅ HOMOLOGADA (produção local Radar+Site via túnel Cloudflare) e
+SPRINT LIMPEZA TS ✅ HOMOLOGADA (26/08/2026): build Docker roda com type-check
+rigoroso; `ignoreBuildErrors` removido do next.config.mjs; ADRs 077..083.
+PRÓXIMAS: Aurora FD-5 (CNAB 240/400 + régua de cobrança) OU Sprint 33 (CI/CD +
+Sentry/backup) — à escolha.
 
 ## 10. Instrução para a nova IA
 Leia este arquivo, confirme com "Yes" e continue EXATAMENTE do §9.
