@@ -2,7 +2,7 @@
  * =================================================================
  * 📊 SEED: IMPORTAÇÃO DE PLANO DE CONTAS CONTÁBEIS (Enterprise)
  * =================================================================
- * 
+ *
  * 📌 DESCRIÇÃO:
  * Script profissional para importar um Plano de Contas a partir de um
  * arquivo CSV e populá-lo no banco de dados respeitando:
@@ -10,16 +10,18 @@
  * - Hierarquia (parentId)
  * - Idempotência (pode ser rodado várias vezes sem duplicar)
  * - Enums tipados (AccountType, AccountNature)
- * 
+ *
  * 📁 ARQUIVO CSV ESPERADO:
  * - Localização: backend/Impressão de campos da consulta2.csv
  * - Separador: ponto e vírgula (;)
  * - Colunas: codigo;classificacao;nome
  * - Exemplo: "01.1.1;1.1.1;CAIXA GERAL"
- * 
+ *
  * 🚀 EXECUÇÃO:
  * npx ts-node src/seed-accounts.ts
- * 
+ *
+ * 🧠 ADR-083: findFirst+create/update em vez de upsert composto
+ *   (schema não tem @@unique([companyId, code])).
  * =================================================================
  */
 
@@ -55,7 +57,7 @@ interface ImportResult {
 /**
  * Determina o TIPO da conta baseado no primeiro dígito do código.
  * Segue a estrutura padrão do Plano de Contas brasileiro.
- * 
+ *
  * @param code - Código da conta (ex: "01.1.1")
  * @returns AccountType (Enum do Prisma)
  */
@@ -87,7 +89,7 @@ function getAccountType(code: string): AccountType {
  * Regra contábil universal:
  * - ATIVO e DESPESA → Natureza DEVEDORA (aumentam com débito)
  * - PASSIVO, PL e RECEITA → Natureza CREDORA (aumentam com crédito)
- * 
+ *
  * @param type - AccountType da conta
  * @returns AccountNature (Enum do Prisma)
  */
@@ -108,7 +110,7 @@ function getAccountNature(type: AccountType): AccountNature {
 /**
  * Calcula o nível hierárquico da conta baseado nos pontos do código.
  * Ex: "01" = nível 1, "01.1" = nível 2, "01.1.1" = nível 3
- * 
+ *
  * @param code - Código da conta
  * @returns Nível hierárquico (Int)
  */
@@ -120,7 +122,7 @@ function getAccountLevel(code: string): number {
  * Extrai o código da conta PAI.
  * Ex: "01.1.1" → retorna "01.1"
  * Ex: "01" → retorna null (não tem pai, é sintética raiz)
- * 
+ *
  * @param code - Código da conta
  * @returns Código do pai ou null
  */
@@ -139,7 +141,7 @@ function getParentCode(code: string): string | null {
  * - Trata encoding UTF-8 com BOM
  * - Normaliza quebras de linha (Windows \r\n vs Unix \n)
  * - Ignora linhas vazias e malformadas
- * 
+ *
  * @param filePath - Caminho absoluto do CSV
  * @returns Array de CsvAccount
  */
@@ -150,7 +152,7 @@ function parseCsvFile(filePath: string): CsvAccount[] {
 
   // Lê o arquivo e remove BOM (Byte Order Mark) se presente
   let content = fs.readFileSync(filePath, 'utf-8');
-  if (content.charCodeAt(0) === 0xFEFF) {
+  if (content.charCodeAt(0) === 0xfeff) {
     content = content.substring(1);
   }
 
@@ -197,7 +199,7 @@ function parseCsvFile(filePath: string): CsvAccount[] {
  * Estratégia:
  * 1. Busca a primeira empresa ativa (não deletada)
  * 2. Se não existir, cria uma empresa "Demo" automaticamente
- * 
+ *
  * @returns ID da empresa resolvida
  */
 async function resolveCompanyId(): Promise<string> {
@@ -273,34 +275,35 @@ async function importAccounts(): Promise<void> {
       const nature = getAccountNature(type);
       const level = getAccountLevel(account.code);
 
-      // UPSERT: Cria se não existe, atualiza se já existe
-      const dbAccount = await prisma.accountingAccount.upsert({
-        where: {
-          // Chave composta única (companyId + code)
-          companyId_code: {
-            companyId: companyId,
-            code: account.code,
-          },
-        },
-        update: {
-          // Atualiza apenas se algo mudou
-          name: account.name,
-          type: type,
-          nature: nature,
-          level: level,
-          isActive: true,
-        },
-        create: {
-          companyId: companyId,
-          code: account.code,
-          name: account.name,
-          type: type,
-          nature: nature,
-          level: level,
-          isActive: true,
-          // parentId será preenchido no passo 2
-        },
+      // FIND-OR-CREATE por (companyId, code) — mesma idempotência do upsert,
+      // sem depender de @@unique composto no schema (ADR-083).
+      const existente = await prisma.accountingAccount.findFirst({
+        where: { companyId, code: account.code },
       });
+
+      const dbAccount = existente
+        ? await prisma.accountingAccount.update({
+            where: { id: existente.id },
+            data: {
+              name: account.name,
+              type,
+              nature,
+              level,
+              isActive: true,
+            },
+          })
+        : await prisma.accountingAccount.create({
+            data: {
+              companyId,
+              code: account.code,
+              name: account.name,
+              type,
+              nature,
+              level,
+              isActive: true,
+              // parentId será preenchido no passo 2
+            },
+          });
 
       // Verifica se foi criado ou atualizado
       const existed = await prisma.accountingAccount.count({
@@ -338,30 +341,28 @@ async function importAccounts(): Promise<void> {
     try {
       // Busca o pai no banco
       const parent = await prisma.accountingAccount.findFirst({
-        where: {
-          companyId: companyId,
-          code: parentCode,
-        },
+        where: { companyId, code: parentCode },
       });
 
       if (!parent) {
-        console.warn(`⚠️  Pai não encontrado para ${account.code} (esperado: ${parentCode})`);
+        console.warn(
+          `⚠️  Pai não encontrado para ${account.code} (esperado: ${parentCode})`,
+        );
         result.skipped++;
         continue;
       }
 
-      // Atualiza a conta com o parentId
-      await prisma.accountingAccount.update({
-        where: {
-          companyId_code: {
-            companyId: companyId,
-            code: account.code,
-          },
-        },
-        data: {
-          parentId: parent.id,
-        },
+      // Busca o filho e atualiza parentId
+      const child = await prisma.accountingAccount.findFirst({
+        where: { companyId, code: account.code },
       });
+
+      if (child) {
+        await prisma.accountingAccount.update({
+          where: { id: child.id },
+          data: { parentId: parent.id },
+        });
+      }
     } catch (error: any) {
       console.error(`❌ Erro ao vincular pai de ${account.code}: ${error.message}`);
       result.errors++;

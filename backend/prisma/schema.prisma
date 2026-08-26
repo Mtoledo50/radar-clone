@@ -207,6 +207,11 @@ model Company {
   legalDeadlines LegalDeadline[]
     // 🆕 FD-5: instruções de cobrança CNAB
   billingInstructions BillingInstruction[]
+    // 🤖 Aurora FD-5 — CNAB + Régua de Cobrança
+  cnabArquivos      CnabArquivo[]
+  cnabMovimentos    CnabMovimento[]
+  cobrancaRegras    CobrancaRegra[]
+  cobrancaEventos   CobrancaEvento[]
 
   trialBalances  TrialBalance[]   // 🆕 ETAPA 1 - ciclo contábil
   ledgerImports  LedgerImport[]   // 🆕 ETAPA 1 - ciclo contábil
@@ -251,6 +256,10 @@ model User {
 assignedTasks   Task[]
   // 🆕 Sprint C3: indicadores que o usuário criou
   customIndicators CustomIndicator[]
+
+    // 🤖 Aurora FD-5 — aprovações de cobrança
+  cobrancaAprovacoes CobrancaEvento[] @relation("CobrancaAprovador")
+
   
   @@index([companyId])
   @@map("users")
@@ -374,6 +383,10 @@ model Client {
   taxGuides           TaxGuide[]                 // 🆕 FD-4
   trialBalances  TrialBalance[]   // 🆕 ETAPA 1 - ciclo contábil
   ledgerImports  LedgerImport[]   // 🆕 ETAPA 1 - ciclo contábil
+  // 🤖 Aurora FD-5 — CNAB + Régua de Cobrança
+  cnabMovimentos    CnabMovimento[]
+  cobrancaEventos   CobrancaEvento[]
+
   @@index([userId])
   @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
   @@map("clients")
@@ -1747,6 +1760,9 @@ model BankTransaction {
 
   createdAt DateTime @default(now())
 
+    // 🤖 Aurora FD-5 — conciliação com retorno CNAB
+  cnabMovimentos    CnabMovimento[]
+
   @@index([statementId])
   @@index([companyId, nature])
   @@map("bank_transactions")
@@ -2397,4 +2413,206 @@ model ClientLedgerEntry {
   @@index([companyId, clientId, accountCode, entryDate])
   @@index([companyId, clientId, counterparty])
   @@map("client_ledger_entries")
+}
+// ============================================================================
+// 🤖 AURORA FD-5 — CNAB 240/400 + Régua de Cobrança (ADR-084)
+// ============================================================================
+// ADR-084: Schema multi-tenant (companyId em todas as tabelas), com flag de
+// aprovação humana (CobrancaEvento.status) e vínculo com FinancialTransaction
+// para conciliação automática quando o retorno CNAB confirma pagamento.
+// ============================================================================
+
+// ── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum CnabFormato {
+  CNAB_240
+  CNAB_400
+}
+
+enum CnabTipoArquivo {
+  REMESSA
+  RETORNO
+}
+
+enum CnabStatus {
+  GERADA        // arquivo criado mas não enviado ao banco
+  ENVIADA       // arquivo enviado (manualmente ou via API bancária)
+  PROCESSADA    // retorno recebido e movimentos aplicados
+  ERRO          // falha no parse/aplicação (ver campo erroMensagem)
+}
+
+enum CobrancaCanal {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum CobrancaStatus {
+  AGUARDANDO_APROVACAO
+  APROVADO
+  REJEITADO
+  ENVIADO
+  FALHOU
+}
+
+// ── MODELS ──────────────────────────────────────────────────────────────────
+
+/// Arquivo CNAB (remessa gerada OU retorno processado)
+model CnabArquivo {
+  id              String          @id @default(uuid())
+  companyId       String
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  tipo            CnabTipoArquivo
+  formato         CnabFormato
+  banco           String          // "bb", "itau", "bradesco", "santander", "caixa"
+  sequencial      Int
+
+  status          CnabStatus      @default(GERADA)
+  erroMensagem    String?         @db.Text
+
+  // metadados
+  dataGeracao     DateTime        @default(now())
+  dataProcessamento DateTime?
+  nomeArquivo     String?         // ex: "CB123456.REM"
+  tamanhoBytes    Int?
+  checksum        String?         // SHA-256 do conteúdo
+
+  // relações
+  movimentos      CnabMovimento[]
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, banco, formato])
+  @@map("cnab_arquivos")
+}
+
+/// Movimento individual de um arquivo CNAB de retorno
+/// (cada linha de detalhe = 1 CnabMovimento)
+model CnabMovimento {
+  id              String          @id @default(uuid())
+  companyId       String
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  arquivoId       String
+  arquivo         CnabArquivo     @relation(fields: [arquivoId], references: [id], onDelete: Cascade)
+
+  // identificadores do boleto
+  nossoNumero     String
+  numeroDocumento String          // nº da fatura/NF
+  codigoMovimento String          // ex: "06" = liquidação (FEBRABAN)
+  descricaoMovimento String
+
+  // valores e datas
+  valorTitulo     Float
+  valorPago       Float           @default(0)
+  tarifa          Float           @default(0)
+  dataOcorrencia  DateTime
+  dataCredito     DateTime?
+
+  // conciliação com o módulo bancário (opcional)
+  // quando o código de movimento = LIQUIDACAO, o usuário pode vincular
+  // a uma BankTransaction existente para fechar a conciliação
+  bankTransactionId String?
+  bankTransaction   BankTransaction? @relation(fields: [bankTransactionId], references: [id])
+
+  // cliente/sacado (quando identificável pelo número do documento)
+  clientId        String?
+  client          Client?         @relation(fields: [clientId], references: [id])
+
+  // status de processamento deste movimento
+  aplicado        Boolean         @default(false)
+  observacao      String?         @db.Text
+
+  createdAt       DateTime        @default(now())
+
+  @@index([companyId, nossoNumero])
+  @@index([companyId, dataOcorrencia])
+  @@index([companyId, bankTransactionId])
+  @@map("cnab_movimentos")
+}
+
+/// Régua de cobrança: "dias após vencimento" → "canal" → "template"
+/// Exemplo de régua completa:
+///   +3 dias  → EMAIL   → "Lembrete amigável"
+///   +7 dias  → WHATSAPP → "Cobrança cordial"
+///   +15 dias → EMAIL   → "Cobrança formal"
+///   +30 dias → EMAIL   → "Última notificação"
+model CobrancaRegra {
+  id              String          @id @default(uuid())
+  companyId       String
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  nome            String          // "Régua padrão 30 dias"
+  ativa           Boolean         @default(true)
+
+  // dias após vencimento para disparar este passo
+  diasAposVencimento Int
+
+  canal           CobrancaCanal
+  templateMensagem String         @db.Text // suporta placeholders: {nome}, {valor}, {vencimento}
+
+  // requer aprovação humana? (ADR: nenhuma cobrança sai sem revisão)
+  requerAprovacao Boolean         @default(true)
+
+  // ordem de execução dentro da régua
+  ordem           Int             @default(0)
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+    // relação inversa (exigida pelo Prisma)
+  eventos         CobrancaEvento[]
+
+  @@unique([companyId, nome, diasAposVencimento, canal])
+  @@index([companyId, ativa])
+  @@map("cobranca_regras")
+}
+
+/// Evento disparado pela régua (execução real de uma regra para um cliente)
+model CobrancaEvento {
+  id              String          @id @default(uuid())
+  companyId       String
+  company         Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  regraId         String
+  regra           CobrancaRegra   @relation(fields: [regraId], references: [id], onDelete: Restrict)
+
+  clientId        String?
+  client          Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // qual dívida está sendo cobrada
+  faturaIdentificador String      // ex: "FAT-2026-001" ou id do ClientMonthlyData
+  valorDevido     Float
+  dataVencimento  DateTime
+
+  // canal e mensagem efetivamente usados (snapshot da regra no momento do disparo)
+  canal           CobrancaCanal
+  mensagemEnviada String          @db.Text
+
+  // status do evento (aprovação humana em todas as etapas)
+  status          CobrancaStatus  @default(AGUARDANDO_APROVACAO)
+
+  // quem aprovou/rejeitou (nullable até aprovação)
+  aprovadoPorId   String?
+  aprovadoPor     User?  @relation("CobrancaAprovador", fields: [aprovadoPorId], references: [id])
+  dataAprovacao   DateTime?
+  motivoRejeicao  String?         @db.Text
+
+  // execução do envio (após aprovado)
+  dataEnvio       DateTime?
+  erroEnvio       String?         @db.Text
+  protocoloExterno String?        // id da mensagem no WhatsApp/email provider
+
+  // reagendamento
+  reagendadoPara  DateTime?
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, clientId, dataVencimento])
+  @@index([companyId, aprovadoPorId])
+  @@map("cobranca_eventos")
 }
