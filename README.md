@@ -95,9 +95,9 @@ Para evitar mais duplicações no futuro, o Roadmap deve ter estas 8 seções ú
 └─────────────────────────────────────────────────────────────┘
 ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ CONTÁBIL │
-│ Plano de Contas SCI → Lançamentos → Ponte Bancário→Contábil│
-│ → DRE Oficial do Cliente → Exportação SCI │
+│                       CONTÁBIL                              │
+│ Plano de Contas SCI → Lançamentos → Ponte Bancário→Contábil │
+│ → DRE Oficial do Cliente → Exportação SCI                   │
 └─────────────────────────────────────────────────────────────┘
 ↓
 ┌─────────────────────────────────────────────────────────────┐
