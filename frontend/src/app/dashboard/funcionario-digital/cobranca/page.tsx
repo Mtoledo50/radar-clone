@@ -2,10 +2,17 @@
 // INÍCIO: frontend/src/app/dashboard/funcionario-digital/cobranca/page.tsx
 // =================================================================
 /**
- * 💰 Cobrança & CNAB — FD-5 (Aurora)
- * 4 abas: Cobranças (CRUD+status) • Remessas (gerar+download) •
- * Retornos (upload+baixa) • Régua (regras+aprovação — sub-entrega 4b).
- * 🧠 ADR-084: endpoints novos /billing/* + aprovação humana.
+ * 💰 Cobrança & CNAB — FD-5 (Aurora) + Fase 6 (vínculo Client)
+ *
+ * 4 abas:
+ *   Cobranças (CRUD + seletor de cliente + vínculo manual)
+ *   Remessas  (gerar CNAB + histórico)
+ *   Retornos  (upload + baixa de movimentos)
+ *   Régua     (regras + eventos c/ aprovação + override de destinatário)
+ *
+ * 🧠 ADR-084: aprovação humana obrigatória.
+ * 🧠 ADR-086: notificações plugáveis (SendGrid/Twilio/Log).
+ * 🧠 ADR-087: vínculo Client↔cobrança/evento + override de destinatário.
  */
 'use client';
 
@@ -14,30 +21,82 @@ import api from '@/lib/axios';
 import { toast } from 'sonner';
 import {
   Landmark, Loader2, Plus, Trash2, Download, Send, CheckCircle2,
-  Upload, FileText, Calendar,RefreshCw, Power, XCircle,
+  Upload, FileText, Calendar, RefreshCw, Power, XCircle,
 } from 'lucide-react';
 
 // ============================================================================
 // TIPOS
 // ============================================================================
 interface BillingInstruction {
-  id: string; clientName: string; document: string | null;
-  amount: number; dueDate: string; ourNumber: string;
-  status: string; effectiveStatus: string;
-}
-interface CnabArquivo {
-  id: string; tipo: 'REMESSA' | 'RETORNO'; formato: string; banco: string;
-  sequencial: number; status: string; nomeArquivo: string | null;
-  tamanhoBytes: number | null; dataGeracao: string;
-  _count?: { movimentos: number };
-}
-interface CnabMovimento {
-  id: string; nossoNumero: string; numeroDocumento: string;
-  dataOcorrencia: string; codigoMovimento: string; descricaoMovimento: string;
-  valorTitulo: number; valorPago: number; tarifa: number;
-  dataCredito: string | null; aplicado: boolean; observacao: string | null;
+  id: string;
+  clientName: string;
+  document: string | null;
+  amount: number;
+  dueDate: string;
+  ourNumber: string;
+  status: string;
+  effectiveStatus: string;
+  client: { id: string; companyName: string } | null; // 🆕 Fase 6
 }
 
+interface CnabArquivo {
+  id: string;
+  tipo: 'REMESSA' | 'RETORNO';
+  formato: string;
+  banco: string;
+  sequencial: number;
+  status: string;
+  nomeArquivo: string | null;
+  tamanhoBytes: number | null;
+  dataGeracao: string;
+  _count?: { movimentos: number };
+}
+
+interface CnabMovimento {
+  id: string;
+  nossoNumero: string;
+  numeroDocumento: string;
+  dataOcorrencia: string;
+  codigoMovimento: string;
+  descricaoMovimento: string;
+  valorTitulo: number;
+  valorPago: number;
+  tarifa: number;
+  dataCredito: string | null;
+  aplicado: boolean;
+  observacao: string | null;
+}
+
+interface CobrancaRegra {
+  id: string;
+  nome: string;
+  diasAposVencimento: number;
+  canal: string;
+  templateMensagem: string;
+  requerAprovacao: boolean;
+  ordem: number;
+  ativa: boolean;
+}
+
+interface CobrancaEvento {
+  id: string;
+  canal: string;
+  mensagemEnviada: string;
+  status: string;
+  valorDevido: number;
+  dataVencimento: string;
+  createdAt: string;
+  motivoRejeicao: string | null;
+  regra: { nome: string } | null;
+  destinatario: string | null; // 🆕 Fase 6
+  client: { companyName: string; contactEmail: string | null; contactPhone: string | null } | null; // 🆕 Fase 6
+}
+interface ClientOption {
+  id: string;
+  name: string;
+  cnpj: string | null;
+  fee: number | null;
+}
 // ============================================================================
 // CONSTANTES + HELPERS
 // ============================================================================
@@ -48,6 +107,15 @@ const STATUS_CFG: Record<string, { label: string; cls: string }> = {
   ENVIADA:  { label: '🟣 Enviada',  cls: 'bg-purple-100 text-purple-800' },
   PAGA:     { label: '🟢 Paga',     cls: 'bg-green-100 text-green-800' },
 };
+
+const EVENTO_STATUS_CFG: Record<string, { label: string; cls: string }> = {
+  AGUARDANDO_APROVACAO: { label: '⏳ Aguardando aprovação', cls: 'bg-amber-100 text-amber-800' },
+  APROVADO: { label: '✅ Aprovado', cls: 'bg-blue-100 text-blue-800' },
+  ENVIADO:  { label: '📨 Enviado',  cls: 'bg-green-100 text-green-800' },
+  REJEITADO:{ label: '❌ Rejeitado', cls: 'bg-red-100 text-red-800' },
+  FALHOU:   { label: '⚠️ Falhou',   cls: 'bg-red-100 text-red-800' },
+};
+
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const brDate = (d: string) => new Date(d).toLocaleDateString('pt-BR');
 
@@ -91,12 +159,13 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 }
 
 // ============================================================================
-// ABA 1: COBRANÇAS (CRUD manual + status)
+// ABA 1: COBRANÇAS (CRUD + seletor de cliente + coluna Vínculo)
 // ============================================================================
 function CobrancasTab() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<BillingInstruction[]>([]);
-  const [form, setForm] = useState({ clientName: '', document: '', amount: '', dueDate: '' });
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [form, setForm] = useState({ clientName: '', document: '', amount: '', dueDate: '', clientId: '' });
 
   async function load() {
     try {
@@ -107,7 +176,22 @@ function CobrancasTab() {
       toast.error(e.response?.data?.message || 'Erro ao carregar cobranças.');
     } finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, []);
+
+  // 🆕 Fase 6: lista clients da casa p/ seletor (campo real = companyName)
+  async function loadClients() {
+    try {
+      const res = await api.get('/clients');
+      const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+     setClients(list.map((c: any) => ({
+  id: c.id,
+  name: c.companyName,
+  cnpj: c.cnpj ?? null,
+  fee: c.monthlyFee ?? null,   // honorário atual do client (snapshot)
+})));
+    } catch { /* seletor opcional — falha silenciosa */ }
+  }
+
+  useEffect(() => { load(); loadClients(); }, []);
 
   async function add() {
     if (!form.clientName || !form.amount || !form.dueDate) {
@@ -120,8 +204,9 @@ function CobrancasTab() {
         document: form.document || null,
         amount: Number(form.amount),
         dueDate: form.dueDate,
+        clientId: form.clientId || null,
       });
-      setForm({ clientName: '', document: '', amount: '', dueDate: '' });
+      setForm({ clientName: '', document: '', amount: '', dueDate: '', clientId: '' });
       toast.success('Cobrança criada!');
       load();
     } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao criar.'); }
@@ -138,6 +223,15 @@ function CobrancasTab() {
     await api.delete(`/billing/${id}`);
     toast.success('Cobrança excluída.');
     load();
+  }
+
+  // 🆕 Fase 6: vínculo manual client→cobrança
+  async function linkClient(billingId: string, clientId: string) {
+    try {
+      await api.patch(`/billing/${billingId}/client`, { clientId: clientId || null });
+      toast.success(clientId ? 'Cliente vinculado!' : 'Vínculo removido.');
+      load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao vincular.'); }
   }
 
   const kpi = {
@@ -158,11 +252,35 @@ function CobrancasTab() {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
         <p className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Plus className="h-4 w-4" /> Nova cobrança</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           <input className="px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Cliente" value={form.clientName} onChange={(e) => setForm({ ...form, clientName: e.target.value })} />
           <input className="px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="CNPJ/CPF" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} />
           <input type="number" step="0.01" className="px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Valor R$" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           <input type="date" className="px-3 py-2 border border-slate-300 rounded-lg text-sm" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+          {/* 🆕 Fase 6: client da casa opcional (vazio = auto-match por nome) */}
+<select
+  className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
+  value={form.clientId}
+  onChange={(e) => {
+    const id = e.target.value;
+    const cli = clients.find((c) => c.id === id);
+    setForm({
+      ...form,
+      clientId: id,
+      // 🆕 autopreenche do client da casa (editável depois)
+      clientName: cli ? cli.name : form.clientName,
+      document: cli ? (cli.cnpj ?? '') : form.document,
+      amount: cli && cli.fee != null ? String(cli.fee) : form.amount,
+    });
+  }}
+>
+  <option value="">Cliente da casa (opcional)</option>
+  {clients.map((c) => (
+    <option key={c.id} value={c.id}>
+      {c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}
+    </option>
+  ))}
+</select>
         </div>
         <button onClick={add} className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700">
           <Plus className="h-4 w-4" /> Adicionar à régua
@@ -177,13 +295,14 @@ function CobrancasTab() {
               <th className="px-4 py-3 text-left">Vencimento</th>
               <th className="px-4 py-3 text-right">Valor</th>
               <th className="px-4 py-3 text-left">Nosso nº</th>
+              <th className="px-4 py-3 text-left">Vínculo</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-right">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {items.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Nenhuma cobrança na régua.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Nenhuma cobrança na régua.</td></tr>
             )}
             {items.map((i) => {
               const cfg = STATUS_CFG[i.effectiveStatus] || STATUS_CFG.PENDENTE;
@@ -193,6 +312,23 @@ function CobrancasTab() {
                   <td className="px-4 py-3 text-slate-600">{brDate(i.dueDate)}</td>
                   <td className="px-4 py-3 text-right font-bold text-slate-900">{brl(Number(i.amount))}</td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-500">{i.ourNumber}</td>
+                  <td className="px-4 py-3">
+                    {i.client ? (
+                      <span className="text-xs font-bold px-2 py-1 rounded-full bg-teal-100 text-teal-800" title={i.client.companyName}>
+                        🔗 {i.client.companyName.length > 18 ? i.client.companyName.slice(0, 18) + '…' : i.client.companyName}
+                      </span>
+                    ) : (
+                      <select
+                        defaultValue=""
+                        onChange={(e) => linkClient(i.id, e.target.value)}
+                        className="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-white"
+                        title="Vincular cliente da casa (define o destinatário dos envios)"
+                      >
+                        <option value="">— vincular —</option>
+                        {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    )}
+                  </td>
                   <td className="px-4 py-3"><span className={`text-xs font-bold px-2 py-1 rounded-full ${cfg.cls}`}>{cfg.label}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
@@ -315,8 +451,8 @@ function RetornosTab() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('formato', 'CNAB_240'); // TODO: detectar formato automaticamente
-      formData.append('banco', 'bb');         // TODO: seletor de banco
+      formData.append('formato', 'CNAB_240');
+      formData.append('banco', 'bb');
       const res = await api.post('/billing/retorno/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -444,29 +580,8 @@ function RetornosTab() {
 }
 
 // ============================================================================
-// ABA 4: RÉGUA (placeholder — sub-entrega 4b)
+// ABA 4: RÉGUA (regras + eventos c/ coluna Destinatário + override ✏️)
 // ============================================================================
-// ============================================================================
-// ABA 4: RÉGUA (regras + eventos c/ aprovação humana — ADR-084)
-// ============================================================================
-interface CobrancaRegra {
-  id: string; nome: string; diasAposVencimento: number;
-  canal: string; templateMensagem: string; requerAprovacao: boolean;
-  ordem: number; ativa: boolean;
-}
-interface CobrancaEvento {
-  id: string; canal: string; mensagemEnviada: string; status: string;
-  valorDevido: number; dataVencimento: string; createdAt: string;
-  motivoRejeicao: string | null; regra: { nome: string } | null;
-}
-const EVENTO_STATUS_CFG: Record<string, { label: string; cls: string }> = {
-  AGUARDANDO_APROVACAO: { label: '⏳ Aguardando aprovação', cls: 'bg-amber-100 text-amber-800' },
-  APROVADO: { label: '✅ Aprovado', cls: 'bg-blue-100 text-blue-800' },
-  ENVIADO: { label: '📨 Enviado', cls: 'bg-green-100 text-green-800' },
-  REJEITADO: { label: '❌ Rejeitado', cls: 'bg-red-100 text-red-800' },
-  FALHOU: { label: '⚠️ Falhou', cls: 'bg-red-100 text-red-800' },
-};
-
 function ReguaTab() {
   const [regras, setRegras] = useState<CobrancaRegra[]>([]);
   const [eventos, setEventos] = useState<CobrancaEvento[]>([]);
@@ -555,6 +670,21 @@ function ReguaTab() {
     } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao enviar.'); }
   }
 
+  // 🆕 Fase 6: override humano do destinatário (ADR-087)
+  async function setDestinatario(ev: CobrancaEvento) {
+    const resolved =
+      ev.destinatario ??
+      (ev.canal === 'EMAIL' ? ev.client?.contactEmail : ev.client?.contactPhone) ??
+      '';
+    const novo = window.prompt('Destinatário (email ou telefone):', resolved);
+    if (novo === null || !novo.trim()) return;
+    try {
+      await api.patch(`/billing/eventos/${ev.id}/destinatario`, { destinatario: novo });
+      toast.success('Destinatário atualizado!');
+      load();
+    } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao atualizar destinatário.'); }
+  }
+
   if (loading) return <Loader />;
   const pendentes = eventos.filter((e) => e.status === 'AGUARDANDO_APROVACAO');
 
@@ -641,7 +771,7 @@ function ReguaTab() {
         </table>
       </div>
 
-      {/* Eventos */}
+      {/* Eventos — 🆕 Fase 6: coluna Destinatário com override ✏️ */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-200">
           <h3 className="font-bold text-slate-800">
@@ -657,6 +787,7 @@ function ReguaTab() {
               <th className="px-4 py-3 text-left">Criado em</th>
               <th className="px-4 py-3 text-left">Regra</th>
               <th className="px-4 py-3 text-left">Canal</th>
+              <th className="px-4 py-3 text-left">Destinatário</th>
               <th className="px-4 py-3 text-right">Valor</th>
               <th className="px-4 py-3 text-left">Mensagem</th>
               <th className="px-4 py-3 text-left">Status</th>
@@ -665,15 +796,34 @@ function ReguaTab() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {eventos.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Nenhum evento ainda. Clique em "Executar régua agora".</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Nenhum evento ainda. Clique em "Executar régua agora".</td></tr>
             )}
             {eventos.map((ev) => {
               const cfg = EVENTO_STATUS_CFG[ev.status] || EVENTO_STATUS_CFG.AGUARDANDO_APROVACAO;
+              const resolved =
+                ev.destinatario ??
+                (ev.canal === 'EMAIL' ? ev.client?.contactEmail : ev.client?.contactPhone) ??
+                null;
+              const canEdit = ev.status === 'AGUARDANDO_APROVACAO' || ev.status === 'APROVADO';
               return (
                 <tr key={ev.id} className="hover:bg-slate-50 align-top">
                   <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{brDate(ev.createdAt)}</td>
                   <td className="px-4 py-3 font-semibold text-slate-800">{ev.regra?.nome ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-600">{ev.canal}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    <span className="inline-flex items-center gap-1">
+                      {resolved ?? <span className="text-slate-400 text-xs">— (modo log)</span>}
+                      {canEdit && (
+                        <button
+                          title="Editar destinatário"
+                          onClick={() => setDestinatario(ev)}
+                          className="p-1 text-slate-400 hover:text-teal-600"
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-right font-bold text-slate-900">{brl(Number(ev.valorDevido))}</td>
                   <td className="px-4 py-3 text-slate-600 max-w-xs">
                     <span title={ev.mensagemEnviada}>{ev.mensagemEnviada.slice(0, 80)}{ev.mensagemEnviada.length > 80 ? '…' : ''}</span>
@@ -702,6 +852,7 @@ function ReguaTab() {
     </div>
   );
 }
+
 // ============================================================================
 // HELPERS VISUAIS
 // ============================================================================

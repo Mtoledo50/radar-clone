@@ -386,7 +386,8 @@ model Client {
   // 🤖 Aurora FD-5 — CNAB + Régua de Cobrança
   cnabMovimentos    CnabMovimento[]
   cobrancaEventos   CobrancaEvento[]
-
+  billingInstructions BillingInstruction[]
+  
   @@index([userId])
   @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
   @@map("clients")
@@ -2321,6 +2322,8 @@ model BillingInstruction {
   updatedAt DateTime @updatedAt
 
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  clientId      String?
+  client        Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([companyId, status])
   @@map("billing_instructions")

@@ -1,67 +1,42 @@
+// =================================================================
+// INÍCIO: backend/src/billing/billing.controller.ts
+// =================================================================
 /**
- * =================================================================
- * BillingController — Endpoints REST de Cobrança e CNAB
- * =================================================================
- * Exposição dos métodos do BillingService via HTTP.
- * Todos endpoints exigem JWT (multi-tenant via companyId).
+ * 🎛️ BillingController — FD-5 + Fase 4b + Fase 6
  *
  * Rotas:
- * - CRUD de BillingInstruction (compatibilidade frontend atual)
- * - Upload e processamento de retorno CNAB
- * - Régua de cobrança (CRUD de regras + eventos)
- * - Execução da régua (scheduler)
+ *  - BillingInstruction: CRUD + status + 🆕 vínculo client
+ *  - CNAB: remessa, upload retorno, arquivos, movimentos, process
+ *  - Régua: regras (CRUD/toggle), executar, eventos (pendentes,
+ *    todos, aprovar, enviar, 🆕 override destinatário)
  *
- * ADR-084: Domínio puro + validação rigorosa + aprovação humana.
- * =================================================================
+ * 🧠 ADR-084: tudo protegido por JwtAuthGuard + multi-tenant
+ *    via @CurrentUser (companyId vem do token, nunca do body).
  */
-
 import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  UseGuards,
-  UseInterceptors,
-  UploadedFile,
-  BadRequestException,
-  HttpStatus,
-  HttpCode,
+  Body, Controller, Delete, Get, Param, Patch, Post,
+  UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { BillingService } from './billing.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CnabFormato } from '@prisma/client';
-import {
-  UploadRetornoDto,
-  ProcessMovimentoDto,
-  CreateCobrancaRegraDto,
-  AprovarEventoDto,
-  validarAprovacao,
-} from './dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { BillingService } from './billing.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
-@Controller('billing')
 @UseGuards(JwtAuthGuard)
+@Controller('billing')
 export class BillingController {
   constructor(private readonly billingService: BillingService) {}
 
-  // ═══════════════════════════════════════════════════════════════
-  // BILLING INSTRUCTION (compatibilidade frontend atual)
-  // ═══════════════════════════════════════════════════════════════
+  // ═══════════════ BILLING INSTRUCTION ═══════════════
 
-  /** Lista cobranças com status efetivo (deriva VENCIDA). */
   @Get()
-  async list(@CurrentUser() user: { companyId: string }) {
+  list(@CurrentUser() user: { companyId: string }) {
     return this.billingService.list(user.companyId);
   }
 
-  /** Cria cobrança manual (entrada explícita). */
   @Post()
-  @HttpCode(HttpStatus.CREATED)
-  async create(
+  create(
     @CurrentUser() user: { companyId: string },
     @Body()
     dto: {
@@ -69,113 +44,83 @@ export class BillingController {
       document?: string;
       amount: number;
       dueDate: string;
+      clientId?: string | null; // 🆕 Fase 6: vínculo explícito opcional
     },
   ) {
     return this.billingService.create(user.companyId, dto);
   }
 
-  /** Remove cobrança PENDENTE. */
   @Delete(':id')
-  async remove(
-    @CurrentUser() user: { companyId: string },
-    @Param('id') id: string,
-  ) {
+  remove(@CurrentUser() user: { companyId: string }, @Param('id') id: string) {
     return this.billingService.remove(user.companyId, id);
   }
 
-  /** Transição de status (ENVIADA/PAGA). */
   @Patch(':id/status')
-  async setStatus(
+  setStatus(
     @CurrentUser() user: { companyId: string },
     @Param('id') id: string,
     @Body('status') status: 'ENVIADA' | 'PAGA',
   ) {
-    if (!['ENVIADA', 'PAGA'].includes(status)) {
-      throw new BadRequestException(`Status inválido: ${status}`);
-    }
     return this.billingService.setStatus(user.companyId, id, status);
   }
 
-  /** Gera remessa CNAB das cobranças PENDENTES. */
+  /** 🆕 Fase 6: vincula/desvincula client na cobrança (ADR-087). */
+  @Patch(':id/client')
+  linkClient(
+    @CurrentUser() user: { companyId: string },
+    @Param('id') id: string,
+    @Body('clientId') clientId: string | null,
+  ) {
+    return this.billingService.linkClient(user.companyId, id, clientId);
+  }
+
+  // ═══════════════ CNAB ═══════════════
+
   @Post('generate-cnab')
-  @HttpCode(HttpStatus.CREATED)
-  async generateCnab(@CurrentUser() user: { companyId: string }) {
+  generateCnab(@CurrentUser() user: { companyId: string }) {
     return this.billingService.generateCnab(user.companyId);
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // 🆕 RETORNO CNAB (upload + parse + processamento)
-  // ═══════════════════════════════════════════════════════════════
-
-  /**
-   * Upload de arquivo CNAB de retorno.
-   *
-   * Usa multipart/form-data:
-   * - file: arquivo .txt/.ret (campo "file")
-   * - formato: "CNAB_240" ou "CNAB_400"
-   * - banco: "bb", "itau", "bradesco", "santander", "caixa"
-   */
   @Post('retorno/upload')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB máximo
-      fileFilter: (_req, file, cb) => {
-        // aceita .txt, .ret, .cnv
-        const ext = file.originalname.toLowerCase();
-        if (ext.endsWith('.txt') || ext.endsWith('.ret') || ext.endsWith('.cnv')) {
-          cb(null, true);
-        } else {
-          cb(new BadRequestException('Apenas arquivos .txt, .ret ou .cnv'), false);
-        }
-      },
-    }),
-  )
-  @HttpCode(HttpStatus.CREATED)
-  async uploadRetorno(
+  @UseInterceptors(FileInterceptor('file'))
+  uploadRetorno(
     @CurrentUser() user: { companyId: string },
     @UploadedFile() file: Express.Multer.File,
-    @Body() dto: UploadRetornoDto,
+    @Body('formato') formato: CnabFormato,
+    @Body('banco') banco: string,
   ) {
-    if (!file) {
-      throw new BadRequestException('Arquivo CNAB é obrigatório');
-    }
-
-    // Converte encoding do arquivo (banco usa ISO-8859-1 ou Windows-1252)
-    let conteudo: string;
-    try {
-      conteudo = file.buffer.toString('latin1');
-    } catch {
-      conteudo = file.buffer.toString('utf-8');
-    }
-
+    // latin1 preserva bytes crus do CNAB (arquivos bancários não são UTF-8)
     return this.billingService.uploadRetorno(
       user.companyId,
-      conteudo,
-      dto.formato as CnabFormato,
-      dto.banco,
+      file.buffer.toString('latin1'),
+      formato,
+      banco || 'bb',
     );
   }
 
-  /** Lista arquivos CNAB (remessas e retornos) da empresa. */
   @Get('arquivos')
-  async listArquivos(@CurrentUser() user: { companyId: string }) {
+  listArquivos(@CurrentUser() user: { companyId: string }) {
     return this.billingService.listArquivos(user.companyId);
   }
 
-  /** Lista movimentos de um arquivo específico. */
   @Get('arquivos/:arquivoId/movimentos')
-  async listMovimentos(
+  listMovimentos(
     @CurrentUser() user: { companyId: string },
     @Param('arquivoId') arquivoId: string,
   ) {
     return this.billingService.listMovimentos(user.companyId, arquivoId);
   }
 
-  /** Processa um movimento CNAB (aplica baixa). */
   @Post('movimento/process')
-  async processMovimento(
+  processMovimento(
     @CurrentUser() user: { companyId: string },
-    @Body() dto: ProcessMovimentoDto,
+    @Body()
+    dto: {
+      movimentoId: string;
+      observacao?: string;
+      bankTransactionId?: string;
+      clientId?: string;
+    },
   ) {
     return this.billingService.processMovimento(
       user.companyId,
@@ -186,67 +131,82 @@ export class BillingController {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // 🆕 RÉGUA DE COBRANÇA (regras + eventos)
-  // ═══════════════════════════════════════════════════════════════
+  // ═══════════════ RÉGUA DE COBRANÇA ═══════════════
 
-  /** Lista regras de cobrança da empresa. */
   @Get('regras')
-  async listRegras(@CurrentUser() user: { companyId: string }) {
+  listRegras(@CurrentUser() user: { companyId: string }) {
     return this.billingService.listCobrancaRegras(user.companyId);
   }
 
-  /** Cria uma regra de cobrança. */
   @Post('regras')
-  @HttpCode(HttpStatus.CREATED)
-  async createRegra(
+  createRegra(
     @CurrentUser() user: { companyId: string },
-    @Body() dto: CreateCobrancaRegraDto,
+    @Body()
+    dto: {
+      nome: string;
+      diasAposVencimento: number;
+      canal: 'EMAIL' | 'WHATSAPP' | 'SMS';
+      templateMensagem: string;
+      requerAprovacao?: boolean;
+      ordem?: number;
+    },
   ) {
     return this.billingService.createCobrancaRegra(user.companyId, dto);
   }
 
-  /** Atualiza uma regra existente. */
   @Patch('regras/:id')
-  async updateRegra(
+  updateRegra(
     @CurrentUser() user: { companyId: string },
     @Param('id') id: string,
-    @Body() dto: Partial<CreateCobrancaRegraDto>,
+    @Body()
+    dto: {
+      nome?: string;
+      diasAposVencimento?: number;
+      canal?: 'EMAIL' | 'WHATSAPP' | 'SMS';
+      templateMensagem?: string;
+      requerAprovacao?: boolean;
+      ordem?: number;
+    },
   ) {
     return this.billingService.updateCobrancaRegra(user.companyId, id, dto);
   }
 
-  /** Ativa/desativa uma regra. */
   @Patch('regras/:id/toggle')
-  async toggleRegra(
-    @CurrentUser() user: { companyId: string },
-    @Param('id') id: string,
-  ) {
+  toggleRegra(@CurrentUser() user: { companyId: string }, @Param('id') id: string) {
     return this.billingService.toggleCobrancaRegra(user.companyId, id);
   }
 
-  /** Lista eventos de cobrança pendentes de aprovação. */
+  @Post('executar-regua')
+  executarRegua(@CurrentUser() user: { companyId: string }) {
+    return this.billingService.executarRegua(user.companyId);
+  }
+
   @Get('eventos/pendentes')
-  async listEventosPendentes(@CurrentUser() user: { companyId: string }) {
+  eventosPendentes(@CurrentUser() user: { companyId: string }) {
     return this.billingService.listCobrancaEventosPendentes(user.companyId);
   }
-  /** Histórico de eventos de cobrança (todos os status). */
+
   @Get('eventos')
-  async listEventos(@CurrentUser() user: { companyId: string }) {
+  listEventos(@CurrentUser() user: { companyId: string }) {
     return this.billingService.listCobrancaEventos(user.companyId);
   }
-  /** Aprova ou rejeita um evento de cobrança. */
-  @Post('eventos/:id/aprovar')
-  async aprovarEvento(
-    @CurrentUser() user: { id: string; companyId: string },
+
+  /** 🆕 Fase 6: override humano do destinatário (ADR-087). */
+  @Patch('eventos/:id/destinatario')
+  setDestinatario(
+    @CurrentUser() user: { companyId: string },
     @Param('id') id: string,
-    @Body() dto: AprovarEventoDto,
+    @Body('destinatario') destinatario: string,
   ) {
-    try {
-      validarAprovacao(dto);
-    } catch (e) {
-      throw new BadRequestException(e.message);
-    }
+    return this.billingService.setEventoDestinatario(user.companyId, id, destinatario);
+  }
+
+  @Post('eventos/:id/aprovar')
+  aprovarEvento(
+    @CurrentUser() user: { companyId: string; id: string },
+    @Param('id') id: string,
+    @Body() dto: { aprovado: boolean; motivoRejeicao?: string },
+  ) {
     return this.billingService.aprovarEvento(
       user.companyId,
       id,
@@ -256,24 +216,11 @@ export class BillingController {
     );
   }
 
-  /** Dispara um evento aprovado (envia email/WhatsApp). */
   @Post('eventos/:id/enviar')
-  async enviarEvento(
-    @CurrentUser() user: { companyId: string },
-    @Param('id') id: string,
-  ) {
+  enviarEvento(@CurrentUser() user: { companyId: string }, @Param('id') id: string) {
     return this.billingService.enviarEvento(user.companyId, id);
   }
-
-  /**
-   * Executa a régua de cobrança.
-   *
-   * Este endpoint pode ser chamado manualmente ou por um cron job.
-   * Verifica cobranças vencidas e cria eventos conforme as regras.
-   */
-  @Post('executar-regua')
-  @HttpCode(HttpStatus.ACCEPTED)
-  async executarRegua(@CurrentUser() user: { companyId: string }) {
-    return this.billingService.executarRegua(user.companyId);
-  }
 }
+// =================================================================
+// FIM: backend/src/billing/billing.controller.ts
+// =================================================================
