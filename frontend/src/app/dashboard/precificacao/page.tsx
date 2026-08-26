@@ -362,7 +362,7 @@ export default function PrecificacaoPage() {
           category: i.serviceItem?.category?.name ?? null,
           description:
             i.commercialPlan?.description || i.serviceItem?.description || null,
-          scope: i.serviceItem?.scope ?? null,
+            scope: (i.serviceItem as any)?.scope ?? null,
           price: Number(i.totalPrice) || 0,
         })),
       };

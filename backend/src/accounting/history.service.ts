@@ -17,13 +17,17 @@ export class HistoryService {
     private readonly importService: ImportService,
   ) {}
 
-  // 🎛️ LAYOUT DE EXPORTAÇÃO SCI-Único
+  // 🎛️ LAYOUT DE EXPORTAÇÃO SCI-Único (v3 — ADR-075)
+  // Linha oficial (TAB): 000001	20250103	00001125	00000007	928.99		<histórico>
+  // controle fixo | data AAAAMMDD | conta D 8 díg. | conta C 8 díg. |
+  // valor c/ ponto | campo vazio | histórico
   private readonly SCI_LAYOUT = {
-    delimiter: ';',
+    delimiter: '\t',
     lineEnding: '\r\n',
+    control: '000001',
     formatDate: (d: Date) =>
-      `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`,
-    // 🆕 ADR-073: decimal com PONTO (1500.00) — vírgula viraria coluna no re-import
+      `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`,
+    formatAccount: (n: string) => ((n || '0').replace(/\D/g, '') || '0').padStart(8, '0'),
     formatValue: (v: number) => v.toFixed(2),
   };
 
@@ -62,9 +66,13 @@ export class HistoryService {
     }
     return { cloned };
   }
-
   // =================================================================
-  // 📥 IMPORTAR BASE HISTÓRICA (Lançamentos SCI, separador ';')
+  // 📥 IMPORTAR BASE HISTÓRICA (v3 — ADR-073)
+  // Aceita 3 layouts:
+  //  1) TXT SCI sem cabeçalho (data;debito;credito;valor;historico)
+  //  2) CSV com cabeçalho nomeado (data;...;valor;...)
+  //  3) Razão/Livro Caixa por conta (Conta;Data;Histórico;;Débito;Crédito;Saldo)
+  //     → vira partida dobrada: banco = bloco; contraparte = memória interna.
   // =================================================================
   async importHistoryBase(
     companyId: string,
@@ -73,50 +81,130 @@ export class HistoryService {
     content: string,
   ) {
     const lines = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    if (lines.length < 2) throw new BadRequestException('Arquivo sem linhas.');
+    if (lines.length === 0) throw new BadRequestException('Arquivo sem linhas.');
 
-    const header = lines[0].split(';').map((h) => this.normalize(h));
-    const idx = (k: string) => header.findIndex((h) => h.includes(k));
-    const iDate = idx('data');
-    const iDeb = idx('debito');
-    const iCred = idx('credito');
-    const iVal = idx('valor');
-    const iHist = idx('historico');
-    const iComp = idx('complemento');
-    const iDoc = idx('doc');
-    const iType = idx('tipo');
+    const first = lines[0].split(';').map((s) => (s || '').trim());
+    const looksLikeData = /^\d{2}\/\d{2}\/\d{4}$/.test(first[0] || '');
+    const headerNorm = first.map((h) => this.normalize(h));
+    const isRazao =
+      !looksLikeData &&
+      headerNorm.some((h) => h.startsWith('CONTA')) &&
+      headerNorm.some((h) => h.includes('SALDO'));
 
-    const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      const c = lines[i].split(';').map((s) => (s || '').trim());
-      const date = this.parseDate(c[iDate] || '');
-      const amount = this.parseAmount(c[iVal] || '');
-      const description = (c[iComp] || c[iHist] || '').trim();
-      if (!date || amount === null || !description) continue;
+    let rows: any[];
 
-      rows.push({
-        companyId,
-        clientId,
-        year,
-        date,
-        debitCode: c[iDeb] || null,
-        creditCode: c[iCred] || null,
-        amount,
-        historyCode: c[iHist] || null,
-        description,
-        docNumber: c[iDoc] || null,
-        entryType: c[iType] || null,
-      });
+    if (isRazao) {
+      rows = this.parseRazaoLayout(lines, companyId, clientId, year);
+    } else {
+      let iDate = 0, iDeb = 1, iCred = 2, iVal = 3, iHist = 4;
+      let iComp = -1, iDoc = -1, iType = -1;
+      let start = 0;
+
+      if (!looksLikeData) {
+        const idx = (k: string) => headerNorm.findIndex((h) => h.includes(k));
+        iDate = idx('data'); iDeb = idx('debito'); iCred = idx('credito');
+        iVal = idx('valor'); iHist = idx('historico');
+        iComp = idx('complemento'); iDoc = idx('doc'); iType = idx('tipo');
+        if (iDate < 0 || iVal < 0) {
+          throw new BadRequestException(
+            'Formato não reconhecido. Aceitos: TXT SCI (data;debito;credito;valor;historico) ' +
+            'ou Razão/Livro Caixa (Conta;Data;Histórico;;Débito;Crédito;Saldo).',
+          );
+        }
+        start = 1;
+      }
+
+      rows = [];
+      for (let i = start; i < lines.length; i++) {
+        const c = lines[i].split(';').map((s) => (s || '').trim());
+        const date = this.parseDate(c[iDate] || '');
+        const amount = this.parseAmount(c[iVal] || '');
+        const description = ((iComp >= 0 ? c[iComp] : '') || c[iHist] || '').trim();
+        if (!date || amount === null || !description) continue;
+        rows.push({
+          companyId, clientId, year, date,
+          debitCode: c[iDeb] || null,
+          creditCode: c[iCred] || null,
+          amount,
+          historyCode: (iHist >= 0 ? c[iHist] : null) || null,
+          description,
+          docNumber: (iDoc >= 0 ? c[iDoc] : null) || null,
+          entryType: (iType >= 0 ? c[iType] : null) || null,
+        });
+      }
     }
 
-    await this.prisma.historicalEntry.deleteMany({
-      where: { companyId, clientId, year },
-    });
+    if (rows.length === 0) {
+      throw new BadRequestException('Nenhuma linha válida encontrada no arquivo.');
+    }
+
+    await this.prisma.historicalEntry.deleteMany({ where: { companyId, clientId, year } });
     await this.prisma.historicalEntry.createMany({ data: rows });
 
     return { imported: rows.length, year };
   }
 
+  // =================================================================
+  // 📒 PARSER DO RAZÃO/LIVRO CAIXA → PARTIDAS DOBRADAS (ADR-073)
+  // Passagem 1: memória contraparte→conta pelos blocos NÃO bancários.
+  // Passagem 2: linhas dos blocos bancários (01.1.1.x) viram lançamentos:
+  //   entrada (Débito no banco) → D banco / C contraparte
+  //   saída   (Crédito no banco) → D contraparte / C banco
+  // Linhas "Saldo anterior" e "Total mês" são ignoradas.
+  // =================================================================
+  private parseRazaoLayout(
+    lines: string[],
+    companyId: string,
+    clientId: string | null,
+    year: number,
+  ) {
+    const isBank = (code: string) => code.startsWith('01.1.1.');
+    const blockOf = (cell: string) => {
+      const m = (cell || '').match(/^\s*(\d+)\s*-\s*([\d.]+)/);
+      return m ? { code: m[2] } : null;
+    };
+
+    // ── Passagem 1: memória contraparte → conta (blocos não bancários) ──
+    const memo = new Map<string, string>();
+    for (let i = 1; i < lines.length; i++) {
+      const c = lines[i].split(';').map((s) => (s || '').trim());
+      const block = blockOf(c[0]);
+      if (!block || isBank(block.code)) continue;
+      if (!this.parseDate(c[1] || '')) continue;
+      const who = this.normalize(c[2] || '');
+      if (!who) continue;
+      if (!memo.has(who)) memo.set(who, block.code);
+    }
+
+    // ── Passagem 2: blocos bancários → partidas dobradas ──
+    const rows: any[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const c = lines[i].split(';').map((s) => (s || '').trim());
+      const block = blockOf(c[0]);
+      if (!block || !isBank(block.code)) continue; // pula totais e blocos não-banco
+      const date = this.parseDate(c[1] || '');
+      if (!date) continue; // pula "Saldo anterior"
+      const who = (c[2] || '').trim();
+      if (!who) continue;
+      const deb = this.parseAmount(c[4] || '') || 0;
+      const cred = this.parseAmount(c[5] || '') || 0;
+      const amount = deb > 0 ? deb : cred;
+      if (amount <= 0) continue;
+
+      const other = memo.get(this.normalize(who)) || null;
+      rows.push({
+        companyId, clientId, year, date,
+        debitCode: deb > 0 ? block.code : other,   // entrada: D banco
+        creditCode: deb > 0 ? other : block.code,  // saída: C banco
+        amount,
+        historyCode: block.code,
+        description: who,
+        docNumber: null,
+        entryType: null,
+      });
+    }
+    return rows;
+  }
   // =================================================================
   // 📊 RESUMO DO PIPELINE (alimenta a Tela 1)
   // =================================================================
@@ -233,12 +321,14 @@ export class HistoryService {
     const lines = valid.map((e) => {
       const amount =
         Number(e.debitValue) > 0 ? Number(e.debitValue) : Number(e.creditValue);
-            return [
-        L.formatDate(new Date(e.entryDate)),
-        this.sciAccountNumber(e.debitAccount),   // 🆕 ADR-073: nº unificado (489/819)
-        this.sciAccountNumber(e.creditAccount),
-        L.formatValue(amount),                   // 🆕 1500.00 (ponto)
-        e.description.replace(/;/g, '/'),
+      return [
+        L.control,                                               // 000001
+        L.formatDate(new Date(e.entryDate)),                     // 20260720
+        L.formatAccount(this.sciAccountNumber(e.debitAccount)),  // 00000503
+        L.formatAccount(this.sciAccountNumber(e.creditAccount)), // 00000819
+        L.formatValue(amount),                                   // 1500.00
+        '',                                                      // campo vazio
+        e.description.replace(/\t/g, ' ').substring(0, 100),     // histórico
       ].join(L.delimiter);
     });
 

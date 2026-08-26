@@ -59,4 +59,4 @@ EXPOSE 3001
 # 🚀 Comando de inicialização:
 # 1. Aplica migrações pendentes no banco (self-healing)
 # 2. Inicia o servidor NestJS em produção
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && MAIN=$(find /app/dist -name 'main.js' | head -n 1) && echo \"Boot: $MAIN\" && exec node \"$MAIN\""]

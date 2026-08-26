@@ -133,20 +133,25 @@ export class AccountingController {
     return { success: true, data: result };
   }
 
+  /** GET /accounting/dre — mensal (year+month) OU acumulado (start+end) */
   @Get('dre')
   async getClientDRE(
     @Request() req,
     @Query('clientId') clientId: string,
     @Query('year') year?: string,
     @Query('month') month?: string,
+    @Query('start') start?: string,
+    @Query('end') end?: string,
   ) {
     const now = new Date();
     return {
       success: true,
       data: await this.service.getClientDRE(
-        req.user.companyId, clientId,
+        req.user.companyId,
+        clientId,
         year ? parseInt(year) : now.getFullYear(),
         month ? parseInt(month) : now.getMonth() + 1,
+        start && end ? { start, end } : undefined,
       ),
     };
   }

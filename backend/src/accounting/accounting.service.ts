@@ -272,9 +272,12 @@ export class AccountingService {
       orderBy: { entryDate: 'asc' },
     });
 
-    // 4) Linhas no layout SCI reduzido
+    // 4) Linhas no layout SCI oficial (ADR-075) — TAB:
+    // 000001	20260720	00000503	00000819	1500.00		<histórico>
+    const pad8 = (n: string) => ((n || '0').replace(/\D/g, '') || '0').padStart(8, '0');
     const lines = entries.map((e) => {
-      const date = new Date(e.entryDate).toLocaleDateString('pt-BR');
+      const d = new Date(e.entryDate);
+      const date = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
       const dNum =
         numByCode.get(e.debitAccount?.code || '') ||
         e.debitAccount?.seq || e.debitAccount?.accountNumber || '';
@@ -282,12 +285,12 @@ export class AccountingService {
         numByCode.get(e.creditAccount?.code || '') ||
         e.creditAccount?.seq || e.creditAccount?.accountNumber || '';
       const value = (Number(e.debitValue) > 0 ? Number(e.debitValue) : Number(e.creditValue))
-        .toFixed(2).replace('.', ',');
-      const desc = (e.description || '').replace(/;/g, ' ').substring(0, 100);
-      return `${date};${dNum};${cNum};${value};${desc}`;
+        .toFixed(2);
+      const desc = (e.description || '').replace(/\t/g, ' ').substring(0, 100);
+      return ['000001', date, pad8(dNum), pad8(cNum), value, '', desc].join('\t');
     });
 
-    return lines.join('\n');
+    return lines.join('\r\n');
   }
 
   // =================================================================
@@ -407,9 +410,28 @@ export class AccountingService {
   // 📊 DRE OFICIAL DO CLIENTE (Sprint 26)
   // Confronta Contábil × Bancário no mesmo período.
   // =================================================================
-  async getClientDRE(companyId: string, clientId: string, year: number, month: number) {
-    const start = new Date(year, month - 1, 1);
-    const end = new Date(year, month, 0, 23, 59, 59);
+  // =================================================================
+  // 📊 DRE OFICIAL (mensal OU acumulado — ADR-076)
+  // period = { start: 'YYYY-MM', end: 'YYYY-MM' } → acumula o intervalo.
+  // =================================================================
+  async getClientDRE(
+    companyId: string,
+    clientId: string,
+    year: number,
+    month: number,
+    period?: { start: string; end: string },
+  ) {
+    let start: Date;
+    let end: Date;
+    if (period?.start && period?.end) {
+      const [sy, sm] = period.start.split('-').map((n) => parseInt(n, 10));
+      const [ey, em] = period.end.split('-').map((n) => parseInt(n, 10));
+      start = new Date(sy, sm - 1, 1);
+      end = new Date(ey, em, 0, 23, 59, 59);
+    } else {
+      start = new Date(year, month - 1, 1);
+      end = new Date(year, month, 0, 23, 59, 59);
+    }
 
     const entries = await this.prisma.accountingEntry.findMany({
       where: { companyId, clientId, entryDate: { gte: start, lte: end } },
@@ -467,8 +489,16 @@ export class AccountingService {
     const totalDespesas = despesas.reduce((s, d) => s + d.total, 0);
 
     // DRE bancário (confronto)
-    const statements = await this.prisma.bankStatement.findMany({
-      where: { companyId, clientId, year, month },
+    // 🆕 ADR-076: extratos bancários DENTRO do intervalo (acumulado)
+    const statementsAll = await this.prisma.bankStatement.findMany({
+      where: { companyId, clientId },
+    });
+    const kOf = (y: number, m: number) => y * 12 + (m - 1);
+    const kStart = kOf(start.getFullYear(), start.getMonth() + 1);
+    const kEnd = kOf(end.getFullYear(), end.getMonth() + 1);
+    const statements = statementsAll.filter((s) => {
+      const k = kOf(s.year, s.month);
+      return k >= kStart && k <= kEnd;
     });
     let bankResultado = 0;
     let bankReceita = 0;

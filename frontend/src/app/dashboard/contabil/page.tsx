@@ -11,6 +11,17 @@ import {
 interface Client { id: string; companyName: string; cnpj?: string; accountingPlan?: string | null }
 interface Summary { baseCount: number; pendingCount: number; reconciledCount: number }
 
+// 🆕 Quadro de formato aceito/gerado (documentação viva na tela)
+function FormatHint({ title, lines }: { title: string; lines: string[] }) {
+  return (
+    <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[10px] text-slate-600 space-y-1">
+      <p className="font-bold text-slate-700">{title}</p>
+      {lines.map((l, i) => (
+        <p key={i} className="font-mono whitespace-pre-wrap break-all">{l}</p>
+      ))}
+    </div>
+  );
+}
 export default function ContabilPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -241,6 +252,17 @@ export default function ContabilPage() {
                   ? `✅ ${summary.baseCount} lançamentos na memória do cliente.`
                   : 'Importe o arquivo de lançamentos do ano anterior (SCI).'}
               </p>
+                        <FormatHint
+            title="📥 Aceita .csv ou .txt (PDF não) — 2 layouts:"
+            lines={[
+              'A) TXT SCI sem cabeçalho:',
+              'data;contaDébito;contaCrédito;valor;histórico',
+              '30/06/2026;03.2.1.01.011;01.1.1.02.026;300,00;PAGAMENTO PIX...',
+              'B) Razão/Livro Caixa com cabeçalho:',
+              'Conta;Data;Histórico;;Débito;Crédito;Saldo',
+              '819 - 01.1.1.02.026 - Sicredi;15/05/2026;SOLANGE;;200,00;;200,00',
+            ]}
+          />
               <input ref={baseInputRef} type="file" accept=".csv,.txt" hidden
                 onChange={(e) => e.target.files?.[0] && handleImportBase(e.target.files[0])} />
               <button className={`${btn} w-full bg-purple-600 hover:bg-purple-700 text-white`}
@@ -259,6 +281,15 @@ export default function ContabilPage() {
               <p className="text-xs text-slate-500">
                 Importe o extrato bancário (CSV/TXT). Gera lançamentos PENDENTES.
               </p>
+                        <FormatHint
+            title="📥 Aceita .csv ou .txt (PDF não) — cabeçalho obrigatório:"
+            lines={[
+              'Data;Débito;Crédito;Complemento;CNPJ',
+              '15/05/2026;200,00;;PAGAMENTO PIX 04200503964...;04200503964',
+              'Data dd/mm/aaaa • valor c/ vírgula ou ponto',
+              'Débito > 0 = saída • Crédito > 0 = entrada',
+            ]}
+          />
               <input ref={statementInputRef} type="file" accept=".csv,.txt" hidden
                 onChange={(e) => e.target.files?.[0] && handleImportStatement(e.target.files[0])} />
               <button className={`${btn} w-full bg-blue-600 hover:bg-blue-700 text-white`}
@@ -284,6 +315,15 @@ export default function ContabilPage() {
                 {busy === 'export' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 Exportar TXT p/ SCI
               </button>
+                        <FormatHint
+            title="📤 Gera .txt separador TAB (UTF-8 BOM):"
+            lines={[
+              'controle;data;contaDébito;contaCrédito;valor;;histórico',
+              '000001\t20260720\t00000503\t00000819\t1500.00\t\tPAGAMENTO PIX...',
+              'controle fixo 000001 • data AAAAMMDD',
+              'contas c/ 8 dígitos • valor com PONTO (1500.00)',
+            ]}
+          />
             </div>
           </div>
         </>

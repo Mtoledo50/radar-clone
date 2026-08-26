@@ -446,8 +446,8 @@ function EmpresaTab({ data, liveDistribution, year, onEdit, onRefreshLive }: any
             </button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {liveDistribution.sectors.map((s) => (
-              <div key={s.name} className="bg-white rounded-lg p-3 border border-white shadow-sm">
+            {liveDistribution.sectors.map((s: any) => (
+                            <div key={s.name} className="bg-white rounded-lg p-3 border border-white shadow-sm">
                 <p className="text-xs font-semibold text-slate-600 uppercase mb-1">{s.name}</p>
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl font-bold text-slate-900">{s.current}</span>
