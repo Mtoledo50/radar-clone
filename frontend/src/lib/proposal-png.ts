@@ -62,12 +62,14 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   if ('roundRect' in ctx) {
     (ctx as any).roundRect(x, y, w, h, r);
   } else {
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+    // Fallback para browsers sem roundRect nativo
+    const c = ctx as CanvasRenderingContext2D;
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
   }
 }
 

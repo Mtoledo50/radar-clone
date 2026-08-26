@@ -29,7 +29,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, TrendingUp, TrendingDown, AlertTriangle, DollarSign, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { api } from '@/lib/axios';
+import  api  from '@/lib/axios';
 import { calcClosingGain, formatBRL } from '@/lib/closing-gain';
 
 // ============================================================================
