@@ -21,11 +21,16 @@ const categories = [
   { name: 'Tecnologia e Integrações', icon: '🔗', order: 7, description: 'Ferramentas tecnológicas e integrações' },
   { name: 'Benefícios e Extras', icon: '⭐', order: 8, description: 'Benefícios adicionais e diferenciais' },
 ];
+// =================================================================
+// 🧩 Tipos das linhas (corrige TS2345/TS2322 dos arrays heterogêneos)
+// =================================================================
+type ServiceItemRow = [string, string, string, number, number, string];
+type PlanMappingRow = [string, string, string[]];
 
 // =================================================================
 // 📦 ITENS DE SERVIÇO (52 itens totais)
 // =================================================================
-const serviceItems = [
+const serviceItems: ServiceItemRow[] = [
   // FISCAL E TRIBUTÁRIO (11 itens)
   ['Fiscal e Tributário', 'Apuração mensal de impostos', 'Apuração e cálculo de impostos mensais', 150.00, 4.0, 'MENSAL'],
   ['Fiscal e Tributário', 'Emissão de guias DAS / DASN', 'Emissão de guias de recolhimento', 50.00, 1.0, 'MENSAL'],
@@ -118,8 +123,7 @@ const commercialPlans = [
 // =================================================================
 // 🔗 MAPEAMENTO: PLANOS × ITENS
 // =================================================================
-const planItemsMapping = [
-  // ESSENCIAL
+const planItemsMapping: PlanMappingRow[] = [  // ESSENCIAL
   ['Essencial', 'Fiscal e Tributário', [
     'Apuração mensal de impostos',
     'Emissão de guias DAS / DASN',

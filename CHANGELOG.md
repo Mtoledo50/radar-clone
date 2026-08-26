@@ -2,6 +2,36 @@
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
+[Sprint FD-5 — Aurora CNAB 240/400 + Régua de Cobrança] 2026-08-26 — ✅ HOMOLOGADO
+Added
+- Domínio puro CNAB 240/400 (parsers de retorno + builder de remessa +
+  validators de campo) em `backend/src/billing/domain/` — 7 testes verdes.
+- Schema Prisma: 4 tabelas novas (`cnab_arquivos`, `cnab_movimentos`,
+  `cobranca_regras`, `cobranca_eventos`) + 5 enums + relações inversas.
+- Módulo NestJS `BillingModule` com 16 endpoints:
+  - CRUD de BillingInstruction (compatibilidade frontend atual)
+  - Upload de retorno CNAB (multipart) + parse + criação de movimentos
+  - Processamento de movimentos (baixa automática + conciliação bancária)
+  - CRUD de CobrancaRegra (dias atraso → canal → template)
+  - Execução da régua (scheduler que cria CobrancaEventos)
+  - Aprovação humana (ADR-084: nenhuma ação automática sem revisão)
+  - Envio (TODO: integrar provider email/WhatsApp)
+  - Histórico de arquivos CNAB (remessas + retornos)
+Fixed
+- `clientId` em `CobrancaEvento` tornado opcional (cobranças manuais sem
+  vínculo com Client ainda — ADR-061 v1 entrada explícita).
+Decisions
+ADR-084 Domínio puro CNAB isolado (parsers/builders sem dependências de
+banco/HTTP), testável em unidade; aprovação humana obrigatória em toda
+cobrança automática.
+ADR-085 Arquitetura híbrida FD-5: `BillingInstruction` permanece como fonte
+de verdade das cobranças (compatibilidade frontend); `CnabArquivo`/
+`CnabMovimento` registram histórico CNAB; `CobrancaRegra`/`CobrancaEvento`
+implementam a régua com workflow humano.
+Provas
+- `npm run test -- --testPathPattern=cnab240`: 1 suite, 7 passed.
+- `npx tsc --noEmit`: zero erros em TODO o projeto (app + seeds + tests).
+- E2E completo validado (login → régua → aprovação → remessa CNAB).
 
 [Sprint Limpeza TS — 17 erros TypeScript corrigidos] 2026-08-26 — ✅ HOMOLOGADO
 Changed

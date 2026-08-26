@@ -147,12 +147,22 @@ import default vs named (axios), e alias em `ctx` do Canvas 2D API. Garante que
 o build de produção tenha o mesmo rigor do `tsc` de desenvolvimento (paridade
 dev/prod).
 
+ADR-084 Domínio puro CNAB isolado (parsers/builders sem dependências de
+banco/HTTP); aprovação humana obrigatória em toda cobrança automática.
+ADR-085 Arquitetura híbrida FD-5: BillingInstruction como fonte de verdade
+(compatibilidade); CnabArquivo/Movimento como histórico; CobrancaRegra/
+Evento para régua com workflow humano.
+
 ## 9. Próximo passo imediato
-SPRINT 32 ✅ HOMOLOGADA (produção local Radar+Site via túnel Cloudflare) e
-SPRINT LIMPEZA TS ✅ HOMOLOGADA (26/08/2026): build Docker roda com type-check
-rigoroso; `ignoreBuildErrors` removido do next.config.mjs; ADRs 077..083.
-PRÓXIMAS: Aurora FD-5 (CNAB 240/400 + régua de cobrança) OU Sprint 33 (CI/CD +
-Sentry/backup) — à escolha.
+SPRINT 32 ✅ (produção local Radar+Site via túnel Cloudflare) e SPRINT FD-5
+✅ HOMOLOGADAS em 26/08/2026: Aurora CNAB 240/400 + Régua de Cobrança com
+aprovação humana (ADR-084/085). Backend NestJS com 16 endpoints billing,
+domínio puro testado (7/7), Prisma com 4 tabelas novas. Site intacto.
+PRÓXIMAS (à escolha do Marcos):
+  • Fase 4 — tela frontend "Cobrança & CNAB" (abas Remessas/Retornos/Régua/Eventos)
+  • Fase 5 — integração com provider real (SendGrid/Twilio) p/ envio
+  • Sprint 33 — CI/CD (GitHub Actions) + Sentry + backup automático
+  • Fase E do Plano 2.0 — UX (command palette, "onde parou", notificações)
 
 ## 10. Instrução para a nova IA
 Leia este arquivo, confirme com "Yes" e continue EXATAMENTE do §9.
