@@ -67,6 +67,17 @@ decimal com PONTO; conciliação resolve por classificação OU nº reduzido.
 ADR-074 Partida dobrada manual: D e C obrigatórios, valor espelhado (D=C),
 auto-CONCILIADO ao preencher as duas contas; conciliação em lote; impressão/PDF
 dos extratos por cliente.
+ADR-077 Radar em produção usa o Postgres REAL local (5432, radar_db) via
+host.docker.internal:5432; sem container de banco novo (dados reais sobem junto).
+ADR-081 ARG/ENV NEXT_PUBLIC_* antes do `next build` no Dockerfile (env real vence
+.env.local copiado no contexto).
+ADR-079 Túnel Cloudflare único para site + Radar: public hostnames radar./radar-api.
+apontando para services da rede Docker; site permanece intacto.
+ADR-080 `migrate resolve --applied` para sincronizar _prisma_migrations quando o
+schema já contém o DDL (dev via db push); nunca reset em banco com dados.
+ADR-078 typescript.ignoreBuildErrors=true apenas no build Docker (erros de tipo
+legados não-críticos); dev e CI mantêm type-check.
+
 
 ## 4. Status macro
 Sprints 1–30 concluídas: dashboard, clientes, operacional, fiscal (NF-e/estoque/
@@ -132,10 +143,12 @@ Compliance por cliente • checklist de fechamento • ECD/ECF • ICMS-ST por N
 ISS por município • créditos tributários. REGRA: nada entra antes das Sprints 32–34.
 
 ## 9. Próximo passo imediato
-1) ✅ Bloco 0 (esta sincronização).
-2) Aurora FD-5→FD-8 em entrega all-in-one (prioridade escolhida).
-3) Homologar Sprint 31: docker compose ps → 3 Up.
-4) Depois: Fase E e Produção 32–34.
+SPRINT 32 ✅ HOMOLOGADA em 26/08/2026: Radar em "produção" no mesmo Docker do site
+institucional (C:\Site conta-certa), exposto pelo túnel Cloudflare
+(radar.contacerta.com.br + radar-api.contacerta.com.br) e usando o Postgres real
+(5432/radar_db) via host.docker.internal. Site intacto. ADR-077..081.
+PRÓXIMO: Aurora FD-5 (CNAB 240/400 + régua de cobrança) all-in-one.
+PENDENTE: menu do site (Header.jsx) • limpeza dos 17 erros TS • Sprints 33–34.
 
 ## 10. Instrução para a nova IA
 Leia este arquivo, confirme com "Yes" e continue EXATAMENTE do §9.

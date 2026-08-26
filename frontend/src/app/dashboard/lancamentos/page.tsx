@@ -740,7 +740,7 @@ export default function LancamentosPage() {
         )}
 
         {/* ================= ABA 3: IMPORTAR EXTRATO ================= */}
-        {activeTab === 'importar' && <SmartImportTab onImportSuccess={loadData} accounts={accounts} />}
+        {activeTab === 'importar' && <SmartImportTab onImportSuccess={loadData} />}
 
         {/* ================= ABA 4: EXTRATOS CONCILIADOS (v3) ================= */}
         {activeTab === 'extratos' && (
