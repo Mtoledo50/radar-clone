@@ -154,14 +154,17 @@ ADR-085 Arquitetura híbrida FD-5: BillingInstruction como fonte de verdade
 Evento para régua com workflow humano.
 
 ## 9. Próximo passo imediato
-SPRINT 32 ✅ (produção local Radar+Site via túnel Cloudflare) e SPRINT FD-5
-✅ HOMOLOGADAS em 26/08/2026: Aurora CNAB 240/400 + Régua de Cobrança com
-aprovação humana (ADR-084/085). Backend NestJS com 16 endpoints billing,
-domínio puro testado (7/7), Prisma com 4 tabelas novas. Site intacto.
+9) STATUS ATUAL E PRÓXIMOS PASSOS
+SPRINT FD-5 ✅ HOMOLOGADA em 26/08/2026: Aurora CNAB 240/400 + Régua de Cobrança
+c/ aprovação humana (ADR-084/085). Backend NestJS c/ 17 endpoints billing, domínio
+puro testado (7/7), Prisma c/ 4 tabelas novas, frontend c/ página de 4 abas.
+PENDENTE: rebuild das imagens Docker (radar-backend/radar-frontend) p/ paridade
+dev/prod — Docker Desktop instável em 26/08; dev local (3001/3003) é o ambiente ativo.
 PRÓXIMAS (à escolha do Marcos):
-  • Fase 4 — tela frontend "Cobrança & CNAB" (abas Remessas/Retornos/Régua/Eventos)
-  • Fase 5 — integração com provider real (SendGrid/Twilio) p/ envio
+  • Fase 5 — provider real de envio (SendGrid e-mail / Twilio WhatsApp)
   • Sprint 33 — CI/CD (GitHub Actions) + Sentry + backup automático
+  • Fase E (Plano 2.0) — UX: command palette, "onde parou", notificações
+  • Fase A2 — herança de planos nos endpoints (Plano 2.0)
   • Fase E do Plano 2.0 — UX (command palette, "onde parou", notificações)
 
 ## 10. Instrução para a nova IA

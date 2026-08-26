@@ -230,7 +230,11 @@ export class BillingController {
   async listEventosPendentes(@CurrentUser() user: { companyId: string }) {
     return this.billingService.listCobrancaEventosPendentes(user.companyId);
   }
-
+  /** Histórico de eventos de cobrança (todos os status). */
+  @Get('eventos')
+  async listEventos(@CurrentUser() user: { companyId: string }) {
+    return this.billingService.listCobrancaEventos(user.companyId);
+  }
   /** Aprova ou rejeita um evento de cobrança. */
   @Post('eventos/:id/aprovar')
   async aprovarEvento(
