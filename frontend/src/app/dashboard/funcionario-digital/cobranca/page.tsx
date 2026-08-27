@@ -1,19 +1,6 @@
 // =================================================================
 // INÍCIO: frontend/src/app/dashboard/funcionario-digital/cobranca/page.tsx
 // =================================================================
-/**
- * 💰 Cobrança & CNAB — FD-5 (Aurora) + Fase 6 (vínculo Client)
- *
- * 4 abas:
- *   Cobranças (CRUD + seletor de cliente + vínculo manual)
- *   Remessas  (gerar CNAB + histórico)
- *   Retornos  (upload + baixa de movimentos)
- *   Régua     (regras + eventos c/ aprovação + override de destinatário)
- *
- * 🧠 ADR-084: aprovação humana obrigatória.
- * 🧠 ADR-086: notificações plugáveis (SendGrid/Twilio/Log).
- * 🧠 ADR-087: vínculo Client↔cobrança/evento + override de destinatário.
- */
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -22,7 +9,9 @@ import { toast } from 'sonner';
 import {
   Landmark, Loader2, Plus, Trash2, Download, Send, CheckCircle2,
   Upload, FileText, Calendar, RefreshCw, Power, XCircle,
+  HelpCircle, // 🆕 Adicionado para o botão de ajuda
 } from 'lucide-react';
+import CobrancaHelpModal from '@/components/cobranca/CobrancaHelpModal'; // 🆕 Import do modal
 
 // ============================================================================
 // TIPOS
@@ -36,7 +25,7 @@ interface BillingInstruction {
   ourNumber: string;
   status: string;
   effectiveStatus: string;
-  client: { id: string; companyName: string } | null; // 🆕 Fase 6
+  client: { id: string; companyName: string } | null;
 }
 
 interface CnabArquivo {
@@ -88,15 +77,17 @@ interface CobrancaEvento {
   createdAt: string;
   motivoRejeicao: string | null;
   regra: { nome: string } | null;
-  destinatario: string | null; // 🆕 Fase 6
-  client: { companyName: string; contactEmail: string | null; contactPhone: string | null } | null; // 🆕 Fase 6
+  destinatario: string | null;
+  client: { companyName: string; contactEmail: string | null; contactPhone: string | null } | null;
 }
+
 interface ClientOption {
   id: string;
   name: string;
   cnpj: string | null;
   fee: number | null;
 }
+
 // ============================================================================
 // CONSTANTES + HELPERS
 // ============================================================================
@@ -120,17 +111,39 @@ const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', curren
 const brDate = (d: string) => new Date(d).toLocaleDateString('pt-BR');
 
 // ============================================================================
+// COMPONENTE AUXILIAR: TabButton (Definido ANTES do uso para evitar ReferenceError)
+// ============================================================================
+function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick}
+      className={`px-4 py-2.5 text-sm font-semibold transition-colors ${active ? 'text-teal-600 border-b-2 border-teal-600' : 'text-slate-500 hover:text-slate-700'}`}>
+      {children}
+    </button>
+  );
+}
+
+// ============================================================================
 // COMPONENTE PRINCIPAL (abas)
 // ============================================================================
 export default function CobrancaPage() {
   const [tab, setTab] = useState<'cobrancas' | 'remessas' | 'retornos' | 'regua'>('cobrancas');
+  const [showHelp, setShowHelp] = useState(false); // 🆕 Estado do modal de ajuda
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-12">
+      {/* 🆕 HEADER COM BOTÃO "O QUE É ISSO?" */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
-          <Landmark className="h-8 w-8 text-teal-600" /> Cobrança & CNAB
-        </h1>
+        <div className="flex items-center gap-3">
+          <Landmark className="h-8 w-8 text-teal-600" />
+          <h1 className="text-3xl font-bold text-slate-900">Cobrança & CNAB</h1>
+          <button
+            onClick={() => setShowHelp(true)}
+            className="p-2 text-slate-400 hover:text-teal-600 transition-colors"
+            title="O que é isso?"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
+        </div>
         <p className="text-slate-600 mt-1">Régua de cobrança + remessa/retorno CNAB 240/400 (FD-5, ADR-084).</p>
       </div>
 
@@ -145,16 +158,10 @@ export default function CobrancaPage() {
       {tab === 'remessas' && <RemessasTab />}
       {tab === 'retornos' && <RetornosTab />}
       {tab === 'regua' && <ReguaTab />}
-    </div>
-  );
-}
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick}
-      className={`px-4 py-2.5 text-sm font-semibold transition-colors ${active ? 'text-teal-600 border-b-2 border-teal-600' : 'text-slate-500 hover:text-slate-700'}`}>
-      {children}
-    </button>
+      {/* 🆕 MODAL DE AJUDA (renderizado no final do componente) */}
+      <CobrancaHelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+    </div>
   );
 }
 
@@ -177,17 +184,16 @@ function CobrancasTab() {
     } finally { setLoading(false); }
   }
 
-  // 🆕 Fase 6: lista clients da casa p/ seletor (campo real = companyName)
   async function loadClients() {
     try {
       const res = await api.get('/clients');
       const list = Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
-     setClients(list.map((c: any) => ({
-  id: c.id,
-  name: c.companyName,
-  cnpj: c.cnpj ?? null,
-  fee: c.monthlyFee ?? null,   // honorário atual do client (snapshot)
-})));
+      setClients(list.map((c: any) => ({
+        id: c.id,
+        name: c.companyName,
+        cnpj: c.cnpj ?? null,
+        fee: c.monthlyFee ?? null,
+      })));
     } catch { /* seletor opcional — falha silenciosa */ }
   }
 
@@ -225,7 +231,6 @@ function CobrancasTab() {
     load();
   }
 
-  // 🆕 Fase 6: vínculo manual client→cobrança
   async function linkClient(billingId: string, clientId: string) {
     try {
       await api.patch(`/billing/${billingId}/client`, { clientId: clientId || null });
@@ -257,30 +262,28 @@ function CobrancasTab() {
           <input className="px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="CNPJ/CPF" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} />
           <input type="number" step="0.01" className="px-3 py-2 border border-slate-300 rounded-lg text-sm" placeholder="Valor R$" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           <input type="date" className="px-3 py-2 border border-slate-300 rounded-lg text-sm" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
-          {/* 🆕 Fase 6: client da casa opcional (vazio = auto-match por nome) */}
-<select
-  className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
-  value={form.clientId}
-  onChange={(e) => {
-    const id = e.target.value;
-    const cli = clients.find((c) => c.id === id);
-    setForm({
-      ...form,
-      clientId: id,
-      // 🆕 autopreenche do client da casa (editável depois)
-      clientName: cli ? cli.name : form.clientName,
-      document: cli ? (cli.cnpj ?? '') : form.document,
-      amount: cli && cli.fee != null ? String(cli.fee) : form.amount,
-    });
-  }}
->
-  <option value="">Cliente da casa (opcional)</option>
-  {clients.map((c) => (
-    <option key={c.id} value={c.id}>
-      {c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}
-    </option>
-  ))}
-</select>
+          <select
+            className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            value={form.clientId}
+            onChange={(e) => {
+              const id = e.target.value;
+              const cli = clients.find((c) => c.id === id);
+              setForm({
+                ...form,
+                clientId: id,
+                clientName: cli ? cli.name : form.clientName,
+                document: cli ? (cli.cnpj ?? '') : form.document,
+                amount: cli && cli.fee != null ? String(cli.fee) : form.amount,
+              });
+            }}
+          >
+            <option value="">Cliente da casa (opcional)</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}{c.cnpj ? ` — ${c.cnpj}` : ''}
+              </option>
+            ))}
+          </select>
         </div>
         <button onClick={add} className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold hover:bg-teal-700">
           <Plus className="h-4 w-4" /> Adicionar à régua
@@ -354,7 +357,7 @@ function CobrancasTab() {
 }
 
 // ============================================================================
-// ABA 2: REMESSAS (gerar CNAB + download + histórico)
+// ABA 2: REMESSAS
 // ============================================================================
 function RemessasTab() {
   const [loading, setLoading] = useState(false);
@@ -429,7 +432,7 @@ function RemessasTab() {
 }
 
 // ============================================================================
-// ABA 3: RETORNOS (upload CNAB + parse + baixa automática)
+// ABA 3: RETORNOS
 // ============================================================================
 function RetornosTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -670,7 +673,6 @@ function ReguaTab() {
     } catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao enviar.'); }
   }
 
-  // 🆕 Fase 6: override humano do destinatário (ADR-087)
   async function setDestinatario(ev: CobrancaEvento) {
     const resolved =
       ev.destinatario ??
@@ -690,7 +692,6 @@ function ReguaTab() {
 
   return (
     <div className="space-y-6">
-      {/* Header + execução manual */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-lg font-bold text-slate-800">Régua de cobrança automática</h2>
@@ -703,7 +704,6 @@ function ReguaTab() {
         </button>
       </div>
 
-      {/* Regras */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
           <h3 className="font-bold text-slate-800">Regras da régua</h3>
@@ -771,7 +771,6 @@ function ReguaTab() {
         </table>
       </div>
 
-      {/* Eventos — 🆕 Fase 6: coluna Destinatário com override ✏️ */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-200">
           <h3 className="font-bold text-slate-800">

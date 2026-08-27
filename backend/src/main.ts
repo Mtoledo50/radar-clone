@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { json, urlencoded } from 'express';
+import { initSentry } from './common/monitoring/sentry';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -23,6 +24,7 @@ async function bootstrap() {
         'http://localhost:3002',
         'http://localhost:3003',   // 🆕 dev Radar (3000 ocupado pelo site)
         'http://localhost:3005',   // 🆕 dev Radar alternativo
+        'https://radar.contacerta.com.br',  // 🆕 produção
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3002',
         'http://127.0.0.1:3003',
@@ -44,6 +46,9 @@ async function bootstrap() {
       transform: true,          // Transforma strings em tipos corretos
     }),
   );
+  // 🆕 Sprint 33: monitoramento opt-in (ADR-088)
+  const sentryOn = initSentry(app);
+  console.log(sentryOn ? '🛡️ Sentry ativo' : '🛡️ Sentry desativado (sem DSN)');
 
   await app.listen(3001);
   console.log(`🚀 Backend rodando em http://localhost:3001`);

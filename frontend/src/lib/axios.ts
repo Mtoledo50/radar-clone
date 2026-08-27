@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { reportError } from './sentry'; // 🆕 Sprint 33
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
@@ -24,13 +25,18 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error),
+  (error) => {
+    reportError(error); // 🆕 Sprint 33: captura falhas na montagem da requisição
+    return Promise.reject(error);
+  },
 );
 
-// Interceptor para tratar erros de autenticação (401)
+// Interceptor para tratar erros de resposta da API (ex: 401, 500)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    reportError(error); // 🆕 Sprint 33: todo erro de API vai p/ Sentry (se ativo)
+    
     if (error.response?.status === 401) {
       // Token expirado ou inválido → redireciona para login
       if (typeof window !== 'undefined') {

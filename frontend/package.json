@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@sentry/browser": "^10.71.0",
     "axios": "^1.19.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
