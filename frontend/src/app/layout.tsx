@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
+import SentryInit from '@/components/SentryInit';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,6 +28,7 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-slate-50`}>
         {/* TOASTER: Componente global que renderiza as notificações */}
+        <SentryInit />
         <Toaster 
           richColors 
           position="top-right" 
