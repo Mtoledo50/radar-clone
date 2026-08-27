@@ -1,15 +1,13 @@
-// =================================================================
-// INÍCIO: frontend/src/components/common/PageHelp.tsx
-// =================================================================
 /**
- * 📚 Componente de ajuda universal das páginas
- * Modal com explicação: o que é, para quem serve, tipo de controle
- * e passos rápidos de uso.
+ * =================================================================
+ * PageHelp — Botão universal de ajuda contextual (Camada 1 + link Camada 2)
+ * =================================================================
  */
 'use client';
 
 import { useState } from 'react';
-import { HelpCircle, X, Users, Shield, Target, CheckCircle2, ArrowRight } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { HelpCircle, X, Users, Shield, Target, CheckCircle2, ArrowRight, BookOpen } from 'lucide-react';
 import { getPageHelp, PageHelpInfo } from '@/lib/page-help-catalog';
 
 interface PageHelpProps {
@@ -30,8 +28,53 @@ const CONTROL_CFG: Record<string, { label: string; color: string }> = {
   Financeiro: { label: 'Financeiro', color: 'bg-green-100 text-green-800' },
 };
 
+// Mapeamento pathname → slug para a página de ajuda detalhada
+const pathnameToSlug: Record<string, string> = {
+  '/dashboard': 'dashboard',
+  '/dashboard/minha-empresa': 'minha-empresa',
+  '/dashboard/pessoas': 'pessoas',
+  '/dashboard/turnover': 'turnover',
+  '/dashboard/pessoas/benchmark': 'benchmark',
+  '/dashboard/clientes': 'clientes',
+  '/dashboard/projetos': 'projetos',
+  '/dashboard/tarefas': 'tarefas',
+  '/dashboard/planejamento': 'planejamento',
+  '/dashboard/precificacao': 'precificacao',
+  '/dashboard/precificacao/meus-planos': 'meus-planos',
+  '/dashboard/precificacao/desempenho': 'desempenho',
+  '/dashboard/fiscal': 'importar-nfe',
+  '/dashboard/fiscal/notas': 'notas',
+  '/dashboard/fiscal/estoque': 'estoque',
+  '/dashboard/fiscal/apuracao': 'apuracao',
+  '/dashboard/fiscal/sped': 'sped',
+  '/dashboard/fiscal/comparativo': 'comparativo',
+  '/dashboard/fiscal/relatorio-inventario': 'relatorio-inventario',
+  '/dashboard/fechamento': 'fechamento',
+  '/dashboard/lancamentos': 'lancamentos',
+  '/dashboard/lancamentos/revisao': 'revisao',
+  '/dashboard/contabil': 'contabil',
+  '/dashboard/contabil/plano-contas': 'plano-contas',
+  '/dashboard/funcionario-digital': 'aurora',
+  '/dashboard/funcionario-digital/aprovacoes': 'aprovacoes',
+  '/dashboard/funcionario-digital/legalizacao': 'legalizacao',
+  '/dashboard/funcionario-digital/cobranca': 'cobranca',
+  '/dashboard/bi': 'bi',
+  '/dashboard/bi/dre-cliente': 'dre-cliente',
+  '/dashboard/ponto-fora-da-curva': 'ponto-fora-da-curva',
+  '/dashboard/indicadores': 'indicadores',
+  '/dashboard/indicadores-custom': 'indicadores-custom',
+  '/dashboard/score': 'score',
+  '/dashboard/mentoria': 'mentoria',
+  '/dashboard/ranking': 'ranking',
+  '/dashboard/planejamento-tributario': 'planejamento-tributario',
+  '/dashboard/reforma-tributaria': 'reforma-tributaria',
+  '/dashboard/admin': 'admin',
+  '/dashboard/admin/catalogo': 'catalogo',
+};
+
 export default function PageHelp({ pathname }: PageHelpProps) {
   const [open, setOpen] = useState(false);
+  const router = useRouter();
   const info = getPageHelp(pathname);
 
   if (!info) return null;
@@ -39,6 +82,8 @@ export default function PageHelp({ pathname }: PageHelpProps) {
   const audienceCfg = AUDIENCE_CFG[info.audience] || AUDIENCE_CFG.Geral;
   const controlCfg = CONTROL_CFG[info.controlType] || CONTROL_CFG.Operacional;
   const AudienceIcon = audienceCfg.icon;
+  const slug = pathnameToSlug[pathname];
+  const hasRichContent = slug && info.richContent;
 
   return (
     <>
@@ -52,7 +97,7 @@ export default function PageHelp({ pathname }: PageHelpProps) {
         <span className="hidden sm:inline">O que é isso?</span>
       </button>
 
-      {/* Modal */}
+      {/* Modal Camada 1 */}
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
@@ -120,23 +165,38 @@ export default function PageHelp({ pathname }: PageHelpProps) {
                   </div>
                 </div>
               )}
+
+              {/*  Link para guia completo (Camada 2) */}
+              {hasRichContent && (
+                <div className="pt-4 border-t border-slate-200">
+                  <button
+                    onClick={() => {
+                      setOpen(false);
+                      router.push(`/ajuda/${slug}`);
+                    }}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg transition-colors"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    Ver guia completo →
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50">
-              <button
-                onClick={() => setOpen(false)}
-                className="w-full px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm"
-              >
-                Entendi
-              </button>
-            </div>
+            {!hasRichContent && (
+              <div className="px-6 py-3 border-t border-slate-200 bg-slate-50">
+                <button
+                  onClick={() => setOpen(false)}
+                  className="w-full px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold text-sm"
+                >
+                  Entendi
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
     </>
   );
 }
-// =================================================================
-// FIM: frontend/src/components/common/PageHelp.tsx
-// =================================================================
