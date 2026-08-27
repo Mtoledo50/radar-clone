@@ -25,17 +25,19 @@ import {
   Post,
   Put,
   Delete,
+  Patch, // 🆕 ADICIONADO: Faltava este import
   Body,
   Param,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import { ProposalsService } from './proposals.service';
-import { CloseProposalDto } from './dto/close-proposal.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+// 🆕 ADICIONADO: Imports dos novos DTOs da Sprint A3
+import { VersionProposalDto, CompareVersionsDto } from './dto/version-proposal.dto';
 
 /** Payload do JWT (espelho do que o JwtStrategy injeta). */
 interface UserPayload {
@@ -225,7 +227,76 @@ export class ProposalsController {
       data: await this.service.markAsSent(id, user.companyId),
     };
   }
+// =================================================================
+// 🆕 SPRINT A3: ENDPOINTS DE VERSIONAMENTO
+// =================================================================
 
+/**
+ * POST /proposals/:id/version
+ * Cria uma nova versão da proposta.
+ */
+@Post(':id/version')
+@Roles('ADMIN', 'MANAGER')
+async createVersion(
+  @Param('id') id: string,
+  @CurrentUser() user: UserPayload,
+  @Body() dto: VersionProposalDto,
+) {
+  const newVersion = await this.service.createVersion(id, user.companyId, user.id, dto);
+  return {
+    success: true,
+    message: `Versão ${newVersion.version} criada com sucesso!`,
+    data: newVersion,
+  };
+}
+
+/**
+ * GET /proposals/:id/versions
+ * Lista todas as versões de uma proposta.
+ */
+@Get(':id/versions')
+async listVersions(
+  @Param('id') id: string,
+  @CurrentUser() user: UserPayload,
+) {
+  const versions = await this.service.listVersions(id, user.companyId);
+  return { success: true, data: versions };
+}
+
+/**
+ * POST /proposals/compare
+ * Compara duas versões lado a lado.
+ */
+@Post('compare')
+async compareVersions(
+  @CurrentUser() user: UserPayload,
+  @Body() dto: CompareVersionsDto,
+) {
+  const result = await this.service.compareVersions(
+    dto.versionAId,
+    dto.versionBId,
+    user.companyId,
+  );
+  return { success: true, data: result };
+}
+
+/**
+ * PATCH /proposals/:id/activate
+ * Torna esta versão a "atual" (isCurrent = true).
+ */
+@Patch(':id/activate')
+@Roles('ADMIN', 'MANAGER')
+async activateVersion(
+  @Param('id') id: string,
+  @CurrentUser() user: UserPayload,
+) {
+  const activated = await this.service.activateVersion(id, user.companyId);
+  return {
+    success: true,
+    message: `Versão ${activated.version} ativada com sucesso!`,
+    data: activated,
+  };
+}
   // =================================================================
   // 💰 SPRINT A4 — Fechamento com Ganho (rota unificada)
   // =================================================================

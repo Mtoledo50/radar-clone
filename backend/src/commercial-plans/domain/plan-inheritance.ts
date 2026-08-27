@@ -44,7 +44,8 @@ export class PlanInheritanceError extends Error {}
  */
 export function resolvePlanInheritance(plans: PlanInput[]): ResolvedPlan[] {
   // ---- Validações de integridade (falha cedo, falha claro) -----------------
-  if (!Array.isArray(plans) || plans.length === 0) {
+   if (!plans || plans.length === 0) {
+    return [];
     throw new PlanInheritanceError('Nenhum plano informado.');
   }
   const ids = plans.map((p) => p.id);

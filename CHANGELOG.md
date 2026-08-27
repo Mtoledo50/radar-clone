@@ -2,6 +2,51 @@
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
+[Sprint A3 — Versões de Proposta] 28/08/2026 — ✅ HOMOLOGADO
+Added
+- DTOs: VersionProposalDto (reason, clientName, clientCnpj, monthlyRevenue,
+  employeeCount, basePrice) e CompareVersionsDto (versionAId, versionBId)
+- Service: createVersion (clone imutável + transação atômica + cadeia por
+  originalProposalId)
+- Service: listVersions (cadeia completa ordenada por version desc)
+- Service: compareVersions (diff de campos escalares + itens added/removed/changed)
+- Service: activateVersion (troca isCurrent em transação)
+- Endpoints: POST /:id/version, GET /:id/versions, POST /compare, PATCH /:id/activate
+- Frontend: página /dashboard/precificacao/propostas (listagem com botão GitBranch)
+- Frontend: página /dashboard/precificacao/propostas/[id]/versoes (histórico,
+  comparador, ativação)
+- Menu lateral: href de "Propostas Comerciais" corrigido para /dashboard/precificacao/propostas
+Decisions
+ADR-028 (versionamento imutável + clone + cadeia por originalProposalId)
+Provas
+- Backend: criar v2 a partir de v1 incrementa version e clona itens
+- Backend: compare retorna diferenças de campos e itens
+- Frontend: lista destaca versão atual, comparador mostra diff visual
+- Frontend: ativação troca isCurrent entre versões
+
+[Sprint A2 — Valor de Referência + Dinheiro na Mesa] 28/08/2026 — ✅ HOMOLOGADO
+Added
+- Migração Prisma: CommercialPlan.order (int) para ordenação de exibição
+- Endpoint GET /commercial-plans/resolved — planos com herança resolvida em memória
+- Endpoint POST /commercial-plans/insights — calculadora "Dinheiro na Mesa"
+- Frontend: Simulador visual de impacto financeiro (perda mensal/anual)
+- Frontend: Visualização de herança (Itens Próprios vs Herdados)
+- Correção de transação Prisma em createPlan/updatePlan (leitura dentro do tx)
+- Correção de estado vazio no domínio (resolvePlanInheritance retorna [] em vez de erro)
+Fixed
+- Enum CnabTipoArquivo faltando no schema (adicionado na migração 20260826120000)
+- Shadow database falhando em migrações CNAB antigas (CREATE TYPE adicionados)
+Decisions
+- ADR-025: Ordenação por order (asc) depois multiplier (asc)
+- ADR-026: Endpoint /resolved expõe herança em memória; frontend não recalcula
+- ADR-027: Simulador "Dinheiro na Mesa" usa baseValue × multiplier para preço ideal
+- db push usado em vez de migrate dev para evitar recriação do shadow database
+Provas
+- Backend: GET /resolved retorna 2 planos (START + PRIME) com herança correta
+- Backend: POST /insights calcula perda de R$ 500/mês no START (base 2000, cobrado 1500)
+- Frontend: Simulador exibe perda mensal e anual em vermelho
+- Frontend: Cards de planos mostram "N/A" quando sem insights calculados
+
 
 [Sprint Help System — Sistema de Ajuda Contextual] 27/08/2026 — ✅ HOMOLOGADO
 Added

@@ -1,6 +1,10 @@
 ﻿# 🧠 CONTEXTO_PROJETO.md — Radar Conta Certa
 Arquivo de injeção de contexto. Cole INTEIRO no início de toda conversa nova.
 Última atualização: 27/08/2026 (pós-Fase 6 — Aurora de cobrança completa).
+ADR-028 Versionamento de propostas: versões são imutáveis após criação;
+nova versão é clone com version+1, isCurrent=true, status=DRAFT;
+cadeia ligada por originalProposalId; comparação por diff de campos + itens.
+
 
 ## 1. Método oficial de trabalho
 Sprints autocontidas. ADR-034.2 — entrega all-in-one:
@@ -135,6 +139,9 @@ cobranca ⭐ 4 abas) • /dashboard/bi(+dre-cliente) • /dashboard/ponto-fora-d
 • /dashboard/indicadores(+custom) • /dashboard/score • /dashboard/mentoria •
 /dashboard/ranking • /dashboard/planejamento-tributario •
 /dashboard/reforma-tributaria.
+Fase A (Comercial): A1 herança de planos ✅(domínio) • A2 valor ref. + dinheiro na
+mesa ✅(backend + frontend) • A3 versões de proposta • A4 fechamento c/ ganho •
+A5 white-label • A6 PDF v2+PNG • A7 dashboard desempenho.
 
 ## 8. O que falta para terminar
 Bloco Aurora: FD-7 • FD-9 (FD-5/6/8 ✅).
@@ -149,18 +156,21 @@ checklist de fechamento • ECD/ECF • ICMS-ST por NCM/CEST • ISS por municí
 créditos tributários. REGRA: nada entra antes das Sprints 33–34.
 
 ## 9. Status atual e próximos passos
-## 9. STATUS ATUAL E PRÓXIMOS PASSOS
-SPRINT HELP SYSTEM ✅ em 27/08/2026: Sistema de ajuda contextual em 2 camadas
-(Progressive Disclosure) com 35 páginas mapeadas. Modal rápido + página detalhada
-com KPIs, workflow, regras de ouro e exemplos. Catálogo centralizado em TypeScript.
-SPRINT 33 ✅ em 27/08/2026: CI/CD (GitHub Actions) + Sentry opt-in + backup diário
-do radar_db (pg_dump + retenção 14 + tarefa Windows 02:00) + CD local.
-AURORA FD-5/4/5/6 ✅ em 27/08/2026: CNAB 240/400 + régua + notificações + vínculo
-Client + tela 4 abas + autopreenchimento. 19 rotas /billing, 16 testes verdes.
+9) STATUS ATUAL E PRÓXIMOS PASSOS
+Sprint A3 CONCLUÍDA: versionamento de propostas (backend + frontend), página de
+listagem /dashboard/precificacao/propostas criada, menu lateral corrigido.
+IMEDIATO: Escolher entre Sprint A4 (Fechamento com Ganho) ou Sprint 33 (CI/CD + Backup).
+DEPOIS: A5→A7, Fases B→E (ordem do §7).
 PRÓXIMAS (à escolha do Marcos):
   • 🎯 Fase E (Plano 2.0) — UX: command palette (Ctrl+K), "onde parou", notificações
   • 💰 Fase A2-UI — "dinheiro na mesa" surfado na tela de precificação
   • 🐳 Paridade Docker — rodar deploy-local.ps1 c/ Aurora embarcada
+
+9) STATUS ATUAL E PRÓXIMOS PASSOS
+Sprint A2 CONCLUÍDA: migração Prisma (order), endpoints /resolved e /insights,
+simulador "Dinheiro na Mesa" no frontend.
+IMEDIATO: Escolher entre Sprint A3 (Versões de Proposta) ou Sprint 33 (CI/CD + Backup).
+DEPOIS: A4→A7, Fases B→E (ordem do §7).
 
 ## 10. Instrução para a nova IA
 Leia este arquivo, confirme com "Yes", e continue EXATAMENTE do §9.

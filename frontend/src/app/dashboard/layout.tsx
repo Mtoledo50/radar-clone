@@ -134,7 +134,7 @@ const allMenuItems: MenuItem[] = [
     ],
   },
 
-  // ─────────────────────────────────────────────────────────
+   // ─────────────────────────────────────────────────────────
   // 💼 COMERCIAL
   // ─────────────────────────────────────────────────────────
   {
@@ -143,12 +143,11 @@ const allMenuItems: MenuItem[] = [
     href: '/dashboard/precificacao',
     icon: Calculator,
     section: 'comercial',
-    // 🆕 SPRINT A2: Adicionado submenu para separar Propostas de Meus Planos
     children: [
-      { id: 'propostas', title: 'Propostas Comerciais', href: '/dashboard/precificacao' },
+      // ✅ CORREÇÃO AQUI: O href agora aponta para a página de listagem de propostas
+      { id: 'propostas', title: 'Propostas Comerciais', href: '/dashboard/precificacao/propostas' },
       { id: 'meus-planos', title: 'Meus Planos', href: '/dashboard/precificacao/meus-planos' },
       { id: 'desempenho', title: 'Desempenho', href: '/dashboard/precificacao/desempenho' },
-
     ],
   },
   

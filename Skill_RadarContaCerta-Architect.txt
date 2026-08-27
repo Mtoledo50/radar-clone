@@ -24,3 +24,4 @@ Fase A comercial → B pessoas → C mercado → D mentoria → E UX (ordem fixa
 - Erro de build de produção → verificar padrões ADR-021/022/023/024 antes de tudo.
 - Preço/moeda → sempre round2 (ADR-020).
 - Lista opcional no JSX → sempre ?.map (ADR-023).
+

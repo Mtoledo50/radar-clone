@@ -1,4 +1,13 @@
--- CreateTable
+-- =================================================================
+-- CORREÇÃO: Criação dos enums CNAB que faltavam nesta migração
+-- =================================================================
+CREATE TYPE "CnabTipoArquivo" AS ENUM ('REMESSA', 'RETORNO');
+CREATE TYPE "CnabFormato" AS ENUM ('CNAB_240', 'CNAB_400');
+CREATE TYPE "CnabStatus" AS ENUM ('GERADA', 'ENVIADA', 'PROCESSADA', 'ERRO');
+CREATE TYPE "CobrancaCanal" AS ENUM ('EMAIL', 'WHATSAPP', 'SMS');
+CREATE TYPE "CobrancaStatus" AS ENUM ('AGUARDANDO_APROVACAO', 'APROVADO', 'REJEITADO', 'ENVIADO', 'FALHOU');
+
+-- (O RESTANTE DO ARQUIVO DEVE PERMANECER EXATAMENTE COMO ESTAVA)-- CreateTable
 CREATE TABLE "cnab_arquivos" (
     "id" TEXT NOT NULL,
     "companyId" TEXT NOT NULL,
