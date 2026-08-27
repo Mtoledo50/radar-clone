@@ -3,9 +3,56 @@
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 
----
+[Sprint Help System — Sistema de Ajuda Contextual] 27/08/2026 — ✅ HOMOLOGADO
+Added
+- Sistema de ajuda contextual em 2 camadas (Opção C — Progressive Disclosure):
+  • Camada 1: Modal rápido (PageHelp.tsx) com description + steps curtos
+  • Camada 2: Página dinâmica /ajuda/[slug] com conteúdo rico (KPIs, workflow,
+    regras de ouro, exemplos práticos, passo a passo detalhado)
+- Catálogo centralizado em `lib/page-help-catalog.ts` com 35 páginas mapeadas:
+  Operacional (9), Comercial (3), Fiscal (7), Bancário/Contábil (5),
+  Inteligência (14), Sistema (2)
+- Componente PageHelp.tsx renderizado globalmente no layout.tsx (botão "O que é isso?")
+- Página dinâmica /ajuda/[slug] com renderização condicional de seções ricas
+- Mapeamento bidirecional pathname ↔ slug para navegação fluida
+Decisions
+ADR-088 Monitoramento/backup opt-in por env (Sentry sem DSN = silencioso); 
+CD local via script idempotente (produção on-prem); CI só testes sem banco.
+ADR-089 Ajuda contextual em 2 camadas (Progressive Disclosure): modal rápido
+para usuários casuais + página detalhada para operadores. Zero poluição visual,
+máximo valor pedagógico.
+ADR-090 Catálogo centralizado em TypeScript (não CMS): fácil manutenção,
+type-safe, sem dependências externas. Fallback amigável para páginas não mapeadas.
+Provas
+- 35/35 páginas com ajuda funcional • E2E visual: modal abre em todas as páginas
+• Navegação modal → página detalhada funcionando • Fallback para rotas não mapeadas
 
 ## [Aurora FD-5 + Fases 4/5/6] 27/08/2026 — CNAB 240/400 + Régua + Notificações ✅
+# ADR-088: Monitoramento e Backup Opt-in por Ambiente
+
+## Status
+Aceito (27/08/2026)
+
+## Contexto
+Precisamos de monitoramento de erros em produção (Sentry) e backups automáticos 
+do banco de dados. No entanto, forçar configurações de serviços externos ou 
+credenciais no ambiente de desenvolvimento local aumenta a fricção, gera custos 
+desnecessários e quebra o princípio de "rodar local com 1 comando".
+
+## Decisão
+1. **Sentry (Monitoramento):** Envolvido em um wrapper (`sentry.ts`). A inicialização 
+   só ocorre se a variável de ambiente `SENTRY_DSN` estiver presente e válida. 
+   Caso contrário, o sistema opera normalmente sem enviar telemetria.
+2. **Backup (Dados):** Implementado como um script PowerShell externo 
+   (`backup-radar-db.ps1`) que usa o `pg_dump` nativo. É agendado via 
+   Windows Task Scheduler, mantendo a responsabilidade do backup fora do 
+   processo Node.js/NestJS.
+
+## Consequências
+- **Dev Local:** Zero configuração, zero custo, zero ruído.
+- **Produção:** Basta adicionar o `SENTRY_DSN` no `.env` e rodar o script de 
+  agendamento (`install-backup-task.ps1`) para ter enterprise-grade safety.
+- **Arquitetura:** O backup não depende da saúde da aplicação Node para ser executado.
 
 ### Added
 - Domínio puro CNAB 240/400 + client-matcher em `backend/src/billing/domain/` —

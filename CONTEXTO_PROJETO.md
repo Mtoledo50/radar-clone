@@ -87,6 +87,13 @@ silencioso).
 ADR-087 Vínculo Client↔cobrança/evento por auto-match determinístico (nome
 normalizado) + seleção manual; destinatário = override humano > contato do
 client (contactEmail/contactPhone) > modo log.
+ADR-088 Monitoramento e backup opt-in por ambiente (Sentry + Backup local). 
+Sem DSN/chaves no .env, o sistema roda em silêncio total (zero custo em dev). 
+Backup via script PowerShell nativo (pg_dump) agendado no Windows Task Scheduler, 
+independente do runtime Node.js.
+ADR-089 Ajuda contextual em 2 camadas (Progressive Disclosure): modal rápido
+para usuários casuais + página detalhada para operadores.
+ADR-090 Catálogo centralizado em TypeScript (type-safe, sem CMS externo).
 
 ## 4. Status macro
 Sprints 1–32 concluídas: dashboard, clientes, operacional, fiscal (NF-e/estoque/
@@ -142,21 +149,18 @@ checklist de fechamento • ECD/ECF • ICMS-ST por NCM/CEST • ISS por municí
 créditos tributários. REGRA: nada entra antes das Sprints 33–34.
 
 ## 9. Status atual e próximos passos
-AURORA (FD-5 + Fases 4/5/6) ✅ HOMOLOGADA em 27/08/2026: CNAB 240/400 + régua de
-cobrança c/ aprovação humana + notificações plugáveis (SendGrid/Twilio/Log) +
-vínculo Client↔cobrança/evento + tela c/ 4 abas + autopreenchimento da carteira
-(nome/CNPJ/honorário ao selecionar client da casa). Backend c/ 19 rotas /billing
-(JwtAuthGuard — fix aplicado em 27/08: @UseGuards na classe), domínio puro
-(16 testes verdes), Prisma c/ 4 tabelas novas + auditoria de envio
-(destinatario/provider/externalId) + clientId na BillingInstruction.
-Ambiente dev: backend 3001 + frontend 3005. Migrations: 20260827120000
-(auditoria de envio) + 20260827160000 (vínculo client).
+## 9. STATUS ATUAL E PRÓXIMOS PASSOS
+SPRINT HELP SYSTEM ✅ em 27/08/2026: Sistema de ajuda contextual em 2 camadas
+(Progressive Disclosure) com 35 páginas mapeadas. Modal rápido + página detalhada
+com KPIs, workflow, regras de ouro e exemplos. Catálogo centralizado em TypeScript.
+SPRINT 33 ✅ em 27/08/2026: CI/CD (GitHub Actions) + Sentry opt-in + backup diário
+do radar_db (pg_dump + retenção 14 + tarefa Windows 02:00) + CD local.
+AURORA FD-5/4/5/6 ✅ em 27/08/2026: CNAB 240/400 + régua + notificações + vínculo
+Client + tela 4 abas + autopreenchimento. 19 rotas /billing, 16 testes verdes.
 PRÓXIMAS (à escolha do Marcos):
-  • 🚀 Sprint 33 — CI/CD (GitHub Actions) + Sentry + backup automático
-  • 🎯 Fase E (Plano 2.0) — UX: command palette (Ctrl+K), "onde parou",
-    notificações in-app
-  • 💰 Fase A2 — valor de referência + "dinheiro na mesa" nos endpoints
-  • 🐳 Paridade Docker — rebuild das imagens c/ Aurora FD-5/6 embarcada
+  • 🎯 Fase E (Plano 2.0) — UX: command palette (Ctrl+K), "onde parou", notificações
+  • 💰 Fase A2-UI — "dinheiro na mesa" surfado na tela de precificação
+  • 🐳 Paridade Docker — rodar deploy-local.ps1 c/ Aurora embarcada
 
 ## 10. Instrução para a nova IA
 Leia este arquivo, confirme com "Yes", e continue EXATAMENTE do §9.
