@@ -703,7 +703,22 @@ Acesso: http://localhost:3000 (admin do seed).
 entrega all-in-one.
 🔜 FASE E UX: Ctrl+K (homologando) • "onde parou" • notificações.
 📦 EXPANSÃO: Portal do Cliente • eSocial/Sintegra • app mobile.
+✅ FASE 3 — PRODUÇÃO (parcial)
+   + Sprint 31 · Docker + docker-compose ✅
+   + Sprint 32 · Deploy em nuvem/VPS ⏳
+   + Sprint 33 · CI/CD (GitHub Actions) ⏳
+   + Sprint 34 · Monitoramento (Sentry) + Backup automático ⏳
 
+✅ FASE 4 — EXPANSÃO COMERCIAL (parcial)
+   + Sprint A1 · Herança de planos (domínio) ✅
+   + Sprint A2 · Valor de referência + Dinheiro na Mesa ✅
+   + Sprint A3 · Versões de proposta ✅
+   + Sprint A4 · Fechamento c/ ganho 
+   + Sprint A5 · White-label 
+   + Sprint A6 · PDF v2 + PNG ⏳
+   + Sprint A7 · Dashboard de desempenho ⏳
+
+   
 ## 📖 Glossário (para a diretoria)
 SaaS • Multi-tenant • DRE • NF-e/NFS-e • Kardex • SPED • Partidas dobradas • Conciliação •
 Score • Plano de contas (90113/90132) • Nº reduzido (819) • Aurora (funcionário digital).

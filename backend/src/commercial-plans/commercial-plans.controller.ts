@@ -46,7 +46,22 @@ export class CommercialPlansController {
   async getResolvedPlans(@CurrentUser() user: UserPayload): Promise<{ success: boolean; data: ResolvedPlanDto[] }> {
     return { success: true, data: await this.service.getResolvedPlans(user.companyId) };
   }
-
+  // 🆕 SPRINT A2: Endpoint para calcular "Dinheiro na Mesa" para todos os planos
+  @Post('insights')
+  async getPlansWithInsights(
+    @CurrentUser() user: UserPayload,
+    @Body() dto: CalculatePricingInsightsDto,
+  ): Promise<{ success: boolean; data: PlanWithInsightsDto[] }> {
+    return {
+      success: true,
+      data: await this.service.getPlansWithInsights(
+        user.companyId,
+        dto.baseValue,
+        dto.currentMonthly,
+      ),
+    };
+  }
+  
   @Post('bulk-update') // ✅ Endpoint que o frontend chama no handleSaveAll
   @Roles('ADMIN', 'MANAGER')
   async bulkUpdatePlans(

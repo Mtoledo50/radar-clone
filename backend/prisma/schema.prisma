@@ -468,8 +468,8 @@ model CommercialPlan {
   companyId     String
   name          String
   multiplier    Float             @default(1.0) /// Multiplicador sobre o custo base
-  order         Int               @default(0)
-  isIndependent Boolean           @default(false)
+  isIndependent Boolean           @default(false) /// 🆕 A2: não herda e não doa
+  order         Int               @default(0)     /// 🆕 A2: ordem de exibição (menor = primeiro)
   color         String?
   badge         String?
   description   String?           @db.Text
@@ -2427,14 +2427,13 @@ model ClientLedgerEntry {
 
 // ── ENUMS ───────────────────────────────────────────────────────────────────
 
-enum CnabFormato {
-  CNAB_240
-  CNAB_400
-}
-
 enum CnabTipoArquivo {
   REMESSA
   RETORNO
+}
+enum CnabFormato {
+  CNAB_240
+  CNAB_400
 }
 
 enum CnabStatus {

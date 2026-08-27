@@ -108,9 +108,18 @@ export class CommercialPlansService {
     const { itemIds, ...planData } = dto;
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Cria o plano
+      // 1. Cria o plano já com os relacionamentos
       const plan = await tx.commercialPlan.create({
         data: { companyId, ...planData },
+        include: {
+          planItems: {
+            include: {
+              serviceItem: {
+                include: { category: true },
+              },
+            },
+          },
+        },
       });
 
       // 2. Vincula os itens (se houver)
@@ -121,10 +130,33 @@ export class CommercialPlansService {
             serviceItemId,
           })),
         });
-        // Obs: A herança real será calculada pelo frontend/backend via getResolvedPlans
       }
 
-      return this.getPlanById(plan.id, companyId);
+      // 3. Busca o plano atualizado DENTRO da transação (usando tx)
+      const finalPlan = await tx.commercialPlan.findUnique({
+        where: { id: plan.id },
+        include: {
+          planItems: {
+            include: {
+              serviceItem: {
+                include: { category: true },
+              },
+            },
+          },
+        },
+      });
+
+      // 4. Formata a resposta para o frontend (mesmo formato do getPlans)
+      return {
+        ...finalPlan,
+        itemCount: finalPlan!.planItems.length,
+        items: finalPlan!.planItems.map((pi) => ({
+          id: pi.serviceItem.id,
+          name: pi.serviceItem.name,
+          categoryId: pi.serviceItem.categoryId,
+          categoryName: pi.serviceItem.category.name,
+        })),
+      };
     });
   }
 
@@ -133,21 +165,37 @@ export class CommercialPlansService {
    * Se `itemIds` for enviado, substitui TODOS os itens anteriores pelos novos (sincronização total).
    */
   async updatePlan(id: string, companyId: string, dto: UpdateCommercialPlanDto) {
-    await this.getPlanById(id, companyId); // Valida existência e tenant
+    // Valida existência e tenant ANTES da transação
+    const existingPlan = await this.prisma.commercialPlan.findFirst({
+      where: { id, companyId, deletedAt: null },
+    });
+
+    if (!existingPlan) {
+      throw new NotFoundException('Plano não encontrado ou não pertence a esta empresa.');
+    }
 
     const { itemIds, ...planData } = dto;
-
-    // Remove campos undefined para evitar erros de validação do Prisma
     const cleanData = Object.fromEntries(
       Object.entries(planData).filter(([_, value]) => value !== undefined),
     );
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Atualiza dados do plano (nome, multiplicador, etc.)
+      let updatedPlan = existingPlan;
+      
+      // 1. Atualiza dados do plano (se houver alterações)
       if (Object.keys(cleanData).length > 0) {
-        await tx.commercialPlan.update({
+        updatedPlan = await tx.commercialPlan.update({
           where: { id },
           data: cleanData,
+          include: {
+            planItems: {
+              include: {
+                serviceItem: {
+                  include: { category: true },
+                },
+              },
+            },
+          },
         });
       }
 
@@ -165,10 +213,32 @@ export class CommercialPlansService {
         }
       }
 
-      return this.getPlanById(id, companyId);
+      // 3. Busca o plano final DENTRO da transação
+      const finalPlan = await tx.commercialPlan.findUnique({
+        where: { id },
+        include: {
+          planItems: {
+            include: {
+              serviceItem: {
+                include: { category: true },
+              },
+            },
+          },
+        },
+      });
+
+      return {
+        ...finalPlan,
+        itemCount: finalPlan!.planItems.length,
+        items: finalPlan!.planItems.map((pi) => ({
+          id: pi.serviceItem.id,
+          name: pi.serviceItem.name,
+          categoryId: pi.serviceItem.categoryId,
+          categoryName: pi.serviceItem.category.name,
+        })),
+      };
     });
   }
-
   /**
    * Soft delete de um plano.
    * Bloqueia a exclusão se houver contratos de clientes ativos vinculados a este plano.
@@ -495,7 +565,7 @@ export class CommercialPlansService {
     // 1. Buscar dados brutos do banco (mesma query otimizada do getPlans)
     const dbPlans = await this.prisma.commercialPlan.findMany({
       where: { companyId, deletedAt: null },
-      orderBy: { multiplier: 'asc' },
+      orderBy: [{ order: 'asc' }, { multiplier: 'asc' }], // ✅ ADR-025: ordem primeiro, depois multiplicador
       include: {
         planItems: {
           include: {
@@ -550,10 +620,10 @@ export class CommercialPlansService {
         name: r.name,
         multiplier: r.multiplier,
         isIndependent: r.independent,
-        order: r.order,
-        badge: dbPlan?.badge ?? null,
-        color: dbPlan?.color ?? null,
-        description: dbPlan?.description ?? null,
+        order: dbPlan?.order ?? 0,          // ✅ Corrigido: pegar do dbPlan
+        badge: dbPlan?.badge ?? null,        // ✅ Corrigido: pegar do dbPlan
+        color: dbPlan?.color ?? null,        // ✅ Corrigido: pegar do dbPlan
+        description: dbPlan?.description ?? null, // ✅ Corrigido: pegar do dbPlan
         
         ownItems: r.ownItemIds
           .map((id) => resolveItem(id, false))

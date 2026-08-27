@@ -1,14 +1,9 @@
-/**
- * =================================================================
- * 📄 Resolved Plan DTO — Contrato de Resposta da Sprint A2
- * =================================================================
- */
 export class ResolvedServiceItemDto {
   id: string;
   name: string;
   categoryId: string;
   categoryName: string;
-  isInherited: boolean; 
+  isInherited: boolean;
 }
 
 export class ResolvedPlanDto {
@@ -17,9 +12,9 @@ export class ResolvedPlanDto {
   multiplier: number;
   isIndependent: boolean;
   order: number;
-  badge?: string;
-  color?: string;
-  description?: string;
+  badge: string | null;
+  color: string | null;
+  description: string | null;
   ownItems: ResolvedServiceItemDto[];
   inheritedItems: ResolvedServiceItemDto[];
   allItems: ResolvedServiceItemDto[];

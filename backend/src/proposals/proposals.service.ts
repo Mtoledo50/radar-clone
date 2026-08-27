@@ -19,12 +19,15 @@
  *    domínio) • ADR-043 (fallback de cores no branding).
  * =================================================================
  */
+
 import { PrismaService } from '../prisma/prisma.service';
-import { ProposalStatus } from '@prisma/client';
+// 🆕 ADICIONADO: 'Proposal' à lista de imports do Prisma
+import { ProposalStatus, Proposal } from '@prisma/client'; 
 import { calcClosingGain } from '../commercial-plans/domain/closing-gain';
 import { CloseProposalDto } from './dto/close-proposal.dto';
+// 🆕 ADICIONADO: Import do DTO de versionamento
+import { VersionProposalDto } from './dto/version-proposal.dto'; 
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-
 @Injectable()
 export class ProposalsService {
   constructor(private prisma: PrismaService) {}
@@ -830,6 +833,258 @@ export class ProposalsService {
 
     return { proposal: updated, gain };
   }
+
+// =================================================================
+//  SPRINT A3: VERSIONAMENTO DE PROPOSTAS (ADR-028)
+// =================================================================
+
+/**
+ * Cria uma nova versão de uma proposta existente.
+ * 
+ * Regras (ADR-028):
+ * 1. A proposta original é marcada como isCurrent = false (imutável)
+ * 2. A nova versão é um CLONE com:
+ *    - version = original.version + 1
+ *    - isCurrent = true
+ *    - status = DRAFT (nova negociação)
+ *    - sentAt/closedAt/views/whatsappClicks = resetados
+ *    - originalProposalId = id da primeira versão da cadeia
+ * 3. Os ProposalItem's são CLONADOS (não compartilhados)
+ * 4. Tudo em transação atômica
+ */
+async createVersion(
+  id: string,
+  companyId: string,
+  userId: string,
+  dto: VersionProposalDto,
+): Promise<Proposal> {
+  // 1. Busca a proposta original (com itens)
+  const original = await this.prisma.proposal.findFirst({
+    where: { id, companyId },
+    include: { items: true },
+  });
+
+  if (!original) {
+    throw new NotFoundException('Proposta não encontrada');
+  }
+
+  // 2. Identifica a "raiz" da cadeia de versões
+  // Se a proposta original já é uma versão, usamos o originalProposalId dela
+  const rootId = original.originalProposalId || original.id;
+
+  // 3. Calcula o próximo número de versão
+  const latestVersion = await this.prisma.proposal.findFirst({
+    where: { originalProposalId: rootId },
+    orderBy: { version: 'desc' },
+    select: { version: true },
+  });
+
+  const nextVersion = (latestVersion?.version || original.version) + 1;
+
+  // 4. Executa tudo em transação atômica
+  return this.prisma.$transaction(async (tx) => {
+    // 4a. Marca a proposta atual como "não atual"
+    await tx.proposal.update({
+      where: { id },
+      data: { isCurrent: false },
+    });
+
+    // 4b. Cria a nova versão (clone com ajustes)
+    const newProposal = await tx.proposal.create({
+      data: {
+        companyId,
+        userId,
+        proposalNumber: `${original.proposalNumber}-v${nextVersion}`,
+        slug: `${original.slug}-v${nextVersion}-${Date.now()}`,
+        clientName: dto.clientName || original.clientName,
+        clientCnpj: dto.clientCnpj || original.clientCnpj,
+        taxRegime: original.taxRegime,
+        activity: original.activity,
+        monthlyRevenue: dto.monthlyRevenue ?? original.monthlyRevenue,
+        employeeCount: dto.employeeCount ?? original.employeeCount,
+        basePrice: dto.basePrice ?? original.basePrice,
+        aboutOffice: original.aboutOffice,
+        differentials: original.differentials,
+        onboarding: original.onboarding,
+        commercialTerms: original.commercialTerms,
+        specificNote: original.specificNote,
+        status: 'DRAFT', // Nova versão começa como rascunho
+        version: nextVersion,
+        isCurrent: true,
+        originalProposalId: rootId,
+        closingDetails: dto.reason
+          ? { reason: dto.reason, createdAt: new Date().toISOString() }
+          : original.closingDetails,
+      },
+    });
+
+    // 4c. Clona os itens da proposta original
+    if (original.items.length > 0) {
+      await tx.proposalItem.createMany({
+        data: original.items.map((item) => ({
+          proposalId: newProposal.id,
+          commercialPlanId: item.commercialPlanId,
+          serviceItemId: item.serviceItemId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+        })),
+      });
+    }
+
+    // 4d. Retorna a nova versão completa
+    return tx.proposal.findUnique({
+      where: { id: newProposal.id },
+      include: { items: true },
+    });
+  });
+}
+
+/**
+ * Lista todas as versões de uma proposta (ordenadas da mais nova para a mais antiga).
+ */
+async listVersions(id: string, companyId: string): Promise<Proposal[]> {
+  const proposal = await this.prisma.proposal.findFirst({
+    where: { id, companyId },
+  });
+
+  if (!proposal) {
+    throw new NotFoundException('Proposta não encontrada');
+  }
+
+  // Identifica a raiz da cadeia
+  const rootId = proposal.originalProposalId || proposal.id;
+
+  // Busca todas as versões (incluindo a raiz)
+  const versions = await this.prisma.proposal.findMany({
+    where: {
+      OR: [
+        { id: rootId },
+        { originalProposalId: rootId },
+      ],
+    },
+    include: {
+      items: {
+        include: {
+          commercialPlan: true,
+          serviceItem: true,
+        },
+      },
+    },
+    orderBy: { version: 'desc' },
+  });
+
+  return versions;
+}
+
+/**
+ * Compara duas versões lado a lado, destacando as diferenças.
+ * Retorna um objeto estruturado para o frontend renderizar.
+ */
+async compareVersions(
+  versionAId: string,
+  versionBId: string,
+  companyId: string,
+): Promise<{
+  versionA: Proposal;
+  versionB: Proposal;
+  differences: {
+    field: string;
+    valueA: any;
+    valueB: any;
+    changed: boolean;
+  }[];
+  itemsAdded: any[];
+  itemsRemoved: any[];
+  itemsChanged: any[];
+}> {
+  const [versionA, versionB] = await Promise.all([
+    this.prisma.proposal.findFirst({
+      where: { id: versionAId, companyId },
+      include: { items: { include: { serviceItem: true, commercialPlan: true } } },
+    }),
+    this.prisma.proposal.findFirst({
+      where: { id: versionBId, companyId },
+      include: { items: { include: { serviceItem: true, commercialPlan: true } } },
+    }),
+  ]);
+
+  if (!versionA || !versionB) {
+    throw new NotFoundException('Uma ou ambas as versões não foram encontradas');
+  }
+
+  // Compara campos escalares
+  const fieldsToCompare = [
+    'clientName', 'clientCnpj', 'taxRegime', 'activity',
+    'monthlyRevenue', 'employeeCount', 'basePrice',
+    'aboutOffice', 'differentials', 'onboarding',
+    'commercialTerms', 'specificNote',
+  ];
+
+  const differences = fieldsToCompare.map((field) => ({
+    field,
+    valueA: (versionA as any)[field],
+    valueB: (versionB as any)[field],
+    changed: (versionA as any)[field] !== (versionB as any)[field],
+  }));
+
+  // Compara itens (por serviceItemId)
+  const itemsA = new Map(versionA.items.map((i) => [i.serviceItemId, i]));
+  const itemsB = new Map(versionB.items.map((i) => [i.serviceItemId, i]));
+
+  const itemsAdded = versionB.items.filter((i) => !itemsA.has(i.serviceItemId));
+  const itemsRemoved = versionA.items.filter((i) => !itemsB.has(i.serviceItemId));
+  const itemsChanged = versionB.items.filter((i) => {
+    const original = itemsA.get(i.serviceItemId);
+    return original && (
+      original.quantity !== i.quantity ||
+      original.unitPrice !== i.unitPrice ||
+      original.totalPrice !== i.totalPrice
+    );
+  });
+
+  return { versionA, versionB, differences, itemsAdded, itemsRemoved, itemsChanged };
+}
+
+/**
+ * Ativa uma versão específica (torna isCurrent = true).
+ * As outras versões da mesma cadeia são marcadas como isCurrent = false.
+ */
+async activateVersion(
+  id: string,
+  companyId: string,
+): Promise<Proposal> {
+  const proposal = await this.prisma.proposal.findFirst({
+    where: { id, companyId },
+  });
+
+  if (!proposal) {
+    throw new NotFoundException('Proposta não encontrada');
+  }
+
+  const rootId = proposal.originalProposalId || proposal.id;
+
+  return this.prisma.$transaction(async (tx) => {
+    // Desativa todas as versões da cadeia
+    await tx.proposal.updateMany({
+      where: {
+        OR: [
+          { id: rootId },
+          { originalProposalId: rootId },
+        ],
+      },
+      data: { isCurrent: false },
+    });
+
+    // Ativa a versão escolhida
+    return tx.proposal.update({
+      where: { id },
+      data: { isCurrent: true },
+      include: { items: true },
+    });
+  });
+}
+
 }
 // =================================================================
 // FIM: backend/src/proposals/proposals.service.ts
