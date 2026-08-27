@@ -14,7 +14,7 @@
  * - Promise.all: Busca dados de todos os módulos em paralelo (performance)
  * - Tailwind CSS: Design system responsivo e profissional
  */
-
+import LastVisitedCard from '@/components/LastVisitedCard';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/axios';
@@ -236,6 +236,7 @@ const clients = clientsRes?.data || [];
       {/* SEÇÃO 1: KPIs PRINCIPAIS (4 Cards de Alto Nível) */}
       {/* ============================================================ */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <LastVisitedCard />
         <KpiCard
           icon={Briefcase}
           label="Clientes Ativos"

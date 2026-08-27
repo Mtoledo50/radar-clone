@@ -48,13 +48,16 @@ import { TaxModule } from './tax/tax.module'; // 🆕 FD-4
 import { LegalModule } from './legal/legal.module';
 import { BillingModule } from './billing/billing.module';
 
+// 🆕 Fase E — Notificações
+import { NotificationsModule } from './notifications/notifications.module';
+
 @Module({
   imports: [
     // Core
     PrismaModule,
     AuthModule,
     DashboardModule, 
-
+   
     // 🆕 Aurora — Legalização & Cobrança (FD-5 + FD-8)
     LegalModule,
     BillingModule,
@@ -94,6 +97,9 @@ import { BillingModule } from './billing/billing.module';
     ScheduleModule.forRoot(),
     DigitalEmployeeModule,
     TaxModule, // 🆕 FD-4
+
+    // 🆕 Fase E — Notificações
+    NotificationsModule,
   ],
 })
 export class AppModule {}

@@ -2622,3 +2622,31 @@ model CobrancaEvento {
   @@index([companyId, aprovadoPorId])
   @@map("cobranca_eventos")
 }
+
+// =================================================================
+// 🆕 Fase E — Notificações in-app (ADR-091)
+// =================================================================
+model Notification {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String?
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  @@index([companyId, read])
+  @@index([companyId, createdAt])
+}
+
+enum NotificationType {
+  BILLING_DUE      // cobrança vencendo
+  BILLING_OVERDUE  // cobrança vencida
+  GUIDE_DUE        // guia próxima do vencimento
+  TASK_OVERDUE     // tarefa atrasada
+  PROPOSAL_VIEWED  // proposta visualizada
+  SYSTEM           // mensagem do sistema
+}

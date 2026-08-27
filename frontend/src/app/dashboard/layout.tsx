@@ -3,6 +3,8 @@
 // =================================================================
 // INÍCIO: IMPORTS E DIRETIVAS
 // =================================================================
+import CommandPalette from '@/components/CommandPalette';
+import NotificationCenter from '@/components/NotificationCenter';
 import { useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
@@ -590,12 +592,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="lg:hidden h-12" />
         
         {/* 🆕 Botão de ajuda universal */}
-        <div className="flex justify-end mb-4">
-          <PageHelp pathname={pathname} />
-        </div>
+<div className="flex justify-end items-center gap-2 mb-4">
+  {/*  Fase E: Centro de Notificações */}
+  <NotificationCenter />
+  
+  {/* Botão de ajuda existente */}
+  <PageHelp pathname={pathname} />
+</div>
         
         {children}
       </main>
+      {/* 🆕 Fase E: Command Palette (Ctrl+K) */}
+<CommandPalette />
     </div>
   );
 }

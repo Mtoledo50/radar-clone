@@ -15,7 +15,7 @@
 // mas este componente será hidratado no browser após o carregamento.
 // =================================================================
 'use client';
-
+import LastVisitedCard from '@/components/LastVisitedCard';
 // =================================================================
 // 📦 IMPORTAÇÕES — ORGANIZADAS POR CATEGORIA
 // =================================================================
@@ -433,13 +433,9 @@ export default function DashboardPage() {
   // ---------------------------------------------------------------
   // ESTADOS DE RENDERIZAÇÃO (Early Returns)
   // ---------------------------------------------------------------
-  // Princípio: Renderização condicional com early returns
-  // Mantém o código linear e fácil de seguir
 
   /**
    * ESTADO 1: LOADING
-   * Exibido enquanto os dados estão sendo buscados
-   * UX: Feedback visual imediato reduz ansiedade do usuário
    */
   if (loading) {
     return (
@@ -452,8 +448,6 @@ export default function DashboardPage() {
 
   /**
    * ESTADO 2: ERRO
-   * Exibido quando a busca falhou completamente
-   * Mensagem amigável + ícone de alerta (padrão UX)
    */
   if (error) {
     return (
@@ -473,14 +467,14 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
 
+      {/* 🆕 Card "Onde você parou" - MOVIDO PARA CÁ! */}
+      {/* Ele só renderiza se houver histórico no localStorage */}
+      <LastVisitedCard />
+
       {/* ======================================================== */}
       {/* SEÇÃO 1: CABEÇALHO (Header)                               */}
       {/* ======================================================== */}
-      {/* Layout responsivo: coluna no mobile, linha no desktop     */}
-      {/* md:flex-row = acima de 768px usa flexbox horizontal       */}
-      {/* ======================================================== */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        {/* Saudação personalizada */}
         <div>
           <h1 className="text-3xl font-bold text-slate-900">
             {getGreeting()}, {user?.name || 'Usuário'}! 👋
@@ -490,7 +484,6 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Badge de status do sistema (indicador visual de saúde) */}
         <div className="flex items-center gap-2 px-4 py-2 bg-teal-50 border border-teal-100 rounded-lg">
           <div className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
           <span className="text-sm font-medium text-teal-700">
@@ -501,11 +494,6 @@ export default function DashboardPage() {
 
       {/* ======================================================== */}
       {/* SEÇÃO 2: CARDS DE KPI (Key Performance Indicators)        */}
-      {/* ======================================================== */}
-      {/* Grid responsivo:                                            */}
-      {/* - Mobile: 1 coluna                                          */}
-      {/* - Tablet: 2 colunas (sm:grid-cols-2)                        */}
-      {/* - Desktop: 4 colunas (lg:grid-cols-4)                       */}
       {/* ======================================================== */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <KpiCard
@@ -537,7 +525,6 @@ export default function DashboardPage() {
           label="Taxa de Turnover"
           value={`${(employeeMetrics?.turnoverRate || 0).toFixed(1)}%`}
           trend="Índice de rotatividade"
-          // Lógica de negócio: turnover > 5% é preocupante (vermelho)
           trendType={(employeeMetrics?.turnoverRate || 0) > 5 ? 'negative' : 'positive'}
           color="red"
         />
@@ -546,28 +533,18 @@ export default function DashboardPage() {
       {/* ======================================================== */}
       {/* SEÇÃO 3: STATUS DOS MÓDULOS + PRÓXIMOS PASSOS             */}
       {/* ======================================================== */}
-      {/* Grid 2 colunas no desktop (lg:grid-cols-2)                  */}
-      {/* Stack vertical no mobile                                    */}
-      {/* ======================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-        {/* Card 3.1: Status dos Módulos */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-teal-600" />
             Status dos Módulos
           </h3>
-
-          {/* Lista de status — ⚠️ Idealmente viria de uma API */}
-          {/* Atualmente está hardcoded (poderia ser um endpoint /modules/status) */}
           <div className="space-y-4">
             {[
               { name: 'Autenticação e Segurança', status: 'Operacional', color: 'bg-green-500' },
               { name: 'Banco de Dados', status: 'Operacional', color: 'bg-green-500' },
               { name: 'Gestão de Pessoas', status: 'Configurado', color: 'bg-teal-500' },
               { name: 'Módulo de Precificação', status: 'Pendente', color: 'bg-slate-300' },
-              // 🆕 Adicionar módulos novos conforme são implementados
-              // { name: 'Projetos e Tarefas', status: 'Operacional', color: 'bg-green-500' },
             ].map((item, idx) => (
               <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                 <span className="text-sm font-medium text-slate-700">{item.name}</span>
@@ -580,17 +557,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Card 3.2: Próximos Passos (Onboarding) */}
-        {/* UX: Guia o usuário em etapas (reduz churn) */}
-        {/* Gradiente teal → identidade visual Conta Certa */}
         <div className="bg-gradient-to-br from-teal-600 to-teal-800 p-6 rounded-xl shadow-md text-white flex flex-col justify-between">
           <div>
             <h3 className="text-lg font-bold mb-2">Próximos Passos Recomendados</h3>
             <p className="text-teal-100 text-sm mb-6">
               Complete o cadastro da sua empresa para desbloquear relatórios avançados.
             </p>
-
-            {/* Checklist visual com números */}
             <div className="space-y-3">
               {[
                 'Preencher dados da "Minha Empresa"',
@@ -606,8 +578,6 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-
-          {/* CTA (Call-to-Action) principal */}
           <Link
             href="/dashboard/minha-empresa"
             className="mt-6 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white text-teal-700 font-semibold rounded-lg hover:bg-teal-50 transition-colors text-sm w-full sm:w-auto"
@@ -620,11 +590,7 @@ export default function DashboardPage() {
       {/* ======================================================== */}
       {/* SEÇÃO 4: GRÁFICOS ANALÍTICOS                              */}
       {/* ======================================================== */}
-      {/* Renderização condicional: só renderiza se houver dados    */}
-      {/* Gráficos são componentes dinâmicos (lazy loaded)          */}
-      {/* ======================================================== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de Pizza — Softwares utilizados */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Softwares Utilizados</h3>
           {softwareData.length > 0 ? (
@@ -636,7 +602,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Gráfico de Barras — Movimentação de pessoal */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
           <h3 className="text-lg font-bold text-slate-900 mb-4">Movimentação de Pessoal</h3>
           <BarChartComponent data={workforceData} />
@@ -645,9 +610,6 @@ export default function DashboardPage() {
 
       {/* ======================================================== */}
       {/* SEÇÃO 5: AÇÕES RÁPIDAS (Quick Access)                     */}
-      {/* ======================================================== */}
-      {/* Atalhos para os módulos mais utilizados                   */}
-      {/* Array-driven: adicionar item = adicionar ao array         */}
       {/* ======================================================== */}
       <div>
         <h2 className="text-xl font-bold text-slate-900 mb-4">Acesso Rápido</h2>
@@ -672,6 +634,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-// =================================================================
-// FIM: DashboardPage
-// =================================================================
