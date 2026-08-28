@@ -533,6 +533,8 @@ export default function MeusPlanosPage() {
                 onAddItem={() => handleAddItem(category.id)}
                 onDeleteItem={handleDeleteItem}
                 onDeleteCategory={() => handleDeleteCategory(category.id)}
+                showCompleteGuide={showCompleteGuide}
+                setShowCompleteGuide={setShowCompleteGuide}
               />
             ))}
           </div>
@@ -671,7 +673,7 @@ function PlanCard({ plan, isEditing, onEdit, onCancelEdit, onUpdate, onDelete, o
 // =================================================================
 // 📁 SUB-COMPONENTE: CARD DE CATEGORIA
 // =================================================================
-function CategoryCard({ category, newItemName, onNewItemNameChange, onAddItem, onDeleteItem, onDeleteCategory }: any) {
+function CategoryCard({ category, newItemName, onNewItemNameChange, onAddItem, onDeleteItem, onDeleteCategory, showCompleteGuide, setShowCompleteGuide, }: any) {
   const [expanded, setExpanded] = useState(true);
 
   return (
