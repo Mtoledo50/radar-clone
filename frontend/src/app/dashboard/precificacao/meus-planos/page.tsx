@@ -27,9 +27,9 @@ import { toast } from 'sonner';
 import {
   Package, Plus, Trash2, Edit2, Save, X, Loader2, 
   Tag, FolderOpen, FileText, DollarSign, Calculator,
-  ChevronDown, ChevronRight, TrendingUp, TrendingDown, CheckCircle2
+  ChevronDown, ChevronRight, TrendingUp, TrendingDown, CheckCircle2, BookOpen
 } from 'lucide-react';
-
+import CompleteGuideModal from '@/components/common/CompleteGuideModal';
 // =================================================================
 //  CLASSES DE ESTILO REUTILIZÁVEIS (Design System)
 // =================================================================
@@ -96,7 +96,8 @@ interface ServiceCategory {
 export default function MeusPlanosPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+  // 🆕 ADICIONE EXATAMENTE ESTA LINHA AQUI:
+  const [showCompleteGuide, setShowCompleteGuide] = useState(false); 
   // Estado para o Simulador "Dinheiro na Mesa"
   const [baseValue, setBaseValue] = useState<number>(2000);
   const [currentMonthly, setCurrentMonthly] = useState<number>(1500);
@@ -349,6 +350,13 @@ export default function MeusPlanosPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button 
+            onClick={() => setShowCompleteGuide(true)} 
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+          >
+            <BookOpen className="h-4 w-4" />
+            Ver guia completo
+          </button>
           <button onClick={handleAddPlan} className={buttonSecondary}>
             <Plus className="h-4 w-4" /> Adicionar Plano
           </button>
@@ -707,9 +715,16 @@ function CategoryCard({ category, newItemName, onNewItemNameChange, onAddItem, o
                 </li>
               ))}
             </ul>
+            
           )}
         </div>
       )}
+      {showCompleteGuide && (
+  <CompleteGuideModal
+    pathname="/dashboard/precificacao/meus-planos"
+    onClose={() => setShowCompleteGuide(false)}
+  />
+)}
     </div>
   );
 }

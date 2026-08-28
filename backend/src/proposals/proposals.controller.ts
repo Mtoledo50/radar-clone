@@ -38,6 +38,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 // 🆕 ADICIONADO: Imports dos novos DTOs da Sprint A3
 import { VersionProposalDto, CompareVersionsDto } from './dto/version-proposal.dto';
+import { CloseProposalDto } from './dto/close-proposal.dto';
 
 /** Payload do JWT (espelho do que o JwtStrategy injeta). */
 interface UserPayload {
@@ -157,7 +158,33 @@ export class ProposalsController {
       data: newProposal,
     };
   }
+// =================================================================
+// 🆕 SPRINT A4: Fechamento com Ganho
+// =================================================================
 
+/**
+ * POST /proposals/:id/close
+ * Fecha a proposta com desconto + memória de cálculo (ADR-029).
+ * Trava: proposta já fechada não pode ser re-fechada.
+ */
+@Post(':id/close')
+@Roles('ADMIN', 'MANAGER')
+async closeWithGain(
+  @Param('id') id: string,
+  @CurrentUser() user: UserPayload,
+  @Body() dto: CloseProposalDto,
+) {
+  const result = await this.service.closeWithGain(
+    user.companyId,
+    id,
+    dto,
+  );
+  return {
+    success: true,
+    message: `Proposta fechada com ganho de R$ ${result.gain.gainMonthly.toFixed(2)}/mês`,
+    data: result,
+  };
+}
   // =================================================================
   // 📋 CRUD
   // =================================================================

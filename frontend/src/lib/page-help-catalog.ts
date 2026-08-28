@@ -1,9 +1,32 @@
 /**
  * =================================================================
- * Catálogo de Ajuda Contextual — Completo (Opção C)
+ * CATÁLOGO DE AJUDA CONTEXTUAL — RADAR CONTA CERTA
  * =================================================================
- * Camada 1 (modal rápido): description + steps curtos
- * Camada 2 (página /ajuda/[slug]): conteúdo rico completo
+ * 
+ * 📌 REGRA DE OURO DE MANUTENÇÃO (LER ANTES DE EDITAR):
+ * Este arquivo DEVE ser atualizado SEMPRE que:
+ *   1. Uma nova página (rota) for criada no sistema.
+ *   2. Uma funcionalidade existente em uma página for alterada ou expandida.
+ *   3. O CHANGELOG.md, CONTEXTO_PROJETO.md ou README.md forem atualizados.
+ * 
+ * 🏗️ ESTRUTURA DO ARQUIVO:
+ *   - Camada 1 (Modal Rápido): `description` + `steps` curtos e diretos.
+ *   - Camada 2 (Página /ajuda/[slug]): `richContent` com intro, workflow,
+ *     regras, KPIs, exemplos e passos detalhados.
+ * 
+ * 🗺️ COMO LOCALIZAR UMA PÁGINA:
+ *   Use Ctrl+F pelo caminho da rota (ex: "/dashboard/fechamento")
+ *   ou pelo nome da página (ex: "Fechamento + DRE Bancário").
+ * 
+ * 🎨 SEÇÕES DO CATÁLOGO (ordem de renderização):
+ *   1. 📊 OPERACIONAL   (Dashboard, Empresa, Pessoas, Clientes, Projetos, Tarefas, Planejamento)
+ *   2. 💼 COMERCIAL     (Precificação, Planos, Desempenho, Propostas, Versões)
+ *   3. 🧾 FISCAL        (NF-e, Notas, Estoque, Apuração, SPED, Comparativo, Relatório)
+ *   4.  BANCÁRIO      (Fechamento + DRE Bancário)
+ *   5. 📒 CONTÁBIL      (Lançamentos, Revisão, Ciclo Contábil, Plano de Contas)
+ *   6.  INTELIGÊNCIA  (Aurora, Relatórios, NFS-e, Guias, Cofre, Cobrança, BI, Score, Mentoria, Ranking, Tributário)
+ *   7. ⚙️ SISTEMA       (Admin: Visão Geral, Catálogo)
+ * 
  * =================================================================
  */
 
@@ -25,9 +48,23 @@ export interface PageHelpInfo {
 }
 
 const helpCatalog: Record<string, PageHelpInfo> = {
-  // ─────────────────────────────────────────────────────────
-  // 📊 OPERACIONAL
-  // ─────────────────────────────────────────────────────────
+
+  // =================================================================
+  // 📊 SEÇÃO 1: OPERACIONAL
+  // =================================================================
+  // Páginas de uso diário do escritório: visão geral, cadastro, gestão
+  // de pessoas, clientes, projetos, tarefas e planejamento estratégico.
+  // =================================================================
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Dashboard Executivo
+  // 📍 ROTA: /dashboard
+  // 🎯 PROPÓSITO: Painel principal com KPIs em tempo real. Responde
+  //    em 5 segundos: "Como está meu escritório hoje?"
+  // 👤 USUÁRIO: Todos os perfis (ADMIN, MANAGER, USER)
+  // 🔄 ATUALIZAR QUANDO: Adicionar novos cards de KPI, mudar filtros
+  //    de período ou alterar a lógica de cálculo dos indicadores.
+  // -----------------------------------------------------------------
   '/dashboard': {
     title: 'Dashboard Executivo',
     description: 'Visão geral do escritório com KPIs em tempo real: clientes ativos, faturamento, equipe e progresso das metas.',
@@ -61,6 +98,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Minha Empresa
+  // 📍 ROTA: /dashboard/minha-empresa
+  // 🎯 PROPÓSITO: "Cartão de visitas" do escritório no sistema.
+  //    Os dados aqui alimentam o Score, a Mentoria e o Benchmark.
+  // 👤 USUÁRIO: ADMIN (somente ele pode editar dados cadastrais)
+  // 🔄 ATUALIZAR QUANDO: Novos campos forem adicionados ao formulário
+  //    ou se a integração com o Score/Benchmark mudar.
+  // -----------------------------------------------------------------
   '/dashboard/minha-empresa': {
     title: 'Minha Empresa',
     description: 'O "cartão de visitas" do seu escritório dentro do sistema. Configure dados básicos, visão de futuro e softwares utilizados.',
@@ -90,6 +136,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Colaboradores (Gestão de Pessoas)
+  //  ROTA: /dashboard/pessoas
+  // 🎯 PROPÓSITO: CRUD de funcionários, tipos contratuais e marcação
+  //    de talentos críticos. Calcula tempo de casa e turnover.
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Novos tipos contratuais forem adicionados
+  //    ou a lógica de "colaborador crítico" mudar.
+  // -----------------------------------------------------------------
   '/dashboard/pessoas': {
     title: 'Colaboradores',
     description: 'Gestão completa da sua equipe: cadastro, tipos contratuais, tempo de casa e identificação de talentos críticos.',
@@ -97,7 +152,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     controlType: 'Operacional',
     steps: [
       'Cadastre novos colaboradores com dados pessoais e contratuais.',
-      'Marque colaboradores essenciais com o selo "Crítico" (🔑).',
+      'Marque colaboradores essenciais com o selo "Crítico" ().',
       'Use os filtros para visualizar a equipe por departamento ou tipo de contrato.'
     ],
     relatedPages: ['Turnover', 'Benchmark de Cargos'],
@@ -106,7 +161,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
       kpis: [
         { name: 'Total de Colaboradores', meaning: 'Número de pessoas ativas no escritório', location: 'Card superior' },
         { name: 'Tenure Médio', meaning: 'Tempo médio de casa em meses', location: 'Card superior' },
-        { name: 'Críticos Ativos', meaning: 'Colaboradores essenciais marcados com 🔑', location: 'Card superior' }
+        { name: 'Críticos Ativos', meaning: 'Colaboradores essenciais marcados com ', location: 'Card superior' }
       ],
       workflow: [
         'Cadastre cada colaborador com dados completos',
@@ -123,6 +178,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Turnover e Desligamentos
+  // 📍 ROTA: /dashboard/turnover
+  //  PROPÓSITO: Registro de rescisões, entrevista de desligamento
+  //    e análise de causas-raiz para reter talentos.
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: O questionário da entrevista mudar ou novas
+  //    causas-raiz forem adicionadas à análise.
+  // -----------------------------------------------------------------
   '/dashboard/turnover': {
     title: 'Turnover e Desligamentos',
     description: 'Análise de rotatividade de pessoas. Registre rescisões, identifique causas-raiz e acompanhe o impacto no escritório.',
@@ -139,7 +203,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
       kpis: [
         { name: 'Turnover Geral', meaning: '% de desligamentos no período', location: 'Card superior' },
         { name: 'Turnover de Novatos', meaning: 'Desligados com < 12 meses de casa', location: 'Card superior' },
-        { name: 'Críticos Perdidos', meaning: 'Colaboradores 🔑 que saíram', location: 'Card superior' },
+        { name: 'Críticos Perdidos', meaning: 'Colaboradores  que saíram', location: 'Card superior' },
         { name: 'Motivo Mais Frequente', meaning: 'Causa-raiz mais comum', location: 'Card inferior' }
       ],
       workflow: [
@@ -162,7 +226,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
         },
         {
           title: 'Entrevista de desligamento',
-          description: '5 perguntas sobre: salário, gestão, crescimento, ambiente e motivo principal. O sistema classifica em 7 causas-raiz (salário, gestão, crescimento, ambiente, carga, reconhecimento, outros).'
+          description: '5 perguntas sobre: salário, gestão, crescimento, ambiente e motivo principal. O sistema classifica em 7 causas-raiz.'
         },
         {
           title: 'Analisar causas-raiz',
@@ -172,6 +236,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Benchmark de Cargos
+  // 📍 ROTA: /dashboard/pessoas/benchmark
+  // 🎯 PROPÓSITO: Comparar a distribuição da equipe com o padrão
+  //    de mercado contábil (Fiscal 30%, Contábil 25%, DP 20%, etc).
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: As porcentagens de referência do mercado
+  //    forem recalibradas.
+  // -----------------------------------------------------------------
   '/dashboard/pessoas/benchmark': {
     title: 'Benchmark de Cargos',
     description: 'Compare a distribuição da sua equipe (Fiscal, Contábil, DP, etc.) com o padrão recomendado para escritórios do seu porte.',
@@ -207,6 +280,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Carteira de Clientes
+  // 📍 ROTA: /dashboard/clientes
+  // 🎯 PROPÓSITO: Gestão de contratos, honorários, MRR, Churn e
+  //    importação em massa da planilha de honorários.
+  // 👤 USUÁRIO: ADMIN, MANAGER, USER
+  // 🔄 ATUALIZAR QUANDO: O formato da importação CSV mudar ou novos
+  //    campos contratuais forem adicionados.
+  // -----------------------------------------------------------------
   '/dashboard/clientes': {
     title: 'Carteira de Clientes',
     description: 'Gerencie sua carteira de clientes: contratos, planos, honorários, add-ons e status (ativo, inativo ou prospect).',
@@ -247,6 +329,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Projetos
+  // 📍 ROTA: /dashboard/projetos
+  // 🎯 PROPÓSITO: Gestão de entregas com prazo, responsáveis e
+  //    progresso automático calculado pelas tarefas concluídas.
+  // 👤 USUÁRIO: ADMIN, MANAGER, USER
+  // 🔄 ATUALIZAR QUANDO: Novos status de projeto forem criados ou
+  //    a lógica de cálculo de progresso mudar.
+  // -----------------------------------------------------------------
   '/dashboard/projetos': {
     title: 'Projetos',
     description: 'Organize entregas e demandas do escritório como projetos com prazo, responsáveis e progresso automático.',
@@ -274,13 +365,22 @@ const helpCatalog: Record<string, PageHelpInfo> = {
       ],
       rules: [
         'Projeto com tarefas pendentes não pode ser excluído',
-        'Progresso = tarefas concluídas ÷ total de tarefas',
+        'Progresso = tarefas concluídas  total de tarefas',
         'Vínculo com cliente é opcional mas recomendado',
         'Cor de identificação ajuda na visualização'
       ]
     }
   },
 
+  // -----------------------------------------------------------------
+  //  PÁGINA: Tarefas (Kanban)
+  // 📍 ROTA: /dashboard/tarefas
+  // 🎯 PROPÓSITO: Fluxo operacional diário com categorias, prioridades
+  //    e controle de horas estimadas vs. realizadas.
+  // 👤 USUÁRIO: ADMIN, MANAGER, USER
+  //  ATUALIZAR QUANDO: Novas colunas do Kanban forem adicionadas
+  //    ou a lógica de horas estimadas vs. reais mudar.
+  // -----------------------------------------------------------------
   '/dashboard/tarefas': {
     title: 'Tarefas',
     description: 'O dia a dia operacional. Quem faz o quê, até quando e com que prioridade, em formato Kanban.',
@@ -330,6 +430,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Planejamento Estratégico
+  // 📍 ROTA: /dashboard/planejamento
+  //  PROPÓSITO: Definição de metas de longo prazo, KPIs e planos
+  //    de ação com barra de progresso automática.
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: A estrutura de Metas -> KPIs -> Ações for
+  //    alterada ou novos ciclos de planejamento forem adicionados.
+  // -----------------------------------------------------------------
   '/dashboard/planejamento': {
     title: 'Planejamento Estratégico',
     description: 'Defina metas de longo prazo para o escritório e acompanhe a execução através de KPIs e planos de ação.',
@@ -359,9 +468,23 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
-  // ─────────────────────────────────────────────────────────
-  //  COMERCIAL
-  // ─────────────────────────────────────────────────────────
+
+  // =================================================================
+  // 💼 SEÇÃO 2: COMERCIAL
+  // =================================================================
+  // Páginas do ciclo comercial: precificação, planos, propostas,
+  // versões e análise de desempenho (funil + dinheiro na mesa).
+  // =================================================================
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Precificação (Calculadora)
+  // 📍 ROTA: /dashboard/precificacao
+  // 🎯 PROPÓSITO: Calculadora de honorários baseada em horas, custo
+  //    hora e margem de lucro desejada.
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: A fórmula de cálculo de horas ou margem
+  //    for alterada.
+  // -----------------------------------------------------------------
   '/dashboard/precificacao': {
     title: 'Precificação',
     description: 'Calcule quanto cobrar de cada cliente baseado em horas demandadas, custo hora e margem de lucro desejada.',
@@ -398,28 +521,37 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Meus Planos (Sprints A1, A2, A4)
+  // 📍 ROTA: /dashboard/precificacao/meus-planos
+  // 🎯 PROPÓSITO: Gestão de pacotes de serviços, multiplicadores,
+  //    herança de itens e simulador "Dinheiro na Mesa".
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Novas regras de herança (ADR-020) forem
+  //    adicionadas ou o simulador de ganho/concessão mudar.
+  // -----------------------------------------------------------------
   '/dashboard/precificacao/meus-planos': {
     title: 'Meus Planos',
-    description: 'Gerencie os pacotes de serviços que seu escritório oferece (START, PRIME, BLACK, etc.) e seus multiplicadores.',
+    description: 'Gerencie os pacotes de serviços que seu escritório oferece (START, PRIME, BLACK, etc.), seus multiplicadores e simule o impacto financeiro.',
     audience: 'Empresa',
     controlType: 'Estratégico',
     steps: [
       'Visualize todos os planos ativos e seus respectivos multiplicadores de preço.',
-      'Edite os serviços inclusos em cada plano.',
-      'Marque um plano como "Independente" se ele não deve herdar itens de outros.'
+      'Edite os serviços inclusos em cada plano e marque planos como "Independente" se necessário.',
+      'Use o "Simulador: Dinheiro na Mesa" para ver o impacto de descontos no lucro anual.'
     ],
-    relatedPages: ['Precificação', 'Administração (Catálogo)'],
+    relatedPages: ['Precificação', 'Desempenho Comercial'],
     richContent: {
-      intro: 'Planos comerciais são a base da sua oferta. Cada plano tem um multiplicador que define o preço relativo ao valor de referência.',
+      intro: 'Planos comerciais são a base da sua oferta. Cada plano tem um multiplicador que define o preço relativo ao valor de referência, com herança automática de itens.',
       workflow: [
         'Defina o valor de referência (ex: R$ 1.000)',
         'Crie planos com multiplicadores (START 1.0, PRIME 1.5, BLACK 2.0)',
-        'Associe serviços a cada plano',
-        'Marque planos independentes se não devem herdar itens',
+        'Associe serviços a cada plano (o sistema calcula a herança)',
+        'Use o simulador para ver ganho vs. concessão em tempo real',
         'Revise multiplicadores trimestralmente'
       ],
       rules: [
-        'Plano independente não herda e não doa itens',
+        'Plano independente não herda e não doa itens (ADR-020)',
         'Multiplicador mínimo: 1.0',
         'Serviços podem estar em múltiplos planos',
         'Alterações em planos afetam propostas futuras, não as existentes'
@@ -427,6 +559,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Desempenho Comercial
+  // 📍 ROTA: /dashboard/precificacao/desempenho
+  // 🎯 PROPÓSITO: Funil de vendas, conversão, tempo de fechamento
+  //    e análise de "dinheiro na mesa" (ganho vs. concessão).
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Novas métricas de funil forem adicionadas
+  //    ou a fórmula de "dinheiro na mesa" mudar.
+  // -----------------------------------------------------------------
   '/dashboard/precificacao/desempenho': {
     title: 'Desempenho Comercial',
     description: 'Funil de vendas do escritório: conversão, tempo médio de fechamento, descontos praticados e "dinheiro na mesa".',
@@ -441,7 +582,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     richContent: {
       intro: 'Esta página responde 3 perguntas essenciais: Quantas propostas viram clientes? Quanto tempo leva para fechar? Quanto dinheiro você está deixando na mesa?',
       kpis: [
-        { name: 'Conversão', meaning: '% de propostas que viraram clientes', location: 'Card superior esquerdo' },
+        { name: 'Conversão', meaning: '% de propostas que viram clientes', location: 'Card superior esquerdo' },
         { name: 'Tempo médio', meaning: 'Dias entre "enviada" e "fechada"', location: 'Card superior direito' },
         { name: 'Desconto médio', meaning: '% médio de desconto praticado', location: 'Card central' },
         { name: 'Ganho acumulado', meaning: 'Receita real mensal/anual', location: 'Card "Dinheiro em Jogo"' },
@@ -473,7 +614,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
         },
         {
           title: 'Card "Dinheiro em Jogo"',
-          description: 'Mostra Ganho real × Concessão (desconto dado). Balanço líquido = Ganho − Concessão. Exemplo: Ganho R$ 360/mês + Concessão R$ 240/mês = você deixou R$ 2.880/ano na mesa.'
+          description: 'Mostra Ganho real × Concessão (desconto dado). Balanço líquido = Ganho − Concessão.'
         },
         {
           title: 'Funil de conversão',
@@ -483,25 +624,158 @@ const helpCatalog: Record<string, PageHelpInfo> = {
           title: 'Motivos de perda',
           description: '"Fechou com concorrente mais barato" = problema de preço. "Não teve retorno" = problema de follow-up. "Adiou decisão" = problema de urgência.'
         }
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Listagem de Propostas Comerciais
+  // 📍 ROTA: /dashboard/precificacao/propostas
+  // 🎯 PROPÓSITO: Tabela centralizada de todas as propostas, com
+  //    busca e acesso rápido às versões (Sprint A3).
+  // 👤 USUÁRIO: ADMIN, MANAGER, USER
+  // 🔄 ATUALIZAR QUANDO: Novas colunas forem adicionadas à tabela
+  //    ou filtros de busca mudarem.
+  // -----------------------------------------------------------------
+  '/dashboard/precificacao/propostas': {
+    title: 'Propostas Comerciais',
+    description: 'Listagem centralizada de todas as propostas do escritório, com busca, filtros e acesso rápido ao gerenciamento de versões.',
+    audience: 'Empresa',
+    controlType: 'Operacional',
+    steps: [
+      'Use a barra de busca para encontrar propostas por nome do cliente ou número.',
+      'Clique no ícone de Olho (👁️) para visualizar ou editar os detalhes da proposta.',
+      'Clique no ícone de Ramificação (🌿) para gerenciar as versões desta proposta.'
+    ],
+    relatedPages: ['Precificação', 'Meus Planos'],
+    richContent: {
+      intro: 'Esta é a central de comando das suas vendas. Aqui você tem visão macro de todas as propostas, seus status e pode navegar rapidamente para ações específicas.',
+      workflow: [
+        'Acesse diariamente para verificar propostas novas ou pendentes',
+        'Use a busca para localizar clientes específicos',
+        'Acesse a visualização detalhada para editar textos e valores',
+        'Use o gerenciamento de versões para histórico de negociações'
       ],
-      examples: [
+      rules: [
+        'A lista mostra apenas propostas do seu tenant (companyId)',
+        'Propostas excluídas usam soft delete e não aparecem aqui',
+        'O status muda automaticamente ao usar as ações (ex: Enviar, Fechar)'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Detalhes da Proposta
+  //  ROTA: /dashboard/precificacao/propostas/[id]
+  // 🎯 PROPÓSITO: Edição completa da proposta, textos, itens e
+  //    botão de fechamento com ganho (Sprint A4).
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Novos campos de texto forem adicionados
+  //    ou o modal de fechamento (Sprint A4) mudar.
+  // -----------------------------------------------------------------
+  '/dashboard/precificacao/propostas/[id]': {
+    title: 'Detalhes da Proposta',
+    description: 'Edição completa dos dados do cliente, textos da proposta, itens e ação de fechamento com cálculo de ganho.',
+    audience: 'Empresa',
+    controlType: 'Operacional',
+    steps: [
+      'Preencha os dados do cliente, regime tributário e faturamento estimado.',
+      'Edite os textos de "Sobre o Escritório", "Diferenciais" e "Termos Comerciais".',
+      'Clique em "Fechar Proposta" para abrir o modal de cálculo de ganho e concessão.'
+    ],
+    relatedPages: ['Propostas Comerciais', 'Versões da Proposta'],
+    richContent: {
+      intro: 'Aqui você monta a proposta final. Todos os textos editáveis aqui serão refletidos no link público enviado ao cliente.',
+      workflow: [
+        'Preencha os dados financeiros do cliente',
+        'Personalize os textos para dar um toque profissional',
+        'Revise os itens incluídos no plano',
+        'Ao fechar, use o modal para registrar o desconto e o ganho real'
+      ],
+      rules: [
+        'Propostas fechadas (CLOSED_WON/LOST) não podem ter seus valores alterados',
+        'O botão "Fechar Proposta" só aparece para propostas em DRAFT ou SENT',
+        'O link público é gerado com base no "slug" único da proposta'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  //  PÁGINA: Versões da Proposta (Sprint A3)
+  // 📍 ROTA: /dashboard/precificacao/propostas/[id]/versoes
+  // 🎯 PROPÓSITO: Histórico imutável de versões, comparador lado a
+  //    lado e ativação de versões antigas.
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: A lógica de comparação (diff) ou o fluxo
+  //    de ativação de versões for alterado.
+  // -----------------------------------------------------------------
+  '/dashboard/precificacao/propostas/[id]/versoes': {
+    title: 'Versões da Proposta',
+    description: 'Gerencie o histórico imutável de versões da proposta, compare alterações lado a lado e reative versões antigas se necessário.',
+    audience: 'Empresa',
+    controlType: 'Estratégico',
+    steps: [
+      'Clique em "Nova Versão" para clonar a proposta atual e iniciar uma nova negociação.',
+      'Use a aba "Comparar" para ver diferenças de valores e itens entre duas versões.',
+      'Clique em "Ativar esta" para tornar uma versão antiga a versão principal novamente.'
+    ],
+    relatedPages: ['Detalhes da Proposta', 'Propostas Comerciais'],
+    richContent: {
+      intro: 'O versionamento garante que você nunca perca o histórico de uma negociação. Versões antigas são imutáveis, servindo como auditoria.',
+      workflow: [
+        'O cliente pediu mudanças? Clique em "Nova Versão" e informe o motivo.',
+        'Edite a nova versão (v2) à vontade. A v1 permanece intacta.',
+        'Use o comparador para mostrar ao cliente o que mudou.',
+        'Se o cliente voltar atrás, use "Ativar esta" na v1.'
+      ],
+      rules: [
+        'Criar nova versão marca a anterior como isCurrent = false',
+        'A nova versão nasce com status DRAFT, mesmo que a anterior estivesse enviada',
+        'O comparador destaca em vermelho o que foi removido e em verde o que foi adicionado',
+        'A ativação de versão é uma transação atômica no banco'
+      ],
+      detailedSteps: [
         {
-          title: 'Cálculo manual do Dinheiro em Jogo',
-          content: 'Ganho = (preço final − preço atual) × 12 meses\nConcessão = desconto dado × 12 meses\nBalanço = Ganho − Concessão'
+          title: 'Criar nova versão',
+          description: 'O sistema clona todos os dados e itens, incrementa o número da versão e limpa as datas de envio/fechamento.'
+        },
+        {
+          title: 'Comparar versões',
+          description: 'Selecione a Versão A e a Versão B. O sistema mostra diferenças em campos de texto, valores e lista de itens (adicionados/removidos/alterados).'
+        },
+        {
+          title: 'Ativar versão',
+          description: 'Ao ativar, o sistema define isCurrent = true nesta versão e false em todas as outras da mesma cadeia. A proposta principal aponta para esta.'
         }
       ]
     }
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 🧾 FISCAL
-  // ─────────────────────────────────────────────────────────
+
+  // =================================================================
+  // 🧾 SEÇÃO 3: FISCAL
+  // =================================================================
+  // Páginas do módulo fiscal: importação de NF-e, estoque, apuração
+  // de ICMS, SPED e relatórios. Todas multi-cliente (seletor global).
+  // =================================================================
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Importar NF-e
+  //  ROTA: /dashboard/fiscal
+  //  PROPÓSITO: Upload em lote de XMLs de NF-e de entrada com
+  //    parser automático e revisão prévia.
+  //  USUÁRIO: ADMIN, MANAGER, USER (com acesso fiscal)
+  // 🔄 ATUALIZAR QUANDO: O parser de XML mudar de versão (ex: 4.0
+  //    → 5.0), o limite de upload (50) for alterado, ou o fluxo de
+  //    revisão prévia for redesenhado.
+  // -----------------------------------------------------------------
   '/dashboard/fiscal': {
     title: 'Importar NF-e',
     description: 'Entrada de notas fiscais de compra dos seus clientes via upload de arquivos XML em lote.',
     audience: 'Cliente',
     controlType: 'Fiscal',
     steps: [
+      'Selecione o cliente fiscal no seletor global (canto superior).',
       'Arraste os arquivos XML das NF-e para a área de upload (até 50 por vez).',
       'O sistema extrai fornecedor, produtos, valores e impostos automaticamente.',
       'Revise a tela de pré-visualização antes de confirmar. Nada é gravado sem sua aprovação.'
@@ -512,7 +786,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
       workflow: [
         'Selecione o cliente fiscal no seletor global',
         'Arraste XMLs para a área de upload (até 50)',
-        'Aguarde o parsing automático',
+        'Aguarde o parsing automático (layout 4.0)',
         'Revise o preview (fornecedores, produtos, valores)',
         'Confirme para gravar no banco',
         'NF-e aprovadas vão para "Notas Fiscais" e alimentam Estoque e Apuração ICMS'
@@ -541,6 +815,16 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  //  PÁGINA: Notas Fiscais
+  // 📍 ROTA: /dashboard/fiscal/notas
+  // 🎯 PROPÓSITO: Lista completa de NF-e importadas com busca,
+  //    filtros e auditoria tributária por item.
+  // 👤 USUÁRIO: ADMIN, MANAGER, USER (com acesso fiscal)
+  // 🔄 ATUALIZAR QUANDO: Novos filtros forem adicionados, a auditoria
+  //    Base × Alíquota mudar ou o layout do PDF de impressão for
+  //    alterado.
+  // -----------------------------------------------------------------
   '/dashboard/fiscal/notas': {
     title: 'Notas Fiscais',
     description: 'Lista completa de todas as NF-e importadas, com busca avançada, filtros e auditoria tributária por item.',
@@ -574,6 +858,16 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Estoque (Kardex)
+  //  ROTA: /dashboard/fiscal/estoque
+  // 🎯 PROPÓSITO: Controle de inventário com custo médio ponderado
+  //    móvel e histórico de movimentações.
+  // 👤 USUÁRIO: ADMIN, MANAGER, USER (com acesso fiscal)
+  // 🔄 ATUALIZAR QUANDO: A fórmula de custo médio mudar, novos tipos
+  //    de movimentação forem adicionados ou a lógica de ajuste manual
+  //    for alterada.
+  // -----------------------------------------------------------------
   '/dashboard/fiscal/estoque': {
     title: 'Estoque (Kardex)',
     description: 'Controle de inventário dos produtos dos clientes com custo médio ponderado móvel e histórico de movimentações.',
@@ -621,6 +915,16 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Apuração ICMS
+  //  ROTA: /dashboard/fiscal/apuracao
+  // 🎯 PROPÓSITO: Cálculo mensal do ICMS a pagar/creditar com
+  //    créditos automáticos das NF-e.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso fiscal)
+  // 🔄 ATUALIZAR QUANDO: A alíquota padrão mudar, novas regras de
+  //    crédito forem adicionadas ou o fluxo de fechamento/reabertura
+  //    for alterado.
+  // -----------------------------------------------------------------
   '/dashboard/fiscal/apuracao': {
     title: 'Apuração ICMS',
     description: 'Cálculo mensal do ICMS a pagar ou a creditar, com créditos puxados automaticamente das NF-e de entrada.',
@@ -671,6 +975,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  //  PÁGINA: SPED Fiscal (Bloco H)
+  // 📍 ROTA: /dashboard/fiscal/sped
+  // 🎯 PROPÓSITO: Exportação do inventário físico para o SPED Fiscal,
+  //    reconstruído historicamente a partir do Kardex.
+  //  USUÁRIO: ADMIN, MANAGER (com acesso fiscal)
+  // 🔄 ATUALIZAR QUANDO: O layout oficial do SPED mudar (ex: novas
+  //    linhas H015) ou a lógica de reconstrução histórica for alterada.
+  // -----------------------------------------------------------------
   '/dashboard/fiscal/sped': {
     title: 'SPED Fiscal (Bloco H)',
     description: 'Exportação do inventário físico para o SPED Fiscal, reconstruído historicamente a partir do Kardex.',
@@ -707,6 +1020,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Comparativo de Estoque
+  //  ROTA: /dashboard/fiscal/comparativo
+  // 🎯 PROPÓSITO: Conferência visual de divergências entre estoque
+  //    inicial, entradas e saldo atual.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso fiscal)
+  // 🔄 ATUALIZAR QUANDO: Os thresholds de divergência (5% / 2-5%)
+  //    forem recalibrados ou o drill-down de evidências for redesenhado.
+  // -----------------------------------------------------------------
   '/dashboard/fiscal/comparativo': {
     title: 'Comparativo de Estoque',
     description: 'Conferência visual de divergências entre o estoque inicial, as entradas via NF-e e o saldo atual.',
@@ -736,6 +1058,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Relatório de Inventário
+  // 📍 ROTA: /dashboard/fiscal/relatorio-inventario
+  //  PROPÓSITO: Relatório fiscal detalhado (modelo H010 estendido)
+  //    com 17 colunas e tributos.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso fiscal)
+  // 🔄 ATUALIZAR QUANDO: Novas colunas forem adicionadas ao relatório
+  //    ou o layout do PDF for alterado.
+  // -----------------------------------------------------------------
   '/dashboard/fiscal/relatorio-inventario': {
     title: 'Relatório de Inventário',
     description: 'Relatório fiscal detalhado (modelo H010 estendido) com 17 colunas, incluindo tributos de cada produto.',
@@ -765,9 +1096,24 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 🏦 BANCÁRIO & CONTÁBIL
-  // ─────────────────────────────────────────────────────────
+
+  // =================================================================
+  // 🏦 SEÇÃO 4: BANCÁRIO
+  // =================================================================
+  // Ciclo bancário: importação de extrato, classificação com memória,
+  // DRE gerencial, fechamento com trava de compliance.
+  // =================================================================
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Fechamento + DRE Bancário
+  // 📍 ROTA: /dashboard/fechamento
+  // 🎯 PROPÓSITO: Ciclo completo: importação de extrato, classificação
+  //    automática com memória, DRE gerencial e fechamento do mês.
+  // 👤 USUÁRIO: ADMIN, MANAGER, USER (com acesso bancário)
+  // 🔄 ATUALIZAR QUANDO: O parser CSV mudar, as camadas de classificação
+  //    forem alteradas, ou a trava de compliance de fechamento for
+  //    redesenhada.
+  // -----------------------------------------------------------------
   '/dashboard/fechamento': {
     title: 'Fechamento + DRE Bancário',
     description: 'Ciclo completo: importação de extrato, classificação automática com memória, DRE gerencial e fechamento do mês.',
@@ -811,7 +1157,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
         },
         {
           title: 'Classificação automática',
-          description: 'O sistema usa memória de aprendizado (contraparte normalizada) para classificar transações. 🟢 Auto (≥80%), 🟡 Regra (50-79%), 🟠 Revisar (<50%).'
+          description: 'O sistema usa memória de aprendizado (contraparte normalizada) para classificar transações.  Auto (≥80%), 🟡 Regra (50-79%), 🟠 Revisar (<50%).'
         },
         {
           title: 'DRE gerencial',
@@ -829,6 +1175,24 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+
+  // =================================================================
+  // 📒 SEÇÃO 5: CONTÁBIL
+  // =================================================================
+  // Plano de contas, lançamentos de partida dobrada, revisão e
+  // promoção do bancário para o contábil.
+  // =================================================================
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Lançamentos Contábeis
+  // 📍 ROTA: /dashboard/lancamentos
+  // 🎯 PROPÓSITO: Registro de partidas dobradas (Débito e Crédito)
+  //    para escrituração contábil oficial.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso contábil)
+  // 🔄 ATUALIZAR QUANDO: O autocomplete de contas mudar, novas regras
+  //    de validação D=C forem adicionadas ou a promoção do bancário
+  //    for alterada.
+  // -----------------------------------------------------------------
   '/dashboard/lancamentos': {
     title: 'Lançamentos Contábeis',
     description: 'Registro de partidas dobradas (Débito e Crédito) para escrituração contábil oficial.',
@@ -873,6 +1237,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Revisão de Lançamentos
+  // 📍 ROTA: /dashboard/lancamentos/revisao
+  // 🎯 PROPÓSITO: Conferência manual de lançamentos antes de promover
+  //    o mês para a contabilidade oficial.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso contábil)
+  // 🔄 ATUALIZAR QUANDO: Novos filtros de revisão forem adicionados
+  //    ou o fluxo de marcação em lote for alterado.
+  // -----------------------------------------------------------------
   '/dashboard/lancamentos/revisao': {
     title: 'Revisão de Lançamentos',
     description: 'Conferência manual de lançamentos antes de promover o mês para a contabilidade oficial.',
@@ -902,6 +1275,15 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Ciclo Contábil do Cliente
+  // 📍 ROTA: /dashboard/contabil
+  // 🎯 PROPÓSITO: Visão macro do fluxo contábil: balancete inicial,
+  //    razão, sugestões de contraparte e promoção.
+  //  USUÁRIO: ADMIN, MANAGER (com acesso contábil)
+  // 🔄 ATUALIZAR QUANDO: Novas etapas do ciclo forem adicionadas ou
+  //    o sugeridor de contraparte for redesenhado.
+  // -----------------------------------------------------------------
   '/dashboard/contabil': {
     title: 'Ciclo Contábil do Cliente',
     description: 'Visão macro do fluxo: balancete inicial, razão, sugestões de contraparte e promoção para escrituração.',
@@ -931,6 +1313,16 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Plano de Contas
+  //  ROTA: /dashboard/contabil/plano-contas
+  // 🎯 PROPÓSITO: Estrutura contábil do escritório (padrão SCI 90113)
+  //    com mais de 1.200 contas organizadas por tipo.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso contábil)
+  // 🔄 ATUALIZAR QUANDO: Novos tipos/naturezas de conta forem
+  //    adicionados ou a lógica de upsert por (companyId, code) for
+  //    alterada.
+  // -----------------------------------------------------------------
   '/dashboard/contabil/plano-contas': {
     title: 'Plano de Contas',
     description: 'Estrutura contábil do escritório (padrão SCI 90113) com mais de 1.200 contas organizadas por tipo.',
@@ -975,9 +1367,25 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 📈 INTELIGÊNCIA & AURORA
-  // ─────────────────────────────────────────────────────────
+
+  // =================================================================
+  //  SEÇÃO 6: INTELIGÊNCIA & AURORA
+  // =================================================================
+  // Funcionário Digital (Aurora), relatórios, NFS-e, guias, cofre,
+  // cobrança CNAB, BI, indicadores, score, mentoria, ranking e
+  // planejamento tributário.
+  // =================================================================
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Dashboard da Aurora (Funcionário Digital)
+  //  ROTA: /dashboard/funcionario-digital
+  // 🎯 PROPÓSITO: Painel de controle da IA com KPIs de automação,
+  //    gestão de skills e execução manual.
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Novas skills forem adicionadas ao catálogo,
+  //    os thresholds de score (80/50) forem recalibrados ou a Regra
+  //    de Ouro (ADR-030) for alterada.
+  // -----------------------------------------------------------------
   '/dashboard/funcionario-digital': {
     title: 'Dashboard da Aurora',
     description: 'Painel de controle do seu "funcionário digital". Veja o que a IA processou, aprovou ou deixou para revisão humana.',
@@ -988,7 +1396,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
       'Ligue ou desligue as skills (Classificação, Reconciliação, etc.) conforme a necessidade.',
       'Use o botão "Rodar agora" para executar uma skill manualmente fora do cronograma.'
     ],
-    relatedPages: ['Aprovações', 'Relatórios Mensais'],
+    relatedPages: ['Central de Aprovações', 'Relatórios Mensais'],
     richContent: {
       intro: 'A Aurora é seu funcionário digital. Ela trabalha 24/7 processando tarefas, mas sempre com supervisão humana para ações críticas.',
       kpis: [
@@ -1008,7 +1416,7 @@ const helpCatalog: Record<string, PageHelpInfo> = {
         'Score ≥80% = auto-aprovação',
         'Score 50-79% = fila de revisão 🟡',
         'Score <50% = ignorado',
-        'Ações LEGAL nunca são auto-aprovadas (Regra de Ouro)',
+        'Ações LEGAL nunca são auto-aprovadas (Regra de Ouro — ADR-030)',
         'Skills podem ser ligadas/desligadas individualmente'
       ],
       detailedSteps: [
@@ -1028,52 +1436,138 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
-  '/dashboard/funcionario-digital/aprovacoes': {
-    title: 'Central de Aprovações',
-    description: 'Fila de tarefas que a Aurora preparou, mas que exigem sua validação final (Regra de Ouro).',
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Relatórios Mensais (Aurora)
+  // 📍 ROTA: /dashboard/funcionario-digital/relatorios
+  // 🎯 PROPÓSITO: Relatórios PDF mensais gerados automaticamente pela
+  //    Aurora para cada cliente.
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: O template do PDF for alterado, novos KPIs
+  //    forem incluídos no relatório ou o fluxo de geração manual for
+  //    redesenhado.
+  // -----------------------------------------------------------------
+  '/dashboard/funcionario-digital/relatorios': {
+    title: 'Relatórios Mensais',
+    description: 'Relatórios PDF mensais gerados pela Aurora para cada cliente ativo, com resumo financeiro e atividades do mês.',
     audience: 'Empresa',
     controlType: 'Operacional',
     steps: [
-      'Revise cada pendência (ex: classificação de transação, conciliação).',
-      'Aprove, rejeite ou aprove com uma nota explicativa.',
-      'A Aurora aprende com suas decisões para melhorar sugestões futuras.'
+      'Selecione o cliente e o mês de referência.',
+      'Visualize o relatório gerado ou clique em "Gerar agora" para criar um novo.',
+      'Baixe o PDF para enviar ao cliente ou arquivar.'
     ],
-    relatedPages: ['Dashboard da Aurora', 'Tarefas'],
+    relatedPages: ['Dashboard da Aurora', 'DRE do Cliente (Oficial)'],
     richContent: {
-      intro: 'A Central de Aprovações é onde a supervisão humana acontece. A Aurora prepara, você valida. Suas decisões alimentam o aprendizado do sistema.',
+      intro: 'A Aurora gera relatórios profissionais para cada cliente, consolidando atividades, métricas e recomendações do mês.',
       workflow: [
-        'Abra a Central diariamente',
-        'Revise cada pendência 🟡',
-        'Aprove se estiver correta',
-        'Rejeite com nota explicativa se estiver errada',
-        'O sistema aprende com suas decisões'
+        'Selecione o cliente no seletor',
+        'Escolha o mês de referência',
+        'Visualize o relatório gerado',
+        'Baixe o PDF ou envie por email',
+        'Use "Gerar agora" para relatórios sob demanda'
       ],
       rules: [
-        'Toda ação LEGAL exige aprovação humana',
-        'Aprovações registram auditoria (quem, quando, nota)',
-        'Rejeições com nota ajudam o sistema a aprender',
-        'Fila zerada = tudo processado'
-      ],
-      detailedSteps: [
-        {
-          title: 'Revisar pendência',
-          description: 'Clique na pendência para ver detalhes: o que a Aurora sugere, score de confiança, evidências.'
-        },
-        {
-          title: 'Aprovar',
-          description: 'Clique em "Aprovar" se a sugestão estiver correta. Opcionalmente adicione uma nota.'
-        },
-        {
-          title: 'Rejeitar',
-          description: 'Clique em "Rejeitar" e informe o motivo. O sistema registra e usa para melhorar futuras sugestões.'
-        }
+        '1 relatório por cliente/mês (idempotente)',
+        'PDF gerado pela Aurora com template padrão',
+        'Relatórios manuais não substituem os automáticos',
+        'Histórico de relatórios persistido por tenant'
       ]
     }
   },
 
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: NFS-e (Notas Fiscais de Serviço)
+  //  ROTA: /dashboard/funcionario-digital/nfse
+  // 🎯 PROPÓSITO: Importação e gestão de NFS-e emitidas e recebidas,
+  //    com suporte ABRASF 2.0.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso fiscal)
+  // 🔄 ATUALIZAR QUANDO: Novos adaptadores de município forem
+  //    adicionados ou o fluxo de importação por email (IMAP) for
+  //    implementado.
+  // -----------------------------------------------------------------
+  '/dashboard/funcionario-digital/nfse': {
+    title: 'NFS-e',
+    description: 'Importação e gestão de Notas Fiscais de Serviço eletrônicas, com suporte ao padrão ABRASF 2.0.',
+    audience: 'Empresa',
+    controlType: 'Fiscal',
+    steps: [
+      'Importe NFS-e manualmente ou configure a coleta automática por email (IMAP).',
+      'Revise as notas na fila de revisão (divergências ou campos não reconhecidos).',
+      'Promova as notas aprovadas para o contábil/financeiro.'
+    ],
+    relatedPages: ['Fechamento + DRE Bancário', 'Guias de Imposto'],
+    richContent: {
+      intro: 'NFS-e são notas de serviço (ISS), diferentes de NF-e de mercadoria (ICMS). O sistema suporta importação manual e coleta automática por email.',
+      workflow: [
+        'Importe NFS-e manualmente (XML ou PDF)',
+        'Ou configure coleta IMAP para receber automaticamente',
+        'Revise notas na fila de revisão',
+        'Aprove e promova para contábil/financeiro',
+        'Rejeite notas inválidas com motivo'
+      ],
+      rules: [
+        'Padrão ABRASF 2.0 com adaptadores por município',
+        'Origem (source): MANUAL, EMAIL, PORTAL, OCR',
+        'Status: IMPORTED → REVIEW → ACCOUNTED ou REJECTED',
+        'Idempotência por emissor + número + série',
+        'XML original preservado para auditoria/reparse'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Guias de Imposto (DAS, ISS, DARF)
+  // 📍 ROTA: /dashboard/funcionario-digital/guias
+  //  PROPÓSITO: Emissão e gestão de guias de imposto calculadas
+  //    pela Aurora (Simples, ISS, DARF).
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso fiscal)
+  // 🔄 ATUALIZAR QUANDO: Novos tipos de guia forem adicionados (ex:
+  //    IRRF, CSLL) ou o cálculo do Simples Nacional (RBT12) for
+  //    atualizado.
+  // -----------------------------------------------------------------
+  '/dashboard/funcionario-digital/guias': {
+    title: 'Guias de Imposto',
+    description: 'Emissão e gestão de guias de imposto calculadas pela Aurora (DAS Simples, ISS municipal, DARF federal).',
+    audience: 'Empresa',
+    controlType: 'Fiscal',
+    steps: [
+      'Visualize as guias calculadas para o período (DAS, ISS, DARF).',
+      'Confera o cálculo e a memória de cálculo (steps) antes de aprovar.',
+      'Marque como transmitida após o pagamento no portal oficial.'
+    ],
+    relatedPages: ['NFS-e', 'Planejamento Tributário'],
+    richContent: {
+      intro: 'A Aurora calcula automaticamente as guias de imposto com base no faturamento e regime tributário de cada cliente.',
+      workflow: [
+        'Aurora calcula guias no início do mês',
+        'Revise o cálculo e a memória (steps)',
+        'Aprove a guia para emissão',
+        'Pague no portal oficial',
+        'Marque como TRANSMITIDA no sistema'
+      ],
+      rules: [
+        'Tipos: DAS (Simples), ISS (municipal), DARF (federal)',
+        'Cálculo determinístico com round2 (ADR-020)',
+        'Memória de cálculo preservada em JSON (ADR-038)',
+        'Status: DRAFT → APPROVED → TRANSMITTED ou REJECTED',
+        'Idempotência por companyId + clientId + period + type'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Legalização & Cofre
+  // 📍 ROTA: /dashboard/funcionario-digital/legalizacao
+  // 🎯 PROPÓSITO: Gestão de obrigações legais, senhas, procurações
+  //    e certificados digitais (A1) com criptografia AES-256-GCM.
+  // 👤 USUÁRIO: ADMIN (somente ADMIN pode revelar segredos)
+  //  ATUALIZAR QUANDO: Novos tipos de item do cofre forem
+  //    adicionados, a criptografia for alterada ou os alertas de
+  //    vencimento forem recalibrados.
+  // -----------------------------------------------------------------
   '/dashboard/funcionario-digital/legalizacao': {
     title: 'Legalização & Cofre',
-    description: 'Gestão segura de obrigações legais, senhas, procurações e certificados digitais (A1) com criptografia.',
+    description: 'Gestão segura de obrigações legais, senhas, procurações e certificados digitais (A1) com criptografia AES-256-GCM.',
     audience: 'Empresa',
     controlType: 'Interno',
     steps: [
@@ -1101,469 +1595,16 @@ const helpCatalog: Record<string, PageHelpInfo> = {
     }
   },
 
-  '/dashboard/bi': {
-    title: 'DRE do Escritório',
-    description: 'O resultado financeiro do SEU escritório (não dos clientes). Receitas vs. Despesas operacionais.',
-    audience: 'Empresa',
-    controlType: 'Financeiro',
-    steps: [
-      'Analise receitas (honorários, serviços avulsos) e despesas (salários, aluguel, software).',
-      'Use os filtros de período para comparar meses e ver a evolução do lucro.',
-      'Exporte o relatório em PDF ou CSV para reuniões de diretoria.'
-    ],
-    relatedPages: ['Score do Escritório', 'Indicadores'],
-    richContent: {
-      intro: 'O DRE do Escritório mostra se seu negócio é rentável. Receitas (honorários) vs. Despesas (salários, aluguel, software) = Lucro ou Prejuízo.',
-      kpis: [
-        { name: 'Receita Total', meaning: 'Soma de honorários + serviços avulsos', location: 'Card superior' },
-        { name: 'Despesa Total', meaning: 'Soma de todas as despesas operacionais', location: 'Card superior' },
-        { name: 'Lucro Líquido', meaning: 'Receita − Despesa', location: 'Card central' },
-        { name: 'Margem Líquida', meaning: 'Lucro ÷ Receita × 100', location: 'Card central' }
-      ],
-      workflow: [
-        'Mensalmente: analise o DRE do mês anterior',
-        'Compare com meses anteriores (filtros de período)',
-        'Identifique despesas crescentes',
-        'Exporte PDF para reuniões de diretoria',
-        'Use dados para alimentar o Score'
-      ],
-      rules: [
-        'Dados vêm de transações financeiras internas',
-        'Filtros de período comparam automaticamente',
-        'Exportação PDF/CSV com formatação profissional',
-        'DRE do Escritório ≠ DRE do Cliente (fontes diferentes)'
-      ]
-    }
-  },
-
-  '/dashboard/bi/dre-cliente': {
-    title: 'DRE do Cliente (Oficial)',
-    description: 'O resultado financeiro formal de cada cliente, pronto para entrega, com confronto automático vs. DRE Bancário.',
-    audience: 'Cliente',
-    controlType: 'Financeiro',
-    steps: [
-      'Selecione o cliente e o período desejado.',
-      'Analise as receitas e despesas classificadas contabilmente.',
-      'Observe a tabela de confronto no rodapé, que destaca a diferença em R$ entre o Contábil e o Bancário.'
-    ],
-    relatedPages: ['Fechamento + DRE Bancário', 'Lançamentos Contábeis'],
-    richContent: {
-      intro: 'O DRE Oficial é a versão contábil formal do resultado do cliente, com confronto automático contra o DRE Bancário (gerencial).',
-      kpis: [
-        { name: 'Receita Contábil', meaning: 'Receitas classificadas contabilmente', location: 'Card superior' },
-        { name: 'Despesa Contábil', meaning: 'Despesas classificadas contabilmente', location: 'Card superior' },
-        { name: 'Lucro Contábil', meaning: 'Receita − Despesa (contábil)', location: 'Card central' },
-        { name: 'Diferença vs. Bancário', meaning: 'Contábil − Bancário (destacada)', location: 'Card inferior' }
-      ],
-      workflow: [
-        'Selecione o cliente',
-        'Defina o período (mês/trimestre/ano)',
-        'Analise receitas e despesas por conta contábil',
-        'Revise o confronto Contábil × Bancário',
-        'Exporte PDF para entregar ao cliente'
-      ],
-      rules: [
-        'DRE Oficial vem de lançamentos contábeis (AccountingEntry)',
-        'DRE Bancário vem de transações bancárias (BankTransaction)',
-        'Diferença destacada em vermelho se > R$ 100',
-        'Confronto automático por natureza/category',
-        'PDF profissional pronto para entrega ao cliente'
-      ],
-      detailedSteps: [
-        {
-          title: 'Selecionar cliente',
-          description: 'Use o seletor no topo para escolher o cliente. O sistema carrega dados contábeis e bancários.'
-        },
-        {
-          title: 'Analisar DRE',
-          description: 'Receitas e despesas agrupadas por conta contábil. Subtotais por grupo (Receita, Despesa Operacional, etc).'
-        },
-        {
-          title: 'Confronto Contábil × Bancário',
-          description: 'Tabela no rodapé mostra diferença em R$ entre DRE Contábil e DRE Bancário. Diferenças > R$ 100 destacadas em vermelho.'
-        }
-      ]
-    }
-  },
-
-  '/dashboard/ponto-fora-da-curva': {
-    title: 'Ponto Fora da Curva',
-    description: 'Detecção de anomalias estatísticas. O sistema sinaliza valores que fogem drasticamente do padrão histórico.',
-    audience: 'Empresa',
-    controlType: 'Estratégico',
-    steps: [
-      'Revise as transações sinalizadas em vermelho ou âmbar.',
-      'Investigue se a anomalia é um erro de digitação, classificação ou uma fraude potencial.',
-      'Confirme ou descarte a anomalia para refinar o algoritmo.'
-    ],
-    relatedPages: ['DRE do Escritório', 'Indicadores'],
-    richContent: {
-      intro: 'O Ponto Fora da Curva usa estatística para detectar anomalias. Transações que fogem do padrão histórico são sinalizadas para investigação.',
-      workflow: [
-        'Diariamente: revise anomalias sinalizadas',
-        'Investigue cada uma (erro, fraude, atípico legítimo)',
-        'Confirme ou descarte a anomalia',
-        'O sistema aprende com suas decisões',
-        'Exporte relatório de auditoria se necessário'
-      ],
-      rules: [
-        'Anomalia = valor > 2 desvios padrão da média histórica',
-        'Vermelho = anomalia forte (>3 desvios)',
-        'Âmbar = anomalia moderada (2-3 desvios)',
-        'Confirmações/descartes alimentam o algoritmo',
-        'Período de análise: últimos 12 meses'
-      ]
-    }
-  },
-
-  '/dashboard/indicadores': {
-    title: 'Indicadores (KPIs)',
-    description: 'Painel com indicadores prontos do sistema, como margem de lucro, ticket médio, churn e tempo de resposta.',
-    audience: 'Empresa',
-    controlType: 'Estratégico',
-    steps: [
-      'Visualize os KPIs calculados automaticamente com base nos seus dados.',
-      'Clique em qualquer indicador para ver o histórico, a fórmula e a tendência.',
-      'Compare o valor atual com a meta sugerida pelo sistema.'
-    ],
-    relatedPages: ['Indicadores Customizados', 'Score do Escritório'],
-    richContent: {
-      intro: 'Indicadores prontos calculados automaticamente pelo sistema. Cada KPI tem fórmula documentada, histórico e meta sugerida.',
-      kpis: [
-        { name: 'Margem Líquida', meaning: 'Lucro ÷ Receita × 100', location: 'Card superior' },
-        { name: 'Ticket Médio', meaning: 'MRR ÷ clientes ativos', location: 'Card superior' },
-        { name: 'Churn Rate', meaning: 'Clientes cancelados ÷ total × 100', location: 'Card superior' },
-        { name: 'Tempo de Resposta', meaning: 'Dias médios para responder propostas', location: 'Card superior' }
-      ],
-      workflow: [
-        'Diariamente: verifique KPIs principais',
-        'Clique em qualquer indicador para ver detalhes',
-        'Compare com meta sugerida',
-        'Analise histórico e tendência',
-        'Use dados para alimentar o Score'
-      ],
-      rules: [
-        'KPIs calculados em tempo real',
-        'Fórmulas documentadas e auditáveis',
-        'Metas sugeridas baseadas em benchmarks',
-        'Histórico de 12 meses para cada KPI',
-        'Tendência: subindo (verde), estável (âmbar), caindo (vermelho)'
-      ]
-    }
-  },
-
-  '/dashboard/indicadores-custom': {
-    title: 'Indicadores Customizados',
-    description: 'Crie seus próprios KPIs usando o motor de fórmulas seguro, combinando variáveis do seu negócio.',
-    audience: 'Empresa',
-    controlType: 'Estratégico',
-    steps: [
-      'Clique em "Novo Indicador" e defina nome, categoria e unidade de medida.',
-      'Monte a fórmula usando variáveis permitidas (ex: `faturamento / clientesAtivos`).',
-      'Defina uma meta e acompanhe a barra de progresso em tempo real.'
-    ],
-    relatedPages: ['Indicadores', 'Planejamento'],
-    richContent: {
-      intro: 'Indicadores Customizados permitem criar KPIs específicos do seu negócio com fórmulas seguras (zero eval/Function).',
-      workflow: [
-        'Clique em "Novo Indicador"',
-        'Defina nome, categoria e unidade',
-        'Monte a fórmula com variáveis permitidas',
-        'Defina meta e cor de identificação',
-        'Acompanhe em tempo real no dashboard'
-      ],
-      rules: [
-        'Fórmulas usam parser AST (seguro, zero eval)',
-        'Variáveis permitidas: clientesAtivos, faturamento, equipe, etc',
-        'Operadores: +, −, ×, , parênteses',
-        'Meta numérica obrigatória',
-        'Indicadores favoritos aparecem no topo'
-      ],
-      examples: [
-        {
-          title: 'Fórmula de exemplo',
-          content: 'faturamento / clientesAtivos = Ticket Médio\n(despesas + impostos) / faturamento × 100 = % de Despesas'
-        }
-      ]
-    }
-  },
-
-  '/dashboard/score': {
-    title: 'Score do Escritório',
-    description: 'Nota de 0 a 100 da saúde do seu escritório, baseada em 5 dimensões ponderadas.',
-    audience: 'Empresa',
-    controlType: 'Estratégico',
-    steps: [
-      'Veja sua nota total: 0–100 com barra colorida (vermelho → amarelo → verde).',
-      'Analise por dimensão: Mercado (25%), Pessoas (20%), Comercial (20%), Crescimento (15%), Gestão (20%).',
-      'Leia os insights automáticos que apontam seus 2 pontos fracos e 1 forte.'
-    ],
-    relatedPages: ['Visão de Futuro', 'Ranking de Níveis'],
-    richContent: {
-      intro: 'O Score é o "check-up" do seu escritório. Ele diz exatamente onde você está forte e onde precisa melhorar.',
-      kpis: [
-        { name: 'Score Total', meaning: 'Nota 0-100 consolidada', location: 'Card central grande' },
-        { name: 'Mercado (25%)', meaning: 'Benchmark de softwares e serviços', location: 'Card de dimensão' },
-        { name: 'Pessoas (20%)', meaning: 'Distribuição de equipe e turnover', location: 'Card de dimensão' },
-        { name: 'Comercial (20%)', meaning: 'Conversão e ticket médio', location: 'Card de dimensão' },
-        { name: 'Crescimento (15%)', meaning: 'Metas de clientes e equipe', location: 'Card de dimensão' },
-        { name: 'Gestão (20%)', meaning: 'Planejamento e execução', location: 'Card de dimensão' }
-      ],
-      workflow: [
-        'Mensalmente: verifique seu Score',
-        'Identifique a dimensão com menor nota',
-        'Leia os insights automáticos',
-        'Vá para Visão de Futuro e execute as ações sugeridas',
-        'Reavalie no mês seguinte'
-      ],
-      rules: [
-        'Score ≥ 80 = Diamante 💎',
-        'Score 60-79 = Ouro ',
-        'Score 40-59 = Prata 🥈',
-        'Score < 40 = Bronze 🥉',
-        'Neutro 50 quando não há dados'
-      ],
-      detailedSteps: [
-        {
-          title: 'Interpretar a nota total',
-          description: 'Vermelho (<40) = crítico. Amarelo (40-59) = atenção. Verde (60+) = saudável. Azul (80+) = excelente.'
-        },
-        {
-          title: 'Analisar dimensões',
-          description: 'Clique em cada card de dimensão para ver o detalhamento e as métricas que compõem aquela nota.'
-        },
-        {
-          title: 'Ler insights',
-          description: 'O sistema aponta automaticamente seus 2 pontos fracos e 1 forte. Foque primeiro nos fracos.'
-        }
-      ]
-    }
-  },
-
-  '/dashboard/mentoria': {
-    title: 'Visão de Futuro (Mentoria)',
-    description: 'Plano de ação personalizado baseado no seu Score. O sistema identifica onde você precisa melhorar e sugere ações concretas.',
-    audience: 'Empresa',
-    controlType: 'Estratégico',
-    steps: [
-      'Defina sua visão de longo prazo (clientes, equipe, faturamento).',
-      'Revise os "Focos" sugeridos pelo sistema (2 dimensões mais fracas).',
-      'Marque as ações do checklist como concluídas e veja a barra de execução subir.'
-    ],
-    relatedPages: ['Score do Escritório', 'Planejamento'],
-    richContent: {
-      intro: 'A Mentoria transforma seu Score em um plano de ação executável. Ela diz não apenas "onde você está", mas "como chegar lá".',
-      workflow: [
-        'Defina sua visão (1, 3 e 5 anos)',
-        'Estabeleça metas mensuráveis (clientes, equipe, faturamento)',
-        'Revise os focos sugeridos (2 dimensões mais fracas)',
-        'Execute as ações do checklist',
-        'Marque como concluída e veja o progresso'
-      ],
-      rules: [
-        'Focos são derivados automaticamente do Score',
-        'Catálogo de ações é fixo (zero IA generativa)',
-        'Checklist persistido por tenant (companyId + title + source)',
-        'Generate nunca duplica (unique composto)'
-      ],
-      detailedSteps: [
-        {
-          title: 'Definir visão',
-          description: 'Onde você quer chegar em 1, 3 e 5 anos? Seja específico: "100 clientes ativos", "equipe de 15 pessoas", "faturamento R$ 50k/mês".'
-        },
-        {
-          title: 'Revisar focos',
-          description: 'O sistema identifica suas 2 dimensões mais fracas e sugere 3 ações concretas para cada. Ex: se Comercial está baixo, sugere "Aumentar taxa de conversão em 10%".'
-        },
-        {
-          title: 'Executar ações',
-          description: 'Marque cada ação como concluída conforme for executando. A barra de progresso sobe automaticamente.'
-        },
-        {
-          title: 'Checklist "Meu Plano"',
-          description: 'Use a sub-aba "Meu Plano" para adicionar ações customizadas além das sugeridas pelo sistema. Tudo persiste e é auditável.'
-        }
-      ]
-    }
-  },
-
-  '/dashboard/ranking': {
-    title: 'Ranking de Níveis',
-    description: 'Gamificação do seu crescimento. Compare seu Score com a média da rede e veja quanto falta para o próximo nível.',
-    audience: 'Empresa',
-    controlType: 'Estratégico',
-    steps: [
-      'Veja seu nível atual (Bronze, Prata, Ouro ou Diamante) e a barra de progresso.',
-      'Confira o pódio da rede para se inspirar nos escritórios melhor posicionados.',
-      'Clique no seu nome destacado no ranking para ver seus detalhes.'
-    ],
-    relatedPages: ['Score do Escritório', 'Visão de Futuro'],
-    richContent: {
-      intro: 'O Ranking gamifica seu crescimento. Compare-se com outros escritórios da rede e veja quanto falta para o próximo nível.',
-      kpis: [
-        { name: 'Seu Nível', meaning: 'Bronze, Prata, Ouro ou Diamante', location: 'Card superior' },
-        { name: 'Pontos para Próximo', meaning: 'Quanto falta para subir de nível', location: 'Card superior' },
-        { name: 'Sua Posição', meaning: 'Ranking na rede', location: 'Card superior' }
-      ],
-      workflow: [
-        'Verifique seu nível atual',
-        'Veja quantos pontos faltam para o próximo nível',
-        'Confira o pódio (top 3 da rede)',
-        'Analise o ranking completo',
-        'Execute ações da Mentoria para subir'
-      ],
-      rules: [
-        'Bronze: 0-39 pontos',
-        'Prata: 40-59 pontos',
-        'Ouro: 60-79 pontos',
-        'Diamante: 80-100 pontos',
-        'Ranking atualizado diariamente'
-      ]
-    }
-  },
-
-  '/dashboard/planejamento-tributario': {
-    title: 'Planejamento Tributário',
-    description: 'Simule qual regime tributário (Simples Nacional, Lucro Presumido ou Lucro Real) é mais vantajoso para cada cliente.',
-    audience: 'Cliente',
-    controlType: 'Estratégico',
-    steps: [
-      'Informe o faturamento estimado e as despesas dedutíveis do cliente.',
-      'O sistema calcula a carga tributária nos três regimes simultaneamente.',
-      'Gere um relatório comparativo para apresentar ao cliente e embasar a decisão.'
-    ],
-    relatedPages: ['Reforma Tributária', 'DRE do Cliente (Oficial)'],
-    richContent: {
-      intro: 'O Planejamento Tributário simula os três regimes (Simples, Presumido, Real) e mostra qual paga menos imposto para cada cliente.',
-      workflow: [
-        'Selecione o cliente',
-        'Informe faturamento anual estimado',
-        'Informe despesas dedutíveis',
-        'O sistema calcula os três regimes',
-        'Compare carga tributária e lucro líquido',
-        'Gere relatório comparativo para o cliente'
-      ],
-      rules: [
-        'Simples Nacional: faixas de RBT12',
-        'Lucro Presumido: presunção de 8% (serviços) ou 32% (comércio)',
-        'Lucro Real: lucro contábil ajustado',
-        'Cálculos determinísticos (zero IA)',
-        'Relatório PDF pronto para apresentação'
-      ]
-    }
-  },
-
-  '/dashboard/reforma-tributaria': {
-    title: 'Reforma Tributária',
-    description: 'Simulador de impacto da EC 132/2023. Projete como a mudança de alíquotas afetará seus clientes nos próximos anos.',
-    audience: 'Cliente',
-    controlType: 'Estratégico',
-    steps: [
-      'Selecione o cliente e o cenário de transição desejado.',
-      'Visualize a projeção de aumento ou redução da carga tributária.',
-      'Use os dados para orientar o cliente em mudanças de estrutura ou preços.'
-    ],
-    relatedPages: ['Planejamento Tributário', 'DRE do Cliente (Oficial)'],
-    richContent: {
-      intro: 'A Reforma Tributária (EC 132/2023) muda as regras do jogo. Este simulador projeta o impacto nos seus clientes durante a transição (2026-2033).',
-      workflow: [
-        'Selecione o cliente',
-        'Escolha o cenário de transição',
-        'Visualize projeção de carga tributária',
-        'Compare antes/depois da reforma',
-        'Oriente o cliente em mudanças estratégicas'
-      ],
-      rules: [
-        'Transição: 2026-2033 (7 anos)',
-        'CBS (federal) + IBS (estadual/municipal) substituem PIS/COFINS/ICMS/ISS',
-        'Alíquota de referência: 26,5% (CBS 12,5% + IBS 14%)',
-        'Setores específicos têm alíquotas reduzidas',
-        'Projeções são estimativas (legislação pode mudar)'
-      ]
-    }
-  },
-
-  // ─────────────────────────────────────────────────────────
-  // ⚙️ SISTEMA (Admin)
-  // ─────────────────────────────────────────────────────────
-  '/dashboard/admin': {
-    title: 'Administração: Visão Geral',
-    description: 'Painel super admin com métricas globais do sistema SaaS (total de empresas, usuários ativos, faturamento da plataforma).',
-    audience: 'Geral',
-    controlType: 'Interno',
-    steps: [
-      'Monitore o crescimento da base de clientes do SaaS.',
-      'Verifique a saúde técnica e a utilização dos módulos por plano.',
-      'Acesse configurações globais do sistema.'
-    ],
-    relatedPages: ['Administração: Catálogo'],
-    richContent: {
-      intro: 'O painel de Administração é para super admins. Mostra métricas globais do SaaS e permite configurações de plataforma.',
-      kpis: [
-        { name: 'Total de Empresas', meaning: 'Número de tenants ativos', location: 'Card superior' },
-        { name: 'Usuários Ativos', meaning: 'Número de usuários logados no período', location: 'Card superior' },
-        { name: 'Faturamento da Plataforma', meaning: 'MRR total do SaaS', location: 'Card superior' },
-        { name: 'Módulos Utilizados', meaning: 'Features mais usadas por plano', location: 'Card inferior' }
-      ],
-      workflow: [
-        'Diariamente: verifique métricas de crescimento',
-        'Semanalmente: analise utilização de módulos',
-        'Mensalmente: revise faturamento e churn',
-        'Trimestralmente: ajuste planos e preços'
-      ],
-      rules: [
-        'Acesso restrito a role ADMIN',
-        'Dados agregados de todos os tenants',
-        'Configurações globais afetam toda a plataforma',
-        'Logs de auditoria de ações admin'
-      ]
-    }
-  },
-
-  '/dashboard/admin/catalogo': {
-    title: 'Administração: Catálogo de Serviços',
-    description: 'Gestão centralizada dos serviços e planos que o sistema oferece a todos os escritórios.',
-    audience: 'Geral',
-    controlType: 'Interno',
-    steps: [
-      'Cadastre novos serviços definindo escopo, SLA, documentos necessários e preço base.',
-      'Organize os serviços por departamentos (Contábil, Fiscal, DP, etc.).',
-      'Use o botão "Importar Catálogo Padrão" para popular o sistema com as melhores práticas do mercado.'
-    ],
-    relatedPages: ['Administração: Visão Geral', 'Meus Planos'],
-    richContent: {
-      intro: 'O Catálogo centraliza todos os serviços que o sistema oferece. Cada serviço tem escopo, SLA, documentos e preço base.',
-      workflow: [
-        'Cadastre novos serviços com dados completos',
-        'Organize por departamentos (17 departamentos pré-configurados)',
-        'Defina escopo e fora-do-escopo',
-        'Estabeleça SLA e documentos necessários',
-        'Importe catálogo padrão para popular rapidamente'
-      ],
-      rules: [
-        '17 departamentos: Contábil, Fiscal, Pessoal, Legalização, etc',
-        'Cada serviço tem escopo detalhado (o que está incluso)',
-        'Fora-do-escopo define o que é cobrado à parte',
-        'SLA em dias úteis para entrega',
-        'Preço base é referência (escritórios podem ajustar)'
-      ],
-      detailedSteps: [
-        {
-          title: 'Cadastrar serviço',
-          description: 'Clique em "Novo Serviço", preencha nome, departamento, escopo, fora-do-escopo, SLA, documentos e preço base.'
-        },
-        {
-          title: 'Importar catálogo padrão',
-          description: 'Clique em "Importar Catálogo Padrão". O sistema popula ~200 serviços pré-configurados com melhores práticas do mercado.'
-        },
-        {
-          title: 'Editar serviço',
-          description: 'Clique no ícone de edição. Altere escopo, SLA ou preço. Serviços em uso por planos não podem ser excluídos.'
-        }
-      ]
-    }
-  },
-
+  // -----------------------------------------------------------------
+  //  PÁGINA: Cobrança & CNAB
+  // 📍 ROTA: /dashboard/funcionario-digital/cobranca
+  //  PROPÓSITO: Automação de cobrança com arquivos CNAB 240/400,
+  //    régua de cobrança e aprovação humana em cada etapa.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso financeiro)
+  // 🔄 ATUALIZAR QUANDO: Novos bancos forem adicionados ao adaptador
+  //    CNAB, a régua de cobrança for redesenhada ou o fluxo de
+  //    aprovação (ADR-084) for alterado.
+  // -----------------------------------------------------------------
   '/dashboard/funcionario-digital/cobranca': {
     title: 'Cobrança & CNAB',
     description: 'Automatize a cobrança de clientes e a comunicação com o banco via arquivos CNAB 240/400, com aprovação humana em cada etapa.',
@@ -1621,18 +1662,612 @@ const helpCatalog: Record<string, PageHelpInfo> = {
         }
       ]
     }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: DRE do Escritório
+  // 📍 ROTA: /dashboard/bi
+  // 🎯 PROPÓSITO: Resultado financeiro do próprio escritório (receitas
+  //    vs. despesas operacionais).
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Novas categorias de receita/despesa forem
+  //    adicionadas ou os filtros de período forem redesenhados.
+  // -----------------------------------------------------------------
+  '/dashboard/bi': {
+    title: 'DRE do Escritório',
+    description: 'O resultado financeiro do SEU escritório (não dos clientes). Receitas vs. Despesas operacionais.',
+    audience: 'Empresa',
+    controlType: 'Financeiro',
+    steps: [
+      'Analise receitas (honorários, serviços avulsos) e despesas (salários, aluguel, software).',
+      'Use os filtros de período para comparar meses e ver a evolução do lucro.',
+      'Exporte o relatório em PDF ou CSV para reuniões de diretoria.'
+    ],
+    relatedPages: ['Score do Escritório', 'Indicadores'],
+    richContent: {
+      intro: 'O DRE do Escritório mostra se seu negócio é rentável. Receitas (honorários) vs. Despesas (salários, aluguel, software) = Lucro ou Prejuízo.',
+      kpis: [
+        { name: 'Receita Total', meaning: 'Soma de honorários + serviços avulsos', location: 'Card superior' },
+        { name: 'Despesa Total', meaning: 'Soma de todas as despesas operacionais', location: 'Card superior' },
+        { name: 'Lucro Líquido', meaning: 'Receita − Despesa', location: 'Card central' },
+        { name: 'Margem Líquida', meaning: 'Lucro ÷ Receita × 100', location: 'Card central' }
+      ],
+      workflow: [
+        'Mensalmente: analise o DRE do mês anterior',
+        'Compare com meses anteriores (filtros de período)',
+        'Identifique despesas crescentes',
+        'Exporte PDF para reuniões de diretoria',
+        'Use dados para alimentar o Score'
+      ],
+      rules: [
+        'Dados vêm de transações financeiras internas',
+        'Filtros de período comparam automaticamente',
+        'Exportação PDF/CSV com formatação profissional',
+        'DRE do Escritório ≠ DRE do Cliente (fontes diferentes)'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: DRE do Cliente (Oficial)
+  // 📍 ROTA: /dashboard/bi/dre-cliente
+  // 🎯 PROPÓSITO: Resultado financeiro formal do cliente, com
+  //    confronto automático vs. DRE Bancário.
+  //  USUÁRIO: ADMIN, MANAGER (com acesso BI)
+  // 🔄 ATUALIZAR QUANDO: A lógica de confronto Contábil × Bancário
+  //    for alterada ou novos grupos DRE forem adicionados.
+  // -----------------------------------------------------------------
+  '/dashboard/bi/dre-cliente': {
+    title: 'DRE do Cliente (Oficial)',
+    description: 'O resultado financeiro formal de cada cliente, pronto para entrega, com confronto automático vs. DRE Bancário.',
+    audience: 'Cliente',
+    controlType: 'Financeiro',
+    steps: [
+      'Selecione o cliente e o período desejado.',
+      'Analise as receitas e despesas classificadas contabilmente.',
+      'Observe a tabela de confronto no rodapé, que destaca a diferença em R$ entre o Contábil e o Bancário.'
+    ],
+    relatedPages: ['Fechamento + DRE Bancário', 'Lançamentos Contábeis'],
+    richContent: {
+      intro: 'O DRE Oficial é a versão contábil formal do resultado do cliente, com confronto automático contra o DRE Bancário (gerencial).',
+      kpis: [
+        { name: 'Receita Contábil', meaning: 'Receitas classificadas contabilmente', location: 'Card superior' },
+        { name: 'Despesa Contábil', meaning: 'Despesas classificadas contabilmente', location: 'Card superior' },
+        { name: 'Lucro Contábil', meaning: 'Receita − Despesa (contábil)', location: 'Card central' },
+        { name: 'Diferença vs. Bancário', meaning: 'Contábil − Bancário (destacada)', location: 'Card inferior' }
+      ],
+      workflow: [
+        'Selecione o cliente',
+        'Defina o período (mês/trimestre/ano)',
+        'Analise receitas e despesas por conta contábil',
+        'Revise o confronto Contábil × Bancário',
+        'Exporte PDF para entregar ao cliente'
+      ],
+      rules: [
+        'DRE Oficial vem de lançamentos contábeis (AccountingEntry)',
+        'DRE Bancário vem de transações bancárias (BankTransaction)',
+        'Diferença destacada em vermelho se > R$ 100',
+        'Confronto automático por natureza/category',
+        'PDF profissional pronto para entrega ao cliente'
+      ],
+      detailedSteps: [
+        {
+          title: 'Selecionar cliente',
+          description: 'Use o seletor no topo para escolher o cliente. O sistema carrega dados contábeis e bancários.'
+        },
+        {
+          title: 'Analisar DRE',
+          description: 'Receitas e despesas agrupadas por conta contábil. Subtotais por grupo (Receita, Despesa Operacional, etc).'
+        },
+        {
+          title: 'Confronto Contábil × Bancário',
+          description: 'Tabela no rodapé mostra diferença em R$ entre DRE Contábil e DRE Bancário. Diferenças > R$ 100 destacadas em vermelho.'
+        }
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Ponto Fora da Curva
+  // 📍 ROTA: /dashboard/ponto-fora-da-curva
+  // 🎯 PROPÓSITO: Detecção de anomalias estatísticas em transações
+  //    (valores que fogem do padrão histórico).
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: O algoritmo de detecção (desvios padrão)
+  //    for recalibrado ou novos tipos de anomalia forem adicionados.
+  // -----------------------------------------------------------------
+  '/dashboard/ponto-fora-da-curva': {
+    title: 'Ponto Fora da Curva',
+    description: 'Detecção de anomalias estatísticas. O sistema sinaliza valores que fogem drasticamente do padrão histórico.',
+    audience: 'Empresa',
+    controlType: 'Estratégico',
+    steps: [
+      'Revise as transações sinalizadas em vermelho ou âmbar.',
+      'Investigue se a anomalia é um erro de digitação, classificação ou uma fraude potencial.',
+      'Confirme ou descarte a anomalia para refinar o algoritmo.'
+    ],
+    relatedPages: ['DRE do Escritório', 'Indicadores'],
+    richContent: {
+      intro: 'O Ponto Fora da Curva usa estatística para detectar anomalias. Transações que fogem do padrão histórico são sinalizadas para investigação.',
+      workflow: [
+        'Diariamente: revise anomalias sinalizadas',
+        'Investigue cada uma (erro, fraude, atípico legítimo)',
+        'Confirme ou descarte a anomalia',
+        'O sistema aprende com suas decisões',
+        'Exporte relatório de auditoria se necessário'
+      ],
+      rules: [
+        'Anomalia = valor > 2 desvios padrão da média histórica',
+        'Vermelho = anomalia forte (>3 desvios)',
+        'Âmbar = anomalia moderada (2-3 desvios)',
+        'Confirmações/descartes alimentam o algoritmo',
+        'Período de análise: últimos 12 meses'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  //  PÁGINA: Indicadores (KPIs Prontos)
+  // 📍 ROTA: /dashboard/indicadores
+  // 🎯 PROPÓSITO: Painel com indicadores prontos do sistema (margem,
+  //    ticket médio, churn, tempo de resposta).
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Novos KPIs prontos forem adicionados ou as
+  //    fórmulas existentes forem recalculadas.
+  // -----------------------------------------------------------------
+  '/dashboard/indicadores': {
+    title: 'Indicadores (KPIs)',
+    description: 'Painel com indicadores prontos do sistema, como margem de lucro, ticket médio, churn e tempo de resposta.',
+    audience: 'Empresa',
+    controlType: 'Estratégico',
+    steps: [
+      'Visualize os KPIs calculados automaticamente com base nos seus dados.',
+      'Clique em qualquer indicador para ver o histórico, a fórmula e a tendência.',
+      'Compare o valor atual com a meta sugerida pelo sistema.'
+    ],
+    relatedPages: ['Indicadores Customizados', 'Score do Escritório'],
+    richContent: {
+      intro: 'Indicadores prontos calculados automaticamente pelo sistema. Cada KPI tem fórmula documentada, histórico e meta sugerida.',
+      kpis: [
+        { name: 'Margem Líquida', meaning: 'Lucro ÷ Receita × 100', location: 'Card superior' },
+        { name: 'Ticket Médio', meaning: 'MRR  clientes ativos', location: 'Card superior' },
+        { name: 'Churn Rate', meaning: 'Clientes cancelados ÷ total × 100', location: 'Card superior' },
+        { name: 'Tempo de Resposta', meaning: 'Dias médios para responder propostas', location: 'Card superior' }
+      ],
+      workflow: [
+        'Diariamente: verifique KPIs principais',
+        'Clique em qualquer indicador para ver detalhes',
+        'Compare com meta sugerida',
+        'Analise histórico e tendência',
+        'Use dados para alimentar o Score'
+      ],
+      rules: [
+        'KPIs calculados em tempo real',
+        'Fórmulas documentadas e auditáveis',
+        'Metas sugeridas baseadas em benchmarks',
+        'Histórico de 12 meses para cada KPI',
+        'Tendência: subindo (verde), estável (âmbar), caindo (vermelho)'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Indicadores Customizados
+  // 📍 ROTA: /dashboard/indicadores-custom
+  // 🎯 PROPÓSITO: Criação de KPIs personalizados com motor de fórmulas
+  //    seguro (parser AST, zero eval).
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Novas variáveis forem adicionadas ao motor
+  //    de fórmulas ou o parser AST for alterado.
+  // -----------------------------------------------------------------
+  '/dashboard/indicadores-custom': {
+    title: 'Indicadores Customizados',
+    description: 'Crie seus próprios KPIs usando o motor de fórmulas seguro, combinando variáveis do seu negócio.',
+    audience: 'Empresa',
+    controlType: 'Estratégico',
+    steps: [
+      'Clique em "Novo Indicador" e defina nome, categoria e unidade de medida.',
+      'Monte a fórmula usando variáveis permitidas (ex: `faturamento / clientesAtivos`).',
+      'Defina uma meta e acompanhe a barra de progresso em tempo real.'
+    ],
+    relatedPages: ['Indicadores', 'Planejamento'],
+    richContent: {
+      intro: 'Indicadores Customizados permitem criar KPIs específicos do seu negócio com fórmulas seguras (zero eval/Function).',
+      workflow: [
+        'Clique em "Novo Indicador"',
+        'Defina nome, categoria e unidade',
+        'Monte a fórmula com variáveis permitidas',
+        'Defina meta e cor de identificação',
+        'Acompanhe em tempo real no dashboard'
+      ],
+      rules: [
+        'Fórmulas usam parser AST (seguro, zero eval)',
+        'Variáveis permitidas: clientesAtivos, faturamento, equipe, etc',
+        'Operadores: +, −, ×, , parênteses',
+        'Meta numérica obrigatória',
+        'Indicadores favoritos aparecem no topo'
+      ],
+      examples: [
+        {
+          title: 'Fórmula de exemplo',
+          content: 'faturamento / clientesAtivos = Ticket Médio\n(despesas + impostos) / faturamento × 100 = % de Despesas'
+        }
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  //  PÁGINA: Score do Escritório
+  // 📍 ROTA: /dashboard/score
+  // 🎯 PROPÓSITO: Nota 0-100 da saúde do escritório, baseada em 5
+  //    dimensões ponderadas (Mercado, Pessoas, Comercial, Crescimento,
+  //    Gestão).
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Os pesos das dimensões forem recalibrados,
+  //    novos níveis (Bronze/Prata/Ouro/Diamante) forem adicionados
+  //    ou a fórmula de cálculo for alterada.
+  // -----------------------------------------------------------------
+  '/dashboard/score': {
+    title: 'Score do Escritório',
+    description: 'Nota de 0 a 100 da saúde do seu escritório, baseada em 5 dimensões ponderadas.',
+    audience: 'Empresa',
+    controlType: 'Estratégico',
+    steps: [
+      'Veja sua nota total: 0–100 com barra colorida (vermelho → amarelo → verde).',
+      'Analise por dimensão: Mercado (25%), Pessoas (20%), Comercial (20%), Crescimento (15%), Gestão (20%).',
+      'Leia os insights automáticos que apontam seus 2 pontos fracos e 1 forte.'
+    ],
+    relatedPages: ['Visão de Futuro', 'Ranking de Níveis'],
+    richContent: {
+      intro: 'O Score é o "check-up" do seu escritório. Ele diz exatamente onde você está forte e onde precisa melhorar.',
+      kpis: [
+        { name: 'Score Total', meaning: 'Nota 0-100 consolidada', location: 'Card central grande' },
+        { name: 'Mercado (25%)', meaning: 'Benchmark de softwares e serviços', location: 'Card de dimensão' },
+        { name: 'Pessoas (20%)', meaning: 'Distribuição de equipe e turnover', location: 'Card de dimensão' },
+        { name: 'Comercial (20%)', meaning: 'Conversão e ticket médio', location: 'Card de dimensão' },
+        { name: 'Crescimento (15%)', meaning: 'Metas de clientes e equipe', location: 'Card de dimensão' },
+        { name: 'Gestão (20%)', meaning: 'Planejamento e execução', location: 'Card de dimensão' }
+      ],
+      workflow: [
+        'Mensalmente: verifique seu Score',
+        'Identifique a dimensão com menor nota',
+        'Leia os insights automáticos',
+        'Vá para Visão de Futuro e execute as ações sugeridas',
+        'Reavalie no mês seguinte'
+      ],
+      rules: [
+        'Score ≥ 80 = Diamante 💎',
+        'Score 60-79 = Ouro 🥇',
+        'Score 40-59 = Prata 🥈',
+        'Score < 40 = Bronze 🥉',
+        'Neutro 50 quando não há dados'
+      ],
+      detailedSteps: [
+        {
+          title: 'Interpretar a nota total',
+          description: 'Vermelho (<40) = crítico. Amarelo (40-59) = atenção. Verde (60+) = saudável. Azul (80+) = excelente.'
+        },
+        {
+          title: 'Analisar dimensões',
+          description: 'Clique em cada card de dimensão para ver o detalhamento e as métricas que compõem aquela nota.'
+        },
+        {
+          title: 'Ler insights',
+          description: 'O sistema aponta automaticamente seus 2 pontos fracos e 1 forte. Foque primeiro nos fracos.'
+        }
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Visão de Futuro (Mentoria)
+  // 📍 ROTA: /dashboard/mentoria
+  //  PROPÓSITO: Plano de ação personalizado baseado no Score, com
+  //    checklist executável e focos derivados das dimensões mais
+  //    fracas.
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: O catálogo de ações sugeridas for expandido,
+  //    a derivação de focos for alterada ou o checklist "Meu Plano"
+  //    for redesenhado.
+  // -----------------------------------------------------------------
+  '/dashboard/mentoria': {
+    title: 'Visão de Futuro (Mentoria)',
+    description: 'Plano de ação personalizado baseado no seu Score. O sistema identifica onde você precisa melhorar e sugere ações concretas.',
+    audience: 'Empresa',
+    controlType: 'Estratégico',
+    steps: [
+      'Defina sua visão de longo prazo (clientes, equipe, faturamento).',
+      'Revise os "Focos" sugeridos pelo sistema (2 dimensões mais fracas).',
+      'Marque as ações do checklist como concluídas e veja a barra de execução subir.'
+    ],
+    relatedPages: ['Score do Escritório', 'Planejamento'],
+    richContent: {
+      intro: 'A Mentoria transforma seu Score em um plano de ação executável. Ela diz não apenas "onde você está", mas "como chegar lá".',
+      workflow: [
+        'Defina sua visão (1, 3 e 5 anos)',
+        'Estabeleça metas mensuráveis (clientes, equipe, faturamento)',
+        'Revise os focos sugeridos (2 dimensões mais fracas)',
+        'Execute as ações do checklist',
+        'Marque como concluída e veja o progresso'
+      ],
+      rules: [
+        'Focos são derivados automaticamente do Score',
+        'Catálogo de ações é fixo (zero IA generativa)',
+        'Checklist persistido por tenant (companyId + title + source)',
+        'Generate nunca duplica (unique composto)'
+      ],
+      detailedSteps: [
+        {
+          title: 'Definir visão',
+          description: 'Onde você quer chegar em 1, 3 e 5 anos? Seja específico: "100 clientes ativos", "equipe de 15 pessoas", "faturamento R$ 50k/mês".'
+        },
+        {
+          title: 'Revisar focos',
+          description: 'O sistema identifica suas 2 dimensões mais fracas e sugere 3 ações concretas para cada. Ex: se Comercial está baixo, sugere "Aumentar taxa de conversão em 10%".'
+        },
+        {
+          title: 'Executar ações',
+          description: 'Marque cada ação como concluída conforme for executando. A barra de progresso sobe automaticamente.'
+        },
+        {
+          title: 'Checklist "Meu Plano"',
+          description: 'Use a sub-aba "Meu Plano" para adicionar ações customizadas além das sugeridas pelo sistema. Tudo persiste e é auditável.'
+        }
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Ranking de Níveis
+  // 📍 ROTA: /dashboard/ranking
+  // 🎯 PROPÓSITO: Gamificação do crescimento com comparação entre
+  //    escritórios da rede e pódio.
+  // 👤 USUÁRIO: ADMIN, MANAGER
+  // 🔄 ATUALIZAR QUANDO: Os thresholds de níveis (Bronze/Prata/Ouro/
+  //    Diamante) forem recalibrados ou o cálculo do ranking for
+  //    alterado.
+  // -----------------------------------------------------------------
+  '/dashboard/ranking': {
+    title: 'Ranking de Níveis',
+    description: 'Gamificação do seu crescimento. Compare seu Score com a média da rede e veja quanto falta para o próximo nível.',
+    audience: 'Empresa',
+    controlType: 'Estratégico',
+    steps: [
+      'Veja seu nível atual (Bronze, Prata, Ouro ou Diamante) e a barra de progresso.',
+      'Confira o pódio da rede para se inspirar nos escritórios melhor posicionados.',
+      'Clique no seu nome destacado no ranking para ver seus detalhes.'
+    ],
+    relatedPages: ['Score do Escritório', 'Visão de Futuro'],
+    richContent: {
+      intro: 'O Ranking gamifica seu crescimento. Compare-se com outros escritórios da rede e veja quanto falta para o próximo nível.',
+      kpis: [
+        { name: 'Seu Nível', meaning: 'Bronze, Prata, Ouro ou Diamante', location: 'Card superior' },
+        { name: 'Pontos para Próximo', meaning: 'Quanto falta para subir de nível', location: 'Card superior' },
+        { name: 'Sua Posição', meaning: 'Ranking na rede', location: 'Card superior' }
+      ],
+      workflow: [
+        'Verifique seu nível atual',
+        'Veja quantos pontos faltam para o próximo nível',
+        'Confira o pódio (top 3 da rede)',
+        'Analise o ranking completo',
+        'Execute ações da Mentoria para subir'
+      ],
+      rules: [
+        'Bronze: 0-39 pontos',
+        'Prata: 40-59 pontos',
+        'Ouro: 60-79 pontos',
+        'Diamante: 80-100 pontos',
+        'Ranking atualizado diariamente'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Planejamento Tributário
+  // 📍 ROTA: /dashboard/planejamento-tributario
+  // 🎯 PROPÓSITO: Simulador de regimes tributários (Simples,
+  //    Presumido, Real) para identificar o mais vantajoso por cliente.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso tributário)
+  // 🔄 ATUALIZAR QUANDO: As faixas do Simples Nacional (RBT12) forem
+  //    atualizadas, as alíquotas de presunção mudarem ou novos
+  //    regimes forem adicionados.
+  // -----------------------------------------------------------------
+  '/dashboard/planejamento-tributario': {
+    title: 'Planejamento Tributário',
+    description: 'Simule qual regime tributário (Simples Nacional, Lucro Presumido ou Lucro Real) é mais vantajoso para cada cliente.',
+    audience: 'Cliente',
+    controlType: 'Estratégico',
+    steps: [
+      'Informe o faturamento estimado e as despesas dedutíveis do cliente.',
+      'O sistema calcula a carga tributária nos três regimes simultaneamente.',
+      'Gere um relatório comparativo para apresentar ao cliente e embasar a decisão.'
+    ],
+    relatedPages: ['Reforma Tributária', 'DRE do Cliente (Oficial)'],
+    richContent: {
+      intro: 'O Planejamento Tributário simula os três regimes (Simples, Presumido, Real) e mostra qual paga menos imposto para cada cliente.',
+      workflow: [
+        'Selecione o cliente',
+        'Informe faturamento anual estimado',
+        'Informe despesas dedutíveis',
+        'O sistema calcula os três regimes',
+        'Compare carga tributária e lucro líquido',
+        'Gere relatório comparativo para o cliente'
+      ],
+      rules: [
+        'Simples Nacional: faixas de RBT12',
+        'Lucro Presumido: presunção de 8% (serviços) ou 32% (comércio)',
+        'Lucro Real: lucro contábil ajustado',
+        'Cálculos determinísticos (zero IA)',
+        'Relatório PDF pronto para apresentação'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Reforma Tributária
+  // 📍 ROTA: /dashboard/reforma-tributaria
+  // 🎯 PROPÓSITO: Simulador de impacto da EC 132/2023 (CBS + IBS)
+  //    durante a transição 2026-2033.
+  // 👤 USUÁRIO: ADMIN, MANAGER (com acesso tributário)
+  // 🔄 ATUALIZAR QUANDO: A alíquota de referência (26,5%) for
+  //    alterada por legislação, novos setores com alíquotas reduzidas
+  //    forem adicionados ou o período de transição mudar.
+  // -----------------------------------------------------------------
+  '/dashboard/reforma-tributaria': {
+    title: 'Reforma Tributária',
+    description: 'Simulador de impacto da EC 132/2023. Projete como a mudança de alíquotas afetará seus clientes nos próximos anos.',
+    audience: 'Cliente',
+    controlType: 'Estratégico',
+    steps: [
+      'Selecione o cliente e o cenário de transição desejado.',
+      'Visualize a projeção de aumento ou redução da carga tributária.',
+      'Use os dados para orientar o cliente em mudanças de estrutura ou preços.'
+    ],
+    relatedPages: ['Planejamento Tributário', 'DRE do Cliente (Oficial)'],
+    richContent: {
+      intro: 'A Reforma Tributária (EC 132/2023) muda as regras do jogo. Este simulador projeta o impacto nos seus clientes durante a transição (2026-2033).',
+      workflow: [
+        'Selecione o cliente',
+        'Escolha o cenário de transição',
+        'Visualize projeção de carga tributária',
+        'Compare antes/depois da reforma',
+        'Oriente o cliente em mudanças estratégicas'
+      ],
+      rules: [
+        'Transição: 2026-2033 (7 anos)',
+        'CBS (federal) + IBS (estadual/municipal) substituem PIS/COFINS/ICMS/ISS',
+        'Alíquota de referência: 26,5% (CBS 12,5% + IBS 14%)',
+        'Setores específicos têm alíquotas reduzidas',
+        'Projeções são estimativas (legislação pode mudar)'
+      ]
+    }
+  },
+
+
+  // =================================================================
+  // ⚙️ SEÇÃO 7: SISTEMA (Admin)
+  // =================================================================
+  // Painel super admin com métricas globais do SaaS e gestão do
+  // catálogo de serviços oferecidos a todos os escritórios.
+  // =================================================================
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Administração — Visão Geral
+  // 📍 ROTA: /dashboard/admin
+  // 🎯 PROPÓSITO: Painel super admin com métricas globais do SaaS
+  //    (empresas, usuários, faturamento da plataforma).
+  // 👤 USUÁRIO: SUPER_ADMIN apenas
+  // 🔄 ATUALIZAR QUANDO: Novos KPIs de plataforma forem adicionados
+  //    ou as permissões de acesso (role ADMIN) forem alteradas.
+  // -----------------------------------------------------------------
+  '/dashboard/admin': {
+    title: 'Administração: Visão Geral',
+    description: 'Painel super admin com métricas globais do sistema SaaS (total de empresas, usuários ativos, faturamento da plataforma).',
+    audience: 'Geral',
+    controlType: 'Interno',
+    steps: [
+      'Monitore o crescimento da base de clientes do SaaS.',
+      'Verifique a saúde técnica e a utilização dos módulos por plano.',
+      'Acesse configurações globais do sistema.'
+    ],
+    relatedPages: ['Administração: Catálogo'],
+    richContent: {
+      intro: 'O painel de Administração é para super admins. Mostra métricas globais do SaaS e permite configurações de plataforma.',
+      kpis: [
+        { name: 'Total de Empresas', meaning: 'Número de tenants ativos', location: 'Card superior' },
+        { name: 'Usuários Ativos', meaning: 'Número de usuários logados no período', location: 'Card superior' },
+        { name: 'Faturamento da Plataforma', meaning: 'MRR total do SaaS', location: 'Card superior' },
+        { name: 'Módulos Utilizados', meaning: 'Features mais usadas por plano', location: 'Card inferior' }
+      ],
+      workflow: [
+        'Diariamente: verifique métricas de crescimento',
+        'Semanalmente: analise utilização de módulos',
+        'Mensalmente: revise faturamento e churn',
+        'Trimestralmente: ajuste planos e preços'
+      ],
+      rules: [
+        'Acesso restrito a role ADMIN',
+        'Dados agregados de todos os tenants',
+        'Configurações globais afetam toda a plataforma',
+        'Logs de auditoria de ações admin'
+      ]
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Administração — Catálogo de Serviços
+  // 📍 ROTA: /dashboard/admin/catalogo
+  // 🎯 PROPÓSITO: Gestão centralizada dos serviços e planos oferecidos
+  //    a todos os escritórios (17 departamentos, ~200 serviços).
+  // 👤 USUÁRIO: SUPER_ADMIN apenas
+  // 🔄 ATUALIZAR QUANDO: Novos departamentos forem adicionados, o
+  //    seed do catálogo padrão for expandido ou as regras de
+  //    escopo/SLA forem alteradas.
+  // -----------------------------------------------------------------
+  '/dashboard/admin/catalogo': {
+    title: 'Administração: Catálogo de Serviços',
+    description: 'Gestão centralizada dos serviços e planos que o sistema oferece a todos os escritórios.',
+    audience: 'Geral',
+    controlType: 'Interno',
+    steps: [
+      'Cadastre novos serviços definindo escopo, SLA, documentos necessários e preço base.',
+      'Organize os serviços por departamentos (Contábil, Fiscal, DP, etc.).',
+      'Use o botão "Importar Catálogo Padrão" para popular o sistema com as melhores práticas do mercado.'
+    ],
+    relatedPages: ['Administração: Visão Geral', 'Meus Planos'],
+    richContent: {
+      intro: 'O Catálogo centraliza todos os serviços que o sistema oferece. Cada serviço tem escopo, SLA, documentos e preço base.',
+      workflow: [
+        'Cadastre novos serviços com dados completos',
+        'Organize por departamentos (17 departamentos pré-configurados)',
+        'Defina escopo e fora-do-escopo',
+        'Estabeleça SLA e documentos necessários',
+        'Importe catálogo padrão para popular rapidamente'
+      ],
+      rules: [
+        '17 departamentos: Contábil, Fiscal, Pessoal, Legalização, etc',
+        'Cada serviço tem escopo detalhado (o que está incluso)',
+        'Fora-do-escopo define o que é cobrado à parte',
+        'SLA em dias úteis para entrega',
+        'Preço base é referência (escritórios podem ajustar)'
+      ],
+      detailedSteps: [
+        {
+          title: 'Cadastrar serviço',
+          description: 'Clique em "Novo Serviço", preencha nome, departamento, escopo, fora-do-escopo, SLA, documentos e preço base.'
+        },
+        {
+          title: 'Importar catálogo padrão',
+          description: 'Clique em "Importar Catálogo Padrão". O sistema popula ~200 serviços pré-configurados com melhores práticas do mercado.'
+        },
+        {
+          title: 'Editar serviço',
+          description: 'Clique no ícone de edição. Altere escopo, SLA ou preço. Serviços em uso por planos não podem ser excluídos.'
+        }
+      ]
+    }
   }
-};
+}; // <--- FECHAMENTO ÚNICO E CORRETO DO OBJETO helpCatalog
+
+
+// =================================================================
+// FUNÇÕES HELPER DE EXPORTAÇÃO
+// =================================================================
+// Estas funções são usadas pelo componente PageHelp e pela página
+// /ajuda/[slug] para exibir o conteúdo de ajuda contextual.
+// =================================================================
 
 /**
  * Retorna o conteúdo de ajuda para a rota atual.
  * Se a rota não estiver mapeada, retorna um fallback amigável.
+ * 
+ * @param pathname - Caminho da rota atual (ex: "/dashboard/fechamento")
+ * @returns Objeto PageHelpInfo ou fallback padrão
  */
 export function getPageHelp(pathname: string): PageHelpInfo | null {
   if (helpCatalog[pathname]) {
     return helpCatalog[pathname];
   }
-  
   return {
     title: 'Ajuda da Página',
     description: 'A documentação detalhada para esta página específica está sendo escrita.',
@@ -1648,6 +2283,12 @@ export function getPageHelp(pathname: string): PageHelpInfo | null {
 
 /**
  * Retorna o conteúdo rico (camada 2) para a página de ajuda detalhada.
+ * Usado pela página /ajuda/[slug] para exibir KPIs, workflows, regras
+ * e exemplos.
+ * 
+ * @param pathname - Caminho da rota atual
+ * @returns Objeto PageHelpInfo com richContent ou null se não houver
+ *          conteúdo rico
  */
 export function getRichHelpContent(pathname: string): PageHelpInfo | null {
   const info = helpCatalog[pathname];
@@ -1655,4 +2296,30 @@ export function getRichHelpContent(pathname: string): PageHelpInfo | null {
     return info;
   }
   return null;
+}
+
+/**
+ * Retorna todas as rotas mapeadas no catálogo.
+ * Útil para gerar lista de páginas disponíveis ou para validação.
+ * 
+ * @returns Array de strings com todas as rotas mapeadas
+ */
+export function getAllHelpRoutes(): string[] {
+  return Object.keys(helpCatalog);
+}
+
+/**
+ * Busca páginas por termo (título ou descrição).
+ * Útil para implementar busca dentro da ajuda.
+ * 
+ * @param term - Termo de busca (case-insensitive)
+ * @returns Array de PageHelpInfo que correspondem ao termo
+ */
+export function searchHelp(term: string): PageHelpInfo[] {
+  const lowerTerm = term.toLowerCase();
+  return Object.values(helpCatalog).filter(
+    (info) =>
+      info.title.toLowerCase().includes(lowerTerm) ||
+      info.description.toLowerCase().includes(lowerTerm)
+  );
 }
