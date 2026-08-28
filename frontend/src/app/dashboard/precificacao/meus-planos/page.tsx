@@ -185,18 +185,17 @@ const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
     try {
       const payload = {
         valorReferencia: baseValue,
-        plans: plans.map(({ id, name, multiplier, order, isIndependent, badge, description, ownItems }) => ({
-          id,
-          name,
-          multiplier,
-          order,
-          isIndependent,
-          badge,
-          description,
-            //  Inclui o preço manual se existir
-          calculatedPrice: manualPrices[plan.id] || plan.calculatedPrice,
-          // Mapeia os itens próprios de volta para o formato que o backend espera no bulk-update
-          explicitItems: ownItems.map(item => ({ id: item.id }))
+        plans: plans.map((plan) => ({
+          id: plan.id,
+          name: plan.name,
+          multiplier: plan.multiplier,
+          order: plan.order,
+          isIndependent: plan.isIndependent,
+          badge: plan.badge,
+          description: plan.description,
+          // ✅ CORREÇÃO: Agora 'plan' existe e podemos acessar plan.id e plan.ownItems
+          calculatedPrice: manualPrices[plan.id] ?? plan.calculatedPrice,
+          explicitItems: plan.ownItems.map((item: any) => ({ id: item.id }))
         }))
       };
 
