@@ -42,15 +42,18 @@ const categorias = [
 ];
 
 // =================================================================
-// 📦 DADOS: ~60 Serviços distribuídos por categoria
+// 📦 DADOS: Serviços distribuídos por categoria
+// (Campos alinhados ao schema: requiredDocs, estimatedHours, slaDays)
 // =================================================================
 const servicosPorCategoria: Record<string, Array<{
   name: string;
   description: string;
   scope: string;
   outOfScope: string;
-  documents: string;
+  requiredDocs: string;
   basePrice: number;
+  estimatedHours: number;
+  slaDays: number;
 }>> = {
   'Contábil': [
     {
@@ -58,32 +61,30 @@ const servicosPorCategoria: Record<string, Array<{
       description: 'Registro de todas as operações contábeis do mês',
       scope: 'Lançamentos contábeis, balancete, razão',
       outOfScope: 'Conciliação bancária, DRE gerencial',
-      documents: 'Extratos bancários, notas fiscais, comprovantes',
+      requiredDocs: 'Extratos bancários, notas fiscais, comprovantes',
       basePrice: 800,
+      estimatedHours: 10,
+      slaDays: 5,
     },
     {
       name: 'Fechamento Contábil Anual',
       description: 'Encerramento do exercício contábil',
       scope: 'Balanço patrimonial, DRE, DMPL, DFCA',
       outOfScope: 'Auditoria independente',
-      documents: 'Todos os documentos do exercício',
+      requiredDocs: 'Todos os documentos do exercício',
       basePrice: 2500,
+      estimatedHours: 40,
+      slaDays: 30,
     },
     {
       name: 'Conciliação Bancária',
       description: 'Conferência entre extrato bancário e contabilidade',
       scope: 'Conciliação de todas as contas bancárias',
       outOfScope: 'Investigação de divergências complexas',
-      documents: 'Extratos bancários completos',
+      requiredDocs: 'Extratos bancários completos',
       basePrice: 300,
-    },
-    {
-      name: 'Análise de Balanço',
-      description: 'Análise detalhada das demonstrações contábeis',
-      scope: 'Relatório de análise com índices e recomendações',
-      outOfScope: 'Consultoria estratégica',
-      documents: 'Balanço patrimonial e DRE',
-      basePrice: 600,
+      estimatedHours: 4,
+      slaDays: 3,
     },
   ],
 
@@ -93,48 +94,30 @@ const servicosPorCategoria: Record<string, Array<{
       description: 'Cálculo mensal do ICMS a pagar',
       scope: 'Apuração, guia, declaração',
       outOfScope: 'Defesa fiscal em caso de autuação',
-      documents: 'Notas fiscais de entrada e saída',
+      requiredDocs: 'Notas fiscais de entrada e saída',
       basePrice: 500,
+      estimatedHours: 6,
+      slaDays: 20,
     },
     {
       name: 'Apuração de ISS',
       description: 'Cálculo mensal do ISS para prestadores de serviço',
       scope: 'Apuração, guia, declaração',
       outOfScope: 'Acompanhamento de fiscalizações',
-      documents: 'Notas fiscais de serviço emitidas',
+      requiredDocs: 'Notas fiscais de serviço emitidas',
       basePrice: 400,
-    },
-    {
-      name: 'Declaração de Imposto de Renda PJ (Lucro Presumido)',
-      description: 'Apuração trimestral do IRPJ e CSLL',
-      scope: 'Cálculo, guia, declaração',
-      outOfScope: 'Planejamento tributário',
-      documents: 'DRE trimestral, notas fiscais',
-      basePrice: 700,
+      estimatedHours: 4,
+      slaDays: 15,
     },
     {
       name: 'SPED Fiscal',
       description: 'Escrituração fiscal digital',
       scope: 'Geração e transmissão do arquivo SPED',
       outOfScope: 'Correção de erros após transmissão',
-      documents: 'Todas as notas fiscais do período',
+      requiredDocs: 'Todas as notas fiscais do período',
       basePrice: 600,
-    },
-    {
-      name: 'SPED Contábil',
-      description: 'Escrituração contábil digital',
-      scope: 'Geração e transmissão do arquivo SPED',
-      outOfScope: 'Auditoria do arquivo',
-      documents: 'Livros contábeis do exercício',
-      basePrice: 800,
-    },
-    {
-      name: 'DCTF Mensal',
-      description: 'Declaração de Débitos e Créditos Tributários Federais',
-      scope: 'Preenchimento e transmissão',
-      outOfScope: 'Regularização de débitos',
-      documents: 'Apurações de impostos federais',
-      basePrice: 350,
+      estimatedHours: 8,
+      slaDays: 25,
     },
   ],
 
@@ -144,40 +127,20 @@ const servicosPorCategoria: Record<string, Array<{
       description: 'Processamento completo da folha',
       scope: 'Cálculo, holerites, GPS, FGTS',
       outOfScope: 'Gestão de benefícios',
-      documents: 'Ponto, atestados, avisos',
+      requiredDocs: 'Ponto, atestados, avisos',
       basePrice: 400,
-    },
-    {
-      name: 'Folha de Pagamento (6-15 funcionários)',
-      description: 'Processamento completo da folha',
-      scope: 'Cálculo, holerites, GPS, FGTS',
-      outOfScope: 'Gestão de benefícios',
-      documents: 'Ponto, atestados, avisos',
-      basePrice: 700,
+      estimatedHours: 5,
+      slaDays: 5,
     },
     {
       name: 'Admissão de Funcionário',
       description: 'Processo completo de admissão',
       scope: 'Exame admissional, registro, documentos',
       outOfScope: 'Recrutamento e seleção',
-      documents: 'Documentos pessoais do funcionário',
+      requiredDocs: 'Documentos pessoais do funcionário',
       basePrice: 150,
-    },
-    {
-      name: 'Rescisão de Contrato',
-      description: 'Cálculo e processamento de rescisão',
-      scope: 'Cálculo, guia, homologação',
-      outOfScope: 'Negociação com funcionário',
-      documents: 'Aviso prévio, documentos pessoais',
-      basePrice: 250,
-    },
-    {
-      name: 'Férias',
-      description: 'Cálculo e processamento de férias',
-      scope: 'Cálculo, aviso, pagamento',
-      outOfScope: 'Gestão de calendário de férias',
-      documents: 'Solicitação de férias',
-      basePrice: 100,
+      estimatedHours: 2,
+      slaDays: 3,
     },
   ],
 
@@ -187,147 +150,33 @@ const servicosPorCategoria: Record<string, Array<{
       description: 'Registro completo de Microempreendedor Individual',
       scope: 'Cadastro, CNPJ, alvará',
       outOfScope: 'Licenças específicas',
-      documents: 'Documentos pessoais',
+      requiredDocs: 'Documentos pessoais',
       basePrice: 200,
+      estimatedHours: 2,
+      slaDays: 5,
     },
     {
       name: 'DASN-SIMEI (Declaração Anual)',
       description: 'Declaração anual do MEI',
       scope: 'Preenchimento e transmissão',
       outOfScope: 'Regularização de débitos',
-      documents: 'Faturamento do ano',
+      requiredDocs: 'Faturamento do ano',
       basePrice: 150,
-    },
-    {
-      name: 'Emissão de DAS Mensal',
-      description: 'Geração mensal da guia do MEI',
-      scope: 'Emissão e envio da guia',
-      outOfScope: 'Acompanhamento de pagamento',
-      documents: 'Nenhum',
-      basePrice: 50,
-    },
-  ],
-
-  'IRPF': [
-    {
-      name: 'Declaração de Imposto de Renda PF (Simples)',
-      description: 'IRPF para rendimentos simples',
-      scope: 'Preenchimento, transmissão, recibo',
-      outOfScope: 'Regularização de débitos',
-      documents: 'Informes de rendimentos',
-      basePrice: 250,
-    },
-    {
-      name: 'Declaração de Imposto de Renda PF (Completa)',
-      description: 'IRPF com múltiplas fontes de renda',
-      scope: 'Preenchimento, transmissão, recibo',
-      outOfScope: 'Defesa em malha fina',
-      documents: 'Todos os informes de rendimentos',
-      basePrice: 500,
+      estimatedHours: 1,
+      slaDays: 30,
     },
   ],
 
   'Consultoria': [
     {
-      name: 'Consultoria Tributária (hora técnica)',
-      description: 'Orientação sobre questões tributárias',
-      scope: 'Análise e recomendação por escrito',
-      outOfScope: 'Implementação de mudanças',
-      documents: 'Documentação da empresa',
-      basePrice: 300,
-    },
-    {
       name: 'Planejamento Tributário Anual',
       description: 'Análise do melhor regime tributário',
       scope: 'Relatório comparativo, recomendação',
       outOfScope: 'Implementação',
-      documents: 'DRE, balanço, projeções',
+      requiredDocs: 'DRE, balanço, projeções',
       basePrice: 2500,
-    },
-  ],
-
-  'BPO Financeiro': [
-    {
-      name: 'Contas a Pagar (até 50 lançamentos/mês)',
-      description: 'Gestão completa de contas a pagar',
-      scope: 'Agendamento, pagamento, conciliação',
-      outOfScope: 'Negociação com fornecedores',
-      documents: 'Boletos, notas fiscais',
-      basePrice: 600,
-    },
-    {
-      name: 'Contas a Receber (até 50 lançamentos/mês)',
-      description: 'Gestão completa de contas a receber',
-      scope: 'Emissão, cobrança, conciliação',
-      outOfScope: 'Cobrança judicial',
-      documents: 'Contratos, notas fiscais',
-      basePrice: 600,
-    },
-  ],
-
-  'Auditoria': [
-    {
-      name: 'Auditoria Contábil Básica',
-      description: 'Revisão de procedimentos contábeis',
-      scope: 'Relatório de achados e recomendações',
-      outOfScope: 'Auditoria independente (CVM)',
-      documents: 'Livros contábeis, documentos fiscais',
-      basePrice: 3500,
-    },
-  ],
-
-  'LGPD': [
-    {
-      name: 'Adequação à LGPD (Diagnóstico)',
-      description: 'Avaliação inicial de conformidade',
-      scope: 'Relatório de gaps, plano de ação',
-      outOfScope: 'Implementação de medidas',
-      documents: 'Processos de tratamento de dados',
-      basePrice: 2000,
-    },
-  ],
-
-  'Tecnologia': [
-    {
-      name: 'Implantação de Sistema Contábil',
-      description: 'Configuração e migração de dados',
-      scope: 'Setup, migração, treinamento',
-      outOfScope: 'Customizações',
-      documents: 'Dados da empresa',
-      basePrice: 1500,
-    },
-  ],
-
-  'Importação/Exportação': [
-    {
-      name: 'Registro de Importação (DI)',
-      description: 'Processamento de Declaração de Importação',
-      scope: 'Registro, acompanhamento',
-      outOfScope: 'Desembaraço aduaneiro',
-      documents: 'Invoice, packing list, BL',
-      basePrice: 800,
-    },
-  ],
-
-  'Agronegócio': [
-    {
-      name: 'Contabilidade Rural (Livro Caixa)',
-      description: 'Escrituração do livro caixa rural',
-      scope: 'Registro de receitas e despesas',
-      outOfScope: 'Análise de viabilidade',
-      documents: 'Notas fiscais, recibos',
-      basePrice: 1200,
-    },
-  ],
-
-  'Startup': [
-    {
-      name: 'Estruturação Societária para Startup',
-      description: 'Modelagem societária para captação',
-      scope: 'Contrato social, acordo de sócios',
-      outOfScope: 'Negociação com investidores',
-      documents: 'Term sheet, valuation',
-      basePrice: 3000,
+      estimatedHours: 15,
+      slaDays: 30,
     },
   ],
 
@@ -337,22 +186,16 @@ const servicosPorCategoria: Record<string, Array<{
       description: 'Diretor financeiro compartilhado',
       scope: 'Gestão financeira estratégica',
       outOfScope: 'Operacional contábil',
-      documents: 'Acesso aos sistemas',
+      requiredDocs: 'Acesso aos sistemas',
       basePrice: 5000,
-    },
-    {
-      name: 'Consultoria Estratégica Mensal',
-      description: 'Reunião mensal de estratégia',
-      scope: 'Análise de KPIs, recomendações',
-      outOfScope: 'Implementação',
-      documents: 'Relatórios gerenciais',
-      basePrice: 1500,
+      estimatedHours: 20,
+      slaDays: 1,
     },
   ],
 };
 
 // =================================================================
-//  DADOS: 4 Planos Comerciais
+// 📦 DADOS: 4 Planos Comerciais
 // =================================================================
 const planos = [
   {
@@ -398,7 +241,7 @@ async function main() {
   // =================================================================
   // 📦 PASSO 1: Obter ou criar uma empresa demo
   // =================================================================
-  console.log(' Buscando empresa...');
+  console.log('📦 Buscando empresa...');
   let companyId = '';
 
   const primeiraEmpresa = await prisma.company.findFirst();
@@ -425,23 +268,22 @@ async function main() {
   const categoriasCriadas = [];
 
   for (const categoria of categorias) {
+    // ID determinístico para permitir upsert
+    const id = `cat-${companyId}-${categoria.name.toLowerCase().replace(/\s+/g, '-')}`;
+    
     const created = await prisma.serviceCategory.upsert({
-      where: {
-        // Tenta encontrar por nome (se existir unique)
-        name_companyId: {
-          name: categoria.name,
-          companyId: companyId,
-        },
-      },
+      where: { id },
       update: {
+        name: categoria.name,
         order: categoria.order,
         description: categoria.description,
       },
       create: {
+        id,
+        companyId,
         name: categoria.name,
         order: categoria.order,
         description: categoria.description,
-        companyId: companyId,
       },
     });
 
@@ -465,29 +307,34 @@ async function main() {
     }
 
     for (const servico of servicos) {
+      // ID determinístico para permitir upsert
+      const id = `srv-${companyId}-${servico.name.toLowerCase().replace(/\s+/g, '-')}`;
+      
       const created = await prisma.serviceItem.upsert({
-        where: {
-          // Tenta encontrar por nome + categoria
-          name_categoryId: {
-            name: servico.name,
-            categoryId: categoria.id,
-          },
-        },
+        where: { id },
         update: {
-          description: servico.description,
-          scope: servico.scope,
-          outOfScope: servico.outOfScope,
-          documents: servico.documents,
-          basePrice: servico.basePrice,
-        },
-        create: {
           name: servico.name,
           description: servico.description,
           scope: servico.scope,
           outOfScope: servico.outOfScope,
-          documents: servico.documents,
+          requiredDocs: servico.requiredDocs,
           basePrice: servico.basePrice,
+          estimatedHours: servico.estimatedHours,
+          slaDays: servico.slaDays,
+        },
+        create: {
+          id,
+          companyId,
           categoryId: categoria.id,
+          name: servico.name,
+          description: servico.description,
+          scope: servico.scope,
+          outOfScope: servico.outOfScope,
+          requiredDocs: servico.requiredDocs,
+          basePrice: servico.basePrice,
+          estimatedHours: servico.estimatedHours,
+          slaDays: servico.slaDays,
+          recurrence: 'MENSAL', // Enum do schema
         },
       });
 
@@ -502,19 +349,17 @@ async function main() {
   // =================================================================
   // 📦 PASSO 4: Criar Planos Comerciais
   // =================================================================
-  console.log(' Criando planos comerciais...');
+  console.log('📦 Criando planos comerciais...');
   const planosCriados = [];
 
   for (const plano of planos) {
+    // ID determinístico para permitir upsert
+    const id = `plan-${companyId}-${plano.name.toLowerCase()}`;
+    
     const created = await prisma.commercialPlan.upsert({
-      where: {
-        // Tenta encontrar por nome
-        name_companyId: {
-          name: plano.name,
-          companyId: companyId,
-        },
-      },
+      where: { id },
       update: {
+        name: plano.name,
         multiplier: plano.multiplier,
         order: plano.order,
         isIndependent: plano.isIndependent,
@@ -522,13 +367,14 @@ async function main() {
         badge: plano.badge,
       },
       create: {
+        id,
+        companyId,
         name: plano.name,
         multiplier: plano.multiplier,
         order: plano.order,
         isIndependent: plano.isIndependent,
         description: plano.description,
         badge: plano.badge,
-        companyId: companyId,
       },
     });
 
@@ -539,10 +385,10 @@ async function main() {
   console.log(`\n✅ ${planosCriados.length} planos criados/atualizados\n`);
 
   // =================================================================
-  //  RESUMO FINAL
+  // 📊 RESUMO FINAL
   // =================================================================
   console.log('═══════════════════════════════════════════════════════');
-  console.log(' RESUMO DO SEED');
+  console.log('📊 RESUMO DO SEED');
   console.log('═══════════════════════════════════════════════════════');
   console.log(`✅ Empresa: ${companyId}`);
   console.log(`✅ Categorias: ${categoriasCriadas.length}`);
@@ -551,7 +397,7 @@ async function main() {
   console.log('═══════════════════════════════════════════════════════\n');
 
   console.log('🎉 Seed do catálogo concluído com sucesso!');
-  console.log('\n Próximos passos:');
+  console.log('\n👉 Próximos passos:');
   console.log('   1. Acesse: http://localhost:3005/dashboard/admin/catalogo');
   console.log('   2. Acesse: http://localhost:3005/dashboard/precificacao/meus-planos\n');
 }
