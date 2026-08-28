@@ -13,7 +13,7 @@ import { useRouter } from 'next/navigation';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 import { FileText, Plus, GitBranch, Eye, Loader2, Search } from 'lucide-react';
-
+import CloseProposalModal from '@/components/proposals/CloseProposalModal';
 interface Proposal {
   id: string;
   proposalNumber: string;
@@ -30,6 +30,8 @@ export default function PropostasPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [showCompleteGuide, setShowCompleteGuide] = useState(false);
+
 
   useEffect(() => {
     loadProposals();

@@ -1,33 +1,42 @@
 // =================================================================
 // INÍCIO: backend/src/proposals/dto/close-proposal.dto.ts
 // =================================================================
-// Sprint A4 — Fechamento com Ganho
-// Body do POST /proposals/:id/close
-// =================================================================
-import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+/**
+ * CloseProposalDto — DTO para fechamento de proposta com ganho
+ * =================================================================
+ * Regras (ADR-029):
+ * - discountPercent: 0-100 (desconto praticado sobre o preço ideal)
+ * - currentMonthly: valor que o cliente paga hoje (opcional, p/ comparação)
+ * - closedPlanId: ID do plano escolhido (opcional)
+ * - notes: observações do fechamento (opcional)
+ * =================================================================
+ */
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+} from 'class-validator';
 
 export class CloseProposalDto {
-  /** Desconto aplicado sobre o preço cheio (0–50%) */
   @IsNumber()
   @Min(0)
-  @Max(50)
+  @Max(100)
   discountPercent: number;
 
-  /** Plano comercial escolhido (opcional) */
-  @IsOptional()
-  @IsString()
-  closedPlanId?: string;
-
-  /** O que o cliente paga HOJE (opcional — habilita o "ganho vs hoje") */
   @IsOptional()
   @IsNumber()
   currentMonthly?: number;
 
-  /** Observações do fechamento (opcional) */
+  @IsOptional()
+  @IsString()
+  closedPlanId?: string;
+
   @IsOptional()
   @IsString()
   notes?: string;
 }
 // =================================================================
-// FIM: close-proposal.dto.ts
+// FIM: backend/src/proposals/dto/close-proposal.dto.ts
 // =================================================================

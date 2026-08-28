@@ -1,6 +1,6 @@
 /**
  * =================================================================
- * PÁGINA: Versões de Proposta (Sprint A3 - Conta Certa 2.0)
+ * PÁGINA: Versões de Proposta (Sprint A3)
  * =================================================================
  * Responsabilidade: Visualizar, criar, comparar e ativar versões 
  * de uma proposta comercial, mantendo o histórico imutável.
