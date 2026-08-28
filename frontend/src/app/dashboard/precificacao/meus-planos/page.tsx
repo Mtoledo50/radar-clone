@@ -24,12 +24,13 @@
 import { useState, useEffect } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
+import CompleteGuideModal from '@/components/common/CompleteGuideModal';
 import {
   Package, Plus, Trash2, Edit2, Save, X, Loader2, 
   Tag, FolderOpen, FileText, DollarSign, Calculator,
   ChevronDown, ChevronRight, TrendingUp, TrendingDown, CheckCircle2, BookOpen
 } from 'lucide-react';
-import CompleteGuideModal from '@/components/common/CompleteGuideModal';
+
 // =================================================================
 //  CLASSES DE ESTILO REUTILIZÁVEIS (Design System)
 // =================================================================
@@ -96,8 +97,7 @@ interface ServiceCategory {
 export default function MeusPlanosPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  // 🆕 ADICIONE EXATAMENTE ESTA LINHA AQUI:
-  const [showCompleteGuide, setShowCompleteGuide] = useState(false); 
+  
   // Estado para o Simulador "Dinheiro na Mesa"
   const [baseValue, setBaseValue] = useState<number>(2000);
   const [currentMonthly, setCurrentMonthly] = useState<number>(1500);
@@ -113,6 +113,11 @@ export default function MeusPlanosPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newItemName, setNewItemName] = useState<Record<string, string>>({});
 
+  // Estado para o Guia Completo
+  const [showCompleteGuide, setShowCompleteGuide] = useState(false);
+// Estado para preços manuais editáveis (chave: planId, valor: preço)
+const [manualPrices, setManualPrices] = useState<Record<string, number>>({});
+const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   // Carrega dados iniciais
   useEffect(() => {
     loadData();
@@ -132,6 +137,12 @@ export default function MeusPlanosPage() {
       
       setPlans(plansRes.data.data || []);
       setCategories(categoriesRes.data.data || []);
+      
+      // Define o baseValue padrão como o primeiro plano START ou o menor multiplicador
+      const startPlan = plansRes.data.data?.find((p: ResolvedPlan) => p.name === 'START');
+      if (startPlan && startPlan.calculatedPrice) {
+        setBaseValue(startPlan.calculatedPrice);
+      }
     } catch (err) {
       console.error(err);
       toast.error('Erro ao carregar dados dos planos');
@@ -147,6 +158,8 @@ export default function MeusPlanosPage() {
   async function handleCalculateInsights() {
     try {
       setCalculating(true);
+       // 🆕 Sincroniza os preços dos planos com o novo Valor de Referência
+      syncPlanPricesWithBaseValue(baseValue);
       const res = await api.post('/commercial-plans/insights', {
         baseValue: Number(baseValue),
         currentMonthly: Number(currentMonthly),
@@ -180,6 +193,8 @@ export default function MeusPlanosPage() {
           isIndependent,
           badge,
           description,
+            //  Inclui o preço manual se existir
+          calculatedPrice: manualPrices[plan.id] || plan.calculatedPrice,
           // Mapeia os itens próprios de volta para o formato que o backend espera no bulk-update
           explicitItems: ownItems.map(item => ({ id: item.id }))
         }))
@@ -235,7 +250,37 @@ export default function MeusPlanosPage() {
       toast.error('Erro ao remover plano');
     }
   }
+/**
+ * Sincroniza os preços dos planos quando o Valor de Referência muda.
+ * Fórmula: Preço = Valor Referência × Multiplicador
+ */
+function syncPlanPricesWithBaseValue(newBaseValue: number) {
+  const newPrices: Record<string, number> = {};
+  plans.forEach(plan => {
+    newPrices[plan.id] = Math.round(newBaseValue * plan.multiplier * 100) / 100;
+  });
+  setManualPrices(newPrices);
+}
 
+/**
+ * Atualiza um preço manual de um plano específico
+ */
+function handleUpdateManualPrice(planId: string, value: number) {
+  setManualPrices(prev => ({
+    ...prev,
+    [planId]: value
+  }));
+}
+
+/**
+ * Retorna o preço efetivo de um plano (manual ou calculado)
+ */
+function getEffectivePrice(plan: ResolvedPlan): number {
+  if (manualPrices[plan.id] !== undefined) {
+    return manualPrices[plan.id];
+  }
+  return plan.calculatedPrice || (baseValue * plan.multiplier);
+}
   /**
    * Alterna a seleção de um item em um plano.
    * Atualiza o array 'ownItems' localmente. O backend recalculará a herança no save.
@@ -349,7 +394,8 @@ export default function MeusPlanosPage() {
             Configure os planos, multiplicadores e o catálogo. A herança de itens é calculada automaticamente.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/*  BOTÃO DO GUIA COMPLETO */}
           <button 
             onClick={() => setShowCompleteGuide(true)} 
             className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
@@ -357,6 +403,7 @@ export default function MeusPlanosPage() {
             <BookOpen className="h-4 w-4" />
             Ver guia completo
           </button>
+
           <button onClick={handleAddPlan} className={buttonSecondary}>
             <Plus className="h-4 w-4" /> Adicionar Plano
           </button>
@@ -385,6 +432,7 @@ export default function MeusPlanosPage() {
               onChange={(e) => setBaseValue(Number(e.target.value))}
               className={inputClass}
               placeholder="Ex: 2000"
+              step="0.01"
             />
           </div>
           <div>
@@ -397,6 +445,7 @@ export default function MeusPlanosPage() {
               onChange={(e) => setCurrentMonthly(Number(e.target.value))}
               className={inputClass}
               placeholder="Ex: 1500"
+              step="0.01"
             />
           </div>
           <div className="flex items-end">
@@ -494,6 +543,14 @@ export default function MeusPlanosPage() {
                 onDelete={() => handleDeletePlan(plan.id)}
                 onToggleItem={(itemId: string) => handleToggleItem(plan.id, itemId)}
                 categories={categories}
+                showCompleteGuide={showCompleteGuide}
+                setShowCompleteGuide={setShowCompleteGuide}
+                // 🆕 Novas props para preço editável
+                baseValue={baseValue}
+                manualPrices={manualPrices}
+                editingPriceId={editingPriceId}
+                setEditingPriceId={setEditingPriceId}
+                handleUpdateManualPrice={handleUpdateManualPrice}
               />
             ))}
           </div>
@@ -540,6 +597,14 @@ export default function MeusPlanosPage() {
           </div>
         )}
       </section>
+
+      {/*  MODAL DO GUIA COMPLETO */}
+      {showCompleteGuide && (
+        <CompleteGuideModal
+          pathname="/dashboard/precificacao/meus-planos"
+          onClose={() => setShowCompleteGuide(false)}
+        />
+      )}
     </div>
   );
 }
@@ -552,7 +617,10 @@ export default function MeusPlanosPage() {
  * - Modo Edição: Permite alterar nome, multiplicador, ordem e selecionar 'ownItems'.
  * - Modo Visualização: Mostra o preço calculado e separa visualmente 'ownItems' de 'inheritedItems'.
  */
-function PlanCard({ plan, isEditing, onEdit, onCancelEdit, onUpdate, onDelete, onToggleItem, categories }: any) {
+function PlanCard({ plan, isEditing, onEdit, onCancelEdit, onUpdate, onDelete, onToggleItem, categories, showCompleteGuide, setShowCompleteGuide, baseValue, manualPrices, editingPriceId, setEditingPriceId, handleUpdateManualPrice }: any) {
+  const effectivePrice = manualPrices?.[plan.id] ?? plan.calculatedPrice ?? (baseValue * plan.multiplier);
+  const isEditingPrice = editingPriceId === plan.id;
+
   return (
     <div className={`border rounded-xl p-5 transition-all ${isEditing ? 'border-teal-500 ring-1 ring-teal-500 shadow-md' : 'border-slate-200 hover:shadow-md'}`}>
       <div className="flex items-start justify-between mb-4">
@@ -602,14 +670,42 @@ function PlanCard({ plan, isEditing, onEdit, onCancelEdit, onUpdate, onDelete, o
           </div>
         ) : (
           <div>
-            <div className="text-3xl font-bold text-teal-700">
-              {plan.calculatedPrice ? `R$ ${plan.calculatedPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'N/A'}
-            </div>
-            {plan.percentVsBase !== undefined && (
-              <div className="text-sm text-slate-500 mt-1">
-                {plan.percentVsBase === 0 ? 'Valor Base' : plan.percentVsBase > 0 ? `+${plan.percentVsBase}% sobre a base` : `${plan.percentVsBase}% abaixo da base`}
+            {/* 🆕 PREÇO EDITÁVEL */}
+            {isEditingPrice ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-600">R$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={effectivePrice}
+                  onChange={(e) => handleUpdateManualPrice(plan.id, parseFloat(e.target.value) || 0)}
+                  onBlur={() => setEditingPriceId(null)}
+                  onKeyDown={(e) => e.key === 'Enter' && setEditingPriceId(null)}
+                  className={`${inputClass} text-2xl font-bold text-teal-700`}
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <div 
+                className="text-3xl font-bold text-teal-700 cursor-pointer hover:bg-teal-50 rounded px-2 py-1 transition-colors"
+                onDoubleClick={() => setEditingPriceId(plan.id)}
+                title="Duplo-clique para editar manualmente"
+              >
+                R$ {effectivePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </div>
             )}
+            
+            <div className="text-sm text-slate-500 mt-1 flex items-center gap-2">
+              <span>
+                {plan.multiplier}x do valor de referência (R$ {baseValue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+              </span>
+              {manualPrices?.[plan.id] !== undefined && (
+                <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">
+                  Manual
+                </span>
+              )}
+            </div>
+            
             <div className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-200 flex justify-between">
               <span>Total: {plan.allItems.length} itens</span>
               <span>({plan.ownItems.length} próprios + {plan.inheritedItems.length} herdados)</span>
@@ -673,7 +769,7 @@ function PlanCard({ plan, isEditing, onEdit, onCancelEdit, onUpdate, onDelete, o
 // =================================================================
 // 📁 SUB-COMPONENTE: CARD DE CATEGORIA
 // =================================================================
-function CategoryCard({ category, newItemName, onNewItemNameChange, onAddItem, onDeleteItem, onDeleteCategory, showCompleteGuide, setShowCompleteGuide, }: any) {
+function CategoryCard({ category, newItemName, onNewItemNameChange, onAddItem, onDeleteItem, onDeleteCategory, showCompleteGuide, setShowCompleteGuide }: any) {
   const [expanded, setExpanded] = useState(true);
 
   return (
@@ -688,6 +784,14 @@ function CategoryCard({ category, newItemName, onNewItemNameChange, onAddItem, o
           </div>
         </div>
         <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          {/*  Botão de ajuda contextual */}
+          <button 
+            onClick={() => setShowCompleteGuide(true)}
+            className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-md transition-colors"
+            title="Ver guia completo"
+          >
+            <BookOpen className="h-4 w-4" />
+          </button>
           <button onClick={onDeleteCategory} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors">
             <span title="Remover categoria"><Trash2 className="h-4 w-4" /></span>
           </button>
@@ -717,16 +821,9 @@ function CategoryCard({ category, newItemName, onNewItemNameChange, onAddItem, o
                 </li>
               ))}
             </ul>
-            
           )}
         </div>
       )}
-      {showCompleteGuide && (
-  <CompleteGuideModal
-    pathname="/dashboard/precificacao/meus-planos"
-    onClose={() => setShowCompleteGuide(false)}
-  />
-)}
     </div>
   );
 }
