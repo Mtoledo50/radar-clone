@@ -3,7 +3,7 @@
 // =================================================================
 // Filtro global de exceções do NestJS com integração opt-in ao Sentry (ADR-088).
 // Compatível com @sentry/node 8.x+ (API moderna).
-// Se SENTRY_DSN não estiver definido, o erro é apenas logado no console.
+// Extrai corretamente as mensagens de validação do class-validator.
 // =================================================================
 import {
   ExceptionFilter,
@@ -15,7 +15,6 @@ import {
 } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 
-// Flag para controlar inicialização (evita re-init em cada erro)
 let sentryInitialized = false;
 
 @Catch()
@@ -27,23 +26,32 @@ export class SentryExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse();
     const request = ctx.getRequest();
 
-    // Determina o status HTTP (500 para erros não HttpException)
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    // Extrai mensagem de erro segura
-    const message =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Erro interno do servidor';
+    const exceptionResponse = exception instanceof HttpException
+      ? exception.getResponse()
+      : 'Erro interno do servidor';
 
-    // 🛡️ ADR-088: Só inicializa/envia para o Sentry se o DSN estiver presente
+    // 🛡️ EXTRAÇÃO INTELIGENTE DA MENSAGEM DE ERRO
+    let errorMessage = 'Erro interno do servidor';
+    if (typeof exceptionResponse === 'string') {
+      errorMessage = exceptionResponse;
+    } else if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+      const resp = exceptionResponse as any;
+      // Se o class-validator retornou um array de erros, unimos em uma string
+      if (Array.isArray(resp.message)) {
+        errorMessage = resp.message.join(', ');
+      } else if (typeof resp.message === 'string') {
+        errorMessage = resp.message;
+      }
+    }
+
+    // 🛡️ ADR-088: Sentry opt-in
     const dsn = process.env.SENTRY_DSN;
     if (dsn) {
-      // Inicialização lazy (garante que só roda uma vez por processo)
-      // 🆕 API moderna do Sentry 8.x+ (substitui getCurrentHub)
       if (!sentryInitialized && !Sentry.getClient()) {
         Sentry.init({
           dsn,
@@ -53,7 +61,6 @@ export class SentryExceptionFilter implements ExceptionFilter {
         sentryInitialized = true;
       }
 
-      // Enriquece o erro com contexto da requisição
       Sentry.withScope((scope) => {
         scope.setUser({ id: (request as any).user?.id || 'anonymous' });
         scope.setContext('request', {
@@ -64,17 +71,17 @@ export class SentryExceptionFilter implements ExceptionFilter {
         Sentry.captureException(exception);
       });
     } else {
-      // Fallback para dev: loga no console sem quebrar a aplicação
+      // Fallback para dev: loga no console com a mensagem real do erro
       this.logger.error(
-        `HTTP ${status} - ${request.method} ${request.url}`,
+        `HTTP ${status} - ${request.method} ${request.url} | Erro: ${errorMessage}`,
         exception instanceof Error ? exception.stack : String(exception),
       );
     }
 
-    // Retorna resposta padrão ao cliente (não vaza stack trace em produção)
+    // Retorna a mensagem real (ou unificada) para o frontend
     response.status(status).json({
       statusCode: status,
-      message: typeof message === 'string' ? message : 'Erro processado',
+      message: errorMessage,
       timestamp: new Date().toISOString(),
     });
   }
