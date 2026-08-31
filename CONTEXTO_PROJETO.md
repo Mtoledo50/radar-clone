@@ -115,6 +115,8 @@ SPRINT 32 ✅ HOMOLOGADA: produção local Radar+Site via túnel Cloudflare
 (radar.contacerta.com.br + radar-api.contacerta.com.br).
 🆕 MÓDULO DE USUÁRIOS ✅ HOMOLOGADO: CRUD, RBAC, Soft Delete, Troca Forçada e Seed Unificado.
 AURORA FD-5+Fases 4/5/6 ✅ HOMOLOGADA em 27/08/2026 (ver §6 e §9).
+FASE 4 (Projetos e Tarefas) ✅ HOMOLOGADA em 31/08/2026 (ver §11).
+
 
 ## 5. Plano 2.0 — Fases concluídas
 Fase A (Comercial) completa: A1→A7.
@@ -166,23 +168,58 @@ checklist de fechamento • ECD/ECF • ICMS-ST por NCM/CEST • ISS por municí
 créditos tributários. REGRA: nada entra antes das Sprints 33–34.
 
 ## 9. Status atual e próximos passos
-✅ Sprint de Gestão de Usuários CONCLUÍDA e HOMOLOGADA:
-- Backend: CRUD completo, Soft Delete, geração de senha provisória, validação de força.
-- Frontend: Tela de gestão com modal de criação, redefinição de senha (c/ clipboard) e exclusão.
-- Segurança: Modal bloqueante de troca forçada de senha no primeiro acesso (`mustChangePassword`).
-- Infra: Seed Enterprise unificado e idempotente (`npx prisma db seed`).
 
-IMEDIATO: Escolher o próximo bloco de valor com o Marcos. Opções prioritárias:
-  1. 🤖 Fase Aurora: FD-7 (Integrações) ou FD-9 (DP Leve).
-  2. 🚀 Produção (Sprints 33-34): CI/CD, Sentry e Backup automatizado.
-  3. 🎨 Fase E (UX): Command Palette (Ctrl+K) e Notificações.
+### ✅ FASES CONCLUÍDAS
+- Fases 1-2.5: Fundação + BI + Fiscal + Bancário + Contábil (Sprints 1-30)
+- Fase 3: Produção (Docker, CI/CD, Backup) — parcial
+- Fase A: Comercial (A1-A7) ✅
+- Fase B: Pessoas (B1-B5) ✅
+- Fase C: Mercado (C1-C4) ✅
+- Fase D: Mentoria (D1-D3) ✅
+- Fase E: UX (Command Palette, Notificações, "Onde parei") ✅
+- **Fase 4: Projetos e Tarefas ✅ (31/08/2026)**
 
-9) STATUS ATUAL E PRÓXIMOS PASSOS
-Sprint A2 CONCLUÍDA: migração Prisma (order), endpoints /resolved e /insights,
-simulador "Dinheiro na Mesa" no frontend.
-IMEDIATO: Escolher entre Sprint A3 (Versões de Proposta) ou Sprint 33 (CI/CD + Backup).
-DEPOIS: A4→A7, Fases B→E (ordem do §7).
+###  EM ANDAMENTO
+- Aurora FD-7 (Integrações Domínio/Questor/Sage)
+- Aurora FD-9 (DP Leve)
+- Hardening de Produção (Sentry backend, CI/CD, Backup)
+
+###  PRÓXIMAS FASES
+- Portal do Cliente (visão externa para clientes)
+- Relatórios PDF Profissionais (DRE, Balancete, Propostas)
+- Testes Automatizados (Playwright E2E)
 
 ## 10. Instrução para a nova IA
 Leia este arquivo, confirme com "Yes", e continue EXATAMENTE do §9.
 Não reimplementar sprints concluídas; não mudar stack; seguir método do §1.
+
+## 11. Fase 4 — Projetos e Tarefas (31/08/2026)
+
+### Módulos Implementados
+- **ProjectsModule**: CRUD completo de projetos com métricas, filtros, validação de cliente
+- **TasksModule**: CRUD completo de tarefas com Kanban, métricas, filtros, validação de projeto/responsável
+
+### Endpoints Principais
+- `GET /projects` — lista projetos com filtros (status, priority, clientId, search)
+- `GET /projects/metrics` — KPIs (total, active, onHold, completed, overdue, overallProgress)
+- `POST /projects` — cria projeto (valida clientId se fornecido)
+- `PATCH /projects/:id` — atualiza projeto (auto-preenche completedAt se status=COMPLETED)
+- `DELETE /projects/:id` — soft delete (bloqueia se houver tarefas pendentes)
+
+- `GET /tasks` — lista tarefas com filtros (status, priority, category, projectId, assigneeId, search)
+- `GET /tasks/metrics` — KPIs (total, backlog, todo, inProgress, review, done, overdue, unassigned, completionRate)
+- `POST /tasks` — cria tarefa (valida projectId e assigneeId se fornecidos)
+- `PATCH /tasks/:id` — atualiza tarefa (auto-preenche completedAt se status=DONE)
+- `DELETE /tasks/:id` — soft delete
+
+### Frontend
+- `/dashboard/projetos` — Grid de projetos com KPIs, filtros, modal de criação/edição
+- `/dashboard/tarefas` — Quadro Kanban com drag & drop nativo HTML5, KPIs, filtros, modal de criação
+
+### ADRs
+- **ADR-093**: Drag & Drop nativo HTML5 (zero dependências extras)
+- **ADR-094**: Proteção de integridade — projeto só pode ser excluído se não tiver tarefas pendentes
+- **ADR-095**: KPIs calculados no backend (consistência e performance)
+
+### Status
+✅ HOMOLOGADO em 31/08/2026.

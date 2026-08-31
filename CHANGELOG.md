@@ -4,6 +4,47 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 
 ## [Sprint Gestão de Usuários e Seed Unificado] 31/08/2026 — ✅ HOMOLOGADO
+## [Fase 4 — Projetos e Tarefas] 31/08/2026 — ✅ HOMOLOGADO
+
+### Added
+- **Backend (ProjectsModule)**:
+  - `projects.module.ts`, `projects.service.ts`, `projects.controller.ts`
+  - DTOs: `CreateProjectDto`, `UpdateProjectDto`, `QueryProjectDto`
+  - Endpoints: `GET /projects`, `GET /projects/metrics`, `GET /projects/:id`, `POST /projects`, `PATCH /projects/:id`, `DELETE /projects/:id`
+  - Regra de negócio: não permite excluir projeto com tarefas pendentes
+  - Cálculo automático de progresso (% de tarefas concluídas)
+  
+- **Backend (TasksModule)**:
+  - `tasks.module.ts`, `tasks.service.ts`, `tasks.controller.ts`
+  - DTOs: `CreateTaskDto`, `UpdateTaskDto`, `UpdateTaskStatusDto`, `QueryTaskDto`
+  - Endpoints: `GET /tasks`, `GET /tasks/metrics`, `GET /tasks/:id`, `POST /tasks`, `PATCH /tasks/:id`, `DELETE /tasks/:id`
+  - KPIs: total, backlog, todo, inProgress, review, done, overdue, unassigned, completionRate
+  - Filtros: search, projectId, clientId, status, priority, category, assigneeId
+  - Validação de projeto e responsável antes de criar/atualizar
+  - Auto-preenchimento de `completedAt` quando status muda para DONE
+  
+- **Frontend**:
+  - `/dashboard/projetos/page.tsx`: Grid de projetos com KPIs, filtros, modal de criação/edição
+  - `/dashboard/tarefas/page.tsx`: Quadro Kanban com drag & drop, KPIs, filtros, modal de criação
+  - Componentes reutilizáveis: `ProjectModal`, `ProjectStatusBadge`, `ProjectPriorityBadge`
+  
+- **Correções**:
+  - `sentry-exception.filter.ts`: agora extrai mensagens reais de validação do `class-validator` (unifica array de erros em string)
+  - `create-task.dto.ts`: validação robusta com mensagens claras para cada campo
+
+### Decisions
+- **ADR-093**: Drag & Drop nativo HTML5 (sem dependências extras como `react-beautiful-dnd`)
+- **ADR-094**: Proteção de integridade — projeto só pode ser excluído se não tiver tarefas pendentes
+- **ADR-095**: KPIs calculados no backend (não no frontend) para consistência e performance
+
+### Provas
+- Backend: criar projeto com cliente válido → sucesso; com cliente inexistente → 400
+- Backend: excluir projeto com tarefas pendentes → 400 com mensagem clara
+- Backend: mover tarefa via PATCH → status atualizado, métricas recalculadas
+- Frontend: drag & drop entre colunas → toast de sucesso, recarregamento automático
+- Frontend: filtros combinados (busca + projeto + prioridade) → filtragem em tempo real
+- Frontend: modal de criação com sanitização → zero erros 400 do backend
+
 
 ### Added
 - **Backend (Módulo de Usuários)**:

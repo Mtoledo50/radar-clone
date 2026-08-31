@@ -167,6 +167,18 @@ Gráficos nativos em CSS puro (zero dependências pesadas, -200KB bundle).
 DRE do Escritório, Ponto Fora da Curva e Simulador Tributário.
 Score 0–100 do Escritório, Indicadores com fórmula segura e Mentoria/Ranking.
 
+## 📋 Gestão de Projetos e Tarefas (Fase 4)
+[x] CRUD completo de projetos com métricas (total, ativos, concluídos, atrasados)
+[x] Quadro Kanban de tarefas com 5 colunas (Backlog, A Fazer, Em Andamento, Revisão, Concluído)
+[x] Drag & Drop nativo HTML5 para mover tarefas entre colunas
+[x] Filtros por projeto, prioridade e busca textual
+[x] KPIs em tempo real (tarefas atrasadas, taxa de conclusão, sem responsável)
+[x] Modal de criação rápida de tarefas com todos os campos do DTO
+[x] Integração com clientes (tarefas vinculadas a clientes específicos)
+[x] Categorias de tarefas (Fiscal, Contábil, DP, Societário, Financeiro, Comercial, Interno)
+[x] Prioridades (Baixa, Média, Alta, Urgente) com badges visuais
+[x] Prazos e horas estimadas
+[x] Proteção contra exclusão de projetos com tarefas pendentes
 
 ### 👥 Pessoas & Clientes
 - [x] CRUD de colaboradores + Turnover automático por setor
