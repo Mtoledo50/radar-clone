@@ -3,7 +3,6 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { useUiStore } from '@/store/uiStore'; // 🆕 NOVO: Import do uiStore para "Onde parei"
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
@@ -12,11 +11,29 @@ import { LogIn, Loader2, Eye, EyeOff } from 'lucide-react';
  * =================================================================
  * 🔐 LoginPage — Página de Autenticação (Conta Certa)
  * =================================================================
+ * 🧠 DECISÃO TÉCNICA (ADR-style):
+ * O Next.js 14+ (App Router) exige que qualquer Server Component que
+ * consuma hooks dinâmicos como `useSearchParams()` esteja envolto em
+ * uma fronteira de `<Suspense>`. Sem isso, o `next build` falha com:
+ *
+ *   "useSearchParams() should be wrapped in a suspense boundary"
+ *
+ * Solução adotada (tudo em um único arquivo):
+ *   - `LoginFormContent`: componente interno que usa o hook + estado.
+ *   - `LoginPage` (export default): wrapper com <Suspense> + fallback.
+ *
+ * Isso permite que o Next.js pré-renderize a página estática e,
+ * no cliente, hidrate os parâmetros da URL sem travar o build.
+ * =================================================================
  */
 
 // =================================================================
 // 🎨 LoadingFallback — Estado de carregamento do Suspense
 // =================================================================
+/**
+ * Exibido enquanto os parâmetros da URL ainda não foram hidratados
+ * no cliente. Mantém a identidade visual da Conta Certa.
+ */
 function LoadingFallback() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -34,11 +51,23 @@ function LoadingFallback() {
 }
 
 // =================================================================
-// 📝 LoginFormContent — Formulário de Login
+// 📝 LoginFormContent — Formulário de Login (usa useSearchParams)
 // =================================================================
+/**
+ * Componente interno que contém toda a lógica do formulário.
+ * 
+ * 🎯 Responsabilidades:
+ *   - Capturar e-mail/senha
+ *   - Chamar POST /auth/login
+ *   - Salvar user + token no Zustand (sincroniza cookies)
+ *   - Redirecionar para `?redirect=` ou `/dashboard`
+ * 
+ * ⚠️ IMPORTANTE: este componente DEVE estar dentro de um <Suspense>
+ * no componente pai, pois usa `useSearchParams()`.
+ */
 function LoginFormContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams(); // 🔒 Exige Suspense boundary
   const { login } = useAuthStore();
 
   const [loading, setLoading] = useState(false);
@@ -48,27 +77,29 @@ function LoginFormContent() {
     password: '',
   });
 
+  /**
+   * Submete o formulário: autentica e redireciona.
+   * Se a URL tiver `?redirect=/dashboard/admin/catalogo`, o usuário
+   * volta exatamente para a página que tentava acessar antes do login.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      // 🔐 Chama o backend de autenticação
       const response = await api.post('/auth/login', formData);
       const { user, token } = response.data;
 
+      // 💾 Salva no Zustand (com sincronização automática de cookies
+      // para o middleware Next.js proteger rotas /admin/*)
       login({ user, token });
+
       toast.success('Login realizado com sucesso!');
 
-      // 🆕 LÓGICA DE REDIRECIONAMENTO INTELIGENTE (Fase E)
+      // 🎯 Redireciona para o destino original (se existir) ou dashboard
       const redirect = searchParams.get('redirect');
-      // Usa getState() para evitar re-renders desnecessários dentro de event handlers
-      const lastPath = useUiStore.getState().lastVisitedPath; 
-      
-      // Garante que não vamos redirecionar de volta para páginas públicas ou de erro
-      const isPublicPath = lastPath && (lastPath.includes('/login') || lastPath.includes('/cadastro'));
-      const safeRedirect = redirect || (lastPath && !isPublicPath ? lastPath : '/dashboard');
-      
-      router.push(safeRedirect);
+      router.push(redirect || '/dashboard');
     } catch (error: any) {
       toast.error(
         error.response?.data?.message || 'Erro ao autenticar. Verifique seus dados.',
@@ -165,6 +196,15 @@ function LoginFormContent() {
 // =================================================================
 // 🎁 LoginPage (export default) — Wrapper com Suspense
 // =================================================================
+/**
+ * Componente raiz exportado pela rota `/login`.
+ * 
+ * 🛡️ Envolve o `LoginFormContent` em <Suspense> para satisfazer
+ * a exigência do Next.js sobre o uso de `useSearchParams()`.
+ * 
+ * Enquanto os parâmetros da URL não são hidratados no cliente,
+ * o `LoadingFallback` é exibido — uma transição suave e profissional.
+ */
 export default function LoginPage() {
   return (
     <Suspense fallback={<LoadingFallback />}>

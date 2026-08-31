@@ -263,7 +263,48 @@ async function main() {
     }
   }
   console.log('   ✅ Propostas de exemplo criadas.');
+  // =========================================================================
+  // FASE 6: PROJETOS E TAREFAS (Operacional)
+  // =========================================================================
+  console.log('[6/6] 📋 Populando Projetos e Tarefas...');
+  
+  const project = await prisma.project.upsert({
+    where: { id: 'proj-demo-01' },
+    update: {},
+    create: {
+      id: 'proj-demo-01',
+      companyId: company.id,
+      name: 'Implementação Cliente Tech Solutions',
+      description: 'Migração de dados e setup inicial do plano BLACK.',
+      status: 'ACTIVE',
+      startDate: new Date(),
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+  });
 
+  const taskSpecs = [
+    { title: 'Levantamento de requisitos', status: 'DONE', priority: 'HIGH' },
+    { title: 'Configurar plano de contas SCI', status: 'IN_PROGRESS', priority: 'HIGH' },
+    { title: 'Importar base histórica 2025', status: 'TODO', priority: 'MEDIUM' },
+    { title: 'Treinamento da equipe do cliente', status: 'BACKLOG', priority: 'LOW' },
+  ];
+
+  for (const t of taskSpecs) {
+    await prisma.task.upsert({
+      where: { id: `task-demo-${t.title.slice(0, 10)}` },
+      update: {},
+      create: {
+        id: `task-demo-${t.title.slice(0, 10)}`,
+        companyId: company.id,
+        projectId: project.id,
+        title: t.title,
+        status: t.status as any,
+        priority: t.priority as any,
+        category: 'CONTABIL',
+      },
+    });
+  }
+  console.log('   ✅ Projetos e Kanban populados.');
   // =========================================================================
   // RESUMO FINAL
   // =========================================================================

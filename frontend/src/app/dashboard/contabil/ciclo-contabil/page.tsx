@@ -2,26 +2,22 @@
 // INÍCIO: frontend/src/app/dashboard/contabil/ciclo-contabil/page.tsx
 // =================================================================
 /**
- * 📒 Ciclo Contábil do Cliente — ETAPA 1 (ADR-066/070)
- * Fluxo: seleciona cliente → importa BALANCETE (base inicial) e
- * RAZÃO (lançamentos) → vê o SUGERIDOR contraparte→conta p/ lançar.
- *
- * 🆕 ADR-070: duas colunas separadas no balancete:
- *   • "Conta" (seq SCI, ex.: 819)
- *   • "Classificação" (código + nome, ex.: 01.1.1.02.026 Sicredi 07417-6)
- *
- * 🆕 Botão ➕ Adicionar conta inline no sugeridor (cria conta no plano
- *     do tenant sem sair da tela).
- *
- * Upload via TEXTO (file.text()) — zero multipart/boundary (ADR-066).
- */
+📒 Ciclo Contábil do Cliente — ETAPA 1 (ADR-066/070)
+Fluxo: seleciona cliente → importa BALANCETE (base inicial) e
+RAZÃO (lançamentos) → vê o SUGERIDOR contraparte→conta p/ lançar.
+🆕 ADR-070: duas colunas separadas no balancete:
+• "Conta" (seq SCI, ex.: 819)
+• "Classificação" (código + nome, ex.: 01.1.1.02.026 Sicredi 07417-6)
+ Botão ➕ Adicionar conta inline no sugeridor (cria conta no plano
+do tenant sem sair da tela).
+Upload via TEXTO (file.text()) — zero multipart/boundary (ADR-066).
+*/
 'use client';
-
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 import {
-  BookOpen, Upload, Lightbulb, Eye, FileSpreadsheet, X, Loader2, Plus,Trash2,
+  BookOpen, Upload, Lightbulb, Eye, FileSpreadsheet, X, Loader2, Plus, Trash2,
 } from 'lucide-react';
 
 // Formata número como R$ (Decimal chega como string do Prisma)
@@ -38,7 +34,7 @@ interface DropzoneProps {
 }
 
 // =================================================================
-// 🛡️ Leitor de CSV com detecção de encoding (ADR-071 proposto)
+// ️ Leitor de CSV com detecção de encoding (ADR-071 proposto)
 // O SCI exporta balancetes em ANSI (Windows-1252); extratos/razão
 // costumam vir em UTF-8. Detecta pelo caractere de substituição
 // (U+FFFD) e re-decodifica — nunca mais "APLICAES".
@@ -93,7 +89,8 @@ function Dropzone({ file, onFile, accent = 'teal' }: DropzoneProps) {
       {file ? (
         <div className="flex items-center justify-center gap-2 text-sm">
           <FileSpreadsheet className="h-4 w-4 text-teal-600" />
-          <span className="font-medium text-slate-700">{file.name}</span>
+          {/* 🆕 CORREÇÃO: texto preto/escuro */}
+          <span className="font-medium text-slate-900">{file.name}</span>
           <button
             onClick={(e) => { e.stopPropagation(); onFile(null); }}
             className="text-slate-400 hover:text-red-500"
@@ -103,9 +100,9 @@ function Dropzone({ file, onFile, accent = 'teal' }: DropzoneProps) {
           </button>
         </div>
       ) : (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-600">
           📂 Arraste o CSV aqui{' '}
-          <span className="text-slate-400">ou clique para escolher</span>
+          <span className="text-slate-500">ou clique para escolher</span>
         </p>
       )}
     </div>
@@ -119,7 +116,7 @@ export default function CicloContabilPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [clientId, setClientId] = useState('');
 
-  // ── Balancete ──
+  // ── Balancete ─
   const [tbCompetence, setTbCompetence] = useState('2026-04');
   const [tbFile, setTbFile] = useState<File | null>(null);
   const [tbList, setTbList] = useState<any[]>([]);
@@ -134,10 +131,9 @@ export default function CicloContabilPage() {
   // ── Criar conta inline ──
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccount, setNewAccount] = useState({ code: '', name: '' });
-
   const [busy, setBusy] = useState(false);
 
-   // Carrega a carteira de clientes ao montar — COM diagnóstico visível
+  // Carrega a carteira de clientes ao montar — COM diagnóstico visível
   useEffect(() => {
     (async () => {
       try {
@@ -147,10 +143,10 @@ export default function CicloContabilPage() {
         const list = Array.isArray(payload)
           ? payload
           : Array.isArray(payload?.data)
-            ? payload.data
-            : Array.isArray(payload?.clients)
-              ? payload.clients
-              : [];
+          ? payload.data
+          : Array.isArray(payload?.clients)
+          ? payload.clients
+          : [];
         setClients(list);
         if (list.length === 0) {
           toast.error('Backend respondeu, mas sem clientes (verifique o tenant logado).');
@@ -158,7 +154,7 @@ export default function CicloContabilPage() {
       } catch (e: any) {
         // 👇 Agora o erro APARECE em vez de ficar silencioso
         toast.error(
-          `Erro ao carregar clientes (HTTP ${e.response?.status ?? 'sem resposta'}): ` +
+          `Erro ao carregar clientes (HTTP ${e.response?.status ?? 'sem resposta'}):` +
           (e.response?.data?.message ?? e.message),
         );
       }
@@ -176,7 +172,7 @@ export default function CicloContabilPage() {
       });
       const sync = r.data.data.sync;
       toast.success(
-        `Balancete ${tbCompetence}: ${r.data.data.rowCount} contas • ` +
+        `Balancete ${tbCompetence}: ${r.data.data.rowCount} contas •` +
         `plano sincronizado (${sync?.updated ?? 0} atualizadas, ${sync?.created ?? 0} criadas)`
       );
       setTbFile(null);
@@ -186,7 +182,8 @@ export default function CicloContabilPage() {
       toast.error(e.response?.data?.message || 'Erro ao importar balancete.');
     } finally { setBusy(false); }
   }
-  // ──  Excluir balancete importado ──
+
+  // ── Excluir balancete importado ──
   async function handleDeleteTrialBalance(id: string) {
     if (!window.confirm('Excluir este balancete importado? As linhas serão removidas.')) return;
     try {
@@ -198,13 +195,14 @@ export default function CicloContabilPage() {
       toast.error(e.response?.data?.message || 'Erro ao excluir balancete.');
     }
   }
+
   // ── Importa RAZÃO (mesmo padrão) ──
   async function importLedger() {
     if (!clientId || !lgFile) return toast.error('Selecione cliente e arquivo do razão.');
     setBusy(true);
     try {
-        const content = await readCsvText(lgFile);      
-        const r = await api.post('/accounting/ledger/import', {
+      const content = await readCsvText(lgFile);
+      const r = await api.post('/accounting/ledger/import', {
         clientId, periodLabel: lgPeriod, content, fileName: lgFile.name,
       });
       toast.success(`Razão ${lgPeriod}: ${r.data.data.entryCount} lançamentos.`);
@@ -267,10 +265,11 @@ export default function CicloContabilPage() {
             Balancete inicial + razão + sugeridor de conta — base dos lançamentos mensais (SCI Único).
           </p>
         </div>
+        {/* 🆕 CORREÇÃO: texto preto/escuro no select */}
         <select
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
-          className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm bg-white min-w-[260px]"
+          className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm bg-white min-w-[260px] text-slate-900 font-medium"
         >
           <option value="">— Selecione o cliente —</option>
           {clients.map((c) => (
@@ -291,15 +290,16 @@ export default function CicloContabilPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* ── Card Balancete ── */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5 text-teal-600" /> Balancete Inicial (base)
               </h3>
               <div className="flex gap-2">
+                {/* 🆕 CORREÇÃO: texto preto no input month */}
                 <input
                   type="month"
                   value={tbCompetence}
                   onChange={(e) => setTbCompetence(e.target.value)}
-                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 font-medium"
                 />
                 <Dropzone file={tbFile} onFile={setTbFile} accent="teal" />
               </div>
@@ -315,17 +315,8 @@ export default function CicloContabilPage() {
               <div className="space-y-1 pt-2">
                 {tbList.map((tb) => (
                   <div key={tb.id} className="flex items-center justify-between text-sm bg-slate-50 rounded-lg px-3 py-2">
-                    <span>{tb.competence} • {tb.rowCount} contas • D {fmtBRL(tb.totalDebit)}</span>
-                    <button onClick={() => openRows(tb.id)} className="text-teal-600 hover:underline" title="Ver linhas">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-                {tbList.map((tb) => (
-                  <div key={tb.id} className="flex items-center justify-between text-sm bg-slate-50 rounded-lg px-3 py-2">
-                    <span>{tb.competence} • {tb.rowCount} contas • D {fmtBRL(tb.totalDebit)}</span>
+                    {/* 🆕 CORREÇÃO: texto preto/escuro */}
+                    <span className="text-slate-900 font-medium">{tb.competence} • {tb.rowCount} contas • D {fmtBRL(tb.totalDebit)}</span>
                     <div className="flex items-center gap-2">
                       <button onClick={() => openRows(tb.id)} className="text-teal-600 hover:underline" title="Ver linhas">
                         <Eye className="h-4 w-4" />
@@ -336,18 +327,22 @@ export default function CicloContabilPage() {
                     </div>
                   </div>
                 ))}
-            {/* ── Card Razão ── */}
+              </div>
+            </div>
+
+            {/* ─ Card Razão ── */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-3">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">
                 <FileSpreadsheet className="h-5 w-5 text-orange-500" /> Razão / Livro Caixa
               </h3>
               <div className="flex gap-2">
+                {/* 🆕 CORREÇÃO: texto preto no input text */}
                 <input
                   type="text"
                   value={lgPeriod}
                   onChange={(e) => setLgPeriod(e.target.value)}
                   placeholder="período (ex.: 2026-05_a_2026-06)"
-                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm flex-1"
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm flex-1 text-slate-900 font-medium"
                 />
                 <Dropzone file={lgFile} onFile={setLgFile} accent="orange" />
               </div>
@@ -361,7 +356,8 @@ export default function CicloContabilPage() {
               </button>
               <div className="space-y-1 pt-2">
                 {lgList.map((lg) => (
-                  <div key={lg.id} className="text-sm bg-slate-50 rounded-lg px-3 py-2">
+                  /* 🆕 CORREÇÃO: texto preto/escuro */
+                  <div key={lg.id} className="text-sm bg-slate-50 rounded-lg px-3 py-2 text-slate-900 font-medium">
                     {lg.periodLabel} • {lg._count?.entries ?? 0} lançamentos
                   </div>
                 ))}
@@ -373,10 +369,11 @@ export default function CicloContabilPage() {
           {tbRows && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b bg-slate-50 flex justify-between items-center">
-                <p className="text-sm font-bold text-slate-700">
+                {/* 🆕 CORREÇÃO: texto preto/escuro */}
+                <p className="text-sm font-bold text-slate-900">
                   Linhas do balancete ({tbRows.length})
                 </p>
-                <button onClick={() => setTbRows(null)} className="text-xs text-slate-500 hover:underline">
+                <button onClick={() => setTbRows(null)} className="text-xs text-slate-600 hover:underline">
                   fechar
                 </button>
               </div>
@@ -401,20 +398,20 @@ export default function CicloContabilPage() {
                   <tbody className="divide-y divide-slate-100">
                     {tbRows.map((r) => (
                       <tr key={r.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-1.5 font-mono text-xs text-slate-500">
+                        <td className="px-4 py-1.5 font-mono text-xs text-slate-600">
                           {r.seq || '—'}
                         </td>
-                        <td className="px-4 py-1.5 font-mono text-xs text-teal-700">
+                        <td className="px-4 py-1.5 font-mono text-xs text-teal-700 font-semibold">
                           {r.code}
                         </td>
-                        <td className="px-4 py-1.5 text-slate-700">
+                        <td className="px-4 py-1.5 text-slate-900">
                           {r.isSynthetic ? (
                             <span className="font-bold text-slate-900">{r.name}</span>
                           ) : (
                             r.name
                           )}
                         </td>
-                        <td className="px-4 py-1.5 text-right text-slate-700">
+                        <td className="px-4 py-1.5 text-right font-medium text-slate-900">
                           {fmtBRL(r.currentBalance)}
                         </td>
                       </tr>
@@ -430,7 +427,8 @@ export default function CicloContabilPage() {
             <div className="px-4 py-3 border-b bg-amber-50 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Lightbulb className="h-5 w-5 text-amber-600" />
-                <p className="text-sm font-bold text-amber-800">
+                {/* 🆕 CORREÇÃO: texto preto/escuro */}
+                <p className="text-sm font-bold text-amber-900">
                   Sugeridor de conta (contraparte → conta do razão) — {cpEntries.length} pares
                 </p>
               </div>
@@ -442,27 +440,27 @@ export default function CicloContabilPage() {
                 Nova conta
               </button>
             </div>
-
             {/* Formulário inline p/ criar conta */}
             {showAddAccount && (
               <div className="px-4 py-3 bg-teal-50 border-b border-teal-200 space-y-2">
-                <p className="text-xs font-semibold text-teal-800">
+                <p className="text-xs font-semibold text-teal-900">
                   Adicionar conta ao plano SCI 90113 do tenant:
                 </p>
                 <div className="flex flex-col md:flex-row gap-2">
+                  {/* 🆕 CORREÇÃO: texto preto nos inputs */}
                   <input
                     type="text"
                     placeholder="Código (ex.: 03.2.1.01.015)"
                     value={newAccount.code}
                     onChange={(e) => setNewAccount({ ...newAccount, code: e.target.value })}
-                    className="flex-1 px-3 py-2 border border-teal-300 rounded-lg text-sm font-mono"
+                    className="flex-1 px-3 py-2 border border-teal-300 rounded-lg text-sm font-mono text-slate-900"
                   />
                   <input
                     type="text"
                     placeholder="Nome (ex.: Doações de Terceiros)"
                     value={newAccount.name}
                     onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
-                    className="flex-[2] px-3 py-2 border border-teal-300 rounded-lg text-sm"
+                    className="flex-[2] px-3 py-2 border border-teal-300 rounded-lg text-sm text-slate-900"
                   />
                   <button
                     onClick={handleAddAccount}
@@ -475,26 +473,26 @@ export default function CicloContabilPage() {
                       setShowAddAccount(false);
                       setNewAccount({ code: '', name: '' });
                     }}
-                    className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 text-sm font-medium"
+                    className="px-4 py-2 bg-slate-200 text-slate-900 rounded-lg hover:bg-slate-300 text-sm font-medium"
                   >
                     Cancelar
                   </button>
                 </div>
               </div>
             )}
-
             <div className="max-h-[40vh] overflow-y-auto divide-y divide-slate-100">
               {cpEntries.length === 0 && (
-                <p className="text-sm text-slate-400 text-center py-6">
+                <p className="text-sm text-slate-500 text-center py-6">
                   Importe o razão para alimentar o sugeridor.
                 </p>
               )}
               {cpEntries.map(([cp, info]) => (
                 <div key={cp} className="flex items-center gap-3 px-4 py-1.5 text-sm">
-                  <span className="flex-1 font-medium text-slate-700">{cp}</span>
-                  <span className="font-mono text-xs text-teal-700">{info.code}</span>
-                  <span className="text-xs text-slate-500 w-56 truncate">{info.name}</span>
-                  <span className="text-xs text-slate-400">{info.hits}×</span>
+                  {/* 🆕 CORREÇÃO: texto preto/escuro */}
+                  <span className="flex-1 font-medium text-slate-900">{cp}</span>
+                  <span className="font-mono text-xs text-teal-700 font-semibold">{info.code}</span>
+                  <span className="text-xs text-slate-700 w-56 truncate">{info.name}</span>
+                  <span className="text-xs text-slate-600 font-medium">{info.hits}×</span>
                 </div>
               ))}
             </div>
