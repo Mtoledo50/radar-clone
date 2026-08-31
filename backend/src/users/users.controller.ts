@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/create-user.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -8,14 +18,21 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  // ✅ CORREÇÃO: O JWT usa a claim `sub` como identificador (padrão JWT).
+  // Normalizamos aqui para aceitar id / sub / userId sem quebrar nada.
+  private getRequesterId(req: any): string {
+    return req.user?.id ?? req.user?.sub ?? req.user?.userId;
+  }
+
   @Get()
   findAll(@Request() req) {
     return this.usersService.findAll(req.user.companyId);
   }
 
+  // 🆕 Perfil do usuário logado (usado pelo modal de troca forçada de senha)
   @Get('me')
   getMe(@Request() req) {
-    return this.usersService.findById(req.user.id);
+    return this.usersService.findById(this.getRequesterId(req));
   }
 
   @Post()
@@ -25,7 +42,7 @@ export class UsersController {
 
   @Patch('me/password')
   changeMyPassword(@Request() req, @Body() dto: ChangePasswordDto) {
-    return this.usersService.changePassword(req.user.id, dto);
+    return this.usersService.changePassword(this.getRequesterId(req), dto);
   }
 
   @Patch(':id')
@@ -38,9 +55,9 @@ export class UsersController {
     return this.usersService.resetPassword(id, req.user.companyId);
   }
 
-  // 🆕 NOVO: Exclusão lógica de usuário
+  // 🆕 Exclusão lógica de usuário
   @Delete(':id')
   remove(@Param('id') id: string, @Request() req) {
-    return this.usersService.remove(id, req.user.companyId, req.user.id);
+    return this.usersService.remove(id, req.user.companyId, this.getRequesterId(req));
   }
 }

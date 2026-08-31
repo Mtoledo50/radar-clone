@@ -21,7 +21,12 @@ export class UsersService {
     });
   }
 
-  async findById(id: string) {
+ async findById(id: string) {
+    // ✅ Guarda defensiva: falha rápido com erro claro, não com erro do Prisma
+    if (!id) {
+      throw new UnauthorizedException('Usuário não autenticado.');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id },
       select: { id: true, name: true, email: true, role: true, companyId: true, mustChangePassword: true },

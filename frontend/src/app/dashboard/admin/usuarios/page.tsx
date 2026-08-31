@@ -11,12 +11,9 @@ import {
   Building2, 
   Loader2, 
   X,
-  Trash2  // 🆕 NOVO
-
+  Trash2
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-
-// ✅ Import default (o axios.ts usa `export default api`)
 import api from '@/lib/axios';
 
 type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER' | 'CLIENTE';
@@ -61,15 +58,7 @@ export default function AdminUsersPage() {
     role: 'USER' as UserRole,
   });
 
-  useEffect(() => {
-    if (loggedUser && loggedUser.role !== 'ADMIN' && loggedUser.role !== 'SUPER_ADMIN') {
-      toast.error('Acesso negado. Apenas administradores podem gerenciar usuários.');
-      router.push('/dashboard');
-      return;
-    }
-    fetchUsers();
-  }, [loggedUser, router]);
-
+  // ✅ Todas as funções declaradas ANTES do useEffect e do JSX
   const fetchUsers = async () => {
     try {
       const { data } = await api.get('/users');
@@ -119,6 +108,28 @@ export default function AdminUsersPage() {
       toast.error('Erro ao redefinir a senha.');
     }
   };
+
+  // ✅ FUNÇÃO DE EXCLUSÃO CORRIGIDA (declarada antes do useEffect)
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Deseja realmente remover ${userName}? O acesso será revogado imediatamente.`)) return;
+    
+    try {
+      await api.delete(`/users/${userId}`);
+      toast.success(`Usuário ${userName} removido com sucesso.`);
+      fetchUsers();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao remover usuário.');
+    }
+  };
+
+  useEffect(() => {
+    if (loggedUser && loggedUser.role !== 'ADMIN' && loggedUser.role !== 'SUPER_ADMIN') {
+      toast.error('Acesso negado. Apenas administradores podem gerenciar usuários.');
+      router.push('/dashboard');
+      return;
+    }
+    fetchUsers();
+  }, [loggedUser, router]);
 
   if (!loggedUser || (loggedUser.role !== 'ADMIN' && loggedUser.role !== 'SUPER_ADMIN')) {
     return null;
@@ -192,17 +203,7 @@ export default function AdminUsersPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => handleResetPassword(user.id, user.name)}
-                        disabled={user.id === loggedUser.id}
-                        className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-[#f97316] transition-colors disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1.5 rounded-md hover:bg-slate-100"
-                        title={user.id === loggedUser.id ? "Você não pode redefinir sua própria senha por aqui" : "Redefinir Senha"}
-                      >
-                        <KeyRound size={16} /> Redefinir
-                      </button>
-                    </td>
-                                        <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right space-x-2">
                       <button 
                         onClick={() => handleResetPassword(user.id, user.name)}
                         disabled={user.id === loggedUser.id}
@@ -211,7 +212,6 @@ export default function AdminUsersPage() {
                       >
                         <KeyRound size={16} /> Redefinir
                       </button>
-                      {/* 🆕 NOVO: Botão de exclusão lógica */}
                       <button 
                         onClick={() => handleDeleteUser(user.id, user.name)}
                         disabled={user.id === loggedUser.id}
@@ -254,7 +254,6 @@ export default function AdminUsersPage() {
             <form onSubmit={handleCreateUser} className="p-6 space-y-5">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Nome Completo</label>
-                {/* ✅ CORREÇÃO UX: texto digitado escuro (text-slate-900) + placeholder claro */}
                 <input 
                   required 
                   className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] outline-none transition-all text-slate-900 placeholder:text-slate-400"
@@ -266,7 +265,6 @@ export default function AdminUsersPage() {
               
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">E-mail Corporativo</label>
-                {/* ✅ CORREÇÃO UX: texto digitado escuro (text-slate-900) + placeholder claro */}
                 <input 
                   type="email"
                   required 
@@ -279,7 +277,6 @@ export default function AdminUsersPage() {
               
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Nível de Acesso</label>
-                {/* ✅ CORREÇÃO UX: texto do select escuro (text-slate-900) */}
                 <select 
                   className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-[#0d9488]/20 focus:border-[#0d9488] outline-none transition-all bg-white text-slate-900"
                   value={formData.role}
@@ -322,16 +319,4 @@ export default function AdminUsersPage() {
       )}
     </div>
   );
-    // 🆕 NOVO: Exclusão lógica com confirmação
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!confirm(`Deseja realmente remover ${userName}? O acesso será revogado imediatamente.`)) return;
-    
-    try {
-      await api.delete(`/users/${userId}`);
-      toast.success(`Usuário ${userName} removido com sucesso.`);
-      fetchUsers();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro ao remover usuário.');
-    }
-  };
 }
