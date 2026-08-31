@@ -1,0 +1,3245 @@
+=======================================================
+DADOS DOS ARQUIVOS DE SEED PARA ANÁLISE DO ARQUITETO
+=======================================================
+
+📄 ARQUIVO: check-aurora.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\check-aurora.ts
+-------------------------------------------------------
+/**
+ * Script de diagnóstico e correção do Funcionário Digital (Aurora)
+ * Executar: npx ts-node prisma/check-aurora.ts
+ */
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🔍 Diagnóstico do Funcionário Digital...\n');
+
+  // 1. Verificar empresa
+  const company = await prisma.company.findFirst({
+    where: { name: 'Conta Certa Demo' },
+  });
+
+  if (!company) {
+    console.log(' Empresa "Conta Certa Demo" NÃO encontrada!');
+    console.log('   Execute: npx ts-node prisma/seed-users.ts');
+    return;
+  }
+
+  console.log(`✅ Empresa encontrada:`);
+  console.log(`   ID: ${company.id}`);
+  console.log(`   Nome: ${company.name}\n`);
+
+  // 2. Verificar usuário admin
+  const admin = await prisma.user.findFirst({
+    where: { email: 'admin@demo.com' },
+  });
+
+  if (!admin) {
+    console.log('❌ Usuário admin@demo.com NÃO encontrado!');
+    console.log('   Execute: npx ts-node prisma/seed-users.ts');
+    return;
+  }
+
+  console.log(`✅ Usuário admin encontrado:`);
+  console.log(`   ID: ${admin.id}`);
+  console.log(`   Email: ${admin.email}`);
+  console.log(`   CompanyId: ${admin.companyId || '⚠️  VAZIO (NULL)'}`);
+
+  // 3. Corrigir companyId se estiver vazio
+  if (!admin.companyId) {
+    console.log(`\n🔧 Corrigindo companyId do usuário admin...`);
+    await prisma.user.update({
+      where: { id: admin.id },
+      data: { companyId: company.id },
+    });
+    console.log(`✅ companyId atualizado para: ${company.id}`);
+    console.log(`\n⚠️  IMPORTANTE: Faça LOGOUT e LOGIN novamente no sistema!`);
+  }
+
+  // 4. Verificar RobotWorker (Aurora)
+  const aurora = await (prisma as any).robotWorker?.findFirst({
+    where: { companyId: company.id },
+  });
+
+  if (aurora) {
+    console.log(`\n✅ Aurora (RobotWorker) encontrada:`);
+    console.log(`   ID: ${aurora.id}`);
+    console.log(`   Name: ${aurora.name}`);
+    console.log(`   CompanyId: ${aurora.companyId}`);
+  } else {
+    console.log(`\n⚠️  Aurora (RobotWorker) NÃO encontrada.`);
+    console.log(`   O módulo Funcionário Digital pode não estar totalmente implementado.`);
+  }
+
+  console.log('\n🎉 Diagnóstico concluído!');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro:', e.message);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: diagnose-plans.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\diagnose-plans.ts
+-------------------------------------------------------
+// =================================================================
+// DIAGNÓSTICO: Verificar o que já existe no banco
+// =================================================================
+// Executar: npx ts-node prisma/diagnose-plans.ts
+// =================================================================
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log(' DIAGNÓSTICO DO BANCO DE DADOS\n');
+
+  const company = await prisma.company.findFirst();
+  if (!company) {
+    console.log('❌ Nenhuma empresa encontrada no banco.');
+    return;
+  }
+
+  console.log(`📋 Empresa: ${company.name} (${company.id})\n`);
+
+  // 1️⃣ Categorias
+  const categories = await prisma.serviceCategory.findMany({
+    where: { companyId: company.id },
+    include: { _count: { select: { items: true } } },
+    orderBy: { order: 'asc' },
+  });
+
+  console.log(`📂 CATEGORIAS (${categories.length}):`);
+  categories.forEach((cat) => {
+    console.log(`  ${cat.icon || '📁'} ${cat.name} - ${cat._count.items} itens`);
+  });
+  console.log('');
+
+  // 2️⃣ Itens de Serviço
+  const items = await prisma.serviceItem.findMany({
+    where: { companyId: company.id },
+    include: { category: true },
+    orderBy: [{ category: { order: 'asc' } }, { order: 'asc' }],
+  });
+
+  console.log(`📦 ITENS DE SERVIÇO (${items.length}):`);
+  items.forEach((item) => {
+    console.log(`  • ${item.name} - R$ ${item.basePrice} - ${item.estimatedHours}h`);
+  });
+  console.log('');
+
+  // 3️⃣ Planos Comerciais
+  const plans = await prisma.commercialPlan.findMany({
+    where: { companyId: company.id },
+    include: { 
+      _count: { select: { planItems: true } },
+      planItems: {
+        include: { serviceItem: true },
+      },
+    },
+    orderBy: { order: 'asc' },
+  });
+
+  console.log(`💼 PLANOS COMERCIAIS (${plans.length}):`);
+  plans.forEach((plan) => {
+    console.log(`\n   ${plan.name} (multiplicador: ${plan.multiplier})`);
+    console.log(`     ${plan.description}`);
+    console.log(`     ${plan._count.planItems} itens vinculados:`);
+    
+    // Agrupar por categoria
+    const itemsByCategory = plan.planItems.reduce((acc: any, pi: any) => {
+      const catName = pi.serviceItem.category.name;
+      if (!acc[catName]) acc[catName] = [];
+      acc[catName].push(pi.serviceItem.name);
+      return acc;
+    }, {});
+
+    Object.entries(itemsByCategory).forEach(([cat, items]: [string, any]) => {
+      console.log(`     📁 ${cat}:`);
+      items.forEach((item: string) => console.log(`        ✓ ${item}`));
+    });
+  });
+
+  console.log('\n✅ Diagnóstico concluído!');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: seed-aurora.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-aurora.ts
+-------------------------------------------------------
+/**
+ * ============================================================================
+ * RADAR CONTA CERTA — SEED DO FUNCIONÁRIO DIGITAL (AURORA)
+ * ============================================================================
+ */
+import { PrismaClient, SkillKey, AutonomyLevel } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🤖 Iniciando seed do Funcionário Digital (Aurora)...');
+
+  // 1. Buscar ou criar empresa demo
+  let company = await prisma.company.findFirst({
+    where: { name: 'Conta Certa Demo' },
+  });
+
+  if (!company) {
+    console.log('📝 Criando empresa demo...');
+    company = await prisma.company.create({
+      data: {
+        name: 'Conta Certa Demo',
+        cnpj: '00000000000000',
+        plan: 'PREMIUM',
+      },
+    });
+  }
+
+  // 2. Criar ou atualizar a Aurora (companyId é @unique no schema)
+  console.log('\n🤖 Configurando RobotWorker (Aurora)...');
+  const aurora = await prisma.robotWorker.upsert({
+    where: { companyId: company.id },
+    update: {
+      name: 'Aurora',
+      status: 'ACTIVE',
+    },
+    create: {
+      companyId: company.id,
+      name: 'Aurora',
+      status: 'ACTIVE',
+    },
+  });
+  console.log(`✅ Aurora pronta (ID: ${aurora.id})`);
+
+  // 3. Configurar as habilidades (Skills)
+  // O schema REAL de RobotWorkerSkill tem: skillKey, enabled, cronExpr, autonomy, params
+  console.log('\n⚡ Configurando habilidades da Aurora...');
+  
+  const skills = [
+    { skillKey: 'RECONCILIATION' as SkillKey, enabled: true, cronExpr: '0 2 * * *', autonomy: 'AUTO' as AutonomyLevel },
+    { skillKey: 'CLASSIFICATION' as SkillKey, enabled: true, cronExpr: '30 2 * * *', autonomy: 'REVIEW' as AutonomyLevel },
+    { skillKey: 'MONTHLY_REPORT' as SkillKey, enabled: true, cronExpr: '0 8 5 * *', autonomy: 'AUTO' as AutonomyLevel },
+    { skillKey: 'TAX_GUIDES' as SkillKey, enabled: true, cronExpr: '0 9 20 * *', autonomy: 'REVIEW' as AutonomyLevel },
+  ];
+
+  for (const s of skills) {
+    await prisma.robotWorkerSkill.upsert({
+      where: {
+        companyId_skillKey: {
+          companyId: company.id,
+          skillKey: s.skillKey,
+        },
+      },
+      update: {
+        enabled: s.enabled,
+        cronExpr: s.cronExpr,
+        autonomy: s.autonomy,
+      },
+      create: {
+        companyId: company.id,
+        workerId: aurora.id,
+        skillKey: s.skillKey,
+        enabled: s.enabled,
+        cronExpr: s.cronExpr,
+        autonomy: s.autonomy,
+        params: {},
+      },
+    });
+    console.log(`   ✅ Skill ${s.skillKey} configurada`);
+  }
+
+  console.log('\n🎉 Seed do Funcionário Digital concluído com sucesso!');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro no seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: seed-catalog.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-catalog.ts
+-------------------------------------------------------
+/**
+ * =================================================================
+ * SEED: Catálogo de Serviços + Planos Comerciais
+ * =================================================================
+ * 
+ * 🎯 PROPÓSITO:
+ * Popular o sistema com o catálogo completo de serviços contábeis
+ * e os planos comerciais (START, PRIME, BLACK, ENTERPRISE).
+ * 
+ * 📦 O QUE ESTE SEED CRIA:
+ * 1. 17 Categorias/Departamentos contábeis
+ * 2. ~60 Serviços distribuídos entre as categorias
+ * 3. 4 Planos comerciais com multiplicadores
+ * 4. Associações entre planos e serviços (herança automática)
+ * 
+ * 🔄 IDEMPOTÊNCIA:
+ * Este seed pode ser executado múltiplas vezes sem duplicar dados.
+ * Usa upsert (create + update) para garantir unicidade.
+ * 
+ * 🚀 COMO EXECUTAR:
+ * cd backend
+ * npx ts-node prisma/seed-catalogo.ts
+ * 
+ * =================================================================
+ */
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+// =================================================================
+// 📦 DADOS: 17 Categorias/Departamentos Contábeis
+// =================================================================
+const categorias = [
+  { name: 'Contábil', order: 1, description: 'Serviços de contabilidade geral e escrituração' },
+  { name: 'Fiscal', order: 2, description: 'Apuração de impostos e obrigações fiscais' },
+  { name: 'Pessoal (DP)', order: 3, description: 'Departamento Pessoal, folha e encargos' },
+  { name: 'Societário', order: 4, description: 'Contratos sociais, alterações e dissoluções' },
+  { name: 'Legalização', order: 5, description: 'Registro e manutenção de empresas' },
+  { name: 'BPO Financeiro', order: 6, description: 'Terceirização de contas a pagar/receber' },
+  { name: 'Consultoria', order: 7, description: 'Consultoria contábil e tributária' },
+  { name: 'Auditoria', order: 8, description: 'Auditoria contábil e revisão de procedimentos' },
+  { name: 'Controladoria', order: 9, description: 'Controladoria e gestão financeira' },
+  { name: 'LGPD', order: 10, description: 'Adequação à Lei Geral de Proteção de Dados' },
+  { name: 'Tecnologia', order: 11, description: 'Sistemas e automação contábil' },
+  { name: 'MEI', order: 12, description: 'Serviços específicos para Microempreendedores' },
+  { name: 'IRPF', order: 13, description: 'Imposto de Renda Pessoa Física' },
+  { name: 'Importação/Exportação', order: 14, description: 'Comércio exterior e aduana' },
+  { name: 'Agronegócio', order: 15, description: 'Contabilidade rural e agropecuária' },
+  { name: 'Startup', order: 16, description: 'Serviços para startups e empresas de tecnologia' },
+  { name: 'Premium', order: 17, description: 'Serviços exclusivos e personalizados' },
+];
+
+// =================================================================
+// 📦 DADOS: ~60 Serviços distribuídos por categoria
+// =================================================================
+const servicosPorCategoria: Record<string, Array<{
+  name: string;
+  description: string;
+  scope: string;
+  outOfScope: string;
+  sla: string;
+  documents: string;
+  basePrice: number;
+}>> = {
+  'Contábil': [
+    {
+      name: 'Escrituração Contábil Mensal',
+      description: 'Registro de todas as operações contábeis do mês',
+      scope: 'Lançamentos contábeis, balancete, razão',
+      outOfScope: 'Conciliação bancária, DRE gerencial',
+      sla: '5 dias úteis após recebimento dos documentos',
+      documents: 'Extratos bancários, notas fiscais, comprovantes',
+      basePrice: 800,
+    },
+    {
+      name: 'Fechamento Contábil Anual',
+      description: 'Encerramento do exercício contábil',
+      scope: 'Balanço patrimonial, DRE, DMPL, DFCA',
+      outOfScope: 'Auditoria independente',
+      sla: '30 dias após encerramento do exercício',
+      documents: 'Todos os documentos do exercício',
+      basePrice: 2500,
+    },
+    {
+      name: 'Conciliação Bancária',
+      description: 'Conferência entre extrato bancário e contabilidade',
+      scope: 'Conciliação de todas as contas bancárias',
+      outOfScope: 'Investigação de divergências complexas',
+      sla: '3 dias úteis',
+      documents: 'Extratos bancários completos',
+      basePrice: 300,
+    },
+    {
+      name: 'Análise de Balanço',
+      description: 'Análise detalhada das demonstrações contábeis',
+      scope: 'Relatório de análise com índices e recomendações',
+      outOfScope: 'Consultoria estratégica',
+      sla: '7 dias úteis',
+      documents: 'Balanço patrimonial e DRE',
+      basePrice: 600,
+    },
+  ],
+
+  'Fiscal': [
+    {
+      name: 'Apuração de ICMS',
+      description: 'Cálculo mensal do ICMS a pagar',
+      scope: 'Apuração, guia, declaração',
+      outOfScope: 'Defesa fiscal em caso de autuação',
+      sla: 'Até 20º dia do mês seguinte',
+      documents: 'Notas fiscais de entrada e saída',
+      basePrice: 500,
+    },
+    {
+      name: 'Apuração de ISS',
+      description: 'Cálculo mensal do ISS para prestadores de serviço',
+      scope: 'Apuração, guia, declaração',
+      outOfScope: 'Acompanhamento de fiscalizações',
+      sla: 'Até 15º dia do mês seguinte',
+      documents: 'Notas fiscais de serviço emitidas',
+      basePrice: 400,
+    },
+    {
+      name: 'Declaração de Imposto de Renda PJ (Lucro Presumido)',
+      description: 'Apuração trimestral do IRPJ e CSLL',
+      scope: 'Cálculo, guia, declaração',
+      outOfScope: 'Planejamento tributário',
+      sla: 'Até último dia do mês seguinte ao trimestre',
+      documents: 'DRE trimestral, notas fiscais',
+      basePrice: 700,
+    },
+    {
+      name: 'SPED Fiscal',
+      description: 'Escrituração fiscal digital',
+      scope: 'Geração e transmissão do arquivo SPED',
+      outOfScope: 'Correção de erros após transmissão',
+      sla: 'Até 25º dia do mês seguinte',
+      documents: 'Todas as notas fiscais do período',
+      basePrice: 600,
+    },
+    {
+      name: 'SPED Contábil',
+      description: 'Escrituração contábil digital',
+      scope: 'Geração e transmissão do arquivo SPED',
+      outOfScope: 'Auditoria do arquivo',
+      sla: 'Até 30 de junho do ano seguinte',
+      documents: 'Livros contábeis do exercício',
+      basePrice: 800,
+    },
+    {
+      name: 'DCTF Mensal',
+      description: 'Declaração de Débitos e Créditos Tributários Federais',
+      scope: 'Preenchimento e transmissão',
+      outOfScope: 'Regularização de débitos',
+      sla: 'Até 15º dia do 2º mês seguinte',
+      documents: 'Apurações de impostos federais',
+      basePrice: 350,
+    },
+  ],
+
+  'Pessoal (DP)': [
+    {
+      name: 'Folha de Pagamento (até 5 funcionários)',
+      description: 'Processamento completo da folha',
+      scope: 'Cálculo, holerites, GPS, FGTS',
+      outOfScope: 'Gestão de benefícios',
+      sla: 'Até 5 dias antes do pagamento',
+      documents: 'Ponto, atestados, avisos',
+      basePrice: 400,
+    },
+    {
+      name: 'Folha de Pagamento (6-15 funcionários)',
+      description: 'Processamento completo da folha',
+      scope: 'Cálculo, holerites, GPS, FGTS',
+      outOfScope: 'Gestão de benefícios',
+      sla: 'Até 5 dias antes do pagamento',
+      documents: 'Ponto, atestados, avisos',
+      basePrice: 700,
+    },
+    {
+      name: 'Admissão de Funcionário',
+      description: 'Processo completo de admissão',
+      scope: 'Exame admissional, registro, documentos',
+      outOfScope: 'Recrutamento e seleção',
+      sla: '3 dias úteis',
+      documents: 'Documentos pessoais do funcionário',
+      basePrice: 150,
+    },
+    {
+      name: 'Rescisão de Contrato',
+      description: 'Cálculo e processamento de rescisão',
+      scope: 'Cálculo, guia, homologação',
+      outOfScope: 'Negociação com funcionário',
+      sla: '5 dias úteis',
+      documents: 'Aviso prévio, documentos pessoais',
+      basePrice: 250,
+    },
+    {
+      name: 'Férias',
+      description: 'Cálculo e processamento de férias',
+      scope: 'Cálculo, aviso, pagamento',
+      outOfScope: 'Gestão de calendário de férias',
+      sla: '2 dias úteis',
+      documents: 'Solicitação de férias',
+      basePrice: 100,
+    },
+  ],
+
+  'Societário': [
+    {
+      name: 'Contrato Social (Constituição)',
+      description: 'Elaboração e registro de contrato social',
+      scope: 'Elaboração, registro na Junta, CNPJ',
+      outOfScope: 'Licenças municipais',
+      sla: '15 dias úteis',
+      documents: 'Documentos dos sócios',
+      basePrice: 1200,
+    },
+    {
+      name: 'Alteração Contratual',
+      description: 'Alterações no contrato social',
+      scope: 'Elaboração, registro, atualização',
+      outOfScope: 'Mudança de endereço (requer alvará)',
+      sla: '10 dias úteis',
+      documents: 'Documentação da alteração',
+      basePrice: 800,
+    },
+    {
+      name: 'Dissolução de Empresa',
+      description: 'Encerramento de atividades',
+      scope: 'Baixa CNPJ, certidões negativas',
+      outOfScope: 'Pagamento de débitos pendentes',
+      sla: '60 dias úteis',
+      documents: 'Documentação completa da empresa',
+      basePrice: 2000,
+    },
+  ],
+
+  'MEI': [
+    {
+      name: 'Abertura de MEI',
+      description: 'Registro completo de Microempreendedor Individual',
+      scope: 'Cadastro, CNPJ, alvará',
+      outOfScope: 'Licenças específicas',
+      sla: '5 dias úteis',
+      documents: 'Documentos pessoais',
+      basePrice: 200,
+    },
+    {
+      name: 'DASN-SIMEI (Declaração Anual)',
+      description: 'Declaração anual do MEI',
+      scope: 'Preenchimento e transmissão',
+      outOfScope: 'Regularização de débitos',
+      sla: 'Até 31 de maio',
+      documents: 'Faturamento do ano',
+      basePrice: 150,
+    },
+    {
+      name: 'Emissão de DAS Mensal',
+      description: 'Geração mensal da guia do MEI',
+      scope: 'Emissão e envio da guia',
+      outOfScope: 'Acompanhamento de pagamento',
+      sla: 'Até dia 20 de cada mês',
+      documents: 'Nenhum',
+      basePrice: 50,
+    },
+  ],
+
+  'IRPF': [
+    {
+      name: 'Declaração de Imposto de Renda PF (Simples)',
+      description: 'IRPF para rendimentos simples',
+      scope: 'Preenchimento, transmissão, recibo',
+      outOfScope: 'Regularização de débitos',
+      sla: 'Até 30 de abril',
+      documents: 'Informes de rendimentos',
+      basePrice: 250,
+    },
+    {
+      name: 'Declaração de Imposto de Renda PF (Completa)',
+      description: 'IRPF com múltiplas fontes de renda',
+      scope: 'Preenchimento, transmissão, recibo',
+      outOfScope: 'Defesa em malha fina',
+      sla: 'Até 30 de abril',
+      documents: 'Todos os informes de rendimentos',
+      basePrice: 500,
+    },
+  ],
+
+  'Consultoria': [
+    {
+      name: 'Consultoria Tributária (hora técnica)',
+      description: 'Orientação sobre questões tributárias',
+      scope: 'Análise e recomendação por escrito',
+      outOfScope: 'Implementação de mudanças',
+      sla: 'Conforme demanda',
+      documents: 'Documentação da empresa',
+      basePrice: 300,
+    },
+    {
+      name: 'Planejamento Tributário Anual',
+      description: 'Análise do melhor regime tributário',
+      scope: 'Relatório comparativo, recomendação',
+      outOfScope: 'Implementação',
+      sla: '30 dias úteis',
+      documents: 'DRE, balanço, projeções',
+      basePrice: 2500,
+    },
+  ],
+
+  'BPO Financeiro': [
+    {
+      name: 'Contas a Pagar (até 50 lançamentos/mês)',
+      description: 'Gestão completa de contas a pagar',
+      scope: 'Agendamento, pagamento, conciliação',
+      outOfScope: 'Negociação com fornecedores',
+      sla: 'Conforme calendário de pagamentos',
+      documents: 'Boletos, notas fiscais',
+      basePrice: 600,
+    },
+    {
+      name: 'Contas a Receber (até 50 lançamentos/mês)',
+      description: 'Gestão completa de contas a receber',
+      scope: 'Emissão, cobrança, conciliação',
+      outOfScope: 'Cobrança judicial',
+      sla: 'Conforme vencimentos',
+      documents: 'Contratos, notas fiscais',
+      basePrice: 600,
+    },
+  ],
+
+  'Auditoria': [
+    {
+      name: 'Auditoria Contábil Básica',
+      description: 'Revisão de procedimentos contábeis',
+      scope: 'Relatório de achados e recomendações',
+      outOfScope: 'Auditoria independente (CVM)',
+      sla: '45 dias úteis',
+      documents: 'Livros contábeis, documentos fiscais',
+      basePrice: 3500,
+    },
+  ],
+
+  'LGPD': [
+    {
+      name: 'Adequação à LGPD (Diagnóstico)',
+      description: 'Avaliação inicial de conformidade',
+      scope: 'Relatório de gaps, plano de ação',
+      outOfScope: 'Implementação de medidas',
+      sla: '20 dias úteis',
+      documents: 'Processos de tratamento de dados',
+      basePrice: 2000,
+    },
+  ],
+
+  'Tecnologia': [
+    {
+      name: 'Implantação de Sistema Contábil',
+      description: 'Configuração e migração de dados',
+      scope: 'Setup, migração, treinamento',
+      outOfScope: 'Customizações',
+      sla: '30 dias úteis',
+      documents: 'Dados da empresa',
+      basePrice: 1500,
+    },
+  ],
+
+  'Importação/Exportação': [
+    {
+      name: 'Registro de Importação (DI)',
+      description: 'Processamento de Declaração de Importação',
+      scope: 'Registro, acompanhamento',
+      outOfScope: 'Desembaraço aduaneiro',
+      sla: 'Conforme prazo da Receita',
+      documents: 'Invoice, packing list, BL',
+      basePrice: 800,
+    },
+  ],
+
+  'Agronegócio': [
+    {
+      name: 'Contabilidade Rural (Livro Caixa)',
+      description: 'Escrituração do livro caixa rural',
+      scope: 'Registro de receitas e despesas',
+      outOfScope: 'Análise de viabilidade',
+      sla: 'Até 30 de abril',
+      documents: 'Notas fiscais, recibos',
+      basePrice: 1200,
+    },
+  ],
+
+  'Startup': [
+    {
+      name: 'Estruturação Societária para Startup',
+      description: 'Modelagem societária para captação',
+      scope: 'Contrato social, acordo de sócios',
+      outOfScope: 'Negociação com investidores',
+      sla: '20 dias úteis',
+      documents: 'Term sheet, valuation',
+      basePrice: 3000,
+    },
+  ],
+
+  'Premium': [
+    {
+      name: 'CFO Part-Time (20h/mês)',
+      description: 'Diretor financeiro compartilhado',
+      scope: 'Gestão financeira estratégica',
+      outOfScope: 'Operacional contábil',
+      sla: 'Conforme demanda',
+      documents: 'Acesso aos sistemas',
+      basePrice: 5000,
+    },
+    {
+      name: 'Consultoria Estratégica Mensal',
+      description: 'Reunião mensal de estratégia',
+      scope: 'Análise de KPIs, recomendações',
+      outOfScope: 'Implementação',
+      sla: '1 reunião de 2h/mês',
+      documents: 'Relatórios gerenciais',
+      basePrice: 1500,
+    },
+  ],
+};
+
+// =================================================================
+//  DADOS: 4 Planos Comerciais
+// =================================================================
+const planos = [
+  {
+    name: 'START',
+    multiplier: 1.0,
+    order: 1,
+    isIndependent: false,
+    description: 'Plano básico para MEI e pequenas empresas',
+    badge: 'INICIANTE',
+  },
+  {
+    name: 'PRIME',
+    multiplier: 1.5,
+    order: 2,
+    isIndependent: false,
+    description: 'Plano intermediário para pequenas e médias empresas',
+    badge: 'MAIS POPULAR',
+  },
+  {
+    name: 'BLACK',
+    multiplier: 2.0,
+    order: 3,
+    isIndependent: false,
+    description: 'Plano avançado para médias e grandes empresas',
+    badge: 'PREMIUM',
+  },
+  {
+    name: 'ENTERPRISE',
+    multiplier: 3.0,
+    order: 4,
+    isIndependent: true, // Não herda de outros planos
+    description: 'Plano corporativo personalizado',
+    badge: 'CORPORATIVO',
+  },
+];
+
+// =================================================================
+// 🎯 FUNÇÃO PRINCIPAL DO SEED
+// =================================================================
+async function main() {
+  console.log('🚀 Iniciando seed do catálogo de serviços...\n');
+
+  // =================================================================
+  // 📦 PASSO 1: Criar Categorias
+  // =================================================================
+  console.log('📦 Criando categorias...');
+  const categoriasCriadas = [];
+
+  for (const categoria of categorias) {
+    const created = await prisma.serviceCategory.upsert({
+      where: {
+        // Usa um ID único baseado no nome (normalizado)
+        id: `cat-${categoria.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')}`,
+      },
+      update: {
+        name: categoria.name,
+        order: categoria.order,
+        description: categoria.description,
+      },
+      create: {
+        id: `cat-${categoria.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')}`,
+        name: categoria.name,
+        order: categoria.order,
+        description: categoria.description,
+      },
+    });
+
+    categoriasCriadas.push(created);
+    console.log(`  ✅ ${categoria.name}`);
+  }
+
+  console.log(`\n✅ ${categoriasCriadas.length} categorias criadas/atualizadas\n`);
+
+  // =================================================================
+  // 📦 PASSO 2: Criar Serviços
+  // =================================================================
+  console.log('📦 Criando serviços...');
+  const servicosCriados = [];
+
+  for (const [categoriaNome, servicos] of Object.entries(servicosPorCategoria)) {
+    const categoria = categoriasCriadas.find(c => c.name === categoriaNome);
+    if (!categoria) {
+      console.warn(`⚠️  Categoria "${categoriaNome}" não encontrada, pulando...`);
+      continue;
+    }
+
+    for (const servico of servicos) {
+      const created = await prisma.serviceItem.upsert({
+        where: {
+          // ID único baseado no nome (normalizado)
+          id: `srv-${servico.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')}`,
+        },
+        update: {
+          name: servico.name,
+          description: servico.description,
+          scope: servico.scope,
+          outOfScope: servico.outOfScope,
+          sla: servico.sla,
+          documents: servico.documents,
+          basePrice: servico.basePrice,
+          categoryId: categoria.id,
+          order: servicos.indexOf(servico) + 1,
+        },
+        create: {
+          id: `srv-${servico.name.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '')}`,
+          name: servico.name,
+          description: servico.description,
+          scope: servico.scope,
+          outOfScope: servico.outOfScope,
+          sla: servico.sla,
+          documents: servico.documents,
+          basePrice: servico.basePrice,
+          categoryId: categoria.id,
+          order: servicos.indexOf(servico) + 1,
+        },
+      });
+
+      servicosCriados.push(created);
+    }
+
+    console.log(`  ✅ ${categoriaNome}: ${servicos.length} serviços`);
+  }
+
+  console.log(`\n✅ ${servicosCriados.length} serviços criados/atualizados\n`);
+
+  // =================================================================
+  // 📦 PASSO 3: Criar Planos Comerciais
+  // =================================================================
+  console.log(' Criando planos comerciais...');
+  const planosCriados = [];
+
+  // Primeiro, precisamos de uma empresa para associar os planos
+  // Vamos usar a primeira empresa do banco ou criar uma demo
+  let companyId = '';
+
+  const primeiraEmpresa = await prisma.company.findFirst();
+  if (primeiraEmpresa) {
+    companyId = primeiraEmpresa.id;
+    console.log(`   Usando empresa existente: ${primeiraEmpresa.name}`);
+  } else {
+    console.log('  ⚠️  Nenhuma empresa encontrada. Criando empresa demo...');
+    const empresaDemo = await prisma.company.create({
+      data: {
+        name: 'Escritório Demo',
+        cnpj: '12.345.678/0001-90',
+        email: 'demo@contacerta.com.br',
+      },
+    });
+    companyId = empresaDemo.id;
+    console.log(`  ✅ Empresa demo criada: ${empresaDemo.name}`);
+  }
+
+  for (const plano of planos) {
+    const created = await prisma.commercialPlan.upsert({
+      where: {
+        // ID único baseado no nome
+        id: `plan-${plano.name.toLowerCase()}`,
+      },
+      update: {
+        name: plano.name,
+        multiplier: plano.multiplier,
+        order: plano.order,
+        isIndependent: plano.isIndependent,
+        description: plano.description,
+        badge: plano.badge,
+        companyId: companyId,
+      },
+      create: {
+        id: `plan-${plano.name.toLowerCase()}`,
+        name: plano.name,
+        multiplier: plano.multiplier,
+        order: plano.order,
+        isIndependent: plano.isIndependent,
+        description: plano.description,
+        badge: plano.badge,
+        companyId: companyId,
+      },
+    });
+
+    planosCriados.push(created);
+    console.log(`  ✅ ${plano.name} (multiplicador: ${plano.multiplier}x)`);
+  }
+
+  console.log(`\n✅ ${planosCriados.length} planos criados/atualizados\n`);
+
+  // =================================================================
+  // 📦 PASSO 4: Associar Serviços aos Planos (Herança)
+  // =================================================================
+  console.log('📦 Associando serviços aos planos...');
+
+  // Estratégia de associação:
+  // START: MEI + IRPF Simples + 3 serviços básicos de Contábil
+  // PRIME: START + Fiscal básico + DP até 5 + Consultoria
+  // BLACK: PRIME + Auditoria + BPO + LGPD
+  // ENTERPRISE: Todos os serviços (plano independente)
+
+  const associacoes = {
+    'START': [
+      'MEI',
+      'IRPF',
+      'Contábil',
+    ],
+    'PRIME': [
+      'START', // Herda todos do START
+      'Fiscal',
+      'Pessoal (DP)',
+      'Consultoria',
+    ],
+    'BLACK': [
+      'PRIME', // Herda todos do PRIME (e indiretamente do START)
+      'Auditoria',
+      'BPO Financeiro',
+      'LGPD',
+    ],
+    'ENTERPRISE': [
+      // Independente: inclui todos os serviços
+    ],
+  };
+
+  for (const plano of planosCriados) {
+    const categoriasParaAssociar = associacoes[plano.name as keyof typeof associacoes] || [];
+
+    // Se o plano é independente (ENTERPRISE), associa todos os serviços
+    if (plano.isIndependent) {
+      for (const servico of servicosCriados) {
+        await prisma.planServiceItem.upsert({
+          where: {
+            planId_serviceItemId: {
+              planId: plano.id,
+              serviceItemId: servico.id,
+            },
+          },
+          update: {},
+          create: {
+            planId: plano.id,
+            serviceItemId: servico.id,
+          },
+        });
+      }
+      console.log(`  ✅ ${plano.name}: Todos os ${servicosCriados.length} serviços (independente)`);
+    } else {
+      // Para planos não independentes, associa serviços das categorias especificadas
+      let totalAssociados = 0;
+
+      for (const categoriaNome of categoriasParaAssociar) {
+        // Se é um plano base (START, PRIME, BLACK), pega os serviços desse plano
+        if (['START', 'PRIME', 'BLACK'].includes(categoriaNome)) {
+          const planoBase = planosCriados.find(p => p.name === categoriaNome);
+          if (planoBase) {
+            const itensDoPlanoBase = await prisma.planServiceItem.findMany({
+              where: { planId: planoBase.id },
+            });
+
+            for (const item of itensDoPlanoBase) {
+              await prisma.planServiceItem.upsert({
+                where: {
+                  planId_serviceItemId: {
+                    planId: plano.id,
+                    serviceItemId: item.serviceItemId,
+                  },
+                },
+                update: {},
+                create: {
+                  planId: plano.id,
+                  serviceItemId: item.serviceItemId,
+                },
+              });
+              totalAssociados++;
+            }
+          }
+        } else {
+          // Associa serviços da categoria
+          const servicosDaCategoria = servicosCriados.filter(s => {
+            const categoria = categoriasCriadas.find(c => c.id === s.categoryId);
+            return categoria?.name === categoriaNome;
+          });
+
+          for (const servico of servicosDaCategoria) {
+            await prisma.planServiceItem.upsert({
+              where: {
+                planId_serviceItemId: {
+                  planId: plano.id,
+                  serviceItemId: servico.id,
+                },
+              },
+              update: {},
+              create: {
+                planId: plano.id,
+                serviceItemId: servico.id,
+              },
+            });
+            totalAssociados++;
+          }
+        }
+      }
+
+      console.log(`  ✅ ${plano.name}: ${totalAssociados} serviços associados`);
+    }
+  }
+
+  console.log('\n✅ Associações concluídas\n');
+
+  // =================================================================
+  //  RESUMO FINAL
+  // =================================================================
+  console.log('═══════════════════════════════════════════════════════');
+  console.log(' RESUMO DO SEED');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log(`✅ Categorias: ${categoriasCriadas.length}`);
+  console.log(`✅ Serviços: ${servicosCriados.length}`);
+  console.log(`✅ Planos: ${planosCriados.length}`);
+  console.log('═══════════════════════════════════════════════════════\n');
+
+  console.log('🎉 Seed do catálogo concluído com sucesso!');
+  console.log('\n Próximos passos:');
+  console.log('   1. Execute: npx ts-node prisma/seed-demo-escritorio.ts');
+  console.log('   2. Execute: npx ts-node prisma/seed-clientes-propostas.ts');
+  console.log('   3. Acesse: http://localhost:3005/dashboard/admin/catalogo\n');
+}
+
+// =================================================================
+// 🚀 EXECUÇÃO
+// =================================================================
+main()
+  .catch((e) => {
+    console.error('❌ Erro durante o seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: seed-catalogo.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-catalogo.ts
+-------------------------------------------------------
+/**
+ * =================================================================
+ * SEED: Catálogo de Serviços + Planos Comerciais
+ * =================================================================
+ * 
+ * 🎯 PROPÓSITO:
+ * Popular o sistema com o catálogo completo de serviços contábeis
+ * e os planos comerciais (START, PRIME, BLACK, ENTERPRISE).
+ * 
+ * 🚀 COMO EXECUTAR:
+ * cd backend
+ * npx ts-node prisma/seed-catalogo.ts
+ * 
+ * =================================================================
+ */
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+// =================================================================
+// 📦 DADOS: 17 Categorias/Departamentos Contábeis
+// =================================================================
+const categorias = [
+  { name: 'Contábil', order: 1, description: 'Serviços de contabilidade geral e escrituração' },
+  { name: 'Fiscal', order: 2, description: 'Apuração de impostos e obrigações fiscais' },
+  { name: 'Pessoal (DP)', order: 3, description: 'Departamento Pessoal, folha e encargos' },
+  { name: 'Societário', order: 4, description: 'Contratos sociais, alterações e dissoluções' },
+  { name: 'Legalização', order: 5, description: 'Registro e manutenção de empresas' },
+  { name: 'BPO Financeiro', order: 6, description: 'Terceirização de contas a pagar/receber' },
+  { name: 'Consultoria', order: 7, description: 'Consultoria contábil e tributária' },
+  { name: 'Auditoria', order: 8, description: 'Auditoria contábil e revisão de procedimentos' },
+  { name: 'Controladoria', order: 9, description: 'Controladoria e gestão financeira' },
+  { name: 'LGPD', order: 10, description: 'Adequação à Lei Geral de Proteção de Dados' },
+  { name: 'Tecnologia', order: 11, description: 'Sistemas e automação contábil' },
+  { name: 'MEI', order: 12, description: 'Serviços específicos para Microempreendedores' },
+  { name: 'IRPF', order: 13, description: 'Imposto de Renda Pessoa Física' },
+  { name: 'Importação/Exportação', order: 14, description: 'Comércio exterior e aduana' },
+  { name: 'Agronegócio', order: 15, description: 'Contabilidade rural e agropecuária' },
+  { name: 'Startup', order: 16, description: 'Serviços para startups e empresas de tecnologia' },
+  { name: 'Premium', order: 17, description: 'Serviços exclusivos e personalizados' },
+];
+
+// =================================================================
+// 📦 DADOS: Serviços distribuídos por categoria
+// (Campos alinhados ao schema: requiredDocs, estimatedHours, slaDays)
+// =================================================================
+const servicosPorCategoria: Record<string, Array<{
+  name: string;
+  description: string;
+  scope: string;
+  outOfScope: string;
+  requiredDocs: string;
+  basePrice: number;
+  estimatedHours: number;
+  slaDays: number;
+}>> = {
+  'Contábil': [
+    {
+      name: 'Escrituração Contábil Mensal',
+      description: 'Registro de todas as operações contábeis do mês',
+      scope: 'Lançamentos contábeis, balancete, razão',
+      outOfScope: 'Conciliação bancária, DRE gerencial',
+      requiredDocs: 'Extratos bancários, notas fiscais, comprovantes',
+      basePrice: 800,
+      estimatedHours: 10,
+      slaDays: 5,
+    },
+    {
+      name: 'Fechamento Contábil Anual',
+      description: 'Encerramento do exercício contábil',
+      scope: 'Balanço patrimonial, DRE, DMPL, DFCA',
+      outOfScope: 'Auditoria independente',
+      requiredDocs: 'Todos os documentos do exercício',
+      basePrice: 2500,
+      estimatedHours: 40,
+      slaDays: 30,
+    },
+    {
+      name: 'Conciliação Bancária',
+      description: 'Conferência entre extrato bancário e contabilidade',
+      scope: 'Conciliação de todas as contas bancárias',
+      outOfScope: 'Investigação de divergências complexas',
+      requiredDocs: 'Extratos bancários completos',
+      basePrice: 300,
+      estimatedHours: 4,
+      slaDays: 3,
+    },
+  ],
+
+  'Fiscal': [
+    {
+      name: 'Apuração de ICMS',
+      description: 'Cálculo mensal do ICMS a pagar',
+      scope: 'Apuração, guia, declaração',
+      outOfScope: 'Defesa fiscal em caso de autuação',
+      requiredDocs: 'Notas fiscais de entrada e saída',
+      basePrice: 500,
+      estimatedHours: 6,
+      slaDays: 20,
+    },
+    {
+      name: 'Apuração de ISS',
+      description: 'Cálculo mensal do ISS para prestadores de serviço',
+      scope: 'Apuração, guia, declaração',
+      outOfScope: 'Acompanhamento de fiscalizações',
+      requiredDocs: 'Notas fiscais de serviço emitidas',
+      basePrice: 400,
+      estimatedHours: 4,
+      slaDays: 15,
+    },
+    {
+      name: 'SPED Fiscal',
+      description: 'Escrituração fiscal digital',
+      scope: 'Geração e transmissão do arquivo SPED',
+      outOfScope: 'Correção de erros após transmissão',
+      requiredDocs: 'Todas as notas fiscais do período',
+      basePrice: 600,
+      estimatedHours: 8,
+      slaDays: 25,
+    },
+  ],
+
+  'Pessoal (DP)': [
+    {
+      name: 'Folha de Pagamento (até 5 funcionários)',
+      description: 'Processamento completo da folha',
+      scope: 'Cálculo, holerites, GPS, FGTS',
+      outOfScope: 'Gestão de benefícios',
+      requiredDocs: 'Ponto, atestados, avisos',
+      basePrice: 400,
+      estimatedHours: 5,
+      slaDays: 5,
+    },
+    {
+      name: 'Admissão de Funcionário',
+      description: 'Processo completo de admissão',
+      scope: 'Exame admissional, registro, documentos',
+      outOfScope: 'Recrutamento e seleção',
+      requiredDocs: 'Documentos pessoais do funcionário',
+      basePrice: 150,
+      estimatedHours: 2,
+      slaDays: 3,
+    },
+  ],
+
+  'MEI': [
+    {
+      name: 'Abertura de MEI',
+      description: 'Registro completo de Microempreendedor Individual',
+      scope: 'Cadastro, CNPJ, alvará',
+      outOfScope: 'Licenças específicas',
+      requiredDocs: 'Documentos pessoais',
+      basePrice: 200,
+      estimatedHours: 2,
+      slaDays: 5,
+    },
+    {
+      name: 'DASN-SIMEI (Declaração Anual)',
+      description: 'Declaração anual do MEI',
+      scope: 'Preenchimento e transmissão',
+      outOfScope: 'Regularização de débitos',
+      requiredDocs: 'Faturamento do ano',
+      basePrice: 150,
+      estimatedHours: 1,
+      slaDays: 30,
+    },
+  ],
+
+  'Consultoria': [
+    {
+      name: 'Planejamento Tributário Anual',
+      description: 'Análise do melhor regime tributário',
+      scope: 'Relatório comparativo, recomendação',
+      outOfScope: 'Implementação',
+      requiredDocs: 'DRE, balanço, projeções',
+      basePrice: 2500,
+      estimatedHours: 15,
+      slaDays: 30,
+    },
+  ],
+
+  'Premium': [
+    {
+      name: 'CFO Part-Time (20h/mês)',
+      description: 'Diretor financeiro compartilhado',
+      scope: 'Gestão financeira estratégica',
+      outOfScope: 'Operacional contábil',
+      requiredDocs: 'Acesso aos sistemas',
+      basePrice: 5000,
+      estimatedHours: 20,
+      slaDays: 1,
+    },
+  ],
+};
+
+// =================================================================
+// 📦 DADOS: 4 Planos Comerciais
+// =================================================================
+const planos = [
+  {
+    name: 'START',
+    multiplier: 1.0,
+    order: 1,
+    isIndependent: false,
+    description: 'Plano básico para MEI e pequenas empresas',
+    badge: 'INICIANTE',
+  },
+  {
+    name: 'PRIME',
+    multiplier: 1.5,
+    order: 2,
+    isIndependent: false,
+    description: 'Plano intermediário para pequenas e médias empresas',
+    badge: 'MAIS POPULAR',
+  },
+  {
+    name: 'BLACK',
+    multiplier: 2.0,
+    order: 3,
+    isIndependent: false,
+    description: 'Plano avançado para médias e grandes empresas',
+    badge: 'PREMIUM',
+  },
+  {
+    name: 'ENTERPRISE',
+    multiplier: 3.0,
+    order: 4,
+    isIndependent: true, // Não herda de outros planos
+    description: 'Plano corporativo personalizado',
+    badge: 'CORPORATIVO',
+  },
+];
+
+// =================================================================
+// 🎯 FUNÇÃO PRINCIPAL DO SEED
+// =================================================================
+async function main() {
+  console.log('🚀 Iniciando seed do catálogo de serviços...\n');
+
+  // =================================================================
+  // 📦 PASSO 1: Obter ou criar uma empresa demo
+  // =================================================================
+  console.log('📦 Buscando empresa...');
+  let companyId = '';
+
+  const primeiraEmpresa = await prisma.company.findFirst();
+  if (primeiraEmpresa) {
+    companyId = primeiraEmpresa.id;
+    console.log(`   ✅ Usando empresa existente: ${primeiraEmpresa.name || primeiraEmpresa.id}`);
+  } else {
+    console.log('  ⚠️  Nenhuma empresa encontrada. Criando empresa demo...');
+    const empresaDemo = await prisma.company.create({
+      data: {
+        name: 'Escritório Demo',
+        cnpj: '12.345.678/0001-90',
+        email: 'demo@contacerta.com.br',
+      },
+    });
+    companyId = empresaDemo.id;
+    console.log(`  ✅ Empresa demo criada: ${empresaDemo.name}`);
+  }
+
+  // =================================================================
+  // 📦 PASSO 2: Criar Categorias
+  // =================================================================
+  console.log('\n📦 Criando categorias...');
+  const categoriasCriadas = [];
+
+  for (const categoria of categorias) {
+    // ID determinístico para permitir upsert
+    const id = `cat-${companyId}-${categoria.name.toLowerCase().replace(/\s+/g, '-')}`;
+    
+    const created = await prisma.serviceCategory.upsert({
+      where: { id },
+      update: {
+        name: categoria.name,
+        order: categoria.order,
+        description: categoria.description,
+      },
+      create: {
+        id,
+        companyId,
+        name: categoria.name,
+        order: categoria.order,
+        description: categoria.description,
+      },
+    });
+
+    categoriasCriadas.push(created);
+    console.log(`  ✅ ${categoria.name}`);
+  }
+
+  console.log(`\n✅ ${categoriasCriadas.length} categorias criadas/atualizadas\n`);
+
+  // =================================================================
+  // 📦 PASSO 3: Criar Serviços
+  // =================================================================
+  console.log('📦 Criando serviços...');
+  const servicosCriados = [];
+
+  for (const [categoriaNome, servicos] of Object.entries(servicosPorCategoria)) {
+    const categoria = categoriasCriadas.find(c => c.name === categoriaNome);
+    if (!categoria) {
+      console.warn(`⚠️  Categoria "${categoriaNome}" não encontrada, pulando...`);
+      continue;
+    }
+
+    for (const servico of servicos) {
+      // ID determinístico para permitir upsert
+      const id = `srv-${companyId}-${servico.name.toLowerCase().replace(/\s+/g, '-')}`;
+      
+      const created = await prisma.serviceItem.upsert({
+        where: { id },
+        update: {
+          name: servico.name,
+          description: servico.description,
+          scope: servico.scope,
+          outOfScope: servico.outOfScope,
+          requiredDocs: servico.requiredDocs,
+          basePrice: servico.basePrice,
+          estimatedHours: servico.estimatedHours,
+          slaDays: servico.slaDays,
+        },
+        create: {
+          id,
+          companyId,
+          categoryId: categoria.id,
+          name: servico.name,
+          description: servico.description,
+          scope: servico.scope,
+          outOfScope: servico.outOfScope,
+          requiredDocs: servico.requiredDocs,
+          basePrice: servico.basePrice,
+          estimatedHours: servico.estimatedHours,
+          slaDays: servico.slaDays,
+          recurrence: 'MENSAL', // Enum do schema
+        },
+      });
+
+      servicosCriados.push(created);
+    }
+
+    console.log(`  ✅ ${categoriaNome}: ${servicos.length} serviços`);
+  }
+
+  console.log(`\n✅ ${servicosCriados.length} serviços criados/atualizados\n`);
+
+  // =================================================================
+  // 📦 PASSO 4: Criar Planos Comerciais
+  // =================================================================
+  console.log('📦 Criando planos comerciais...');
+  const planosCriados = [];
+
+  for (const plano of planos) {
+    // ID determinístico para permitir upsert
+    const id = `plan-${companyId}-${plano.name.toLowerCase()}`;
+    
+    const created = await prisma.commercialPlan.upsert({
+      where: { id },
+      update: {
+        name: plano.name,
+        multiplier: plano.multiplier,
+        order: plano.order,
+        isIndependent: plano.isIndependent,
+        description: plano.description,
+        badge: plano.badge,
+      },
+      create: {
+        id,
+        companyId,
+        name: plano.name,
+        multiplier: plano.multiplier,
+        order: plano.order,
+        isIndependent: plano.isIndependent,
+        description: plano.description,
+        badge: plano.badge,
+      },
+    });
+
+    planosCriados.push(created);
+    console.log(`  ✅ ${plano.name} (multiplicador: ${plano.multiplier}x)`);
+  }
+
+  console.log(`\n✅ ${planosCriados.length} planos criados/atualizados\n`);
+
+  // =================================================================
+  // 📊 RESUMO FINAL
+  // =================================================================
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('📊 RESUMO DO SEED');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log(`✅ Empresa: ${companyId}`);
+  console.log(`✅ Categorias: ${categoriasCriadas.length}`);
+  console.log(`✅ Serviços: ${servicosCriados.length}`);
+  console.log(`✅ Planos: ${planosCriados.length}`);
+  console.log('═══════════════════════════════════════════════════════\n');
+
+  console.log('🎉 Seed do catálogo concluído com sucesso!');
+  console.log('\n👉 Próximos passos:');
+  console.log('   1. Acesse: http://localhost:3005/dashboard/admin/catalogo');
+  console.log('   2. Acesse: http://localhost:3005/dashboard/precificacao/meus-planos\n');
+}
+
+// =================================================================
+// 🚀 EXECUÇÃO
+// =================================================================
+main()
+  .catch((e) => {
+    console.error('❌ Erro durante o seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: seed-catalogv1.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-catalogv1.ts
+-------------------------------------------------------
+/**
+ * ============================================================================
+ * RADAR CONTA CERTA — SEED DO CATÁLOGO DE SERVIÇOS (Sprint A2)
+ * ============================================================================
+ * Abordagem robusta: findFirst + create/update (não depende de unique composto).
+ * Idempotente: pode rodar N vezes sem duplicar.
+ * ============================================================================
+ */
+
+import { PrismaClient, Recurrence } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+const CATALOG = [
+  {
+    name: 'Fiscal e Tributário',
+    icon: 'receipt',
+    order: 1,
+    items: [
+      { name: 'Apuração de ICMS', basePrice: 450, estimatedHours: 6, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Apuração de IPI', basePrice: 380, estimatedHours: 5, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Apuração de PIS/COFINS', basePrice: 420, estimatedHours: 5, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Apuração de ISS', basePrice: 280, estimatedHours: 3, recurrence: 'MENSAL' as Recurrence },
+      { name: 'SPED Fiscal (EFD)', basePrice: 520, estimatedHours: 7, recurrence: 'MENSAL' as Recurrence },
+      { name: 'SPED Contribuições', basePrice: 480, estimatedHours: 6, recurrence: 'MENSAL' as Recurrence },
+      { name: 'DCTF', basePrice: 320, estimatedHours: 4, recurrence: 'MENSAL' as Recurrence },
+      { name: 'EFD-Reinf', basePrice: 390, estimatedHours: 5, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Declaração Anual (DIPJ/ECF)', basePrice: 1200, estimatedHours: 16, recurrence: 'ANUAL' as Recurrence },
+    ],
+  },
+  {
+    name: 'Notas Fiscais',
+    icon: 'file-text',
+    order: 2,
+    items: [
+      { name: 'Emissão de NF-e (produtos)', basePrice: 180, estimatedHours: 2, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Emissão de NFS-e (serviços)', basePrice: 150, estimatedHours: 2, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Emissão de NFC-e', basePrice: 120, estimatedHours: 1, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Cancelamento de NF-e', basePrice: 80, estimatedHours: 1, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Carta de Correção Eletrônica', basePrice: 60, estimatedHours: 1, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Inutilização de numeração', basePrice: 70, estimatedHours: 1, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Manifesto do Destinatário (MD-e)', basePrice: 200, estimatedHours: 3, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Importação de NF-e de entrada', basePrice: 250, estimatedHours: 3, recurrence: 'MENSAL' as Recurrence },
+    ],
+  },
+  {
+    name: 'Departamento Pessoal',
+    icon: 'users',
+    order: 3,
+    items: [
+      { name: 'Folha de Pagamento (até 10 func.)', basePrice: 380, estimatedHours: 5, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Folha de Pagamento (11–30 func.)', basePrice: 680, estimatedHours: 9, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Folha de Pagamento (31–60 func.)', basePrice: 1100, estimatedHours: 14, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Folha de Pagamento (61+ func.)', basePrice: 1600, estimatedHours: 20, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Férias', basePrice: 90, estimatedHours: 1, recurrence: 'AVULSO' as Recurrence },
+      { name: '13º Salário', basePrice: 120, estimatedHours: 2, recurrence: 'ANUAL' as Recurrence },
+      { name: 'Rescisão', basePrice: 180, estimatedHours: 2, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Admissão', basePrice: 150, estimatedHours: 2, recurrence: 'AVULSO' as Recurrence },
+      { name: 'eSocial (eventos periódicos)', basePrice: 220, estimatedHours: 3, recurrence: 'MENSAL' as Recurrence },
+      { name: 'eSocial (admissão/afastamento)', basePrice: 80, estimatedHours: 1, recurrence: 'AVULSO' as Recurrence },
+      { name: 'RAIS / DCTFWeb', basePrice: 350, estimatedHours: 4, recurrence: 'ANUAL' as Recurrence },
+      { name: 'Dirf', basePrice: 280, estimatedHours: 3, recurrence: 'ANUAL' as Recurrence },
+    ],
+  },
+  {
+    name: 'Relatórios e Análises',
+    icon: 'bar-chart-3',
+    order: 4,
+    items: [
+      { name: 'DRE Gerencial Mensal', basePrice: 320, estimatedHours: 4, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Balanço Patrimonial', basePrice: 480, estimatedHours: 6, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Fluxo de Caixa Projetado', basePrice: 280, estimatedHours: 3, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Relatório de Inadimplência', basePrice: 180, estimatedHours: 2, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Análise de Custos', basePrice: 420, estimatedHours: 5, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Indicadores Financeiros (KPIs)', basePrice: 350, estimatedHours: 4, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Relatório Anual Consolidado', basePrice: 900, estimatedHours: 12, recurrence: 'ANUAL' as Recurrence },
+    ],
+  },
+  {
+    name: 'Atendimento e Suporte',
+    icon: 'headphones',
+    order: 5,
+    items: [
+      { name: 'Suporte por e-mail (ilimitado)', basePrice: 200, estimatedHours: 3, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Suporte prioritário (WhatsApp)', basePrice: 350, estimatedHours: 5, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Atendimento telefônico', basePrice: 280, estimatedHours: 4, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Suporte emergencial (fora horário)', basePrice: 450, estimatedHours: 6, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Portal do cliente (self-service)', basePrice: 150, estimatedHours: 2, recurrence: 'MENSAL' as Recurrence },
+    ],
+  },
+  {
+    name: 'Reuniões e Consultoria',
+    icon: 'calendar',
+    order: 6,
+    items: [
+      { name: 'Reunião mensal de acompanhamento', basePrice: 320, estimatedHours: 2, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Reunião trimestral estratégica', basePrice: 480, estimatedHours: 3, recurrence: 'TRIMESTRAL' as Recurrence },
+      { name: 'Consultoria tributária pontual', basePrice: 600, estimatedHours: 4, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Planejamento tributário anual', basePrice: 1800, estimatedHours: 12, recurrence: 'ANUAL' as Recurrence },
+      { name: 'Due diligence contábil', basePrice: 2500, estimatedHours: 20, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Diagnóstico fiscal', basePrice: 1200, estimatedHours: 10, recurrence: 'AVULSO' as Recurrence },
+    ],
+  },
+  {
+    name: 'Tecnologia e Integrações',
+    icon: 'cpu',
+    order: 7,
+    items: [
+      { name: 'Integração com ERP do cliente', basePrice: 800, estimatedHours: 10, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Integração bancária (API/Open Finance)', basePrice: 600, estimatedHours: 8, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Configuração de software contábil', basePrice: 450, estimatedHours: 6, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Backup mensal de dados', basePrice: 120, estimatedHours: 1, recurrence: 'MENSAL' as Recurrence },
+      { name: 'Migração de dados (onboarding)', basePrice: 900, estimatedHours: 12, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Treinamento da equipe do cliente', basePrice: 700, estimatedHours: 4, recurrence: 'AVULSO' as Recurrence },
+    ],
+  },
+  {
+    name: 'Benefícios e Extras',
+    icon: 'gift',
+    order: 8,
+    items: [
+      { name: 'Abertura de empresa (MEI)', basePrice: 350, estimatedHours: 3, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Abertura de empresa (ME/EPP)', basePrice: 800, estimatedHours: 8, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Alteração contratual', basePrice: 450, estimatedHours: 4, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Encerramento de empresa', basePrice: 1200, estimatedHours: 12, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Declaração de IRPF', basePrice: 280, estimatedHours: 3, recurrence: 'ANUAL' as Recurrence },
+      { name: 'Certificado digital (A1/A3)', basePrice: 180, estimatedHours: 1, recurrence: 'ANUAL' as Recurrence },
+      { name: 'Regularização de débitos fiscais', basePrice: 900, estimatedHours: 10, recurrence: 'AVULSO' as Recurrence },
+      { name: 'Recuperação de créditos tributários', basePrice: 1500, estimatedHours: 15, recurrence: 'AVULSO' as Recurrence },
+    ],
+  },
+];
+
+async function main() {
+  console.log('📦 Iniciando seed do Catálogo de Serviços...\n');
+
+  // Buscar empresa demo
+  let company = await prisma.company.findFirst({
+    where: { name: 'Conta Certa Demo' },
+  });
+
+  if (!company) {
+    console.log('📝 Criando empresa demo...');
+    company = await prisma.company.create({
+      data: {
+        name: 'Conta Certa Demo',
+        cnpj: '00000000000000',
+        plan: 'PREMIUM',
+      },
+    });
+    console.log(`✅ Empresa criada: ${company.name}\n`);
+  } else {
+    console.log(`✅ Empresa encontrada: ${company.name}\n`);
+  }
+
+  let totalCategories = 0;
+  let totalItems = 0;
+
+  for (const category of CATALOG) {
+    // Busca categoria por (companyId + name) - abordagem robusta sem unique composto
+    let cat = await prisma.serviceCategory.findFirst({
+      where: { companyId: company.id, name: category.name },
+    });
+
+    if (cat) {
+      // Atualiza se já existe
+      cat = await prisma.serviceCategory.update({
+        where: { id: cat.id },
+        data: {
+          icon: category.icon,
+          order: category.order,
+        },
+      });
+    } else {
+      // Cria nova
+      cat = await prisma.serviceCategory.create({
+        data: {
+          companyId: company.id,
+          name: category.name,
+          icon: category.icon,
+          order: category.order,
+        },
+      });
+    }
+
+    totalCategories++;
+    console.log(`✅ Categoria: ${category.name}`);
+
+    // Cria/atualiza itens da categoria
+    for (const item of category.items) {
+      const existing = await prisma.serviceItem.findFirst({
+        where: { companyId: company.id, categoryId: cat.id, name: item.name },
+      });
+
+      if (existing) {
+        await prisma.serviceItem.update({
+          where: { id: existing.id },
+          data: {
+            basePrice: item.basePrice,
+            estimatedHours: item.estimatedHours,
+            recurrence: item.recurrence,
+          },
+        });
+      } else {
+        await prisma.serviceItem.create({
+          data: {
+            companyId: company.id,
+            categoryId: cat.id,
+            name: item.name,
+            basePrice: item.basePrice,
+            estimatedHours: item.estimatedHours,
+            recurrence: item.recurrence,
+            order: totalItems,
+            isActive: true,
+          },
+        });
+      }
+      totalItems++;
+    }
+  }
+
+  console.log(`\n🎉 Seed do catálogo concluído!`);
+  console.log(`📊 Total: ${totalCategories} categorias, ${totalItems} itens`);
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro no seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: seed-clientes-propostas.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-clientes-propostas.ts
+-------------------------------------------------------
+// =================================================================
+// 📦 DADOS: 12 Clientes Fictícios
+// =================================================================
+const clientesDemo = [
+  {
+    companyName: 'Tech Solutions Ltda',
+    cnpj: '12.345.678/0001-90',
+    contactEmail: 'contato@techsolutions.com.br',
+    contactPhone: '(11) 98765-4321',
+    monthlyFee: 2500,
+    taxRegime: 'SIMPLES',
+    activity: 'Desenvolvimento de Software',
+    monthlyRevenue: 50000,
+    employeeCount: 8,
+  },
+  {
+    companyName: 'Comércio Popular ME',
+    cnpj: '23.456.789/0001-01',
+    contactEmail: 'admin@comerciopopular.com',
+    contactPhone: '(21) 97654-3210',
+    monthlyFee: 1200,
+    taxRegime: 'SIMPLES',
+    activity: 'Comércio Varejista',
+    monthlyRevenue: 30000,
+    employeeCount: 4,
+  },
+  {
+    companyName: 'Indústria Forte S.A.',
+    cnpj: '34.567.890/0001-12',
+    contactEmail: 'financeiro@industriaforte.com',
+    contactPhone: '(31) 96543-2109',
+    monthlyFee: 6000,
+    taxRegime: 'LUCRO_REAL',
+    activity: 'Manufatura',
+    monthlyRevenue: 500000,
+    employeeCount: 45,
+  },
+  {
+    companyName: 'Consultoria Ágil',
+    cnpj: '45.678.901/0001-23',
+    contactEmail: 'contato@consultoriaagil.com',
+    contactPhone: '(41) 95432-1098',
+    monthlyFee: 3000,
+    taxRegime: 'LUCRO_PRESUMIDO',
+    activity: 'Consultoria Empresarial',
+    monthlyRevenue: 80000,
+    employeeCount: 12,
+  },
+  {
+    companyName: 'Restaurante Sabor & Cia',
+    cnpj: '56.789.012/0001-34',
+    contactEmail: 'gerente@saborcia.com',
+    contactPhone: '(51) 94321-0987',
+    monthlyFee: 2200,
+    taxRegime: 'SIMPLES',
+    activity: 'Alimentação',
+    monthlyRevenue: 40000,
+    employeeCount: 15,
+  },
+  {
+    companyName: 'Clínica Saúde Total',
+    cnpj: '67.890.123/0001-45',
+    contactEmail: 'admin@saudetotal.com',
+    contactPhone: '(61) 93210-9876',
+    monthlyFee: 5500,
+    taxRegime: 'LUCRO_PRESUMIDO',
+    activity: 'Saúde',
+    monthlyRevenue: 120000,
+    employeeCount: 20,
+  },
+  {
+    companyName: 'Transportadora Rápida',
+    cnpj: '78.901.234/0001-56',
+    contactEmail: 'contato@transportadorarapida.com',
+    contactPhone: '(71) 92109-8765',
+    monthlyFee: 2800,
+    taxRegime: 'SIMPLES',
+    activity: 'Transporte',
+    monthlyRevenue: 60000,
+    employeeCount: 10,
+  },
+  {
+    companyName: 'Escritório de Advocacia Silva',
+    cnpj: '89.012.345/0001-67',
+    contactEmail: 'contato@silvaadv.com',
+    contactPhone: '(81) 91098-7654',
+    monthlyFee: 3200,
+    taxRegime: 'LUCRO_PRESUMIDO',
+    activity: 'Advocacia',
+    monthlyRevenue: 90000,
+    employeeCount: 8,
+  },
+  {
+    companyName: 'Academia Fitness Plus',
+    cnpj: '90.123.456/0001-78',
+    contactEmail: 'gerente@fitnessplus.com',
+    contactPhone: '(91) 90987-6543',
+    monthlyFee: 1500,
+    taxRegime: 'SIMPLES',
+    activity: 'Fitness',
+    monthlyRevenue: 35000,
+    employeeCount: 6,
+  },
+  {
+    companyName: 'Construtora Horizonte',
+    cnpj: '01.234.567/0001-89',
+    contactEmail: 'financeiro@horizonte.com',
+    contactPhone: '(11) 99876-5432',
+    monthlyFee: 8000,
+    taxRegime: 'LUCRO_REAL',
+    activity: 'Construção Civil',
+    monthlyRevenue: 800000,
+    employeeCount: 60,
+  },
+  {
+    companyName: 'Escola Futuro Brilhante',
+    cnpj: '11.222.333/0001-44',
+    contactEmail: 'contato@futurobrilhante.com',
+    contactPhone: '(21) 98765-1234',
+    monthlyFee: 3500,
+    taxRegime: 'SIMPLES',
+    activity: 'Educação',
+    monthlyRevenue: 70000,
+    employeeCount: 18,
+  },
+  {
+    companyName: 'Agro Fazendas Unidas',
+    cnpj: '22.333.444/0001-55',
+    contactEmail: 'admin@fazendasunidas.com',
+    contactPhone: '(31) 97654-2345',
+    monthlyFee: 12000,
+    taxRegime: 'LUCRO_REAL',
+    activity: 'Agronegócio',
+    monthlyRevenue: 1200000,
+    employeeCount: 80,
+  },
+];
+=======================================================
+
+📄 ARQUIVO: seed-company-network.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-company-network.ts
+-------------------------------------------------------
+// =================================================================
+// backend/prisma/seed-company-network.ts — Seed Sprint C1
+// Popula 8 escritórios fake com softwareStack variado p/ ativar
+// o benchmark híbrido/rede (ADR-052).
+// Uso: npx ts-node prisma/seed-company-network.ts
+// =================================================================
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+const FAKE_COMPANIES = [
+  {
+    name: 'Contábil Silva & Associados',
+    state: 'SP',
+    softwareStack: [
+      'contabil:Domínio (Thomson Reuters)',
+      'fiscal:Mastersiga Fiscal',
+      'financeiro:Conta Azul',
+      'assinatura:D4Sign',
+    ],
+  },
+  {
+    name: 'Escritório Almeida Contábil',
+    state: 'RJ',
+    softwareStack: [
+      'contabil:Questor',
+      'dp:Questor DP',
+      'fiscal:Questor Fiscal',
+      'assinatura:DocuSign',
+    ],
+  },
+  {
+    name: 'Conta Certa Consultoria',
+    state: 'MG',
+    softwareStack: [
+      'contabil:Alter',
+      'dp:Alter Folha',
+      'financeiro:Omie',
+      'assinatura:ClickSign',
+    ],
+  },
+  {
+    name: 'Escritório Ferreira Contábil',
+    state: 'PR',
+    softwareStack: [
+      'contabil:Domínio (Thomson Reuters)',
+      'dp:Domínio DP',
+      'fiscal:TaxOne',
+      'financeiro:Bling',
+      'assinatura:D4Sign',
+    ],
+  },
+  {
+    name: 'Lima Assessoria Contábil',
+    state: 'SC',
+    softwareStack: [
+      'contabil:Prosoft',
+      'dp:Prosoft DP',
+      'financeiro:Conta Azul',
+      'assinatura:ZapSign',
+    ],
+  },
+  {
+    name: 'Costa Contabilidade',
+    state: 'RS',
+    softwareStack: [
+      'contabil:SCI',
+      'dp:Domínio DP',
+      'fiscal:Mastersiga Fiscal',
+      'financeiro:Omie',
+      'assinatura:DocuSign',
+    ],
+  },
+  {
+    name: 'Oliveira & Souza Contábil',
+    state: 'BA',
+    softwareStack: [
+      'contabil:Domínio (Thomson Reuters)',
+      'dp:Domínio DP',
+      'fiscal:Domínio Fiscal',
+      'financeiro:QuickBooks',
+      'assinatura:D4Sign',
+    ],
+  },
+  {
+    name: 'Rocha Contabilidade Empresarial',
+    state: 'GO',
+    softwareStack: [
+      'contabil:Sage',
+      'dp:TOTVS RM Folha',
+      'financeiro:Conta Azul',
+      'assinatura:ClickSign',
+    ],
+  },
+];
+
+async function main() {
+  console.log('🌱 Seed Sprint C1: criando 8 escritórios fake...');
+
+  for (const fake of FAKE_COMPANIES) {
+    // Evita duplicar: busca por nome
+    const exists = await prisma.company.findFirst({ where: { name: fake.name } });
+    if (exists) {
+      console.log(`  ⏭️  ${fake.name} (já existe — atualizando stack)`);
+      await prisma.company.update({
+        where: { id: exists.id },
+        data: { softwareStack: fake.softwareStack },
+      });
+      continue;
+    }
+
+    // Cria um user admin fictício p/ a empresa
+    const email = `admin.${fake.name.toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '')}@fake.com`;
+    const bcrypt = require('bcryptjs');
+    const hash = await bcrypt.hash('123456', 10);
+
+    await prisma.$transaction(async (tx) => {
+      const company = await tx.company.create({
+        data: {
+          name: fake.name,
+          state: fake.state,
+          softwareStack: fake.softwareStack,
+          plan: 'BLACK',
+          allowedModules: ['dashboard', 'pessoas', 'clientes', 'precificacao'],
+        },
+      });
+      await tx.user.create({
+        data: {
+          email,
+          password: hash,
+          name: `Admin ${fake.name}`,
+          role: 'ADMIN',
+          companyId: company.id,
+        },
+      });
+    });
+    console.log(`  ✅ ${fake.name} (${email})`);
+  }
+
+  console.log('🎉 Seed Sprint C1 concluído. Agora o benchmark opera em modo híbrido/rede.');
+}
+
+main()
+  .catch((e) => { console.error(e); process.exit(1); })
+  .finally(() => prisma.$disconnect());
+=======================================================
+
+📄 ARQUIVO: seed-custom-indicators.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-custom-indicators.ts
+-------------------------------------------------------
+// =================================================================
+// INICIO: backend/prisma/seed-custom-indicators.ts
+// =================================================================
+/**
+ * Seed Sprint C3 - Indicadores customizados de exemplo.
+ *
+ * Seguro e idempotente:
+ * - busca admin@demo.com
+ * - apaga apenas os indicadores com os nomes abaixo
+ * - recria exemplos limpos
+ */
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+const EXAMPLES = [
+  {
+    name: '% da Meta de Clientes',
+    description: 'Progresso em relacao a meta anual de clientes.',
+    formula: '(clientesHoje / clientesAno) * 100',
+    target: 100,
+    unit: '%',
+    category: 'COMERCIAL',
+    color: '#0d9488',
+    isFavorite: true,
+  },
+  {
+    name: 'Clientes por Funcionario',
+    description: 'Produtividade media da equipe.',
+    formula: 'clientesHoje / funcionariosHoje',
+    target: 20,
+    unit: 'clientes/func',
+    category: 'OPERACIONAL',
+    color: '#f97316',
+    isFavorite: true,
+  },
+  {
+    name: 'Cobertura de Softwares',
+    description: 'Percentual de cobertura das categorias essenciais de software.',
+    formula: 'softwareCoverage',
+    target: 80,
+    unit: '%',
+    category: 'OPERACIONAL',
+    color: '#2563eb',
+    isFavorite: false,
+  },
+  {
+    name: 'Cobertura de Servicos Extras',
+    description: 'Percentual de servicos extras que o escritorio oferece.',
+    formula: 'servicesCoverage',
+    target: 90,
+    unit: '%',
+    category: 'COMERCIAL',
+    color: '#16a34a',
+    isFavorite: false,
+  },
+];
+
+async function main() {
+  console.log('Seed C3 - criando indicadores customizados...');
+
+  const user = await prisma.user.findUnique({
+    where: { email: 'admin@demo.com' },
+    select: { id: true, companyId: true },
+  });
+
+  if (!user?.companyId) {
+    throw new Error('Usuario admin@demo.com nao encontrado ou sem companyId.');
+  }
+
+  const names = EXAMPLES.map((e) => e.name);
+
+  await prisma.customIndicator.deleteMany({
+    where: {
+      companyId: user.companyId,
+      name: { in: names },
+    },
+  });
+
+  for (const item of EXAMPLES) {
+    await prisma.customIndicator.create({
+      data: {
+        companyId: user.companyId,
+        userId: user.id,
+        name: item.name,
+        description: item.description,
+        formula: item.formula,
+        target: item.target,
+        unit: item.unit,
+        category: item.category as any,
+        color: item.color,
+        isFavorite: item.isFavorite,
+      },
+    });
+
+    console.log(`OK - ${item.name}`);
+  }
+
+  console.log('Seed C3 concluido.');
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());
+// =================================================================
+// FIM: backend/prisma/seed-custom-indicators.ts
+// =================================================================
+=======================================================
+
+📄 ARQUIVO: seed-employees.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-employees.ts
+-------------------------------------------------------
+// =================================================================
+// backend/prisma/seed-employees.ts — Seed de colaboradores (Sprint B2)
+// =================================================================
+/**
+ * Cria 8 colaboradores em departamentos variados p/ alimentar o
+ * dashboard de distribuição validada por setor (Sprint B2).
+ * Uso: npx ts-node prisma/seed-employees.ts
+ */
+import { PrismaClient, ContractType } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🌱 Seed de Colaboradores (base de teste B1/B2)...');
+
+  const company = await prisma.company.findFirst({ where: { name: 'Conta Certa Demo' } });
+  if (!company) throw new Error('❌ Empresa "Conta Certa Demo" não encontrada.');
+
+  const admin = await prisma.user.findFirst({ where: { email: 'admin@demo.com' } });
+  if (!admin) throw new Error('❌ Usuário admin@demo.com não encontrado.');
+
+  const specs = [
+    { name: 'Maria Silva',    department: 'Fiscal',               position: 'Analista Fiscal',          contractType: 'CLT' as ContractType, monthsAgo: 18, salary: 4500 },
+    { name: 'João Santos',    department: 'Fiscal',               position: 'Assistente Fiscal',        contractType: 'CLT' as ContractType, monthsAgo: 8, salary: 2800 },
+    { name: 'Ana Costa',      department: 'Contábil',             position: 'Contadora',                contractType: 'CLT' as ContractType, monthsAgo: 24, salary: 5500 },
+    { name: 'Pedro Alves',    department: 'Departamento Pessoal', position: 'Analista de DP',           contractType: 'CLT' as ContractType, monthsAgo: 12, salary: 3800 },
+    { name: 'Carla Souza',    department: 'Comercial',            position: 'Executiva de Contas',      contractType: 'CLT' as ContractType, monthsAgo: 6, salary: 4200 },
+    { name: 'Renan Estagiário', department: 'Fiscal',             position: 'Estagiário Fiscal',        contractType: 'ESTAGIARIO' as ContractType, monthsAgo: 3, salary: 1500 },
+    { name: 'Luiz Parceiro',  department: 'TI',                   position: 'Dev Full-Stack',           contractType: 'TERCEIRIZADO' as ContractType, monthsAgo: 10, salary: 8000 },
+    { name: 'Roberto Sócio',  department: 'Diretoria',            position: 'Sócio-Administrador',      contractType: 'SOCIO' as ContractType, monthsAgo: 60, salary: 15000 },
+  ];
+
+  for (const s of specs) {
+    const existing = await prisma.employee.findFirst({
+      where: { companyId: company.id, name: s.name },
+    });
+    if (existing) {
+      console.log(`⏭️  ${s.name} já existe — pulando`);
+      continue;
+    }
+
+    const admission = new Date();
+    admission.setMonth(admission.getMonth() - s.monthsAgo);
+
+    await prisma.employee.create({
+      data: {
+        companyId: company.id,
+        userId: admin.id,
+        name: s.name,
+        email: s.name.toLowerCase().replace(' ', '.') + '@demo.com',
+        position: s.position,
+        department: s.department,
+        contractType: s.contractType,
+        salary: s.salary,
+        admissionDate: admission,
+        status: 'ACTIVE',
+      },
+    });
+    console.log(`✅ ${s.name} (${s.department} • ${s.contractType})`);
+  }
+
+  // Confere distribuição
+  const dist = await prisma.employee.findMany({
+    where: { companyId: company.id, status: 'ACTIVE' },
+    select: { department: true, contractType: true },
+  });
+  console.log(`\n📊 Total ativos: ${dist.length}`);
+  const byDept: Record<string, number> = {};
+  dist.forEach((e) => {
+    const d = e.department || '(sem departamento)';
+    byDept[d] = (byDept[d] || 0) + 1;
+  });
+  console.table(byDept);
+}
+
+main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
+=======================================================
+
+📄 ARQUIVO: seed-plans.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-plans.ts
+-------------------------------------------------------
+// =================================================================
+// SEED: PLANOS COMERCIAIS RADAR (Essencial, Profissional, Premium)
+// =================================================================
+// Executar: npx ts-node --transpile-only prisma/seed-plans.ts
+// =================================================================
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+// =================================================================
+//  CATEGORIAS DE SERVIÇOS
+// =================================================================
+const categories = [
+  { name: 'Fiscal e Tributário', icon: '', order: 1, description: 'Serviços de apuração fiscal e planejamento tributário' },
+  { name: 'Notas Fiscais', icon: '🧾', order: 2, description: 'Emissão e gestão de notas fiscais' },
+  { name: 'Departamento Pessoal', icon: '👥', order: 3, description: 'Folha de pagamento e obrigações trabalhistas' },
+  { name: 'Relatórios e Análises', icon: '📊', order: 4, description: 'Relatórios financeiros e análises gerenciais' },
+  { name: 'Atendimento e Suporte', icon: '📞', order: 5, description: 'Canais de atendimento e suporte ao cliente' },
+  { name: 'Reuniões e Consultoria', icon: '🤝', order: 6, description: 'Reuniões periódicas e consultoria especializada' },
+  { name: 'Tecnologia e Integrações', icon: '🔗', order: 7, description: 'Ferramentas tecnológicas e integrações' },
+  { name: 'Benefícios e Extras', icon: '⭐', order: 8, description: 'Benefícios adicionais e diferenciais' },
+];
+// =================================================================
+// 🧩 Tipos das linhas (corrige TS2345/TS2322 dos arrays heterogêneos)
+// =================================================================
+type ServiceItemRow = [string, string, string, number, number, string];
+type PlanMappingRow = [string, string, string[]];
+
+// =================================================================
+// 📦 ITENS DE SERVIÇO (52 itens totais)
+// =================================================================
+const serviceItems: ServiceItemRow[] = [
+  // FISCAL E TRIBUTÁRIO (11 itens)
+  ['Fiscal e Tributário', 'Apuração mensal de impostos', 'Apuração e cálculo de impostos mensais', 150.00, 4.0, 'MENSAL'],
+  ['Fiscal e Tributário', 'Emissão de guias DAS / DASN', 'Emissão de guias de recolhimento', 50.00, 1.0, 'MENSAL'],
+  ['Fiscal e Tributário', 'Escrituração fiscal completa', 'Registro de todas as operações fiscais', 300.00, 8.0, 'MENSAL'],
+  ['Fiscal e Tributário', 'Declarações obrigatórias (DEFIS, PGDAS-D)', 'Entrega de declarações anuais', 200.00, 3.0, 'ANUAL'],
+  ['Fiscal e Tributário', 'Pró-labore dos sócios', 'Cálculo e emissão de pró-labore', 100.00, 2.0, 'MENSAL'],
+  ['Fiscal e Tributário', 'Planejamento tributário básico', 'Análise básica de enquadramento tributário', 250.00, 5.0, 'MENSAL'],
+  ['Fiscal e Tributário', 'Apuração mensal impostos IBS e CBS', 'Apuração de impostos da reforma tributária', 180.00, 4.0, 'MENSAL'],
+  ['Fiscal e Tributário', 'Planejamento tributário estratégico', 'Planejamento avançado com simulações', 500.00, 10.0, 'MENSAL'],
+  ['Fiscal e Tributário', 'Análise de enquadramento tributário', 'Análise detalhada do melhor regime', 400.00, 8.0, 'TRIMESTRAL'],
+  ['Fiscal e Tributário', 'Revisão de regime tributário anual', 'Revisão anual completa do regime', 600.00, 12.0, 'ANUAL'],
+  ['Fiscal e Tributário', 'Gestão de parcelamentos e débitos fiscais', 'Negociação e acompanhamento de débitos', 350.00, 6.0, 'MENSAL'],
+
+  // NOTAS FISCAIS (6 itens)
+  ['Notas Fiscais', 'Plataforma para emissão própria de NF-e', 'Acesso à plataforma de emissão', 80.00, 2.0, 'MENSAL'],
+  ['Notas Fiscais', 'Emissão de NF pela equipe (até 10/mês)', 'Emissão de até 10 notas fiscais por mês', 120.00, 3.0, 'MENSAL'],
+  ['Notas Fiscais', 'Emissão de NF pela equipe (até 30/mês)', 'Emissão de até 30 notas fiscais por mês', 200.00, 5.0, 'MENSAL'],
+  ['Notas Fiscais', 'Emissão de NF pela equipe (ilimitada)', 'Emissão ilimitada de notas fiscais', 350.00, 8.0, 'MENSAL'],
+  ['Notas Fiscais', 'Importação de NF de fornecedores', 'Importação automática de NF-e de entrada', 150.00, 4.0, 'MENSAL'],
+  ['Notas Fiscais', 'Análise de NCM', 'Classificação fiscal de produtos', 180.00, 5.0, 'MENSAL'],
+
+  // DEPARTAMENTO PESSOAL (10 itens)
+  ['Departamento Pessoal', 'Folha cobrada à parte (sem inclusão)', 'Folha de pagamento avulsa', 80.00, 2.0, 'AVULSO'],
+  ['Departamento Pessoal', 'Folha de pagamento (até 3 funcionários)', 'Processamento de folha para até 3 funcionários', 200.00, 5.0, 'MENSAL'],
+  ['Departamento Pessoal', 'Geração de holerites e recibos', 'Emissão de documentos de pagamento', 100.00, 2.0, 'MENSAL'],
+  ['Departamento Pessoal', 'E-Social completo', 'Envio de eventos ao e-Social', 150.00, 4.0, 'MENSAL'],
+  ['Departamento Pessoal', 'GFIP / CAGED / RAIS / DIRF', 'Entrega de obrigações acessórias', 250.00, 6.0, 'MENSAL'],
+  ['Departamento Pessoal', 'Até 2 recálculos de guias por mês', 'Recálculo de guias de FGTS/INSS', 80.00, 2.0, 'MENSAL'],
+  ['Departamento Pessoal', 'Folha de pagamento ilimitada', 'Processamento de folha sem limite de funcionários', 400.00, 10.0, 'MENSAL'],
+  ['Departamento Pessoal', 'Gestão de férias', 'Controle e processamento de férias', 120.00, 3.0, 'MENSAL'],
+  ['Departamento Pessoal', 'Cálculo de rescisões', 'Cálculo de verbas rescisórias', 150.00, 4.0, 'AVULSO'],
+  ['Departamento Pessoal', 'B.I. Folha de Pagamento', 'Relatórios analíticos de folha', 200.00, 5.0, 'MENSAL'],
+
+  // RELATÓRIOS E ANÁLISES (10 itens)
+  ['Relatórios e Análises', 'Balancete mensal', 'Balancete de verificação mensal', 150.00, 3.0, 'MENSAL'],
+  ['Relatórios e Análises', 'Balanço patrimonial anual', 'Balanço patrimonial completo', 400.00, 8.0, 'ANUAL'],
+  ['Relatórios e Análises', 'Acesso a painel web com documentos', 'Portal do cliente com documentos', 100.00, 2.0, 'MENSAL'],
+  ['Relatórios e Análises', 'DRE simplificado', 'Demonstrativo de resultado básico', 200.00, 4.0, 'MENSAL'],
+  ['Relatórios e Análises', 'Análise de fluxo de caixa básica', 'Controle de entradas e saídas', 180.00, 4.0, 'MENSAL'],
+  ['Relatórios e Análises', 'DRE detalhado com análise', 'DRE completo com análise gerencial', 350.00, 7.0, 'MENSAL'],
+  ['Relatórios e Análises', 'Fluxo de caixa projetado', 'Projeção de fluxo de caixa futuro', 300.00, 6.0, 'MENSAL'],
+  ['Relatórios e Análises', 'Análise de índices financeiros', 'Cálculo e análise de indicadores', 250.00, 5.0, 'MENSAL'],
+  ['Relatórios e Análises', 'Relatório de gestão patrimonial', 'Análise da evolução patrimonial', 280.00, 6.0, 'MENSAL'],
+  ['Relatórios e Análises', 'Análise de viabilidade de investimentos', 'Estudo de viabilidade econômica', 400.00, 8.0, 'AVULSO'],
+
+  // ATENDIMENTO E SUPORTE (7 itens)
+  ['Atendimento e Suporte', 'Atendimento via WhatsApp (8h-18h)', 'Suporte via WhatsApp em horário comercial', 100.00, 2.0, 'MENSAL'],
+  ['Atendimento e Suporte', 'Atendimento via e-mail (8h-18h)', 'Suporte por e-mail em horário comercial', 80.00, 2.0, 'MENSAL'],
+  ['Atendimento e Suporte', 'Atendimento via telefone (8h-18h)', 'Suporte telefônico em horário comercial', 120.00, 3.0, 'MENSAL'],
+  ['Atendimento e Suporte', 'Horário estendido (até 21h)', 'Atendimento em horário estendido', 150.00, 4.0, 'MENSAL'],
+  ['Atendimento e Suporte', 'Tempo de resposta garantido (até 4h)', 'SLA de resposta em até 4 horas', 200.00, 5.0, 'MENSAL'],
+  ['Atendimento e Suporte', 'Gestor / Assessor de conta dedicado', 'Profissional dedicado à conta', 300.00, 8.0, 'MENSAL'],
+  ['Atendimento e Suporte', 'Atendimento emergências 24h', 'Suporte 24 horas para emergências', 400.00, 10.0, 'MENSAL'],
+  
+
+  // REUNIÕES E CONSULTORIA (6 itens)
+  ['Reuniões e Consultoria', 'Reunião semestral de resultados', 'Reunião a cada 6 meses para análise', 250.00, 4.0, 'ANUAL'],
+  ['Reuniões e Consultoria', 'Reunião trimestral de resultados', 'Reunião trimestral de acompanhamento', 200.00, 3.0, 'TRIMESTRAL'],
+  ['Reuniões e Consultoria', 'Reunião mensal com especialista', 'Reunião mensal com especialista da área', 350.00, 5.0, 'MENSAL'],
+  ['Reuniões e Consultoria', 'Reunião mensal consultoria financeira', 'Consultoria financeira mensal', 400.00, 6.0, 'MENSAL'],
+  ['Reuniões e Consultoria', 'Suporte em decisões de investimento', 'Consultoria para decisões de investimento', 300.00, 5.0, 'MENSAL'],
+  ['Reuniões e Consultoria', 'Consultoria jurídica básica', 'Orientação jurídica contábil', 250.00, 4.0, 'MENSAL'],
+
+  // TECNOLOGIA E INTEGRAÇÕES (5 itens)
+  ['Tecnologia e Integrações', 'Certificado Digital (e-CPF/e-CNPJ A1) incluso', 'Certificado digital A1 incluso', 150.00, 1.0, 'ANUAL'],
+  ['Tecnologia e Integrações', 'Abertura de CNPJ (grátis ou com desconto)', 'Serviço de abertura de empresa', 300.00, 4.0, 'AVULSO'],
+  ['Tecnologia e Integrações', 'Integração com bancos / Open Finance', 'Conexão com bancos via Open Finance', 200.00, 5.0, 'MENSAL'],
+  ['Tecnologia e Integrações', 'Acesso a app mobile', 'Aplicativo mobile para gestão', 100.00, 2.0, 'MENSAL'],
+  ['Tecnologia e Integrações', 'Integração com ERPs (Omie, Conta Azul...)', 'Integração com sistemas de gestão', 250.00, 6.0, 'MENSAL'],
+
+  // BENEFÍCIOS E EXTRAS (7 itens)
+  ['Benefícios e Extras', 'Acesso a conteúdo educativo contábil', 'Materiais educativos e treinamentos', 80.00, 2.0, 'MENSAL'],
+  ['Benefícios e Extras', 'Acesso a eventos e webinars exclusivos', 'Participação em eventos exclusivos', 120.00, 3.0, 'MENSAL'],
+  ['Benefícios e Extras', 'Network empresarial', 'Conexão com outros empresários', 150.00, 4.0, 'MENSAL'],
+  ['Benefícios e Extras', 'Benefícios corporativos (academias, psicólogos)', 'Convênios com academias e psicólogos', 200.00, 5.0, 'MENSAL'],
+  ['Benefícios e Extras', 'Planejamento patrimonial', 'Estratégia de proteção patrimonial', 500.00, 10.0, 'ANUAL'],
+  ['Benefícios e Extras', 'Planejamento sucessório', 'Planejamento de sucessão empresarial', 600.00, 12.0, 'ANUAL'],
+  ['Benefícios e Extras', 'Regularização fiscal retroativa', 'Regularização de débitos anteriores', 800.00, 15.0, 'AVULSO'],
+];
+
+// =================================================================
+//  PLANOS COMERCIAIS
+// =================================================================
+const commercialPlans = [
+  { name: 'Essencial', multiplier: 0.75, order: 1, color: '#94a3b8', badge: 'Básico', description: 'Plano essencial para pequenas empresas e MEI' },
+  { name: 'Profissional', multiplier: 1.0, order: 2, color: '#3b82f6', badge: 'Mais Popular', description: 'Plano profissional para empresas em crescimento' },
+  { name: 'Premium', multiplier: 1.2, order: 3, color: '#f59e0b', badge: 'Completo', description: 'Plano premium com todos os serviços inclusos' },
+];
+
+// =================================================================
+// 🔗 MAPEAMENTO: PLANOS × ITENS
+// =================================================================
+const planItemsMapping: PlanMappingRow[] = [  // ESSENCIAL
+  ['Essencial', 'Fiscal e Tributário', [
+    'Apuração mensal de impostos',
+    'Emissão de guias DAS / DASN',
+    'Escrituração fiscal completa',
+    'Declarações obrigatórias (DEFIS, PGDAS-D)',
+    'Pró-labore dos sócios',
+  ]],
+  ['Essencial', 'Notas Fiscais', [
+    'Plataforma para emissão própria de NF-e',
+    'Emissão de NF pela equipe (até 10/mês)',
+  ]],
+  ['Essencial', 'Departamento Pessoal', [
+    'Folha cobrada à parte (sem inclusão)',
+  ]],
+  ['Essencial', 'Relatórios e Análises', [
+    'Balancete mensal',
+    'Balanço patrimonial anual',
+    'Acesso a painel web com documentos',
+  ]],
+  ['Essencial', 'Atendimento e Suporte', [
+    'Atendimento via WhatsApp (8h-18h)',
+    'Atendimento via e-mail (8h-18h)',
+  ]],
+  ['Essencial', 'Tecnologia e Integrações', [
+    'Certificado Digital (e-CPF/e-CNPJ A1) incluso',
+    'Abertura de CNPJ (grátis ou com desconto)',
+    'Integração com bancos / Open Finance',
+  ]],
+
+  // PROFISSIONAL
+  ['Profissional', 'Fiscal e Tributário', [
+    'Planejamento tributário básico',
+    'Apuração mensal impostos IBS e CBS',
+  ]],
+  ['Profissional', 'Notas Fiscais', [
+    'Emissão de NF pela equipe (até 30/mês)',
+  ]],
+  ['Profissional', 'Departamento Pessoal', [
+    'Folha de pagamento (até 3 funcionários)',
+    'Geração de holerites e recibos',
+    'E-Social completo',
+    'GFIP / CAGED / RAIS / DIRF',
+    'Até 2 recálculos de guias por mês',
+  ]],
+  ['Profissional', 'Relatórios e Análises', [
+    'DRE simplificado',
+    'Análise de fluxo de caixa básica',
+  ]],
+  ['Profissional', 'Atendimento e Suporte', [
+    'Atendimento via telefone (8h-18h)',
+    'Horário estendido (até 21h)',
+  ]],
+  ['Profissional', 'Reuniões e Consultoria', [
+    'Reunião semestral de resultados',
+    'Reunião trimestral de resultados',
+  ]],
+  ['Profissional', 'Tecnologia e Integrações', [
+    'Acesso a app mobile',
+    'Integração com ERPs (Omie, Conta Azul...)',
+  ]],
+  ['Profissional', 'Benefícios e Extras', [
+    'Acesso a conteúdo educativo contábil',
+  ]],
+
+  // PREMIUM
+  ['Premium', 'Fiscal e Tributário', [
+    'Planejamento tributário estratégico',
+    'Análise de enquadramento tributário',
+    'Revisão de regime tributário anual',
+    'Gestão de parcelamentos e débitos fiscais',
+  ]],
+  ['Premium', 'Notas Fiscais', [
+    'Emissão de NF pela equipe (ilimitada)',
+    'Importação de NF de fornecedores',
+    'Análise de NCM',
+  ]],
+  ['Premium', 'Departamento Pessoal', [
+    'Folha de pagamento ilimitada',
+    'Gestão de férias',
+    'Cálculo de rescisões',
+    'B.I. Folha de Pagamento',
+  ]],
+  ['Premium', 'Relatórios e Análises', [
+    'DRE detalhado com análise',
+    'Fluxo de caixa projetado',
+    'Análise de índices financeiros',
+    'Relatório de gestão patrimonial',
+    'Análise de viabilidade de investimentos',
+  ]],
+  ['Premium', 'Atendimento e Suporte', [
+    'Tempo de resposta garantido (até 4h)',
+    'Gestor / Assessor de conta dedicado',
+    'Atendimento emergências 24h',
+  ]],
+  ['Premium', 'Reuniões e Consultoria', [
+    'Reunião mensal com especialista',
+    'Reunião mensal consultoria financeira',
+    'Suporte em decisões de investimento',
+    'Consultoria jurídica básica',
+  ]],
+  ['Premium', 'Benefícios e Extras', [
+    'Acesso a eventos e webinars exclusivos',
+    'Network empresarial',
+    'Benefícios corporativos (academias, psicólogos)',
+    'Planejamento patrimonial',
+    'Planejamento sucessório',
+    'Regularização fiscal retroativa',
+  ]],
+];
+
+// =================================================================
+// 🚀 EXECUÇÃO DO SEED
+// =================================================================
+async function main() {
+  console.log('🚀 Iniciando seed de planos comerciais...\n');
+
+  // Usar a primeira empresa disponível
+  let company = await prisma.company.findFirst();
+  if (!company) {
+    console.log('❌ Nenhuma empresa encontrada no banco.');
+    console.log(' Crie uma empresa primeiro ou use o seed principal.');
+    return;
+  }
+  console.log(`✅ Empresa: ${company.name} (${company.id})\n`);
+
+  // 1️⃣ Criar categorias (findOrCreate)
+  console.log(' Criando categorias...');
+  const categoryMap = new Map<string, string>();
+  
+  for (const cat of categories) {
+    let category = await prisma.serviceCategory.findFirst({
+      where: {
+        companyId: company.id,
+        name: cat.name,
+      },
+    });
+
+    if (!category) {
+      category = await prisma.serviceCategory.create({
+        data: {
+          companyId: company.id,
+          name: cat.name,
+          icon: cat.icon,
+          order: cat.order,
+          description: cat.description,
+        },
+      });
+      console.log(`  ✅ ${cat.icon || ''} ${cat.name}`);
+    } else {
+      console.log(`  ✓ ${cat.icon || '📁'} ${cat.name} (já existe)`);
+    }
+    categoryMap.set(cat.name, category.id);
+  }
+  console.log('');
+
+  // 2️⃣ Criar itens de serviço (findOrCreate)
+  console.log('📦 Criando itens de serviço...');
+  const itemMap = new Map<string, string>();
+  
+  for (const [categoryName, itemName, description, basePrice, estimatedHours, recurrence] of serviceItems) {
+    const categoryId = categoryMap.get(categoryName);
+    if (!categoryId) {
+      console.error(` Categoria não encontrada: ${categoryName}`);
+      continue;
+    }
+
+    let item = await prisma.serviceItem.findFirst({
+      where: {
+        companyId: company.id,
+        name: itemName,
+      },
+    });
+
+    if (!item) {
+      item = await prisma.serviceItem.create({
+        data: {
+          companyId: company.id,
+          categoryId,
+          name: itemName,
+          description,
+          basePrice,
+          estimatedHours,
+          recurrence: recurrence as any,
+          isActive: true,
+        },
+      });
+      console.log(`  ✅ ${itemName}`);
+    } else {
+      // Atualizar se necessário
+      await prisma.serviceItem.update({
+        where: { id: item.id },
+        data: {
+          categoryId,
+          basePrice,
+          estimatedHours,
+          recurrence: recurrence as any,
+        },
+      });
+    }
+    itemMap.set(itemName, item.id);
+  }
+  console.log('');
+
+  // 3️⃣ Criar planos comerciais (findOrCreate)
+  console.log(' Criando planos comerciais...');
+  const planMap = new Map<string, string>();
+  
+  for (const plan of commercialPlans) {
+    let commercialPlan = await prisma.commercialPlan.findFirst({
+      where: {
+        companyId: company.id,
+        name: plan.name,
+      },
+    });
+
+    if (!commercialPlan) {
+      commercialPlan = await prisma.commercialPlan.create({
+        data: {
+          companyId: company.id,
+          name: plan.name,
+          multiplier: plan.multiplier,
+          order: plan.order,
+          color: plan.color,
+          badge: plan.badge,
+          description: plan.description,
+          isIndependent: false,
+        },
+      });
+      console.log(`  ✅ ${plan.name} (multiplicador: ${plan.multiplier})`);
+    } else {
+      console.log(`  ✓ ${plan.name} (já existe)`);
+      // Atualizar
+      await prisma.commercialPlan.update({
+        where: { id: commercialPlan.id },
+        data: {
+          multiplier: plan.multiplier,
+          order: plan.order,
+          color: plan.color,
+          badge: plan.badge,
+          description: plan.description,
+        },
+      });
+    }
+    planMap.set(plan.name, commercialPlan.id);
+  }
+  console.log('');
+
+  // 4️ Vincular itens aos planos
+  console.log('🔗 Vinculando itens aos planos...');
+  let totalLinks = 0;
+  
+  for (const [planName, categoryName, itemNames] of planItemsMapping) {
+    const planId = planMap.get(planName);
+    if (!planId) {
+      console.error(`❌ Plano não encontrado: ${planName}`);
+      continue;
+    }
+
+    for (const itemName of itemNames) {
+      const itemId = itemMap.get(itemName);
+      if (!itemId) {
+        console.error(`❌ Item não encontrado: ${itemName}`);
+        continue;
+      }
+
+      // Verificar se já existe o vínculo
+      const existingLink = await prisma.planServiceItem.findFirst({
+        where: {
+          planId,
+          serviceItemId: itemId,
+        },
+      });
+
+      if (!existingLink) {
+        await prisma.planServiceItem.create({
+          data: {
+            planId,
+            serviceItemId: itemId,
+            quantity: 1,
+            discount: 0,
+          },
+        });
+        totalLinks++;
+      }
+    }
+    console.log(`  ✅ ${planName}: ${itemNames.length} itens de ${categoryName}`);
+  }
+  console.log('');
+
+  // 5️⃣ Resumo final
+  console.log('📊 RESUMO FINAL:');
+  console.log(`  ✅ ${categories.length} categorias configuradas`);
+  console.log(`  ✅ ${serviceItems.length} itens de serviço configurados`);
+  console.log(`  ✅ ${commercialPlans.length} planos comerciais configurados`);
+  console.log(`  ✅ ${totalLinks} novos vínculos plano-item criados`);
+  console.log('\n🎉 Seed concluído com sucesso!');
+}
+
+main()
+  .catch((e) => {
+    console.error(' Erro no seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: seed-proposals.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-proposals.ts
+-------------------------------------------------------
+// =================================================================
+// INÍCIO: backend/prisma/seed-proposals.ts
+// =================================================================
+/**
+ * =================================================================
+ * SEED DE PROPOSTAS — base de teste p/ Sprints A4/A5/A6
+ * =================================================================
+ * Cria (idempotente — não duplica ao rodar 2x):
+ *  - 3 planos comerciais (START 1.0x / PRIME 1.2x / BLACK 1.4x)
+ *  - 3 itens de serviço (caso o catálogo ainda não exista)
+ *  - 5 propostas em status diferentes:
+ *      1. Academia do Renan   → SENT        (testa fechamento A4 + PDF)
+ *      2. Mercado Bom Preço   → VIEWED      (testa PDF/PNG público)
+ *      3. Tech Solutions      → DRAFT       (rascunho p/ wizard)
+ *      4. Padaria Pão Quente  → CLOSED_WON  (com memória de ganho A4)
+ *      5. Oficina Turbo       → CLOSED_LOST (motivo de perda p/ BI)
+ *
+ * Pré-requisitos: rodar seed-users.ts (empresa + admin) antes.
+ * Uso: npx ts-node prisma/seed-proposals.ts
+ * =================================================================
+ */
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+/** ADR-020: round2 em todos os valores monetários. */
+const round2 = (v: number) => Math.round(v * 100) / 100;
+
+/** Slug não-sequencial (segurança — não expõe ID interno). */
+function slugify(s: string, suffix: number): string {
+  const clean = s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  return `${clean}-${Date.now() + suffix}`;
+}
+
+async function main() {
+  console.log('🌱 Seed de Propostas (base de teste A4/A5/A6)...\n');
+
+  // ------------------------------------------------------------------
+  // 1) Empresa + usuário admin (pré-requisito do seed-users.ts)
+  // ------------------------------------------------------------------
+  const company = await prisma.company.findFirst({
+    where: { name: 'Conta Certa Demo' },
+  });
+  if (!company) {
+    throw new Error('❌ Empresa "Conta Certa Demo" não encontrada. Rode: npx ts-node prisma/seed-users.ts');
+  }
+
+  const admin = await prisma.user.findFirst({
+    where: { email: 'admin@demo.com' },
+  });
+  if (!admin) {
+    throw new Error('❌ Usuário admin@demo.com não encontrado. Rode: npx ts-node prisma/seed-users.ts');
+  }
+
+  // ------------------------------------------------------------------
+  // 2) Itens de serviço (idempotente — reaproveita o catálogo se existir)
+  // ------------------------------------------------------------------
+  let category = await prisma.serviceCategory.findFirst({
+    where: { companyId: company.id, name: 'Contábil' },
+  });
+  if (!category) {
+    category = await prisma.serviceCategory.create({
+      data: { companyId: company.id, name: 'Contábil', order: 1 },
+    });
+  }
+
+  const itemSpecs = [
+    { name: 'Escrituração Contábil Mensal', basePrice: 890 },
+    { name: 'Consultoria Tributária', basePrice: 600 },
+    { name: 'Declaração Anual IRPF', basePrice: 320 },
+  ];
+  const itemIds: string[] = [];
+  for (const spec of itemSpecs) {
+    let item = await prisma.serviceItem.findFirst({
+      where: { companyId: company.id, name: spec.name },
+    });
+    if (!item) {
+      item = await prisma.serviceItem.create({
+        data: {
+          companyId: company.id,
+          categoryId: category.id,
+          name: spec.name,
+          basePrice: spec.basePrice,
+          estimatedHours: 4,
+          recurrence: 'MENSAL',
+          isActive: true,
+        },
+      });
+    }
+    itemIds.push(item.id);
+  }
+  console.log(`✅ Itens de serviço prontos (${itemIds.length})`);
+
+  // ------------------------------------------------------------------
+  // 3) Planos comerciais START / PRIME / BLACK + vínculo de itens
+  // ------------------------------------------------------------------
+  const BASE = 2000; // valor de referência (A2)
+  const planSpecs = [
+    { name: 'START', multiplier: 1.0, badge: 'ESSENCIAL', color: '#64748b', items: [itemIds[0]] },
+    { name: 'PRIME', multiplier: 1.2, badge: 'MAIS VENDIDO', color: '#0d9488', items: [itemIds[0], itemIds[1]] },
+    { name: 'BLACK', multiplier: 1.4, badge: 'PREMIUM', color: '#1e293b', items: itemIds },
+  ];
+
+  const plans: Record<string, { id: string; multiplier: number }> = {};
+  for (const spec of planSpecs) {
+    let plan = await prisma.commercialPlan.findFirst({
+      where: { companyId: company.id, name: spec.name },
+    });
+    if (!plan) {
+      plan = await prisma.commercialPlan.create({
+        data: {
+          companyId: company.id,
+          name: spec.name,
+          multiplier: spec.multiplier,
+          badge: spec.badge,
+          color: spec.color,
+          description: `Plano ${spec.name} da base de teste`,
+          order: spec.multiplier * 10,
+        },
+      });
+    }
+    // Vínculo idempotente: limpa e recria os itens do plano
+    await prisma.planServiceItem.deleteMany({ where: { planId: plan.id } });
+    await prisma.planServiceItem.createMany({
+      data: spec.items.map((serviceItemId) => ({ planId: plan.id, serviceItemId })),
+    });
+    plans[spec.name] = { id: plan.id, multiplier: plan.multiplier };
+  }
+  console.log('✅ Planos START/PRIME/BLACK prontos');
+
+  // ------------------------------------------------------------------
+  // 4) Propostas em 5 status diferentes (pula se já existir)
+  // ------------------------------------------------------------------
+  const now = new Date();
+  const ym = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prefix = `PROP-${ym}-`;
+  let seq = await prisma.proposal.count({
+    where: { companyId: company.id, proposalNumber: { startsWith: prefix } },
+  });
+
+  interface Spec {
+    clientName: string;
+    cnpj?: string;
+    status: 'DRAFT' | 'SENT' | 'VIEWED' | 'CLOSED_WON' | 'CLOSED_LOST';
+    plan: 'START' | 'PRIME' | 'BLACK';
+    avulsos?: number[]; // índices em itemSpecs
+    views?: number;
+    lossReason?: string;
+    aboutOffice?: string;
+    differentials?: string;
+    specificNote?: string;
+  }
+
+  const specs: Spec[] = [
+    {
+      clientName: 'Academia do Renan LTDA',
+      cnpj: '12.345.678/0001-90',
+      status: 'SENT',
+      plan: 'PRIME',
+      avulsos: [2],
+      aboutOffice:
+        'A Conta Certa é especialista em academias e negócios de saúde, com automação contábil de ponta a ponta.',
+      differentials: 'Aurora (funcionária digital) • DRE em tempo real • Conciliação automática.',
+    },
+    {
+      clientName: 'Mercado Bom Preço LTDA',
+      cnpj: '23.456.789/0001-01',
+      status: 'VIEWED',
+      plan: 'BLACK',
+      avulsos: [1, 2],
+      views: 3,
+      specificNote: 'Proposta inclui migração completa do sistema anterior sem custo adicional.',
+    },
+    { clientName: 'Tech Solutions LTDA', cnpj: '34.567.890/0001-12', status: 'DRAFT', plan: 'START' },
+    {
+      clientName: 'Padaria Pão Quente LTDA',
+      cnpj: '45.678.901/0001-23',
+      status: 'CLOSED_WON',
+      plan: 'PRIME',
+    },
+    {
+      clientName: 'Oficina Turbo Mecânica',
+      cnpj: '56.789.012/0001-34',
+      status: 'CLOSED_LOST',
+      plan: 'START',
+      lossReason: 'Fechou com concorrente mais barato',
+    },
+  ];
+
+  for (let i = 0; i < specs.length; i++) {
+    const s = specs[i];
+
+    // Idempotência: não duplica proposta do mesmo cliente
+    const existing = await prisma.proposal.findFirst({
+      where: { companyId: company.id, clientName: s.clientName },
+    });
+    if (existing) {
+      console.log(`⏭️  ${s.clientName} já existe (${existing.proposalNumber}) — pulando`);
+      continue;
+    }
+
+    seq += 1;
+    const proposalNumber = `${prefix}${String(seq).padStart(4, '0')}`;
+    const plan = plans[s.plan];
+    const planPrice = round2(BASE * plan.multiplier);
+
+    // Memória de fechamento p/ CLOSED_WON (espelho da A4: 10% desc., pagava 1800)
+    const ideal = planPrice;
+    const final = round2(ideal * 0.9);
+    const current = 1800;
+
+    const proposal = await prisma.proposal.create({
+      data: {
+        companyId: company.id,
+        userId: admin.id,
+        proposalNumber,
+        slug: slugify(s.clientName, i),
+        clientName: s.clientName,
+        clientCnpj: s.cnpj ?? null,
+        taxRegime: 'SIMPLES_NACIONAL',
+        activity: 'Serviços',
+        monthlyRevenue: 45000,
+        employeeCount: 8,
+        basePrice: BASE,
+        aboutOffice: s.aboutOffice ?? null,
+        differentials: s.differentials ?? null,
+        specificNote: s.specificNote ?? null,
+        commercialTerms: 'Pagamento mensal via boleto • Reajuste anual pelo IPCA.',
+        status: s.status,
+        views: s.views ?? 0,
+        sentAt: s.status !== 'DRAFT' ? new Date() : null,
+        closedAt: s.status.startsWith('CLOSED') ? new Date() : null,
+        closedPlanId: s.status === 'CLOSED_WON' ? plan.id : null,
+        closedPrice: s.status === 'CLOSED_WON' ? final : null,
+        lossReason: s.lossReason ?? null,
+        closingDetails:
+          s.status === 'CLOSED_WON'
+            ? {
+                discountPercent: 10,
+                currentMonthly: current,
+                idealPrice: ideal,
+                finalPrice: final,
+                concessionMonthly: round2(ideal - final),
+                concessionYearly: round2((ideal - final) * 12),
+                gainMonthly: round2(final - current),
+                gainYearly: round2((final - current) * 12),
+                belowCurrent: final < current,
+                steps: [
+                  `Preço cheio de referência: R$ ${ideal.toFixed(2)}/mês`,
+                  'Desconto aplicado: 10.0%',
+                  `Preço fechado: R$ ${final.toFixed(2)}/mês`,
+                ],
+                notes: 'Fechado em reunião presencial',
+              }
+            : null,
+      },
+    });
+
+    // Itens da proposta: 1 plano + avulsos
+    await prisma.proposalItem.createMany({
+      data: [
+        {
+          proposalId: proposal.id,
+          commercialPlanId: plan.id,
+          quantity: 1,
+          unitPrice: planPrice,
+          totalPrice: planPrice,
+        },
+        ...(s.avulsos ?? []).map((idx) => ({
+          proposalId: proposal.id,
+          serviceItemId: itemIds[idx],
+          quantity: 1,
+          unitPrice: itemSpecs[idx].basePrice,
+          totalPrice: itemSpecs[idx].basePrice,
+        })),
+      ],
+    });
+
+    console.log(`✅ ${s.clientName} [${s.status}] → ${proposalNumber} • slug: ${proposal.slug}`);
+  }
+
+  // ------------------------------------------------------------------
+  // 5) Resumo + links p/ teste
+  // ------------------------------------------------------------------
+  const all = await prisma.proposal.findMany({
+    where: { companyId: company.id },
+    orderBy: { createdAt: 'desc' },
+    select: { slug: true, clientName: true, status: true, proposalNumber: true },
+  });
+
+  console.log('\n🎉 Seed concluído! Propostas disponíveis:\n');
+  for (const p of all) {
+    console.log(`  [${p.status.padEnd(11)}] ${p.clientName}`);
+    console.log(`     🔗 http://localhost:3000/proposta/${p.slug}\n`);
+  }
+  console.log('👉 Testes A6:');
+  console.log('   1. /dashboard/precificacao → ícone 📄 (FileDown) em qualquer linha');
+  console.log('   2. Abra um link público acima → barra flutuante "Baixar PDF" / "PNG p/ WhatsApp"');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro no seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+// =================================================================
+// FIM: backend/prisma/seed-proposals.ts
+// =================================================================
+=======================================================
+
+📄 ARQUIVO: seed-turnover.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-turnover.ts
+-------------------------------------------------------
+// =================================================================
+// backend/prisma/seed-turnover.ts — Seed de dados mensais (B4)
+// Preenche TurnoverMonthly 2026 (meses 1–8) p/ abas Empresa/Tipo
+// Contratual mostrarem gráficos e tabelas populados.
+// Uso: npx ts-node prisma/seed-turnover.ts
+// =================================================================
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const company = await prisma.company.findFirst({ where: { name: 'Conta Certa Demo' } });
+  const admin = await prisma.user.findFirst({ where: { email: 'admin@demo.com' } });
+  if (!company || !admin) throw new Error('❌ Empresa/admin não encontrados.');
+
+  // Estado inicial por tipo contratual
+  let clt = 8, intern = 2, third = 1, partner = 1;
+
+  // Eventos planejados p/ parecer real (admissões/demissões pontuais)
+  const events: Record<number, { cltA?: number; cltD?: number; intA?: number; intD?: number }> = {
+    2: { intA: 1 },          // estagiário entra em fev
+    3: { cltA: 2 },          // 2 contratações CLT em mar
+    5: { cltD: 1 },          // 1 desligamento CLT em mai
+    7: { intD: 1 },          // estagiário sai em jul (novato <12m!)
+  };
+
+  for (let m = 1; m <= 8; m++) {
+    const ev = events[m] || {};
+    const cltA = ev.cltA || 0, cltD = ev.cltD || 0;
+    const intA = ev.intA || 0, intD = ev.intD || 0;
+
+    await prisma.turnoverMonthly.upsert({
+      where: { companyId_year_month: { companyId: company.id, year: 2026, month: m } },
+      update: {}, // não sobrescreve preenchimento manual existente
+      create: {
+        companyId: company.id, userId: admin.id, year: 2026, month: m,
+        cltInitial: clt, cltAdmissions: cltA, cltDismissals: cltD,
+        internInitial: intern, internAdmissions: intA, internDismissals: intD,
+        thirdInitial: third, thirdAdmissions: 0, thirdDismissals: 0,
+        partnerInitial: partner, partnerAdmissions: 0, partnerDismissals: 0,
+      },
+    });
+
+    // Carry-over: próximo inicial = inicial + admissões − demissões
+    clt = clt + cltA - cltD;
+    intern = intern + intA - intD;
+  }
+
+  console.log('✅ Seed de TurnoverMonthly 2026 concluído (8 meses).');
+}
+
+main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
+=======================================================
+
+📄 ARQUIVO: seed-update-user-company.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-update-user-company.ts
+-------------------------------------------------------
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🔄 Atualizando usuário admin@aurora.com para empresa demo...\n');
+
+  // Encontrar a empresa demo
+  const empresaDemo = await prisma.company.findFirst({
+    where: { name: 'Conta Certa Demo' },
+  });
+
+  if (!empresaDemo) {
+    console.error('❌ Empresa demo não encontrada!');
+    return;
+  }
+
+  console.log(`✅ Empresa demo encontrada: ${empresaDemo.id}`);
+
+  // Atualizar o usuário admin@aurora.com
+  const updatedUser = await prisma.user.update({
+    where: { email: 'admin@aurora.com' },
+    data: { companyId: empresaDemo.id },
+  });
+
+  console.log(`✅ Usuário atualizado: ${updatedUser.email}`);
+  console.log(`   Novo companyId: ${updatedUser.companyId}\n`);
+
+  console.log(' Pronto! Agora faça logout e login novamente.');
+  console.log('   Email: admin@aurora.com');
+  console.log('   Senha: (sua senha atual)\n');
+  console.log('   As categorias e planos devem aparecer! ');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: seed-users.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed-users.ts
+-------------------------------------------------------
+/**
+ * ============================================================================
+ * RADAR CONTA CERTA — SEED DE USUÁRIOS
+ * ----------------------------------------------------------------------------
+ * Cria usuários de teste para login no sistema
+ * ============================================================================
+ */
+
+import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🔐 Iniciando seed de usuários...');
+
+  // Buscar ou criar empresa demo
+  let company = await prisma.company.findFirst({
+    where: { name: 'Conta Certa Demo' },
+  });
+
+  if (!company) {
+    console.log('📝 Criando empresa demo...');
+    company = await prisma.company.create({
+      data: {
+        name: 'Conta Certa Demo',
+        cnpj: '00000000000000',
+        plan: 'PREMIUM',
+      },
+    });
+    console.log(`✅ Empresa criada: ${company.name}`);
+  } else {
+    console.log(`✅ Empresa encontrada: ${company.name}`);
+  }
+
+  // Criar usuário ADMIN
+  const adminEmail = 'admin@demo.com';
+  const adminPassword = await bcrypt.hash('123456', 10);
+
+  let admin = await prisma.user.findFirst({
+    where: { email: adminEmail, companyId: company.id },
+  });
+
+  if (admin) {
+    console.log(`✅ Admin já existe: ${admin.email}`);
+  } else {
+    admin = await prisma.user.create({
+      data: {
+        name: 'Administrador Demo',
+        email: adminEmail,
+        password: adminPassword,
+        role: 'ADMIN',
+        companyId: company.id,
+      },
+    });
+    console.log(`✅ Admin criado: ${admin.email}`);
+  }
+
+  // Criar usuário USER (colaborador)
+  const userEmail = 'user@demo.com';
+  const userPassword = await bcrypt.hash('123456', 10);
+
+  let user = await prisma.user.findFirst({
+    where: { email: userEmail, companyId: company.id },
+  });
+
+  if (user) {
+    console.log(`✅ Usuário já existe: ${user.email}`);
+  } else {
+    user = await prisma.user.create({
+      data: {
+        name: 'Colaborador Demo',
+        email: userEmail,
+        password: userPassword,
+        role: 'USER',
+        companyId: company.id,
+      },
+    });
+    console.log(`✅ Usuário criado: ${user.email}`);
+  }
+
+  console.log('\n✅ Seed de usuários concluído!');
+  console.log('\n📧 Credenciais de acesso:');
+  console.log('   Admin: admin@demo.com / 123456');
+  console.log('   User:  user@demo.com / 123456');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro no seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: seed.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\seed.ts
+-------------------------------------------------------
+import { PrismaClient, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  console.log('🌱 Iniciando seed do banco de dados...');
+
+  // 1. Criar ou encontrar a Empresa (Tenant)
+  // Usamos o CNPJ como identificador único conforme seu schema (cnpj String? @unique)
+  const company = await prisma.company.upsert({
+    where: { cnpj: '00.000.000/0001-00' },
+    update: {},
+    create: {
+      name: 'Empresa Demo SaaS',
+      cnpj: '00.000.000/0001-00',
+      plan: 'PREMIUM',
+      allowedModules: ['dashboard', 'pessoas', 'clientes', 'precificacao', 'planejamento', 'financeiro', 'bi', 'admin'],
+    },
+  });
+  console.log(`✅ Empresa criada/encontrada: ${company.name}`);
+
+  // 2. Criar ou encontrar o Usuário Admin com senha criptografada
+  const plainPassword = 'Admin@123456';
+  const hashedPassword = await bcrypt.hash(plainPassword, 10);
+  
+  const user = await prisma.user.upsert({
+    where: { email: 'admin@contacerta.com.br' }, 
+    update: {},
+    create: {
+      email: 'admin@contacerta.com.br',
+      password: hashedPassword,
+      name: 'Administrador do Sistema',
+      role: UserRole.ADMIN, // Respeitando o Enum UserRole do seu schema
+      companyId: company.id, // Vínculo obrigatório para Arquitetura Multi-Tenant
+    },
+  });
+  console.log(`✅ Usuário Admin criado/encontrado: ${user.email}`);
+
+  console.log('🎉 Seed concluído com sucesso!');
+  console.log('🔑 Credenciais para login:');
+  console.log('   Email: admin@contacerta.com.br');
+  console.log('   Senha: Admin@123456');
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro ao executar o seed:', e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+=======================================================
+
+📄 ARQUIVO: set-logo.ts
+🔗 CAMINHO: C:\Site conta-certa\radar-clone\backend\prisma\set-logo.ts
+-------------------------------------------------------
+// =================================================================
+// INÍCIO: backend/prisma/set-logo.ts
+// =================================================================
+/**
+ * Sprint A6 (validação) — vincula o logotipo ao tenant demo.
+ * O logo fica em frontend/public (mesma origem do browser), então
+ * usamos caminho relativo: sem CORS, sem taint no canvas (ADR-045/046).
+ * Uso: npx ts-node prisma/set-logo.ts
+ */
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const updated = await prisma.company.updateMany({
+    where: { name: 'Conta Certa Demo' },
+    data: { logoUrl: '/logo-conta-certa.png' },
+  });
+  console.log(`✅ logoUrl definido em ${updated.count} empresa(s)`);
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Erro:', e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());
+// =================================================================
+// FIM: backend/prisma/set-logo.ts
+// =================================================================
+=======================================================
+
