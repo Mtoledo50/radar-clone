@@ -98,6 +98,13 @@ independente do runtime Node.js.
 ADR-089 Ajuda contextual em 2 camadas (Progressive Disclosure): modal rápido
 para usuários casuais + página detalhada para operadores.
 ADR-090 Catálogo centralizado em TypeScript (type-safe, sem CMS externo).
+🆕 ADR-091 Gestão de Usuários e Ciclo Seguro de Senhas: Soft Delete (preserva
+auditoria e libera e-mail via sufixo temporal), troca forçada no 1º login via
+modal bloqueante, senha provisória com hash bcrypt, travas de auto-exclusão e
+proteção do último admin do tenant.
+🆕 ADR-092 Seed Enterprise Unificado e Idempotente: substituição de scripts
+fragmentados por um único `prisma/seed.ts` orquestrado (Tenant → Catálogo →
+Pessoas → Aurora → Propostas), garantindo consistência e reprodutibilidade.
 
 ## 4. Status macro
 Sprints 1–32 concluídas: dashboard, clientes, operacional, fiscal (NF-e/estoque/
@@ -106,6 +113,7 @@ inteligente, BI, ponto fora da curva.
 CICLO CONTÁBIL SCI (ETAPAS 1–3) ✅ HOMOLOGADO em 25/08/2026.
 SPRINT 32 ✅ HOMOLOGADA: produção local Radar+Site via túnel Cloudflare
 (radar.contacerta.com.br + radar-api.contacerta.com.br).
+🆕 MÓDULO DE USUÁRIOS ✅ HOMOLOGADO: CRUD, RBAC, Soft Delete, Troca Forçada e Seed Unificado.
 AURORA FD-5+Fases 4/5/6 ✅ HOMOLOGADA em 27/08/2026 (ver §6 e §9).
 
 ## 5. Plano 2.0 — Fases concluídas
@@ -125,7 +133,7 @@ aprovação humana + notificações plugáveis + vínculo Client + tela 4 abas c
 autopreenchimento da carteira. Backend c/ 19 rotas /billing (JwtAuthGuard).
 Pendente: FD-7 integrações Domínio/Questor/Sage • FD-9 DP leve.
 
-## 7. Páginas principais
+### 7. Páginas principais
 Operacional: /dashboard • /dashboard/minha-empresa • /dashboard/pessoas •
 /dashboard/pessoas/benchmark • /dashboard/clientes • /dashboard/projetos •
 /dashboard/tarefas.
@@ -139,6 +147,8 @@ cobranca ⭐ 4 abas) • /dashboard/bi(+dre-cliente) • /dashboard/ponto-fora-d
 • /dashboard/indicadores(+custom) • /dashboard/score • /dashboard/mentoria •
 /dashboard/ranking • /dashboard/planejamento-tributario •
 /dashboard/reforma-tributaria.
+Administração: /dashboard/admin • /dashboard/admin/catalogo • 
+🆕 /dashboard/admin/usuarios.
 Fase A (Comercial): A1 herança de planos ✅(domínio) • A2 valor ref. + dinheiro na
 mesa ✅(backend + frontend) • A3 versões de proposta • A4 fechamento c/ ganho •
 A5 white-label • A6 PDF v2+PNG • A7 dashboard desempenho.
@@ -156,15 +166,16 @@ checklist de fechamento • ECD/ECF • ICMS-ST por NCM/CEST • ISS por municí
 créditos tributários. REGRA: nada entra antes das Sprints 33–34.
 
 ## 9. Status atual e próximos passos
-9) STATUS ATUAL E PRÓXIMOS PASSOS
-Sprint A3 CONCLUÍDA: versionamento de propostas (backend + frontend), página de
-listagem /dashboard/precificacao/propostas criada, menu lateral corrigido.
-IMEDIATO: Escolher entre Sprint A4 (Fechamento com Ganho) ou Sprint 33 (CI/CD + Backup).
-DEPOIS: A5→A7, Fases B→E (ordem do §7).
-PRÓXIMAS (à escolha do Marcos):
-  • 🎯 Fase E (Plano 2.0) — UX: command palette (Ctrl+K), "onde parou", notificações
-  • 💰 Fase A2-UI — "dinheiro na mesa" surfado na tela de precificação
-  • 🐳 Paridade Docker — rodar deploy-local.ps1 c/ Aurora embarcada
+✅ Sprint de Gestão de Usuários CONCLUÍDA e HOMOLOGADA:
+- Backend: CRUD completo, Soft Delete, geração de senha provisória, validação de força.
+- Frontend: Tela de gestão com modal de criação, redefinição de senha (c/ clipboard) e exclusão.
+- Segurança: Modal bloqueante de troca forçada de senha no primeiro acesso (`mustChangePassword`).
+- Infra: Seed Enterprise unificado e idempotente (`npx prisma db seed`).
+
+IMEDIATO: Escolher o próximo bloco de valor com o Marcos. Opções prioritárias:
+  1. 🤖 Fase Aurora: FD-7 (Integrações) ou FD-9 (DP Leve).
+  2. 🚀 Produção (Sprints 33-34): CI/CD, Sentry e Backup automatizado.
+  3. 🎨 Fase E (UX): Command Palette (Ctrl+K) e Notificações.
 
 9) STATUS ATUAL E PRÓXIMOS PASSOS
 Sprint A2 CONCLUÍDA: migração Prisma (order), endpoints /resolved e /insights,

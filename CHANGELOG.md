@@ -2,8 +2,40 @@
 
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
+
+## [Sprint Gestão de Usuários e Seed Unificado] 31/08/2026 — ✅ HOMOLOGADO
+
+### Added
+- **Backend (Módulo de Usuários)**:
+  - DTOs: `CreateUserDto`, `UpdateUserDto`, `ChangePasswordDto` (com validação de força via `class-validator`).
+  - Service: `create` (com senha provisória e `mustChangePassword: true`), `findAll` (filtrado por `companyId` e `deletedAt: null`), `update`, `remove` (Soft Delete com trava de auto-exclusão e proteção do último admin), `resetPassword` (gera senha temporária), `changePassword` (valida força e atualiza flag).
+  - Controller: Rotas protegidas por `JwtAuthGuard` (`GET /users`, `GET /users/me`, `POST /users`, `PATCH /users/:id`, `PATCH /users/me/password`, `POST /users/:id/reset-password`, `DELETE /users/:id`).
+- **Frontend (Admin Users)**:
+  - Página `/dashboard/admin/usuarios` com tabela de usuários, badges de role e status visual.
+  - Modal de criação de usuário com seleção de role (Administrador, Gerente, Colaborador).
+  - Ações de "Redefinir Senha" (com toast Sonner e cópia automática para clipboard) e "Remover" (com confirmação interativa).
+  - Componente `ForcePasswordChange.tsx`: modal bloqueante que intercepta o dashboard se `mustChangePassword === true`, com checklist de força de senha em tempo real.
+- **Infraestrutura (Seed)**:
+  - `prisma/seed.ts` unificado e idempotente: orquestra a criação de Tenant Demo, Catálogo de Serviços, Planos, Colaboradores, Aurora (Skills) e Propostas de exemplo em uma única execução segura.
+  - Script `iniciar-dev.ps1` para subir Docker, Backend e Frontend simultaneamente em janelas separadas.
+
+### Changed
+- Schema Prisma: Adicionado campo `mustChangePassword Boolean @default(false)` e `deletedAt DateTime?` ao model `User`.
+- Atualização completa do `README.md` e `CONTEXTO_PROJETO.md` com as novas decisões arquiteturais, fluxos de segurança e mapa do sistema.
+
+### Decisions
+- **ADR-091 (Ciclo Seguro de Senhas e Soft Delete)**: A exclusão lógica preserva o histórico de auditoria contábil e libera o e-mail para reuso futuro via sufixo temporal (`email__deletado_<timestamp>`). Senhas provisórias são geradas com hash bcrypt e forçam a troca no 1º login, eliminando a dependência de servidor SMTP nesta fase.
+- **ADR-092 (Seed Enterprise Unificado)**: Substituição de 12 scripts fragmentados por um único `seed.ts` orquestrado, garantindo consistência, reprodutibilidade e onboarding rápido de novos desenvolvedores (1 comando = sistema 100% populado).
+
+### Provas
+- **Backend**: Criação de usuário retorna dados sem expor a senha; Soft Delete marca `deletedAt` e altera o e-mail; Reset gera hash válido e retorna a senha temporária.
+- **Frontend**: Modal de criação valida e-mails duplicados; botão de remover é desabilitado para o próprio usuário logado (trava de segurança); modal de troca forçada bloqueia a navegação até a troca ser concluída com sucesso.
+- **Seed**: Execução de `npx prisma db seed` popula o banco em ~2s sem duplicar dados em execuções consecutivas (idempotência via `upsert`/`findFirst`).
+
+---
+
 [Sprint A3 — Versões de Proposta] 28/08/2026 — ✅ HOMOLOGADO
-Added
+### Added
 - DTOs: VersionProposalDto (reason, clientName, clientCnpj, monthlyRevenue,
   employeeCount, basePrice) e CompareVersionsDto (versionAId, versionBId)
 - Service: createVersion (clone imutável + transação atômica + cadeia por
@@ -16,16 +48,18 @@ Added
 - Frontend: página /dashboard/precificacao/propostas/[id]/versoes (histórico,
   comparador, ativação)
 - Menu lateral: href de "Propostas Comerciais" corrigido para /dashboard/precificacao/propostas
-Decisions
-ADR-028 (versionamento imutável + clone + cadeia por originalProposalId)
-Provas
+### Decisions
+- ADR-028 (versionamento imutável + clone + cadeia por originalProposalId)
+### Provas
 - Backend: criar v2 a partir de v1 incrementa version e clona itens
 - Backend: compare retorna diferenças de campos e itens
 - Frontend: lista destaca versão atual, comparador mostra diff visual
 - Frontend: ativação troca isCurrent entre versões
 
+---
+
 [Sprint A2 — Valor de Referência + Dinheiro na Mesa] 28/08/2026 — ✅ HOMOLOGADO
-Added
+### Added
 - Migração Prisma: CommercialPlan.order (int) para ordenação de exibição
 - Endpoint GET /commercial-plans/resolved — planos com herança resolvida em memória
 - Endpoint POST /commercial-plans/insights — calculadora "Dinheiro na Mesa"
@@ -33,23 +67,24 @@ Added
 - Frontend: Visualização de herança (Itens Próprios vs Herdados)
 - Correção de transação Prisma em createPlan/updatePlan (leitura dentro do tx)
 - Correção de estado vazio no domínio (resolvePlanInheritance retorna [] em vez de erro)
-Fixed
+### Fixed
 - Enum CnabTipoArquivo faltando no schema (adicionado na migração 20260826120000)
 - Shadow database falhando em migrações CNAB antigas (CREATE TYPE adicionados)
-Decisions
+### Decisions
 - ADR-025: Ordenação por order (asc) depois multiplier (asc)
 - ADR-026: Endpoint /resolved expõe herança em memória; frontend não recalcula
 - ADR-027: Simulador "Dinheiro na Mesa" usa baseValue × multiplier para preço ideal
 - db push usado em vez de migrate dev para evitar recriação do shadow database
-Provas
+### Provas
 - Backend: GET /resolved retorna 2 planos (START + PRIME) com herança correta
 - Backend: POST /insights calcula perda de R$ 500/mês no START (base 2000, cobrado 1500)
 - Frontend: Simulador exibe perda mensal e anual em vermelho
 - Frontend: Cards de planos mostram "N/A" quando sem insights calculados
 
+---
 
 [Sprint Help System — Sistema de Ajuda Contextual] 27/08/2026 — ✅ HOMOLOGADO
-Added
+### Added
 - Sistema de ajuda contextual em 2 camadas (Opção C — Progressive Disclosure):
   • Camada 1: Modal rápido (PageHelp.tsx) com description + steps curtos
   • Camada 2: Página dinâmica /ajuda/[slug] com conteúdo rico (KPIs, workflow,
@@ -60,45 +95,21 @@ Added
 - Componente PageHelp.tsx renderizado globalmente no layout.tsx (botão "O que é isso?")
 - Página dinâmica /ajuda/[slug] com renderização condicional de seções ricas
 - Mapeamento bidirecional pathname ↔ slug para navegação fluida
-Decisions
-ADR-088 Monitoramento/backup opt-in por env (Sentry sem DSN = silencioso); 
-CD local via script idempotente (produção on-prem); CI só testes sem banco.
-ADR-089 Ajuda contextual em 2 camadas (Progressive Disclosure): modal rápido
-para usuários casuais + página detalhada para operadores. Zero poluição visual,
-máximo valor pedagógico.
-ADR-090 Catálogo centralizado em TypeScript (não CMS): fácil manutenção,
-type-safe, sem dependências externas. Fallback amigável para páginas não mapeadas.
-Provas
+### Decisions
+- ADR-088 Monitoramento/backup opt-in por env (Sentry sem DSN = silencioso); 
+  CD local via script idempotente (produção on-prem); CI só testes sem banco.
+- ADR-089 Ajuda contextual em 2 camadas (Progressive Disclosure): modal rápido
+  para usuários casuais + página detalhada para operadores. Zero poluição visual,
+  máximo valor pedagógico.
+- ADR-090 Catálogo centralizado em TypeScript (não CMS): fácil manutenção,
+  type-safe, sem dependências externas. Fallback amigável para páginas não mapeadas.
+### Provas
 - 35/35 páginas com ajuda funcional • E2E visual: modal abre em todas as páginas
 • Navegação modal → página detalhada funcionando • Fallback para rotas não mapeadas
 
+---
+
 ## [Aurora FD-5 + Fases 4/5/6] 27/08/2026 — CNAB 240/400 + Régua + Notificações ✅
-# ADR-088: Monitoramento e Backup Opt-in por Ambiente
-
-## Status
-Aceito (27/08/2026)
-
-## Contexto
-Precisamos de monitoramento de erros em produção (Sentry) e backups automáticos 
-do banco de dados. No entanto, forçar configurações de serviços externos ou 
-credenciais no ambiente de desenvolvimento local aumenta a fricção, gera custos 
-desnecessários e quebra o princípio de "rodar local com 1 comando".
-
-## Decisão
-1. **Sentry (Monitoramento):** Envolvido em um wrapper (`sentry.ts`). A inicialização 
-   só ocorre se a variável de ambiente `SENTRY_DSN` estiver presente e válida. 
-   Caso contrário, o sistema opera normalmente sem enviar telemetria.
-2. **Backup (Dados):** Implementado como um script PowerShell externo 
-   (`backup-radar-db.ps1`) que usa o `pg_dump` nativo. É agendado via 
-   Windows Task Scheduler, mantendo a responsabilidade do backup fora do 
-   processo Node.js/NestJS.
-
-## Consequências
-- **Dev Local:** Zero configuração, zero custo, zero ruído.
-- **Produção:** Basta adicionar o `SENTRY_DSN` no `.env` e rodar o script de 
-  agendamento (`install-backup-task.ps1`) para ter enterprise-grade safety.
-- **Arquitetura:** O backup não depende da saúde da aplicação Node para ser executado.
-
 ### Added
 - Domínio puro CNAB 240/400 + client-matcher em `backend/src/billing/domain/` —
   16 testes unitários verdes (7 CNAB + 5 dispatcher + 4 matcher).
@@ -114,7 +125,6 @@ desnecessários e quebra o princípio de "rodar local com 1 comando".
 - Frontend: página "Cobrança & CNAB" c/ 4 abas — Cobranças (seletor de cliente
   da casa c/ autopreenchimento nome/CNPJ/honorário + vínculo 🔗), Remessas,
   Retornos e Régua (regras + eventos + destinatário c/ override ✏️).
-
 ### Decisions
 - **ADR-084:** Domínio puro CNAB isolado; aprovação humana obrigatória em cobrança automática.
 - **ADR-085:** Arquitetura híbrida: BillingInstruction = fonte de verdade;
@@ -123,7 +133,6 @@ desnecessários e quebra o princípio de "rodar local com 1 comando".
   falha real → FALHOU (sem fallback silencioso).
 - **ADR-087:** Vínculo Client↔cobrança/evento por auto-match determinístico (nome
   normalizado) + seleção manual; destinatário = override > contato do client > log.
-
 ### Provas
 - 16/16 testes • `tsc --noEmit` 0 erros • E2E visual (3005): remessa, retorno,
   regras, aprovação, envio c/ destinatário real, autopreenchimento da casa.
@@ -131,7 +140,6 @@ desnecessários e quebra o princípio de "rodar local com 1 comando".
 ---
 
 ## [Sprint Limpeza TS] 26/08/2026 — 17 erros TypeScript corrigidos ✅
-
 ### Changed
 - `indicadores/page.tsx`: tipado `insights: Insight[]` com
   `type Insight = { type: 'success' | 'warning' | 'info'; message: string }`
@@ -141,15 +149,45 @@ desnecessários e quebra o princípio de "rodar local com 1 comando".
   `roundRect` fallback (eliminou 6 erros de `never` no Canvas 2D API).
 - `next.config.mjs`: removido `typescript.ignoreBuildErrors: true` — build Docker
   agora roda com type-check rigoroso, igual ao dev.
-
 ### Decisions
 - **ADR-083:** Limpeza técnica: corrigir erros de tipo legados ANTES de remover
   `ignoreBuildErrors` do build Docker (evita regressão silenciosa em CI futuro).
-
 ### Provas
 - `npx tsc --noEmit` retorna "Found 0 errors".
 - `next build` mostra "Finished TypeScript in 8.5s" (sem fail).
 
+---
+
+## [Sprint 32] 26/08/2026 — Produção local: Radar + Site Conta Certa ✅
+### Added
+- docker-compose unificado (site Vite/nginx + backend Express + Radar Next/Nest + cloudflared).
+- Public hostnames no túnel Cloudflare: `radar.contacerta.com.br` + `radar-api.contacerta.com.br`.
+- Radar aplica `prisma migrate deploy` no boot contra o Postgres real da máquina (5432).
+- Botão "Administração" no menu do site institucional → abre o Radar em nova aba.
+### Changed
+- Header do site: `<Link to="/#secao">` substituído por `<a href="#secao">` +
+  `scrollIntoView({ behavior: 'smooth' })` (react-router não faz scroll em hash).
+- Dockerfile radar-frontend: ARG/ENV `NEXT_PUBLIC_API_URL=https://radar-api.contacerta.com.br`
+  antes do build (env real vence .env.local).
+- Dockerfile radar-backend: CMD à prova de layout (detecta `dist/main.js` ou `dist/src/main.js`).
+- `next.config.mjs`: `typescript.ignoreBuildErrors` só no build Docker.
+- CORS do radar-backend liberado para `radar.contacerta.com.br` + localhost.
+### Fixed
+- Prisma P3009: `migrate resolve --applied` em 6 migrations cujo DDL já existia.
+- Cloudflare "DNS record already exists": removido registro `radar` velho; túnel
+  recriou o CNAME.
+- Site: menu institucional agora rola ao clicar nas âncoras (#servicos, #planos, etc).
+### Decisions
+- **ADR-077:** Postgres real via `host.docker.internal`.
+- **ADR-078:** `ignoreBuildErrors` no build Docker.
+- **ADR-079:** Túnel único site + Radar.
+- **ADR-080:** `migrate resolve --applied`.
+- **ADR-081:** env de build > `.env.local`.
+- **ADR-082:** scroll suave nativo em vez de hash do router.
+
+---
+
+*(O restante do histórico de sprints anteriores (Contábil+, FD-5/6/8 v1, C1-D3, SCI-1/2/3, etc.) permanece inalterado abaixo desta linha, conforme o arquivo original.)*
 ---
 
 ## [Sprint 32] 26/08/2026 — Produção local: Radar + Site Conta Certa ✅

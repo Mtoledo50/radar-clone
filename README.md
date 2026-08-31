@@ -121,15 +121,15 @@ Para evitar mais duplicações no futuro, o Roadmap deve ter estas 8 seções ú
 
 ## ✨ Módulos e Funcionalidades
 
-### 🔐 Segurança & Plataforma
-- [x] Login com JWT + refresh token e proteção de rotas
-- [x] Multi-tenant: cada escritório vê APENAS os seus dados (`companyId`)
-- [x] Papéis de acesso (Super Admin, Admin, Gerente, Usuário, Cliente)
-- [x] Módulos liberados por plano de assinatura (`allowedModules`)
-🚀 Conta Certa 2.0 — Expansão Comercial (Sprints A1–A6)
-Plano de atropelar a concorrência na camada comercial/analítica/UX, mantendo
-a vantagem operacional (Fiscal, Bancário, SCI). Baseado na análise de 11 vídeos
-do Radar Gestão Estratégica.
+🔐 Segurança, Plataforma e Gestão de Usuários (NOVO)
+Login com JWT + refresh token e proteção de rotas (Frontend e Backend).
+Multi-tenant: cada escritório vê APENAS os seus dados (companyId).
+Gestão Completa de Usuários e RBAC (Super Admin, Admin, Gerente, Usuário, Cliente).
+Ciclo Seguro de Senhas: Admin gera senha provisória (exibida 1x + clipboard).
+Troca Forçada de Senha: Modal bloqueante no 1º login com checklist de força em tempo real.
+Soft Delete (Exclusão Lógica): Preserva histórico de auditoria e libera o e-mail para reuso futuro.
+Travas de Segurança: Impossibilidade de auto-exclusão e proteção do último Admin do tenant.
+Módulos liberados por plano de assinatura (allowedModules).
 
 💼 Comercial (Fase A — 6/7 sprints concluídas)
 [x] A1: Motor de Herança de Planos (domínio puro — 6 testes verdes, ADR-020)
@@ -161,14 +161,22 @@ do Radar Gestão Estratégica.
 | PDF + PNG no cliente | Geração instantânea, zero carga no servidor |
 | PNG para WhatsApp | Card 1080×1350 pronto para compartilhar com o cliente |
 
-### 📊 Dashboard Executivo
-- [x] KPIs em tempo real (clientes, faturamento, pessoas, metas)
-- [x] Gráficos nativos em CSS puro (zero dependências pesadas)
+📊 Dashboard Executivo & BI
+KPIs em tempo real (clientes, faturamento, pessoas, metas).
+Gráficos nativos em CSS puro (zero dependências pesadas, -200KB bundle).
+DRE do Escritório, Ponto Fora da Curva e Simulador Tributário.
+Score 0–100 do Escritório, Indicadores com fórmula segura e Mentoria/Ranking.
+
 
 ### 👥 Pessoas & Clientes
 - [x] CRUD de colaboradores + Turnover automático por setor
 - [x] Carteira de clientes com honorários, status e ticket médio
 - [x] Importação em massa da carteira (~100 clientes de uma planilha) sem duplicar
+🧾 Fiscal, Bancário e Contábil SCI
+Fiscal: Upload de NF-e em lote, Estoque Kardex com custo médio, Apuração de ICMS e SPED Bloco H.
+Bancário: Parser de CSV à prova de erros, classificação com memória de aprendizado, naturezas por cliente e trava de compliance no fechamento.
+Contábil SCI: Ciclo por cliente, sugeridor de contraparte→conta, anti-duplicidade e exportação SCI com números reduzidos e decimal ponto.
+Conciliação Inteligente: Motor que cruza débitos do banco × NF-e com score de confiança (🟢≥80% / 🟡50–79% com revisão humana).
 
 ### 💼 Comercial
 - [x] Precificação por horas + margem
@@ -260,6 +268,13 @@ Acesse `/dashboard/funcionario-digital` para ver:
 - **Fila de revisão 🟡**: pendências aguardando aprovação humana com notas
 - **Painel de skills**: ligar/desligar individualmente, botão "Rodar agora"
 - **Trilha de auditoria**: 100% das ações registradas com timestamp e responsável
+
+🤖 Funcionário Digital Aurora (FD-1 a FD-4 ✅)
+Regra de Ouro (ADR-030): A automação prepara, calcula e recomenda. O humano aprova tudo que gera obrigação legal.
+RECONCILIATION: Concilia Banco × NF-e com score (Cron diário).
+CLASSIFICATION: Classifica transações usando memória de aprendizado.
+ACCOUNTING_BRIDGE: Promove lançamentos bancários para a contabilidade.
+MONTHLY_REPORT & GUIAS: Geração de PDFs mensais e cálculo de DAS/ISS com memória de auditoria.
 
 ### 🏗️ Arquitetura Técnica
 
