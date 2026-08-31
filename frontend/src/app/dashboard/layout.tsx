@@ -5,6 +5,7 @@
 // =================================================================
 import CommandPalette from '@/components/CommandPalette';
 import NotificationCenter from '@/components/NotificationCenter';
+import ForcePasswordChange from '@/components/ForcePasswordChange'; // 🆕 NOVO
 import { useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
@@ -360,6 +361,9 @@ const allMenuItems: MenuItem[] = [
     children: [
       { id: 'admin-overview', title: 'Visão Geral', href: '/dashboard/admin' },
       { id: 'admin-catalogo', title: 'Catálogo de Serviços', href: '/dashboard/admin/catalogo' },
+      // 🆕 NOVO: Módulo de Gestão de Usuários (Sprint Admin)
+      // Permite ao ADMIN criar novos usuários, delegar funções (roles) e redefinir senhas
+      { id: 'admin-usuarios', title: 'Gestão de Usuários', href: '/dashboard/admin/usuarios' },
     ],
   },
 ];
@@ -601,6 +605,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         
         {children}
       </main>
+        {/* 🆕 Segurança: obriga troca de senha provisória no primeiro acesso */}
+      <ForcePasswordChange />
       {/* 🆕 Fase E: Command Palette (Ctrl+K) */}
 <CommandPalette />
     </div>

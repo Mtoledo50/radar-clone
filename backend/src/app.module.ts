@@ -3,13 +3,14 @@
 // =================================================================
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { DashboardModule } from './dashboard/dashboard.module';
 
 // Core
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
-// Tenant & Admin
+// User Management & Admin (Governança e Multi-Tenant)
+import { UsersModule } from './users/users.module'; // ✅ CORREÇÃO: Importação local
 import { CompanyModule } from './company/company.module';
 import { AdminModule } from './admin/admin.module';
 
@@ -19,6 +20,7 @@ import { TurnoverModule } from './turnover/turnover.module';
 
 // Clients & Commercial
 import { ClientModule } from './client/client.module';
+import { ClientImportModule } from './client/client-import.module';
 import { CommercialPlansModule } from './commercial-plans/commercial-plans.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PricingCalculatorModule } from './pricing-calculator/pricing-calculator.module';
@@ -35,10 +37,9 @@ import { PlanningModule } from './planning/planning.module';
 import { TasksModule } from './tasks/tasks.module';
 import { ProjectsModule } from './projects/projects.module';
 
-// Operational Fiscal
+// Operational Fiscal & Banking
 import { FiscalModule } from './fiscal/fiscal.module';
 import { BankingModule } from './banking/banking.module';
-import { ClientImportModule } from './client/client-import.module';
 
 // 🆕 Digital Employee (FD-1) — Aurora
 import { DigitalEmployeeModule } from './digital-employee/digital-employee.module';
@@ -53,52 +54,53 @@ import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
-    // Core
+    // 1. Core (Infraestrutura base)
     PrismaModule,
-    AuthModule,
-    DashboardModule, 
-   
-    // 🆕 Aurora — Legalização & Cobrança (FD-5 + FD-8)
-    LegalModule,
-    BillingModule,
+    ScheduleModule.forRoot(), // Deve ser importado apenas uma vez, no nível raiz
 
-    // Tenant & Admin
+    // 2. Autenticação e Dashboard
+    AuthModule,
+    DashboardModule,
+
+    // 3. Governança, Multi-Tenant e Usuários
+    UsersModule,      // ✅ Módulo de gestão de usuários, roles e senhas
     CompanyModule,
     AdminModule,
 
-    // People & HR
+    // 4. Pessoas e RH
     EmployeeModule,
     TurnoverModule,
 
-    // Clients & Commercial
+    // 5. Clientes e Comercial
     ClientModule,
+    ClientImportModule,
     CommercialPlansModule,
     PricingModule,
     PricingCalculatorModule,
     ProposalsModule,
 
-    // Accounting & BI
+    // 6. Contábil e BI
     AccountingModule,
     BiModule,
 
-    // Strategic Planning
+    // 7. Planejamento Estratégico
     PlanningModule,
 
-    // Operational Management
+    // 8. Gestão Operacional
     TasksModule,
     ProjectsModule,
 
-    // Fiscal & Banking
+    // 9. Fiscal e Bancário
     FiscalModule,
     BankingModule,
-    ClientImportModule,
 
-    // 🆕 Digital Employee (FD-1) — Aurora
-    ScheduleModule.forRoot(),
+    // 10. Funcionário Digital (Aurora) e Obrigações
     DigitalEmployeeModule,
-    TaxModule, // 🆕 FD-4
+    TaxModule,
+    LegalModule,
+    BillingModule,
 
-    // 🆕 Fase E — Notificações
+    // 11. Notificações
     NotificationsModule,
   ],
 })

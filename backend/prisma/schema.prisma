@@ -228,6 +228,8 @@ model User {
   email                 String                @unique
   password              String
   role                  UserRole              @default(USER) 
+  // 🆕 NOVO: Força o usuário a trocar a senha no próximo login
+  mustChangePassword    Boolean               @default(false)
   companyId             String
   company               Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
