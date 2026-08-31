@@ -9,6 +9,7 @@ import ForcePasswordChange from '@/components/ForcePasswordChange'; // 🆕 NOVO
 import { useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
+import { useTrackNavigation } from '@/store/uiStore'; // 🆕 Fase E: Hook para "Onde parei"
 import PageHelp from '@/components/common/PageHelp';
 import {
   LayoutDashboard,
@@ -390,6 +391,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
 
+  // 🆕 FASE E: Ativa o rastreamento de navegação para "Onde parei" e histórico do Command Palette
+  useTrackNavigation();
+
   // =================================================================
   // MENU DINÂMICO (useMemo) — agrupa por seção 🆕 Sprint 25
   // =================================================================
@@ -595,20 +599,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="lg:hidden h-12" />
         
         {/* 🆕 Botão de ajuda universal */}
-<div className="flex justify-end items-center gap-2 mb-4">
-  {/*  Fase E: Centro de Notificações */}
-  <NotificationCenter />
-  
-  {/* Botão de ajuda existente */}
-  <PageHelp pathname={pathname} />
-</div>
+        <div className="flex justify-end items-center gap-2 mb-4">
+          {/* Fase E: Centro de Notificações */}
+          <NotificationCenter />
+          
+          {/* Botão de ajuda existente */}
+          <PageHelp pathname={pathname} />
+        </div>
         
         {children}
       </main>
         {/* 🆕 Segurança: obriga troca de senha provisória no primeiro acesso */}
       <ForcePasswordChange />
       {/* 🆕 Fase E: Command Palette (Ctrl+K) */}
-<CommandPalette />
+      <CommandPalette />
     </div>
   );
 }

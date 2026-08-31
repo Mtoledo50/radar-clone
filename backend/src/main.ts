@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { json, urlencoded } from 'express';
 import { initSentry } from './common/monitoring/sentry';
+import { SentryExceptionFilter } from './filters/sentry-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -46,6 +47,10 @@ async function bootstrap() {
       transform: true,          // Transforma strings em tipos corretos
     }),
   );
+
+  // 🛡️ FASE 3: Registra o filtro global de exceções para capturar erros e enviar ao Sentry (ADR-088)
+  app.useGlobalFilters(new SentryExceptionFilter());
+
   // 🆕 Sprint 33: monitoramento opt-in (ADR-088)
   const sentryOn = initSentry(app);
   console.log(sentryOn ? '🛡️ Sentry ativo' : '🛡️ Sentry desativado (sem DSN)');
