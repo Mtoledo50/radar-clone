@@ -19,6 +19,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseLedger } from './domain/parse-ledger';
+import { BadRequestException, } from '@nestjs/common';
 
 @Injectable()
 export class LedgerService {
@@ -174,6 +175,116 @@ export class LedgerService {
     });
     if (!li) throw new NotFoundException('Razão não encontrado.');
     return li;
+  }
+  // =================================================================
+  // 🆕 BLOCO 7 — PROMOVER RAZÃO → LANÇAMENTOS (ADR-080, v2)
+  // =================================================================
+  /**
+   * Converte o Razão/Livro Caixa em AccountingEntry (status CONCILIADO).
+   * v2: usa os blocos NÃO bancários como origem (é onde o razão tem dados):
+   *   débito no bloco  → D conta / C banco
+   *   crédito no bloco → D banco / C conta
+   * Idempotente (ADR-076): data + valor + descrição não duplicam.
+   */
+  async promoteLedgerToEntries(companyId: string, clientId: string) {
+    const imports = await this.prisma.ledgerImport.findMany({
+      where: { companyId, clientId },
+      include: { entries: { orderBy: { entryDate: 'asc' } } },
+    });
+    if (imports.length === 0) {
+      throw new BadRequestException('Nenhum razão importado para este cliente.');
+    }
+
+    const rows = imports.flatMap((i) => i.entries);
+    const norm = (s: string) =>
+      (s || '')
+        .toUpperCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const isBank = (code: string) => (code || '').replace(/^0+/, '').startsWith('1.1.1.');
+
+    // Resolve conta por classificação OU seq (plano do cliente ou padrão)
+    const resolve = (code: string) =>
+      this.prisma.accountingAccount.findFirst({
+        where: {
+          isActive: true,
+          OR: [
+            { companyId, code },
+            { companyId, seq: code },
+            { companyId: null, code },
+            { companyId: null, seq: code },
+          ],
+        },
+      });
+
+    // Conta bancária: primeiro bloco 01.1.1.x do razão, senão por nome "Banco"
+    const bankCode = rows.find((r) => isBank(r.accountCode))?.accountCode || null;
+    let bankAcc = bankCode ? await resolve(bankCode) : null;
+    if (!bankAcc) {
+      bankAcc = await this.prisma.accountingAccount.findFirst({
+        where: {
+          isActive: true,
+          OR: [{ companyId }, { companyId: null }],
+          name: { contains: 'BANCO', mode: 'insensitive' },
+        },
+      });
+    }
+    if (!bankAcc) {
+      throw new BadRequestException(
+        'Plano de contas sem conta bancária (01.1.1.x ou nome "Banco"). Cadastre uma para promover o razão.',
+      );
+    }
+
+    // Idempotência (ADR-076)
+    const existing = await this.prisma.accountingEntry.findMany({
+      where: { companyId, clientId },
+      select: { entryDate: true, debitValue: true, creditValue: true, description: true },
+    });
+    const keyOf = (d: Date, amt: number, desc: string) =>
+      `${new Date(d).toISOString().slice(0, 10)}|${amt.toFixed(2)}|${norm(desc)}`;
+    const keys = new Set(
+      existing.map((e) =>
+        keyOf(new Date(e.entryDate), Math.max(Number(e.debitValue), Number(e.creditValue)), e.description),
+      ),
+    );
+
+    let created = 0, duplicados = 0, semConta = 0;
+
+    for (const r of rows) {
+      if (isBank(r.accountCode)) continue; // bloco bancário é a contraparte, não a origem
+      const deb = Number(r.debit) || 0;
+      const cred = Number(r.credit) || 0;
+      const amount = deb > 0 ? deb : cred;
+      if (amount <= 0) continue;
+
+      const descKey = norm(r.counterparty) || norm(r.accountName) || 'LANCAMENTO DO RAZAO';
+      const k = keyOf(new Date(r.entryDate), amount, descKey);
+      if (keys.has(k)) { duplicados++; continue; }
+
+      const acc = await resolve(r.accountCode);
+      if (!acc) { semConta++; continue; }
+
+      await this.prisma.accountingEntry.create({
+        data: {
+          companyId,
+          clientId,
+          entryDate: new Date(r.entryDate),
+          description: r.counterparty || r.accountName || 'Lançamento do razão',
+          debitValue: amount,
+          creditValue: amount,
+          debitAccountId: deb > 0 ? acc.id : bankAcc.id,
+          creditAccountId: deb > 0 ? bankAcc.id : acc.id,
+          source: 'PROMOCAO_RAZAO',
+          status: 'CONCILIADO',
+        },
+      });
+      keys.add(k);
+      created++;
+    }
+
+    return { created, duplicados, semConta, semContraparte: 0 };
   }
 }
 // =================================================================

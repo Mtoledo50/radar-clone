@@ -3,6 +3,7 @@
 // =================================================================
 // INÍCIO: IMPORTS
 // =================================================================
+import { useClientContextStore } from '@/store/clientContextStore';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/axios';
@@ -42,6 +43,10 @@ interface AccountingAccount {
   name: string;
   type: string;
   isActive: boolean;
+  seq?: string | null;           // 🆕 ADR-079: código unificado (ex.: "819")
+  accountNumber?: string | null; // 🆕 ADR-079: legado
+  sciCode?: string | null;       // 🆕 ADR-079: código SCI
+  reducedCode?: number | null;   // 🆕 ADR-079: nº reduzido (ex.: 819)
 }
 
 interface Client {
@@ -55,6 +60,31 @@ interface EntryWithAutocomplete extends AccountingEntry {
   creditSearch: string;
   debitSuggestions: AccountingAccount[];
   creditSuggestions: AccountingAccount[];
+}
+
+// =================================================================
+// 🆕 ADR-079 — Busca unificada: nome + TODOS os códigos
+// =================================================================
+/**
+ * Casa a conta por nome OU por qualquer código: classificação (code),
+ * unificado (seq), legado (accountNumber), SCI (sciCode) e reduzido
+ * (reducedCode, com ou sem os 8 dígitos zerados).
+ * Ignora pontos/barras/traços: "042103085" encontra "04.2.1.03.085".
+ */
+const normCode = (s: any) => String(s ?? '').toLowerCase().replace(/[\s./-]/g, '');
+
+function accountMatches(acc: AccountingAccount, query: string): boolean {
+  const q = normCode(query);
+  if (!q) return false;
+  const reduced = acc.reducedCode != null ? String(acc.reducedCode) : '';
+  return (
+    acc.name.toLowerCase().includes(query.toLowerCase()) ||
+    normCode(acc.code).includes(q) ||
+    normCode(acc.seq).includes(q) ||
+    normCode(acc.accountNumber).includes(q) ||
+    normCode(acc.sciCode).includes(q) ||
+    (reduced !== '' && (reduced.includes(q) || reduced.padStart(8, '0').includes(q)))
+  );
 }
 // =================================================================
 // FIM: TIPOS E INTERFACES
@@ -71,7 +101,8 @@ export default function RevisaoManualPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [filterClientId, setFilterClientId] = useState<string>('all');
+  const { activeClientId } = useClientContextStore(); // 🆕 ADR-077
+  const [filterClientId, setFilterClientId] = useState<string>(activeClientId || 'all');
   const [searchTerm, setSearchTerm] = useState('');
 
   // =================================================================
@@ -174,11 +205,8 @@ export default function RevisaoManualPage() {
 
     const queryLower = query.toLowerCase();
   
-  // Filtrar todas as contas que contêm a busca
-  const allMatches = accounts.filter(acc => 
-      acc.name.toLowerCase().includes(query.toLowerCase()) ||
-      acc.code.toLowerCase().includes(query.toLowerCase())
-  );
+  // 🆕 ADR-079: busca unificada por nome + todos os códigos
+  const allMatches = accounts.filter(acc => accountMatches(acc, query));
 
   // ✅ CORREÇÃO: Ordenar por relevância
   const sorted = allMatches.sort((a, b) => {
@@ -218,11 +246,8 @@ export default function RevisaoManualPage() {
 
     const queryLower = query.toLowerCase();
   
-  // Filtrar todas as contas que contêm a busca
-  const allMatches = accounts.filter(acc => 
-      acc.name.toLowerCase().includes(query.toLowerCase()) ||
-      acc.code.toLowerCase().includes(query.toLowerCase())
-    );
+  // 🆕 ADR-079: busca unificada por nome + todos os códigos
+  const allMatches = accounts.filter(acc => accountMatches(acc, query));
 
   // ✅ CORREÇÃO: Ordenar por relevância
   const sorted = allMatches.sort((a, b) => {
@@ -580,34 +605,35 @@ export default function RevisaoManualPage() {
                                   ×
                                 </button>
                               )}
-                              {entry.debitSuggestions.length > 0 && (
-                                <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                  {entry.debitSuggestions.map(acc => (
+                                                                {entry.debitSuggestions.map(acc => (
                                     <button
                                       key={acc.id}
                                       onClick={() => handleSelectDebit(realIndex, acc)}
                                       className="w-full text-left px-3 py-2 text-sm hover:bg-teal-50 transition-colors border-b border-slate-100 last:border-0"
                                     >
                                       <span className="font-mono text-teal-600">{acc.code}</span>
+                                      {(acc.seq || acc.reducedCode != null) && (
+                                        <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                                          #{acc.seq ?? acc.reducedCode}
+                                        </span>
+                                      )}
                                       <span className="ml-2 text-slate-700">{acc.name}</span>
                                     </button>
                                   ))}
                                 </div>
-                              )}
-                            </div>
-                          </td>
+                              </td>
 
                           {/* COLUNA: CONTA CRÉDITO COM AUTOCOMPLETE */}
                           <td className="px-6 py-4 relative">
                             <div className="relative">
                               <input
-  type="text"
-  value={entry.creditSearch}
-  onChange={(e) => handleSearchCredit(realIndex, e.target.value)}
-  placeholder="Digite para buscar"
-  title={entry.creditSearch} // ✅ Mostra texto completo no hover
-  className="w-full min-w-[180px] px-3 py-2.5 border-2 border-teal-300 rounded-lg text-sm font-semibold bg-teal-50 text-teal-900 placeholder:text-teal-400 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 hover:bg-teal-100 transition-colors truncate"
-/>
+                                type="text"
+                                value={entry.creditSearch}
+                                onChange={(e) => handleSearchCredit(realIndex, e.target.value)}
+                                placeholder="Digite para buscar"
+                                title={entry.creditSearch}
+                                className="w-full min-w-[180px] px-3 py-2.5 border-2 border-teal-300 rounded-lg text-sm font-semibold bg-teal-50 text-teal-900 placeholder:text-teal-400 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 hover:bg-teal-100 transition-colors truncate"
+                              />
                               {entry.creditSearch && (
                                 <button
                                   onClick={() => handleClearCredit(realIndex)}
@@ -625,6 +651,11 @@ export default function RevisaoManualPage() {
                                       className="w-full text-left px-3 py-2 text-sm hover:bg-teal-50 transition-colors border-b border-slate-100 last:border-0"
                                     >
                                       <span className="font-mono text-teal-600">{acc.code}</span>
+                                      {(acc.seq || acc.reducedCode != null) && (
+                                        <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                                          #{acc.seq ?? acc.reducedCode}
+                                        </span>
+                                      )}
                                       <span className="ml-2 text-slate-700">{acc.name}</span>
                                     </button>
                                   ))}
