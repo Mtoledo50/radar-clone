@@ -5,6 +5,7 @@
 // 🆕 Sprint 23: Importação em massa de clientes via CSV
 // 🆕 ADR-072: Plano de Contas (SCI) vinculado ao cliente — UM select,
 //    populado com TODOS os planos do sistema, busca isolada (não quebra a página)
+// 🆕 Portal do Cliente: Geração de link de acesso seguro por token
 // =================================================================
 'use client';
 
@@ -16,7 +17,7 @@ import autoTable from 'jspdf-autotable';
 import {
   Users, Plus, Search, Edit2, Trash2, Eye, Loader2, X, Save, FileText,
   Mail, Phone, Building2, Crown, Package, CheckCircle2, AlertTriangle,
-  ChevronRight, ChevronLeft, DollarSign, Sparkles, Upload,
+  ChevronRight, ChevronLeft, DollarSign, Sparkles, Upload, ExternalLink, // 🆕 Adicionado ExternalLink
 } from 'lucide-react';
 import ImportClientsModal from '@/components/clients/ImportClientsModal';
 
@@ -127,7 +128,7 @@ export default function ClientesPage() {
     } finally {
       setLoading(false);
     }
-    // ️ Busca isolada: se falhar, a página continua funcionando
+    // 🛡️ Busca isolada: se falhar, a página continua funcionando
     try {
       const accRes = await api.get('/accounting/plans');
       setAccountingPlans(accRes.data.data || []);
@@ -135,6 +136,35 @@ export default function ClientesPage() {
       setAccountingPlans([]);
     }
   }
+
+  // =================================================================
+  // 🆕 GERAR LINK DO PORTAL DO CLIENTE
+  // =================================================================
+  const handleGeneratePortalLink = async (clientId: string) => {
+    try {
+      // 1. Chama o backend para gerar/renovar o token
+      const res = await api.post('/client-portal/generate', { clientId });
+      
+      // 2. Monta a URL completa (funciona em dev localhost:3000 e em produção)
+      const fullUrl = `${window.location.origin}${res.data.url}`;
+      
+      // 3. Copia para a área de transferência
+      await navigator.clipboard.writeText(fullUrl);
+      
+      // 4. Exibe toast elegante com o link
+      toast.success(
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">Link do portal copiado!</span>
+          <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-800 break-all">
+            {fullUrl}
+          </span>
+        </div>,
+        { duration: 6000 }
+      );
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Erro ao gerar link do portal');
+    }
+  };
 
   // =================================================================
   // CALCULADORA DE HONORÁRIOS
@@ -474,9 +504,18 @@ export default function ClientesPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => openViewModal(client)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Ver"><Eye className="h-4 w-4" /></button>
-                        <button onClick={() => openEditModal(client)} className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg" title="Editar"><Edit2 className="h-4 w-4" /></button>
-                        <button onClick={() => openDeleteModal(client)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Encerrar"><Trash2 className="h-4 w-4" /></button>
+                        {/* 🆕 BOTÃO: Gerar Link do Portal */}
+                        <button 
+                          onClick={() => handleGeneratePortalLink(client.id)} 
+                          className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
+                          title="Gerar link do Portal do Cliente"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </button>
+                        
+                        <button onClick={() => openViewModal(client)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Ver"><Eye className="h-4 w-4" /></button>
+                        <button onClick={() => openEditModal(client)} className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors" title="Editar"><Edit2 className="h-4 w-4" /></button>
+                        <button onClick={() => openDeleteModal(client)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Encerrar"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </td>
                   </tr>

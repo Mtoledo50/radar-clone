@@ -22,6 +22,7 @@ function FormatHint({ title, lines }: { title: string; lines: string[] }) {
     </div>
   );
 }
+
 export default function ContabilPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -30,13 +31,14 @@ export default function ContabilPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [plans, setPlans] = useState<string[]>([]); // 🆕 ADR-072
+  
   const baseInputRef = useRef<HTMLInputElement>(null);
   const statementInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadClients(); }, []);
   useEffect(() => { if (selectedClient) loadSummary(); }, [selectedClient]);
 
-   async function loadClients() {
+  async function loadClients() {
     try {
       const [res, accRes] = await Promise.all([
         api.get('/clients'),
@@ -128,6 +130,31 @@ export default function ContabilPage() {
       toast.error(e.response?.data?.message || 'Nada para exportar');
     } finally { setBusy(null); }
   }
+
+  // 🆕 Passo 5: Gerar DRE PDF
+  async function handleGenerateDrePdf() {
+    setBusy('dre-pdf');
+    try {
+      const res = await api.post('/reports/dre', { clientId: selectedClient!.id });
+      toast.success(`DRE PDF gerado: ${res.data.fileName}`);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao gerar DRE PDF');
+    } finally {
+      setBusy(null);
+    }
+  }
+  // 🆕 Passo 6: Gerar Balancete PDF
+  async function handleGenerateBalancetePdf() {
+    setBusy('balancete-pdf');
+    try {
+      const res = await api.post('/reports/balancete', { clientId: selectedClient!.id });
+      toast.success(`Balancete PDF gerado: ${res.data.fileName}`);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao gerar Balancete PDF');
+    } finally {
+      setBusy(null);
+    }
+  }
   // 🆕 ADR-072: vincula/troca o plano do cliente — grava PERMANENTE no cadastro
   async function handlePlanChange(e: React.ChangeEvent<HTMLSelectElement>) {
     if (!selectedClient) return;
@@ -144,6 +171,7 @@ export default function ContabilPage() {
       toast.error(err.response?.data?.message || 'Erro ao vincular o plano.');
     }
   }
+
   const inputClass = 'w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white';
   const btn = 'flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold transition-colors disabled:opacity-50';
 
@@ -175,6 +203,7 @@ export default function ContabilPage() {
           />
           <ChevronDown className="absolute right-3 top-3 h-5 w-5 text-slate-400" />
         </div>
+        
         {showDropdown && (
           <div className="absolute z-20 mt-1 w-full max-w-md bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
             {filteredClients.map((c) => (
@@ -190,31 +219,32 @@ export default function ContabilPage() {
             {filteredClients.length === 0 && (
               <p className="px-4 py-3 text-sm text-slate-500">Nenhum cliente encontrado</p>
             )}
-                  {/* 🆕 ADR-072: plano de contas do cliente — visível e trocável, mas permanente */}
-      {selectedClient && (
-        <div className="mt-3 flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-semibold text-slate-700">Plano de contas:</span>
-          <select
-            value={selectedClient.accountingPlan || ''}
-            onChange={handlePlanChange}
-            className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-          >
-            <option value="">Padrão do escritório</option>
-            {plans.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-          {selectedClient.accountingPlan ? (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
-              📒 ativo: {selectedClient.accountingPlan}
-            </span>
-          ) : (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">
-              sem plano próprio
-            </span>
-          )}
-        </div>
-      )}
+            
+            {/* 🆕 ADR-072: plano de contas do cliente — visível e trocável, mas permanente */}
+            {selectedClient && (
+              <div className="mt-3 flex items-center gap-3 flex-wrap px-4 pb-3 border-t border-slate-100 pt-3">
+                <span className="text-sm font-semibold text-slate-700">Plano de contas:</span>
+                <select
+                  value={selectedClient.accountingPlan || ''}
+                  onChange={handlePlanChange}
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Padrão do escritório</option>
+                  {plans.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+                {selectedClient.accountingPlan ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">
+                    📒 ativo: {selectedClient.accountingPlan}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500">
+                    sem plano próprio
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -252,17 +282,17 @@ export default function ContabilPage() {
                   ? `✅ ${summary.baseCount} lançamentos na memória do cliente.`
                   : 'Importe o arquivo de lançamentos do ano anterior (SCI).'}
               </p>
-                        <FormatHint
-            title="📥 Aceita .csv ou .txt (PDF não) — 2 layouts:"
-            lines={[
-              'A) TXT SCI sem cabeçalho:',
-              'data;contaDébito;contaCrédito;valor;histórico',
-              '30/06/2026;03.2.1.01.011;01.1.1.02.026;300,00;PAGAMENTO PIX...',
-              'B) Razão/Livro Caixa com cabeçalho:',
-              'Conta;Data;Histórico;;Débito;Crédito;Saldo',
-              '819 - 01.1.1.02.026 - Sicredi;15/05/2026;SOLANGE;;200,00;;200,00',
-            ]}
-          />
+              <FormatHint
+                title="📥 Aceita .csv ou .txt (PDF não) — 2 layouts:"
+                lines={[
+                  'A) TXT SCI sem cabeçalho:',
+                  'data;contaDébito;contaCrédito;valor;histórico',
+                  '30/06/2026;03.2.1.01.011;01.1.1.02.026;300,00;PAGAMENTO PIX...',
+                  'B) Razão/Livro Caixa com cabeçalho:',
+                  'Conta;Data;Histórico;;Débito;Crédito;Saldo',
+                  '819 - 01.1.1.02.026 - Sicredi;15/05/2026;SOLANGE;;200,00;;200,00',
+                ]}
+              />
               <input ref={baseInputRef} type="file" accept=".csv,.txt" hidden
                 onChange={(e) => e.target.files?.[0] && handleImportBase(e.target.files[0])} />
               <button className={`${btn} w-full bg-purple-600 hover:bg-purple-700 text-white`}
@@ -281,15 +311,15 @@ export default function ContabilPage() {
               <p className="text-xs text-slate-500">
                 Importe o extrato bancário (CSV/TXT). Gera lançamentos PENDENTES.
               </p>
-                        <FormatHint
-            title="📥 Aceita .csv ou .txt (PDF não) — cabeçalho obrigatório:"
-            lines={[
-              'Data;Débito;Crédito;Complemento;CNPJ',
-              '15/05/2026;200,00;;PAGAMENTO PIX 04200503964...;04200503964',
-              'Data dd/mm/aaaa • valor c/ vírgula ou ponto',
-              'Débito > 0 = saída • Crédito > 0 = entrada',
-            ]}
-          />
+              <FormatHint
+                title="📥 Aceita .csv ou .txt (PDF não) — cabeçalho obrigatório:"
+                lines={[
+                  'Data;Débito;Crédito;Complemento;CNPJ',
+                  '15/05/2026;200,00;;PAGAMENTO PIX 04200503964...;04200503964',
+                  'Data dd/mm/aaaa • valor c/ vírgula ou ponto',
+                  'Débito > 0 = saída • Crédito > 0 = entrada',
+                ]}
+              />
               <input ref={statementInputRef} type="file" accept=".csv,.txt" hidden
                 onChange={(e) => e.target.files?.[0] && handleImportStatement(e.target.files[0])} />
               <button className={`${btn} w-full bg-blue-600 hover:bg-blue-700 text-white`}
@@ -299,35 +329,65 @@ export default function ContabilPage() {
               </button>
             </div>
 
-            {/* 3. CONCILIAR + EXPORTAR */}
+            {/* 3. CONCILIAR + EXPORTAR + PDF */}
             <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-3">
               <div className="flex items-center gap-2">
                 <RefreshCw className="h-5 w-5 text-teal-600" />
                 <h3 className="font-bold text-slate-900">3. Conciliar + Exportar</h3>
               </div>
+              
               <button className={`${btn} w-full bg-teal-600 hover:bg-teal-700 text-white`}
                 disabled={busy === 'reconcile' || summary.pendingCount === 0} onClick={handleReconcile}>
                 {busy === 'reconcile' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                 Conciliar Automaticamente
               </button>
+              
               <button className={`${btn} w-full bg-orange-500 hover:bg-orange-600 text-white`}
                 disabled={busy === 'export' || summary.reconciledCount === 0} onClick={handleExport}>
                 {busy === 'export' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 Exportar TXT p/ SCI
               </button>
-                        <FormatHint
-            title="📤 Gera .txt separador TAB (UTF-8 BOM):"
-            lines={[
-              'controle;data;contaDébito;contaCrédito;valor;;histórico',
-              '000001\t20260720\t00000503\t00000819\t1500.00\t\tPAGAMENTO PIX...',
-              'controle fixo 000001 • data AAAAMMDD',
-              'contas c/ 8 dígitos • valor com PONTO (1500.00)',
-            ]}
-          />
+
+ {/* 🆕 BOTÃO: Gerar DRE PDF */}
+              <button 
+                className={`${btn} w-full bg-emerald-600 hover:bg-emerald-700 text-white mt-2`}
+                disabled={busy === 'dre-pdf' || !summary || summary.reconciledCount === 0} 
+                onClick={handleGenerateDrePdf}
+              >
+                {busy === 'dre-pdf' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                Gerar DRE PDF
+              </button>
+
+              <FormatHint
+                title="📤 Gera .txt separador TAB (UTF-8 BOM):"
+                lines={[
+                  'controle;data;contaDébito;contaCrédito;valor;;histórico',
+                  '000001\t20260720\t00000503\t00000819\t1500.00\t\tPAGAMENTO PIX...',
+                  'controle fixo 000001 • data AAAAMMDD',
+                  'contas c/ 8 dígitos • valor com PONTO (1500.00)',
+                ]}
+              />
             </div>
           </div>
         </>
       )}
+ {/* 🆕 BOTÃO: Gerar Balancete PDF */}
+              <button 
+                className={`${btn} w-full bg-indigo-600 hover:bg-indigo-700 text-white mt-2`}
+                disabled={busy === 'balancete-pdf' || !summary || summary.reconciledCount === 0} 
+                onClick={handleGenerateBalancetePdf}
+              >
+                {busy === 'balancete-pdf' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4" />
+                )}
+                Gerar Balancete PDF
+              </button>
 
       {!selectedClient && (
         <div className="text-center py-16 bg-white rounded-xl border border-dashed border-slate-300">

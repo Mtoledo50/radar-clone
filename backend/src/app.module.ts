@@ -3,8 +3,7 @@
 // =================================================================
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { HealthModule } from './health/health.module';
-
+import { ReportsModule } from './reports/reports.module';
 
 // Core
 import { PrismaModule } from './prisma/prisma.module';
@@ -12,7 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 
 // User Management & Admin (Governança e Multi-Tenant)
-import { UsersModule } from './users/users.module'; // ✅ CORREÇÃO: Importação local
+import { UsersModule } from './users/users.module';
 import { CompanyModule } from './company/company.module';
 import { AdminModule } from './admin/admin.module';
 
@@ -51,14 +50,17 @@ import { TaxModule } from './tax/tax.module'; // 🆕 FD-4
 import { LegalModule } from './legal/legal.module';
 import { BillingModule } from './billing/billing.module';
 
-// 🆕 Fase E — Notificações
-import { NotificationsModule } from './notifications/notifications.module';
+// 🆕 Portal do Cliente (ADR-096)
+import { ClientPortalModule } from './client-portal/client-portal.module';
+
+// 🆕 Health Check (ADR-088)
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
     // 1. Core (Infraestrutura base)
     PrismaModule,
-    HealthModule,
+    ReportsModule,
     ScheduleModule.forRoot(), // Deve ser importado apenas uma vez, no nível raiz
 
     // 2. Autenticação e Dashboard
@@ -66,7 +68,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     DashboardModule,
 
     // 3. Governança, Multi-Tenant e Usuários
-    UsersModule,      // ✅ Módulo de gestão de usuários, roles e senhas
+    UsersModule,
     CompanyModule,
     AdminModule,
 
@@ -103,8 +105,11 @@ import { NotificationsModule } from './notifications/notifications.module';
     LegalModule,
     BillingModule,
 
-    // 11. Notificações
-    NotificationsModule,
+    // 11. Portal do Cliente
+    ClientPortalModule,
+
+    // 12. Health Check
+    HealthModule,
   ],
 })
 export class AppModule {}

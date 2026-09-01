@@ -83,12 +83,11 @@ const SECTIONS = [
 
 
 // =================================================================
-// INÍCIO: CONFIGURAÇÃO DOS ITENS DO MENU
+// CONFIGURAÇÃO DOS ITENS DO MENU (Reorganizado para Fluxo Linear)
 // =================================================================
 const allMenuItems: MenuItem[] = [
-
   // ─────────────────────────────────────────────────────────
-  // 📊 OPERACIONAL
+  // 📊 OPERACIONAL (Gestão do Escritório)
   // ─────────────────────────────────────────────────────────
   {
     id: 'dashboard',
@@ -113,20 +112,18 @@ const allMenuItems: MenuItem[] = [
     children: [
       { id: 'pessoas', title: 'Colaboradores', href: '/dashboard/pessoas' },
       { id: 'turnover', title: 'Turnover', href: '/dashboard/turnover' },
-      { id: 'benchmark-cargos', title: 'Benchmark de Cargos', href: '/dashboard/pessoas/benchmark' },
-
     ],
   },
   {
     id: 'clientes',
-    title: 'Clientes',
+    title: 'Carteira de Clientes',
     href: '/dashboard/clientes',
     icon: UsersRound,
     section: 'operacional',
   },
   {
     id: 'operacional',
-    title: 'Operacional',
+    title: 'Projetos e Tarefas',
     href: '/dashboard/projetos',
     icon: FolderKanban,
     section: 'operacional',
@@ -136,7 +133,7 @@ const allMenuItems: MenuItem[] = [
     ],
   },
 
-   // ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────
   // 💼 COMERCIAL
   // ─────────────────────────────────────────────────────────
   {
@@ -146,23 +143,38 @@ const allMenuItems: MenuItem[] = [
     icon: Calculator,
     section: 'comercial',
     children: [
-      // ✅ CORREÇÃO AQUI: O href agora aponta para a página de listagem de propostas
       { id: 'propostas', title: 'Propostas Comerciais', href: '/dashboard/precificacao/propostas' },
       { id: 'meus-planos', title: 'Meus Planos', href: '/dashboard/precificacao/meus-planos' },
-      { id: 'desempenho', title: 'Desempenho', href: '/dashboard/precificacao/desempenho' },
     ],
   },
-  
   {
     id: 'planejamento',
-    title: 'Planejamento',
+    title: 'Planejamento Estratégico',
     href: '/dashboard/planejamento',
     icon: CalendarDays,
     section: 'comercial',
   },
 
   // ─────────────────────────────────────────────────────────
-  // 🧾 FISCAL (Sprints 8-20)
+  // 📒 ROTINA CONTÁBIL (Fluxo Mensal do Cliente)
+  // ─────────────────────────────────────────────────────────
+  {
+    id: 'rotina-contabil',
+    title: 'Rotina Contábil',
+    href: '/dashboard/contabil',
+    icon: BookOpen,
+    section: 'contabil',
+    children: [
+      { id: 'contabil-plano', title: '1. Plano de Contas (SCI)', href: '/dashboard/contabil/plano-contas' },
+      { id: 'ciclo-contabil', title: '2. Ciclo Contábil (Balancete/Razão)', href: '/dashboard/contabil/ciclo-contabil' },
+      { id: 'integracao-sci', title: '3. Integração SCI (Extrato)', href: '/dashboard/contabil' },
+      { id: 'extrato-contabil', title: '4. Extrato / Razão Analítico', href: '/dashboard/contabil/extrato' }, // 🆕 NOVO
+      { id: 'dre-cliente', title: '5. DRE e Guias do Cliente', href: '/dashboard/bi/dre-cliente' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────
+  // 🧾 FISCAL & BANCÁRIO
   // ─────────────────────────────────────────────────────────
   {
     id: 'fiscal',
@@ -171,186 +183,52 @@ const allMenuItems: MenuItem[] = [
     icon: Receipt,
     section: 'fiscal',
     children: [
-      { id: 'fiscal-import', title: 'Importar NF-e', href: '/dashboard/fiscal' },
-      { id: 'fiscal-notas', title: 'Notas Fiscais', href: '/dashboard/fiscal/notas' },
-      { id: 'fiscal-estoque', title: 'Estoque', href: '/dashboard/fiscal/estoque' },
-      { id: 'fiscal-apuracao', title: 'Apuração ICMS', href: '/dashboard/fiscal/apuracao' },
-      { id: 'fiscal-sped', title: 'SPED Fiscal', href: '/dashboard/fiscal/sped' },
-      { id: 'fiscal-comparativo', title: 'Comparativo', href: '/dashboard/fiscal/comparativo' },
-      { id: 'fiscal-relatorio', title: 'Relatório Inventário', href: '/dashboard/fiscal/relatorio-inventario' },
+      { id: 'fiscal-notas', title: 'Notas Fiscais (NF-e/NFS-e)', href: '/dashboard/fiscal/notas' },
+      { id: 'fiscal-apuracao', title: 'Apuração de Impostos', href: '/dashboard/fiscal/apuracao' },
     ],
   },
-
-  // ─────────────────────────────────────────────────────────
-  // 🏦 BANCÁRIO (Sprint 21-24)
-  // ─────────────────────────────────────────────────────────
   {
-    id: 'fechamento',
-    title: 'Fechamento + DRE Bancário',
+    id: 'bancario',
+    title: 'Bancário',
     href: '/dashboard/fechamento',
-    icon: Wallet,  // 🆕 Sprint 28: ícone Carteira (extrato)
+    icon: Landmark,
     section: 'bancario',
+    children: [
+      { id: 'extratos', title: 'Extratos e Conciliação', href: '/dashboard/fechamento' },
+      { id: 'cobranca', title: 'Cobrança e CNAB', href: '/dashboard/funcionario-digital/cobranca' },
+    ],
   },
 
   // ─────────────────────────────────────────────────────────
-  // 📒 CONTÁBIL
-  // ─────────────────────────────────────────────────────────
-  {
-    id: 'lancamentos',
-    title: 'Lançamentos Contábeis',
-    href: '/dashboard/lancamentos',
-    icon: FileText,
-    section: 'contabil',
-    children: [
-      { id: 'lancamentos', title: 'Todos os Lançamentos', href: '/dashboard/lancamentos' },
-      { id: 'revisao-manual', title: 'Revisão Manual', href: '/dashboard/lancamentos/revisao' },
-    ],
-  },
-  {
-    id: 'contabil',
-    title: 'Plano de Contas',
-    href: '/dashboard/contabil',
-    icon: BookOpen,
-    section: 'contabil',
-    children: [
-      { id: 'contabil-sci', title: 'Importar / Exportar SCI', href: '/dashboard/contabil' },
-      { id: 'contabil-revisao', title: 'Revisão de Lançamentos', href: '/dashboard/contabil/revisao' },
-      { id: 'contabil-plano', title: 'Plano de Contas', href: '/dashboard/contabil/plano-contas' },
-    ],
-  },
-  {
-    id: 'revisao-lancamentos',
-    title: 'Revisão Inteligente',
-    href: '/dashboard/lancamentos/revisao',
-    icon: Brain,
-    section: 'contabil',
-  },
-  {
-    id: 'ciclo-contabil',
-    title: 'Ciclo Contábil do Cliente',
-    href: '/dashboard/contabil/ciclo-contabil',
-    icon: BookOpen,
-    section: 'contabil',
-  },
-  // ─────────────────────────────────────────────────────────
-  // 📈 INTELIGÊNCIA
+  // 📈 INTELIGÊNCIA & AUTOMAÇÃO
   // ─────────────────────────────────────────────────────────
   {
     id: 'funcionario-digital',
-    title: 'Funcionário Digital',
+    title: 'Aurora (Automação)',
     href: '/dashboard/funcionario-digital',
     icon: Bot,
     section: 'inteligencia',
-  },
-  {
-    id: 'relatorios-mensais',
-    title: 'Relatórios Mensais',
-    href: '/dashboard/funcionario-digital/relatorios',
-    icon: FileText,
-    section: 'inteligencia',
-  },
-  {
-    id: 'nfse',
-    title: 'NFS-e',
-    href: '/dashboard/funcionario-digital/nfse',
-    icon: Receipt,
-    section: 'inteligencia',
-  },
-  {
-    id: 'guias-imposto',
-    title: 'Guias de Imposto',
-    href: '/dashboard/funcionario-digital/guias',
-    icon: Scale,
-    section: 'inteligencia',
-  },
-  
-    {
-    id: 'legalizacao',
-    title: 'Legalização & Cofre',
-    href: '/dashboard/funcionario-digital/legalizacao',
-    icon: ShieldCheck,
-    section: 'inteligencia',
-  },
-    {
-    id: 'cobranca',
-    title: 'Cobrança CNAB',
-    href: '/dashboard/funcionario-digital/cobranca',
-    icon: Landmark,
-    section: 'inteligencia',
+    children: [
+      { id: 'aurora-runs', title: 'Execuções e Pendências', href: '/dashboard/funcionario-digital' },
+      { id: 'relatorios-mensais', title: 'Relatórios Mensais PDF', href: '/dashboard/funcionario-digital/relatorios' },
+      { id: 'guias-imposto', title: 'Guias de Imposto', href: '/dashboard/funcionario-digital/guias' },
+    ],
   },
   {
     id: 'bi',
-    title: 'DRE do Escritório',
+    title: 'Business Intelligence',
     href: '/dashboard/bi',
-    icon: Building,
+    icon: BarChart3,
     section: 'inteligencia',
-  },
-  {
-    id: 'bi-dre-cliente',
-    title: 'DRE do Cliente (Oficial)',
-    href: '/dashboard/bi/dre-cliente',
-    icon: BookOpen,
-    section: 'inteligencia',
-  },
-  {
-    id: 'ponto-fora-da-curva',
-    title: 'Ponto Fora da Curva',
-    href: '/dashboard/ponto-fora-da-curva',
-    icon: AlertTriangle,
-    section: 'inteligencia',
-  },
-  {
-    id: 'indicadores',
-    title: 'Indicadores',
-    href: '/dashboard/indicadores',
-    icon: Activity,
-    section: 'inteligencia',
-  },
-  {
-    id: 'indicadores-custom',
-    title: 'Indicadores Customizados',
-    href: '/dashboard/indicadores-custom',
-    icon: Calculator,
-    section: 'inteligencia',
-  },
-  {
-    id: 'score',
-    title: 'Score do Escritório',
-    href: '/dashboard/score',
-    icon: Gauge,
-    section: 'inteligencia',
-  },
-  {
-    id: 'mentoria',
-    title: 'Visão de Futuro',
-    href: '/dashboard/mentoria',
-    icon: Telescope,
-    section: 'inteligencia',
-  },
-    {
-    id: 'ranking',
-    title: 'Ranking de Níveis',
-    href: '/dashboard/ranking',
-    icon: Trophy,
-    section: 'inteligencia',
-  },
-  {
-    id: 'planejamento-tributario',
-    title: 'Planejamento Tributário',
-    href: '/dashboard/planejamento-tributario',
-    icon: Scale,
-    section: 'inteligencia',
-  },
-  {
-    id: 'reforma-tributaria',
-    title: 'Reforma Tributária',
-    href: '/dashboard/reforma-tributaria',
-    icon: Scale,
-    section: 'inteligencia',
+    children: [
+      { id: 'bi-escritorio', title: 'DRE do Escritório', href: '/dashboard/bi' },
+      { id: 'bi-dre-cliente', title: 'DRE do Cliente (Oficial)', href: '/dashboard/bi/dre-cliente' },
+      { id: 'ponto-fora-da-curva', title: 'Ponto Fora da Curva', href: '/dashboard/ponto-fora-da-curva' },
+    ],
   },
 
   // ─────────────────────────────────────────────────────────
-  // ⚙️ SISTEMA (admin-only)
+  // ⚙️ SISTEMA (Admin)
   // ─────────────────────────────────────────────────────────
   {
     id: 'admin',
@@ -361,17 +239,10 @@ const allMenuItems: MenuItem[] = [
     section: 'sistema',
     children: [
       { id: 'admin-overview', title: 'Visão Geral', href: '/dashboard/admin' },
-      { id: 'admin-catalogo', title: 'Catálogo de Serviços', href: '/dashboard/admin/catalogo' },
-      // 🆕 NOVO: Módulo de Gestão de Usuários (Sprint Admin)
-      // Permite ao ADMIN criar novos usuários, delegar funções (roles) e redefinir senhas
       { id: 'admin-usuarios', title: 'Gestão de Usuários', href: '/dashboard/admin/usuarios' },
     ],
   },
 ];
-// =================================================================
-// FIM: CONFIGURAÇÃO DOS ITENS DO MENU
-// =================================================================
-
 
 // =================================================================
 // INÍCIO: COMPONENTE PRINCIPAL (DashboardLayout)

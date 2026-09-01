@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
-import * as csv from 'csv-parser';
+import csv from 'csv-parser';
 
 @Injectable()
 export class ImportService {

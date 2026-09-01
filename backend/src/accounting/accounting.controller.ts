@@ -200,7 +200,29 @@ export class AccountingController {
   async getCounterpartyMap(@Request() req, @Query('clientId') clientId: string) {
     return { success: true, data: await this.ledgerService.getCounterpartyMap(req.user.companyId, clientId) };
   }
-
+  // =================================================================
+  // 📊 EXTRATO CONTÁBIL / RAZÃO ANALÍTICO (Para a nova tela de visualização)
+  // =================================================================
+  /**
+   * GET /accounting/entries/period
+   * Busca lançamentos de um cliente específico em um período, 
+   * incluindo os dados da conta contábil (código e nome) para exibição.
+   */
+  @Get('entries/period')
+  async getEntriesByPeriod(
+    @Request() req,
+    @Query('clientId') clientId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+  ) {
+    const data = await this.service.getEntriesByPeriod(
+      req.user.companyId,
+      clientId,
+      startDate,
+      endDate
+    );
+    return { success: true, data };
+  }
   // =================================================================
   // 🆕 ETAPA 2 — EXTRATO INTELIGENTE (anti-duplicidade ADR-066/067)
   // =================================================================
