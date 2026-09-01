@@ -91,7 +91,21 @@ export default function ExtratoContabilPage() {
       setLoading(false);
     }
   }
-
+  async function handleClearAutomated() {
+    if (!selectedClient) return toast.error('Selecione o cliente.');
+    if (!window.confirm(
+      'Isso apagará os lançamentos gerados por AUTOMAÇÃO deste cliente\n' +
+      '(promoção do razão, importação de extrato e ponte bancária).\n' +
+      'Lançamentos MANUAIS serão preservados.\nDeseja continuar?',
+    )) return;
+    try {
+      const res = await api.post('/accounting/entries/clear-automated', { clientId: selectedClient });
+      toast.success(`${res.data.data.deleted} lançamento(s) removido(s).`);
+      loadEntries(selectedClient);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao limpar lançamentos.');
+    }
+  }
   function exportToPDF() {
     if (entries.length === 0) { toast.error('Nenhum lançamento para exportar'); return; }
     const client = clients.find((c) => c.id === selectedClient);
@@ -254,6 +268,10 @@ export default function ExtratoContabilPage() {
               <button onClick={exportToPDF}
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors">
                 <FileText className="h-4 w-4" /> Imprimir PDF
+              </button>
+                            <button onClick={handleClearAutomated}
+                className="flex items-center gap-2 rounded-lg bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-300">
+                🗑 Limpar lançamentos automáticos
               </button>
             </div>
           </div>

@@ -286,6 +286,24 @@ export class LedgerService {
 
     return { created, duplicados, semConta, semContraparte: 0 };
   }
+  // =================================================================
+  // 🗑️ EXCLUIR RAZÃO IMPORTADO (Bloco 8)
+  // =================================================================
+  /**
+   * Remove a importação do razão e suas linhas (ClientLedgerEntry).
+   * ADR-030: lançamentos já promovidos ao DRE NÃO são apagados —
+   * eles são histórico contábil e se gerenciam em Revisão/Lançamentos.
+   */
+  async deleteLedgerImport(companyId: string, importId: string) {
+    const imp = await this.prisma.ledgerImport.findFirst({
+      where: { id: importId, companyId },
+    });
+    if (!imp) throw new BadRequestException('Importação de razão não encontrada.');
+
+    await this.prisma.clientLedgerEntry.deleteMany({ where: { ledgerImportId: importId } });
+    await this.prisma.ledgerImport.delete({ where: { id: importId } });
+    return { deleted: true, periodLabel: imp.periodLabel };
+  }
 }
 // =================================================================
 // FIM: backend/src/accounting/ledger.service.ts

@@ -9,6 +9,7 @@
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { PrismaModule } from '../prisma/prisma.module';
+import { PdfExtractService } from './domain/pdf/pdf-extract.service';
 
 import { AccountingController } from './accounting.controller';
 import { ImportController } from './import.controller';
@@ -32,6 +33,7 @@ import { SmartImportService } from './smart-import.service'; // 🆕 no topo
     ReconciliationController,
     HistoryController,
     AccountTemplateController,
+    
   ],
   providers: [
     AccountingService,
@@ -41,6 +43,7 @@ import { SmartImportService } from './smart-import.service'; // 🆕 no topo
     TrialBalanceService, // 🆕 services vão em PROVIDERS
     LedgerService,       // 🆕
     SmartImportService, // 🆕 ETAPA 2
+    PdfExtractService,
 
   ],
   exports: [

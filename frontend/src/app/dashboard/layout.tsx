@@ -73,6 +73,7 @@ const SECTIONS = [
   { id: 'comercial', label: 'Comercial' },
   { id: 'fiscal', label: 'Fiscal' },
   { id: 'bancario', label: 'Bancário' },
+  { id: 'extrato-pdf', title: 'Extratos PDF → CSV', href: '/dashboard/fechamento/extrato-pdf' },
   { id: 'contabil', label: 'Contábil' },
   { id: 'inteligencia', label: 'Inteligência' },
   { id: 'sistema', label: 'Sistema' },
@@ -197,10 +198,11 @@ const allMenuItems: MenuItem[] = [
     href: '/dashboard/fechamento',
     icon: Landmark,
     section: 'bancario',
-    children: [
-      { id: 'extratos', title: 'Extratos e Conciliação', href: '/dashboard/fechamento' },
-      { id: 'cobranca', title: 'Cobrança e CNAB', href: '/dashboard/funcionario-digital/cobranca' },
-    ],
+          children: [
+        { id: 'extratos', title: 'Extratos e Conciliação', href: '/dashboard/fechamento' },
+        { id: 'extrato-pdf', title: 'Extratos PDF → CSV', href: '/dashboard/fechamento/extrato-pdf' }, // 🆕 ADR-098
+        { id: 'cobranca', title: 'Cobrança e CNAB', href: '/dashboard/funcionario-digital/cobranca' },
+      ],
   },
 
   // ─────────────────────────────────────────────────────────

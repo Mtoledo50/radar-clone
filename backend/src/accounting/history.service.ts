@@ -4,10 +4,25 @@ import { ImportService } from './import.service';
 
 /**
  * =================================================================
- * 🧠 HistoryService — Base Histórica + Sugestão + Exportação SCI
+ * 🧠 HistoryService — Base Histórica + Conciliação + Exportação SCI
  * =================================================================
+ * Responsável por:
+ *  1) Clonar o plano de contas padrão p/ o tenant;
+ *  2) Importar a BASE HISTÓRICA (3 layouts de lançamentos + razão 4 colunas);
+ *  3) Importar o EXTRATO DO MÊS (gera lançamentos PENDENTES);
+ *  4) Conciliar PENDENTES contra a base histórica (motor de similaridade);
+ *  5) Exportar lançamentos conciliados p/ SCI-Único (TXT TAB).
+ *
+ * ADRs vigentes:
+ *  - ADR-073: razão/lançamentos c/ nº unificado; extrato c/ colunas "Valor" duplicadas.
+ *  - ADR-075: layout oficial de exportação SCI-Único v3 (TAB, UTF-8).
+ *  - ADR-101: base histórica aceita cabeçalho colado e blocos repetidos (dedupe).
+ *  - ADR-102: import de EXTRATO NÃO exclui/bloqueia duplicados do mesmo mês
+ *    (limpeza passa a ser manual — ver método deprecated abaixo).
+ *  - ADR-103: suporte ao Razão/Livro Caixa de 4 colunas (blocos c/ cabeçalho).
+ *
  * ⚠️ SERVICE: NÃO usa decorators HTTP (@CurrentUser, @Body, @Query).
- * Esses ficam no history.controller.ts
+ * Esses ficam no history.controller.ts.
  * =================================================================
  */
 @Injectable()
@@ -18,7 +33,7 @@ export class HistoryService {
   ) {}
 
   // 🎛️ LAYOUT DE EXPORTAÇÃO SCI-Único (v3 — ADR-075)
-  // Linha oficial (TAB): 000001	20250103	00001125	00000007	928.99		<histórico>
+  // Linha oficial (TAB): 000001  20250103  00001125  00000007  928.99    <histórico>
   // controle fixo | data AAAAMMDD | conta D 8 díg. | conta C 8 díg. |
   // valor c/ ponto | campo vazio | histórico
   private readonly SCI_LAYOUT = {
@@ -34,6 +49,10 @@ export class HistoryService {
   // =================================================================
   // 🌐 CLONAR PLANO PADRÃO → CONTAS DO TENANT
   // =================================================================
+  /**
+   * Copia o template de plano de contas p/ o tenant.
+   * 🛡️ Roda em transação: se falhar no meio, o tenant não fica sem plano.
+   */
   async cloneTemplateToTenant(companyId: string) {
     const templates = await this.prisma.accountTemplate.findMany({
       orderBy: { code: 'asc' },
@@ -44,35 +63,39 @@ export class HistoryService {
       );
     }
 
-    await this.prisma.accountingAccount.deleteMany({ where: { companyId } });
+    // Transação: delete + create atômicos (evita estado órfão em falha)
+    return this.prisma.$transaction(async (tx) => {
+      await tx.accountingAccount.deleteMany({ where: { companyId } });
 
-    let cloned = 0;
-    for (const t of templates) {
-      await this.prisma.accountingAccount.create({
-        data: {
-          companyId,
-          code: String(t.reducedCode),
-          name: t.name,
-          type: t.accountType,
-          nature:
-            t.accountType === 'ATIVO' || t.accountType === 'DESPESA'
-              ? 'DEVEDORA'
-              : 'CREDORA',
-          reducedCode: t.reducedCode,
-          isActive: !t.isSynthetic,
-        } as any,
-      });
-      cloned++;
-    }
-    return { cloned };
+      let cloned = 0;
+      for (const t of templates) {
+        await tx.accountingAccount.create({
+          data: {
+            companyId,
+            code: String(t.reducedCode),
+            name: t.name,
+            type: t.accountType,
+            // Natureza contábil derivada do tipo da conta
+            nature:
+              t.accountType === 'ATIVO' || t.accountType === 'DESPESA'
+                ? 'DEVEDORA'
+                : 'CREDORA',
+            reducedCode: t.reducedCode,
+            isActive: !t.isSynthetic, // sintéticas não recebem lançamentos
+          } as any,
+        });
+        cloned++;
+      }
+      return { cloned };
+    });
   }
+
   // =================================================================
-  // 📥 IMPORTAR BASE HISTÓRICA (v3 — ADR-073)
-  // Aceita 3 layouts:
-  //  1) TXT SCI sem cabeçalho (data;debito;credito;valor;historico)
-  //  2) CSV com cabeçalho nomeado (data;...;valor;...)
-  //  3) Razão/Livro Caixa por conta (Conta;Data;Histórico;;Débito;Crédito;Saldo)
-  //     → vira partida dobrada: banco = bloco; contraparte = memória interna.
+  // 📥 IMPORTAR BASE HISTÓRICA (ADR-101 + ADR-103 — 4 layouts)
+  //   A) SCI lançamentos c/ cabeçalho: Data;Débito;Crédito;Valor;Histórico;Complemento
+  //   B) TXT SCI sem cabeçalho:        data;contaDebito;contaCredito;valor;historico
+  //   C) Razão 7 colunas:              Conta;Data;Histórico;;Débito;Crédito;Saldo
+  //   D) Razão 4 colunas (ADR-103):    Histórico;Débito;Crédito;Saldo (blocos c/ cabeçalho)
   // =================================================================
   async importHistoryBase(
     companyId: string,
@@ -83,69 +106,130 @@ export class HistoryService {
     const lines = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (lines.length === 0) throw new BadRequestException('Arquivo sem linhas.');
 
+    // 🛡️ ADR-101: o export pode colar o cabeçalho na 1ª linha de dados
+    // (sem quebra após "Complemento") → separa em duas linhas.
+    const glued = lines[0].match(/^(.*Complemento)\s*(\d{2}\/\d{2}\/\d{4}.*)$/i);
+    if (glued) {
+      lines[0] = glued[1];
+      lines.splice(1, 0, glued[2]);
+    }
+
     const first = lines[0].split(';').map((s) => (s || '').trim());
     const looksLikeData = /^\d{2}\/\d{2}\/\d{4}$/.test(first[0] || '');
     const headerNorm = first.map((h) => this.normalize(h));
-    const isRazao =
+
+    // Detecção de layout de razão:
+    const isRazao7 =
       !looksLikeData &&
       headerNorm.some((h) => h.startsWith('CONTA')) &&
+      headerNorm.some((h) => h.includes('SALDO'));
+    const isRazao4 =
+      !looksLikeData &&
+      !isRazao7 &&
+      (headerNorm[0] || '').startsWith('HISTORICO') &&
       headerNorm.some((h) => h.includes('SALDO'));
 
     let rows: any[];
 
-    if (isRazao) {
+    if (isRazao7) {
       rows = this.parseRazaoLayout(lines, companyId, clientId, year);
+    } else if (isRazao4) {
+      rows = this.parseRazao4ColLayout(lines, companyId, clientId, year);
     } else {
+      // ── Layouts A/B: lançamentos SCI (com ou sem cabeçalho) ──
       let iDate = 0, iDeb = 1, iCred = 2, iVal = 3, iHist = 4;
-      let iComp = -1, iDoc = -1, iType = -1;
+      let iComp = -1, iDoc = -1;
       let start = 0;
 
       if (!looksLikeData) {
-        const idx = (k: string) => headerNorm.findIndex((h) => h.includes(k));
+        // 🛡️ ADR-101: headerNorm vem UPPERCASE → busca case-insensitive
+        const idx = (k: string) =>
+          headerNorm.findIndex((h) => h.toLowerCase().includes(k.toLowerCase()));
         iDate = idx('data'); iDeb = idx('debito'); iCred = idx('credito');
         iVal = idx('valor'); iHist = idx('historico');
-        iComp = idx('complemento'); iDoc = idx('doc'); iType = idx('tipo');
+        iComp = idx('complemento'); iDoc = idx('doc');
         if (iDate < 0 || iVal < 0) {
           throw new BadRequestException(
-            'Formato não reconhecido. Aceitos: TXT SCI (data;debito;credito;valor;historico) ' +
-            'ou Razão/Livro Caixa (Conta;Data;Histórico;;Débito;Crédito;Saldo).',
+            'Formato não reconhecido. Aceitos: SCI lançamentos (Data;Débito;Crédito;Valor;Histórico;Complemento), ' +
+            'TXT SCI sem cabeçalho, Razão 7 colunas ou Razão 4 colunas (Histórico;Débito;Crédito;Saldo).',
           );
         }
         start = 1;
       }
 
       rows = [];
+      const seen = new Set<string>(); // 🛡️ ADR-101: arquivo pode repetir blocos
+
       for (let i = start; i < lines.length; i++) {
         const c = lines[i].split(';').map((s) => (s || '').trim());
         const date = this.parseDate(c[iDate] || '');
         const amount = this.parseAmount(c[iVal] || '');
-        const description = ((iComp >= 0 ? c[iComp] : '') || c[iHist] || '').trim();
-        if (!date || amount === null || !description) continue;
+        if (!date || amount === null || amount === 0) continue;
+
+        const debitCode = (c[iDeb] || '').trim() || null;   // pode vir vazio
+        const creditCode = (c[iCred] || '').trim() || null; // pode vir vazio
+        const hist = iHist >= 0 ? (c[iHist] || '').trim() : '';
+        const comp = iComp >= 0 ? (c[iComp] || '').trim() : '';
+
+        // Prioridade de descrição: texto legível primeiro (ADR-101)
+        let description = '';
+        if (comp && !this.isNumeric(comp)) description = comp;
+        else if (hist && !this.isNumeric(hist)) description = hist;
+        else
+          description =
+            `Lanç. ${debitCode ?? '–'} → ${creditCode ?? '–'}` +
+            ([hist, comp].filter(Boolean).length
+              ? ` (${[hist, comp].filter(Boolean).join(' ')})`
+              : '');
+
+        // 🛡️ Dedupe de blocos repetidos no arquivo
+        const key = `${date.toISOString().slice(0, 10)}|${debitCode ?? ''}|${creditCode ?? ''}|${amount}|${hist}|${comp}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
         rows.push({
           companyId, clientId, year, date,
-          debitCode: c[iDeb] || null,
-          creditCode: c[iCred] || null,
-          amount,
-          historyCode: (iHist >= 0 ? c[iHist] : null) || null,
+          debitCode, creditCode, amount,
+          historyCode: hist || null,
           description,
-          docNumber: (iDoc >= 0 ? c[iDoc] : null) || null,
-          entryType: (iType >= 0 ? c[iType] : null) || null,
+          docNumber: iDoc >= 0 ? (c[iDoc] || '').trim() || null : null,
+          entryType: null,
         });
       }
     }
+
+    // 🛡️ Dedupe final (razão 7/4 colunas também podem repetir blocos)
+    rows = this.dedupeRows(rows);
 
     if (rows.length === 0) {
       throw new BadRequestException('Nenhuma linha válida encontrada no arquivo.');
     }
 
+    // Reimportação substitui a base do ano (idempotente por tenant+cliente+ano)
     await this.prisma.historicalEntry.deleteMany({ where: { companyId, clientId, year } });
     await this.prisma.historicalEntry.createMany({ data: rows });
 
     return { imported: rows.length, year };
   }
 
+  /** 🛡️ Remove linhas 100% repetidas (mesma data+contas+valor+descrição). */
+  private dedupeRows(rows: any[]): any[] {
+    const seen = new Set<string>();
+    return rows.filter((r) => {
+      const k = `${new Date(r.date).toISOString().slice(0, 10)}|${r.debitCode ?? ''}|${r.creditCode ?? ''}|${r.amount}|${this.normalize(r.description)}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }
+
+  /** 🆕 ADR-101 — detecta complemento/histórico puramente numérico (ex.: "2025", "264") */
+  private isNumeric(s: string): boolean {
+    return /^[\d.,()-]+$/.test((s || '').trim());
+  }
+
   // =================================================================
-  // 📒 PARSER DO RAZÃO/LIVRO CAIXA → PARTIDAS DOBRADAS (ADR-073)
+  // 📒 PARSER RAZÃO 7 COLUNAS → PARTIDAS DOBRADAS (ADR-073)
   // Passagem 1: memória contraparte→conta pelos blocos NÃO bancários.
   // Passagem 2: linhas dos blocos bancários (01.1.1.x) viram lançamentos:
   //   entrada (Débito no banco) → D banco / C contraparte
@@ -205,6 +289,77 @@ export class HistoryService {
     }
     return rows;
   }
+
+  // =================================================================
+  // 📒 PARSER RAZÃO 4 COLUNAS (ADR-103) → PARTIDAS DOBRADAS
+  // Formato real dos arquivos SCI: blocos iniciam com "NNN - CÓDIGO - Nome"
+  // + "Saldo anterior:", datas vêm em linhas soltas e transações em seguida:
+  //   Histórico;Débito;Crédito;Saldo
+  // Mesma lógica de memória contraparte do parser de 7 colunas.
+  // =================================================================
+  private parseRazao4ColLayout(
+    lines: string[],
+    companyId: string,
+    clientId: string | null,
+    year: number,
+  ) {
+    const isBank = (code: string) => code.startsWith('01.1.1.');
+    const blockRe = /^\s*(\d+)\s*-\s*([\d.]+)/;
+
+    let curBlock: string | null = null; // código da conta do bloco ativo
+    let curDate: Date | null = null;    // data ativa (linhas soltas dd/mm/aaaa)
+    const memo = new Map<string, string>();
+    const txs: { block: string; date: Date; who: string; deb: number; cred: number }[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const c = lines[i].split(';').map((s) => (s || '').trim());
+
+      // Cabeçalho de bloco: "33 - 01.1.2.08.001 - Adiantamentos...;Saldo anterior:;;0,00"
+      const block = blockRe.exec(c[0] || '');
+      if (block && (c[1] || '').toLowerCase().includes('saldo anterior')) {
+        curBlock = block[2];
+        curDate = null;
+        continue;
+      }
+      // Linha de data solta: "15/01/2026;;;"
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(c[0] || '')) {
+        curDate = this.parseDate(c[0]);
+        continue;
+      }
+      if (!curBlock || !curDate || !c[0]) continue;
+
+      const deb = this.parseAmount(c[1] || '') || 0;
+      const cred = this.parseAmount(c[2] || '') || 0;
+      if (deb <= 0 && cred <= 0) continue; // ignora "Total mês..." e vazias
+
+      txs.push({ block: curBlock, date: curDate, who: c[0], deb, cred });
+
+      // Memória: contraparte → conta (apenas blocos NÃO bancários)
+      if (!isBank(curBlock)) {
+        const who = this.normalize(c[0]);
+        if (who && !memo.has(who)) memo.set(who, curBlock);
+      }
+    }
+
+    // Partidas dobradas a partir dos blocos bancários
+    return txs
+      .filter((t) => isBank(t.block))
+      .map((t) => {
+        const other = memo.get(this.normalize(t.who)) || null;
+        const amount = t.deb > 0 ? t.deb : t.cred;
+        return {
+          companyId, clientId, year, date: t.date,
+          debitCode: t.deb > 0 ? t.block : other,
+          creditCode: t.deb > 0 ? other : t.block,
+          amount,
+          historyCode: t.block,
+          description: t.who,
+          docNumber: null,
+          entryType: null,
+        };
+      });
+  }
+
   // =================================================================
   // 📊 RESUMO DO PIPELINE (alimenta a Tela 1)
   // =================================================================
@@ -226,14 +381,16 @@ export class HistoryService {
   }
 
   // =================================================================
-  // 🏦 IMPORTAR EXTRATO DO MÊS — ADR-076 (idempotência + auto-limpeza)
+  // 🏦 IMPORTAR EXTRATO DO MÊS — ADR-102 (sem exclusão de duplicados)
   // =================================================================
   /**
-   * Importa o extrato gerando lançamentos PENDENTES com 3 proteções:
-   *  1) Auto-limpeza: remove duplicados exatos já existentes (só PENDENTES);
-   *  2) Bloqueio: linhas que já existem no cliente não são reimportadas;
-   *  3) Dentro do arquivo: linhas repetidas no próprio CSV entram 1 vez.
-   * O contador pode importar o mesmo arquivo várias vezes sem medo.
+   * Importa o extrato gerando lançamentos PENDENTES.
+   *
+   * 🛡️ ADR-102 (revoga parte do ADR-076): NÃO exclui lançamentos existentes
+   * e NÃO bloqueia linhas "duplicadas" — taxas/PIX idênticos no mesmo mês são
+   * legítimos. A limpeza de duplicados reais passa a ser MANUAL
+   * (ver removeDuplicatePendentes, @deprecated p/ uso automático).
+   * O contador controla reimportações pela tela (limpar/excluir importação).
    */
   async importBankStatement(
     companyId: string,
@@ -246,68 +403,45 @@ export class HistoryService {
       throw new BadRequestException('Nenhuma linha válida encontrada no extrato.');
     }
 
-    // 1) Auto-limpeza de duplicados passados (NUNCA toca conciliados)
-    const cleanup = await this.removeDuplicatePendentes(companyId, clientId);
-
-    // 2) Bloqueio contra o banco + 3) dentro do arquivo
-    //    Chave independente de débito/crédito (usa o valor absoluto)
-    const existing = await this.prisma.accountingEntry.findMany({
-      where: { companyId, clientId },
-      select: { entryDate: true, debitValue: true, creditValue: true, description: true },
-    });
-    const keyOf = (date: Date | string, amt: number, desc: string) =>
-      `${new Date(date).toISOString().slice(0, 10)}|${amt.toFixed(2)}|${this.normalize(desc)}`;
-
-    const existingKeys = new Set(
-      existing.map((e) =>
-        keyOf(e.entryDate, Math.max(Number(e.debitValue), Number(e.creditValue)), e.description),
-      ),
+    // Salva TUDO que o parser reconheceu (sem bloqueio de duplicados)
+    const saved = await this.importService.saveImportedEntries(
+      entries, companyId, userId, clientId,
     );
 
-    const novos: any[] = [];
-    let duplicadosIgnorados = 0;
-    for (const e of entries) {
-      const k = keyOf(e.date, e.amount, e.description);
-      if (existingKeys.has(k)) { duplicadosIgnorados++; continue; }
-      existingKeys.add(k);
-      novos.push(e);
-    }
-
-    if (novos.length === 0) {
-      return {
-        imported: 0,
-        duplicadosIgnorados,
-        duplicadosRemovidos: cleanup.removed,
-        message: 'Nenhum lançamento novo: todas as linhas já existem. Duplicidade bloqueada.',
-      };
-    }
-
-    const saved = await this.importService.saveImportedEntries(novos, companyId, userId, clientId);
     return {
       imported: saved.length,
-      duplicadosIgnorados,
-      duplicadosRemovidos: cleanup.removed,
+      duplicadosIgnorados: 0, // mantido p/ compatibilidade c/ toasts do frontend
+      duplicadosRemovidos: 0,
     };
   }
 
   // =================================================================
-  // 🧹 LIMPEZA DE DUPLICADOS (só PENDENTES — ADR-076)
+  // 🧹 LIMPEZA DE DUPLICADOS (só PENDENTES)
   // =================================================================
   /**
-   * Remove duplicados exatos (data + valor + descrição) entre lançamentos
-   * PENDENTES, mantendo o mais antigo. Nunca toca CONCILIADO/APROVADO/REVISADO.
+   * @deprecated NÃO chamar automaticamente no import (ADR-102).
+   * Uso apenas MANUAL (botão de limpeza da tela), pois remove lançamentos
+   * legítimos idênticos (ex.: 5 taxas de R$ 9,00 no mesmo dia).
+   * Remove duplicados exatos (data + valor + descrição) entre PENDENTES,
+   * mantendo o mais antigo. Nunca toca CONCILIADO/APROVADO/REVISADO.
    */
   async removeDuplicatePendentes(companyId: string, clientId: string) {
     const entries = await this.prisma.accountingEntry.findMany({
       where: { companyId, clientId, status: 'PENDENTE' },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, entryDate: true, debitValue: true, creditValue: true, description: true },
+      select: {
+        id: true, entryDate: true,
+        debitValue: true, creditValue: true, description: true,
+      },
     });
 
     const seen = new Set<string>();
     const toDelete: string[] = [];
     for (const e of entries) {
-      const k = `${new Date(e.entryDate).toISOString().slice(0, 10)}|${Math.max(Number(e.debitValue), Number(e.creditValue)).toFixed(2)}|${this.normalize(e.description)}`;
+      const k =
+        `${new Date(e.entryDate).toISOString().slice(0, 10)}|` +
+        `${Math.max(Number(e.debitValue), Number(e.creditValue)).toFixed(2)}|` +
+        `${this.normalize(e.description)}`;
       if (seen.has(k)) toDelete.push(e.id);
       else seen.add(k);
     }
@@ -317,9 +451,16 @@ export class HistoryService {
     }
     return { removed: toDelete.length };
   }
+
   // =================================================================
   // 🤖 CONCILIAR PENDENTES USANDO A BASE SALVA
   // =================================================================
+  /**
+   * Casa cada lançamento PENDENTE c/ a base histórica por similaridade
+   * (Jaccard 70% + valor 20% + recorrência 10%) e aplica as contas.
+   * ⚠️ N+1 de queries por match (2 findFirst) — aceitável p/ volumes
+   * atuais (~centenas); otimizar c/ cache de contas se virar gargalo.
+   */
   async reconcilePendingFromHistory(companyId: string, clientId: string) {
     const pending = await this.prisma.accountingEntry.findMany({
       where: { companyId, clientId, status: 'PENDENTE' },
@@ -333,6 +474,7 @@ export class HistoryService {
       throw new BadRequestException('Base histórica não importada para este cliente.');
     }
 
+    // Frequência de descrições → bônus de recorrência no score
     const freq = new Map<string, number>();
     history.forEach((h) => {
       const k = this.normalize(h.description);
@@ -346,7 +488,7 @@ export class HistoryService {
           ? Number(entry.debitValue)
           : Number(entry.creditValue);
       const best = this.bestMatch(entry.description, amount, history, freq);
-      if (!best || best.score < 0.5) continue;
+      if (!best || best.score < 0.5) continue; // corte de confiança
 
       const [debitAccount, creditAccount] = await Promise.all([
         this.resolveAccount(companyId, best.h.debitCode),
@@ -398,7 +540,7 @@ export class HistoryService {
         L.formatAccount(this.sciAccountNumber(e.creditAccount)), // 00000819
         L.formatValue(amount),                                   // 1500.00
         '',                                                      // campo vazio
-        e.description.replace(/\t/g, ' ').substring(0, 100),     // histórico
+        e.description.replace(/\t/g, ' ').substring(0, 100),     // histórico (máx. 100)
       ].join(L.delimiter);
     });
 
@@ -427,11 +569,7 @@ export class HistoryService {
     const header = lines[0]
       .split(delim)
       .map((h) =>
-        h
-          .toUpperCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .trim(),
+        h.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim(),
       );
 
     const idx = (keys: string[]) =>
@@ -464,7 +602,7 @@ export class HistoryService {
         valDebito = Math.abs(this.parseAmount(c[iDeb] || '') || 0);
         valCredito = Math.abs(this.parseAmount(c[iCred] || '') || 0);
       } else if (iValues.length >= 2) {
-        // Formato B (SEU CSV): duas colunas "Valor" → o SINAL decide
+        // Formato B: duas colunas "Valor" → o SINAL decide
         for (const vi of iValues) {
           const v = this.parseAmount(c[vi] || '') || 0;
           if (v < 0) valDebito += Math.abs(v);
@@ -479,9 +617,13 @@ export class HistoryService {
 
       if (valDebito <= 0 && valCredito <= 0) continue;
 
+      // 🐛 FIX (revisão): sem coluna de descrição, NÃO cair na coluna 0 (data)
+      const description =
+        iDesc !== -1 ? (c[iDesc] || '').trim() || 'Sem descrição' : 'Sem descrição';
+
       results.push({
         date: date.toISOString(),
-        description: (c[iDesc !== -1 ? iDesc : 0] || 'Sem descrição').trim(),
+        description,
         counterpartyCpfCnpj:
           iCnpj !== -1 ? (c[iCnpj] || '').replace(/\D/g, '') || null : null,
         amount: valDebito > 0 ? valDebito : valCredito,
@@ -491,9 +633,11 @@ export class HistoryService {
     }
     return results;
   }
+
   // =================================================================
   // 🧮 MOTOR DE SEMELHANÇA (nome + valor + recorrência)
   // =================================================================
+  /** Score = 0.7·Jaccard(texto) + 0.2·valor + 0.1·recorrência (corte 0.5). */
   private bestMatch(
     description: string,
     amount: number,
@@ -505,14 +649,15 @@ export class HistoryService {
       const text = this.jaccard(description, h.description);
       let amt = 0;
       const diff = Math.abs(Number(h.amount) - amount);
-      if (diff < 0.005) amt = 1;
-      else if (diff / Math.max(Number(h.amount), amount) < 0.05) amt = 0.6;
+      if (diff < 0.005) amt = 1;                                  // valor idêntico
+      else if (diff / Math.max(Number(h.amount), amount) < 0.05) amt = 0.6; // ±5%
       const rec = (freq.get(this.normalize(h.description)) || 0) >= 3 ? 1 : 0;
       const score = Math.min(1, 0.7 * text + 0.2 * amt + 0.1 * rec);
       if (!best || score > best.score) best = { h, score };
     }
     return best;
   }
+
   /**
    * 🆕 ADR-073: número unificado da conta p/ o arquivo SCI.
    * Prioridade: seq (90132) → accountNumber → reducedCode (legado) → code.
@@ -526,11 +671,12 @@ export class HistoryService {
       ''
     );
   }
+
+  /** Casa código do arquivo c/ a conta (classificação OU nº unificado). */
   private async resolveAccount(companyId: string, code: string | null) {
     if (!code) return null;
     const c = String(code).trim();
     const isInt = /^\d+$/.test(c);
-    // 🆕 ADR-073: casa por classificação OU nº unificado (arquivos novos saem reduzidos)
     return this.prisma.accountingAccount.findFirst({
       where: {
         companyId,
@@ -544,6 +690,7 @@ export class HistoryService {
     });
   }
 
+  /** Similaridade de Jaccard sobre tokens normalizados. */
   private jaccard(a: string, b: string): number {
     const ta = this.tokens(a);
     const tb = this.tokens(b);
@@ -555,6 +702,7 @@ export class HistoryService {
     return inter / (ta.size + tb.size - inter);
   }
 
+  /** Tokeniza: minúsculas normalizadas, >2 chars, descarta numerais puros. */
   private tokens(s: string): Set<string> {
     return new Set(
       this.normalize(s)
@@ -563,6 +711,7 @@ export class HistoryService {
     );
   }
 
+  /** Normaliza p/ comparação: sem acentos, upper, só A-Z0-9/espaços. */
   private normalize(s: string): string {
     return (s || '')
       .normalize('NFD')
@@ -572,17 +721,25 @@ export class HistoryService {
       .replace(/\s+/g, ' ')
       .trim();
   }
-private detectDelimiter(line: string): string {
+
+  /** Detecta delimitador (; | tab | | | ,) pelo maior nº de colunas. */
+  private detectDelimiter(line: string): string {
     return [';', '\t', '|', ','].reduce(
       (best, d) => (line.split(d).length > line.split(best).length ? d : best),
       ',',
     );
   }
+
+  /** Parse de data dd/mm/aaaa → Date local (evita off-by-one de fuso). */
   private parseDate(raw: string): Date | null {
     const m = (raw || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
     return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null;
   }
 
+  /**
+   * Parse de valor BR: aceita "R$ 1.000,00", "-1.383,52", "928.99".
+   * Remove moeda/letras; milhar c/ ponto + decimal c/ vírgula → float.
+   */
   private parseAmount(raw: string): number | null {
     let s = (raw || '').trim();
     if (!s) return null;
