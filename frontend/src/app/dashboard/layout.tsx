@@ -158,7 +158,7 @@ const allMenuItems: MenuItem[] = [
   // ─────────────────────────────────────────────────────────
   // 📒 ROTINA CONTÁBIL (Fluxo Mensal do Cliente)
   // ─────────────────────────────────────────────────────────
-  {
+    {
     id: 'rotina-contabil',
     title: 'Rotina Contábil',
     href: '/dashboard/contabil',
@@ -168,8 +168,12 @@ const allMenuItems: MenuItem[] = [
       { id: 'contabil-plano', title: '1. Plano de Contas (SCI)', href: '/dashboard/contabil/plano-contas' },
       { id: 'ciclo-contabil', title: '2. Ciclo Contábil (Balancete/Razão)', href: '/dashboard/contabil/ciclo-contabil' },
       { id: 'integracao-sci', title: '3. Integração SCI (Extrato)', href: '/dashboard/contabil' },
-      { id: 'extrato-contabil', title: '4. Extrato / Razão Analítico', href: '/dashboard/contabil/extrato' }, // 🆕 NOVO
-      { id: 'dre-cliente', title: '5. DRE e Guias do Cliente', href: '/dashboard/bi/dre-cliente' },
+      { id: 'extrato-contabil', title: '4. Extrato / Razão Analítico', href: '/dashboard/contabil/extrato' },
+      // 🆕 RESTAURADO: a página que mostra o plano de contas + sugestões pelos lançamentos anteriores
+      { id: 'conciliacao', title: '5. Conciliação Manual + Automática', href: '/dashboard/lancamentos/revisao' },
+      { id: 'dre-cliente', title: '6. DRE e Guias do Cliente', href: '/dashboard/bi/dre-cliente' },
+      // Utilitário legado (não entra na numeração do fluxo, mas não some do menu)
+      { id: 'revisao-sci', title: 'Revisão de Lançamentos (SCI)', href: '/dashboard/contabil/revisao' },
     ],
   },
 

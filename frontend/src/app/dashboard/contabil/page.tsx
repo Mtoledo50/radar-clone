@@ -1,5 +1,6 @@
 'use client';
-
+import FlowStepper from '@/components/contabil/FlowStepper';
+import { useClientContextStore } from '@/store/clientContextStore';
 import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
@@ -31,7 +32,7 @@ export default function ContabilPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [plans, setPlans] = useState<string[]>([]); // 🆕 ADR-072
-  
+  const { activeClientId, setActiveClient } = useClientContextStore();
   const baseInputRef = useRef<HTMLInputElement>(null);
   const statementInputRef = useRef<HTMLInputElement>(null);
 
@@ -44,8 +45,14 @@ export default function ContabilPage() {
         api.get('/clients'),
         api.get('/accounting/plans').catch(() => ({ data: { data: [] } })),
       ]);
-      setClients(res.data.data || []);
+      const list = res.data.data || [];
+      setClients(list);
       setPlans(accRes.data.data || []);
+      // 🆕 ADR-077: restaura o cliente em trabalho (sem re-busca)
+      if (activeClientId) {
+        const saved = list.find((c: Client) => c.id === activeClientId);
+        if (saved) setSelectedClient(saved);
+      }
     } catch { toast.error('Erro ao carregar clientes'); }
   }
 
@@ -84,7 +91,23 @@ export default function ContabilPage() {
       toast.error(e.response?.data?.message || 'Erro ao importar base');
     } finally { setBusy(null); }
   }
-
+  // 🆕 Bloco 4 (ADR-078): puxa lançamentos do Fechamento Bancário (sem CSV)
+  async function handleBridgeFromBanking() {
+    setBusy('bridge');
+    try {
+      const res = await api.post('/accounting/bridge-from-banking', { clientId: selectedClient!.id });
+      const d = res.data.data;
+      toast.success(
+        `Fechamento ${d.period}: ${d.imported} lançamento(s) puxado(s) p/ o contábil!` +
+        (d.duplicados ? ` • ${d.duplicados} já existiam (bloqueados).` : ''),
+      );
+      loadSummary();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao puxar do fechamento bancário');
+    } finally {
+      setBusy(null);
+    }
+  }
   // 🏦 Passo 2: Extrato do mês
   async function handleImportStatement(file: File) {
     setBusy('statement');
@@ -93,8 +116,12 @@ export default function ContabilPage() {
       const res = await api.post('/accounting/history/import-statement', {
         clientId: selectedClient!.id, content,
       });
-      toast.success(`Extrato importado: ${res.data.data.imported} lançamentos PENDENTES!`);
-      loadSummary();
+const d = res.data.data;
+toast.success(
+  `Extrato importado: ${d.imported} lançamento(s) PENDENTES!` +
+  (d.duplicadosIgnorados ? ` • ${d.duplicadosIgnorados} duplicado(s) bloqueado(s).` : '') +
+  (d.duplicadosRemovidos ? ` • ${d.duplicadosRemovidos} duplicado(s) antigo(s) removido(s).` : ''),
+);      loadSummary();
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Erro ao importar extrato');
     } finally { setBusy(null); }
@@ -107,8 +134,9 @@ export default function ContabilPage() {
       const res = await api.post('/accounting/history/reconcile', { clientId: selectedClient!.id });
       const d = res.data.data;
       toast.success(`Conciliação: ${d.matched} de ${d.total} lançamentos conciliados!`);
-      if (d.notMatched > 0) toast.info(`${d.notMatched} pendentes → use a Revisão (Tela 2)`);
-      loadSummary();
+if (d.notMatched > 0)
+  toast.info(`${d.notMatched} pendentes → abra no menu: Rotina Contábil > 5. Conciliação Manual + Automática.`); 
+    loadSummary();
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Erro ao conciliar');
     } finally { setBusy(null); }
@@ -210,8 +238,8 @@ export default function ContabilPage() {
               <button
                 key={c.id}
                 className="w-full text-left px-4 py-2.5 hover:bg-teal-50 text-sm"
-                onClick={() => { setSelectedClient(c); setShowDropdown(false); }}
-              >
+                onClick={() => { setSelectedClient(c); setActiveClient(c.id, c.companyName); setShowDropdown(false); }}              
+                >
                 <span className="font-medium text-slate-900">{c.companyName}</span>
                 <span className="text-xs text-slate-500 ml-2">{c.cnpj || ''}</span>
               </button>
@@ -248,7 +276,7 @@ export default function ContabilPage() {
           </div>
         )}
       </div>
-
+      {selectedClient && summary && <FlowStepper summary={summary} />}
       {selectedClient && summary && (
         <>
           {/* STEPPER DE STATUS */}
@@ -326,6 +354,11 @@ export default function ContabilPage() {
                 disabled={busy === 'statement'} onClick={() => statementInputRef.current?.click()}>
                 {busy === 'statement' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 Importar Extrato
+              </button>
+                            <button className={`${btn} w-full bg-slate-700 hover:bg-slate-800 text-white`}
+                disabled={busy === 'bridge'} onClick={handleBridgeFromBanking}>
+                {busy === 'bridge' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Landmark className="h-4 w-4" />}
+                Ou puxar do Fechamento Bancário
               </button>
             </div>
 

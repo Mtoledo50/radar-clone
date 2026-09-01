@@ -226,8 +226,15 @@ export class HistoryService {
   }
 
   // =================================================================
-  // 🏦 IMPORTAR EXTRATO DO MÊS (via texto, gera PENDENTES)
+  // 🏦 IMPORTAR EXTRATO DO MÊS — ADR-076 (idempotência + auto-limpeza)
   // =================================================================
+  /**
+   * Importa o extrato gerando lançamentos PENDENTES com 3 proteções:
+   *  1) Auto-limpeza: remove duplicados exatos já existentes (só PENDENTES);
+   *  2) Bloqueio: linhas que já existem no cliente não são reimportadas;
+   *  3) Dentro do arquivo: linhas repetidas no próprio CSV entram 1 vez.
+   * O contador pode importar o mesmo arquivo várias vezes sem medo.
+   */
   async importBankStatement(
     companyId: string,
     userId: string,
@@ -238,15 +245,78 @@ export class HistoryService {
     if (entries.length === 0) {
       throw new BadRequestException('Nenhuma linha válida encontrada no extrato.');
     }
-    const saved = await this.importService.saveImportedEntries(
-      entries,
-      companyId,
-      userId,
-      clientId,
+
+    // 1) Auto-limpeza de duplicados passados (NUNCA toca conciliados)
+    const cleanup = await this.removeDuplicatePendentes(companyId, clientId);
+
+    // 2) Bloqueio contra o banco + 3) dentro do arquivo
+    //    Chave independente de débito/crédito (usa o valor absoluto)
+    const existing = await this.prisma.accountingEntry.findMany({
+      where: { companyId, clientId },
+      select: { entryDate: true, debitValue: true, creditValue: true, description: true },
+    });
+    const keyOf = (date: Date | string, amt: number, desc: string) =>
+      `${new Date(date).toISOString().slice(0, 10)}|${amt.toFixed(2)}|${this.normalize(desc)}`;
+
+    const existingKeys = new Set(
+      existing.map((e) =>
+        keyOf(e.entryDate, Math.max(Number(e.debitValue), Number(e.creditValue)), e.description),
+      ),
     );
-    return { imported: saved.length };
+
+    const novos: any[] = [];
+    let duplicadosIgnorados = 0;
+    for (const e of entries) {
+      const k = keyOf(e.date, e.amount, e.description);
+      if (existingKeys.has(k)) { duplicadosIgnorados++; continue; }
+      existingKeys.add(k);
+      novos.push(e);
+    }
+
+    if (novos.length === 0) {
+      return {
+        imported: 0,
+        duplicadosIgnorados,
+        duplicadosRemovidos: cleanup.removed,
+        message: 'Nenhum lançamento novo: todas as linhas já existem. Duplicidade bloqueada.',
+      };
+    }
+
+    const saved = await this.importService.saveImportedEntries(novos, companyId, userId, clientId);
+    return {
+      imported: saved.length,
+      duplicadosIgnorados,
+      duplicadosRemovidos: cleanup.removed,
+    };
   }
 
+  // =================================================================
+  // 🧹 LIMPEZA DE DUPLICADOS (só PENDENTES — ADR-076)
+  // =================================================================
+  /**
+   * Remove duplicados exatos (data + valor + descrição) entre lançamentos
+   * PENDENTES, mantendo o mais antigo. Nunca toca CONCILIADO/APROVADO/REVISADO.
+   */
+  async removeDuplicatePendentes(companyId: string, clientId: string) {
+    const entries = await this.prisma.accountingEntry.findMany({
+      where: { companyId, clientId, status: 'PENDENTE' },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, entryDate: true, debitValue: true, creditValue: true, description: true },
+    });
+
+    const seen = new Set<string>();
+    const toDelete: string[] = [];
+    for (const e of entries) {
+      const k = `${new Date(e.entryDate).toISOString().slice(0, 10)}|${Math.max(Number(e.debitValue), Number(e.creditValue)).toFixed(2)}|${this.normalize(e.description)}`;
+      if (seen.has(k)) toDelete.push(e.id);
+      else seen.add(k);
+    }
+
+    if (toDelete.length > 0) {
+      await this.prisma.accountingEntry.deleteMany({ where: { id: { in: toDelete } } });
+    }
+    return { removed: toDelete.length };
+  }
   // =================================================================
   // 🤖 CONCILIAR PENDENTES USANDO A BASE SALVA
   // =================================================================
@@ -340,8 +410,15 @@ export class HistoryService {
   }
 
   // =================================================================
-  // 🏦 PARSER DE EXTRATO VIA TEXTO (auto-contido)
+  // 🏦 PARSER DE EXTRATO VIA TEXTO — ADR-073 (colunas "Valor" duplicadas)
   // =================================================================
+  /**
+   * Trata 3 formatos reais de extrato bancário:
+   *  A) Padrão Radar:  Data;Débito;Crédito;Complemento;CNPJ
+   *  B) Banco (CSV real): Descrição;Categoria;Data;Valor(crédito);Valor(débito negativo)
+   *  C) Coluna única:   sinal negativo = débito, positivo = crédito
+   * A linha de totais do banco é ignorada automaticamente (não tem data).
+   */
   private parseBankStatementText(content: string) {
     const lines = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (lines.length < 2) return [];
@@ -356,28 +433,57 @@ export class HistoryService {
           .replace(/[\u0300-\u036f]/g, '')
           .trim(),
       );
+
     const idx = (keys: string[]) =>
       header.findIndex((h) => keys.some((k) => h.includes(k)));
+
     const iDate = idx(['DATA']);
+    if (iDate === -1) return []; // formato não reconhecido
+
+    const iDesc = idx(['DESCRICAO', 'HISTORICO', 'COMPLEMENTO']);
+    const iCnpj = idx(['CNPJ', 'CPF']);
     const iDeb = idx(['DEBITO']);
     const iCred = idx(['CREDITO']);
-    const iComp = idx(['COMPLEMENTO', 'HISTORICO', 'DESCRICAO']);
-    const iCnpj = idx(['CNPJ', 'CPF']);
+
+    // 🛡️ Captura TODAS as colunas chamadas "VALOR" (bancos duplicam o nome)
+    const iValues = header
+      .map((h, i) => (h.includes('VALOR') ? i : -1))
+      .filter((i) => i !== -1);
 
     const results: any[] = [];
     for (let i = 1; i < lines.length; i++) {
       const c = lines[i].split(delim).map((s) => (s || '').trim());
       const date = this.parseDate(c[iDate] || '');
-      if (!date) continue;
+      if (!date) continue; // ignora rodapé/totais do banco
 
-      const valDebito = this.parseAmount(c[iDeb] || '') || 0;
-      const valCredito = this.parseAmount(c[iCred] || '') || 0;
+      let valDebito = 0;
+      let valCredito = 0;
+
+      if (iDeb !== -1 || iCred !== -1) {
+        // Formato A: colunas explícitas Débito/Crédito
+        valDebito = Math.abs(this.parseAmount(c[iDeb] || '') || 0);
+        valCredito = Math.abs(this.parseAmount(c[iCred] || '') || 0);
+      } else if (iValues.length >= 2) {
+        // Formato B (SEU CSV): duas colunas "Valor" → o SINAL decide
+        for (const vi of iValues) {
+          const v = this.parseAmount(c[vi] || '') || 0;
+          if (v < 0) valDebito += Math.abs(v);
+          else if (v > 0) valCredito += v;
+        }
+      } else if (iValues.length === 1) {
+        // Formato C: coluna única → o SINAL decide
+        const v = this.parseAmount(c[iValues[0]] || '') || 0;
+        if (v < 0) valDebito = Math.abs(v);
+        else valCredito = v;
+      }
+
       if (valDebito <= 0 && valCredito <= 0) continue;
 
       results.push({
         date: date.toISOString(),
-        description: (c[iComp] || '').trim(),
-        counterpartyCpfCnpj: (c[iCnpj] || '').trim() || null,
+        description: (c[iDesc !== -1 ? iDesc : 0] || 'Sem descrição').trim(),
+        counterpartyCpfCnpj:
+          iCnpj !== -1 ? (c[iCnpj] || '').replace(/\D/g, '') || null : null,
         amount: valDebito > 0 ? valDebito : valCredito,
         type: valDebito > 0 ? 'SAIDA' : 'ENTRADA',
         status: 'PENDENTE',
@@ -385,14 +491,6 @@ export class HistoryService {
     }
     return results;
   }
-
-  private detectDelimiter(line: string): string {
-    return [';', '\t', '|', ','].reduce(
-      (best, d) => (line.split(d).length > line.split(best).length ? d : best),
-      ',',
-    );
-  }
-
   // =================================================================
   // 🧮 MOTOR DE SEMELHANÇA (nome + valor + recorrência)
   // =================================================================
@@ -474,7 +572,12 @@ export class HistoryService {
       .replace(/\s+/g, ' ')
       .trim();
   }
-
+private detectDelimiter(line: string): string {
+    return [';', '\t', '|', ','].reduce(
+      (best, d) => (line.split(d).length > line.split(best).length ? d : best),
+      ',',
+    );
+  }
   private parseDate(raw: string): Date | null {
     const m = (raw || '').match(/(\d{2})\/(\d{2})\/(\d{4})/);
     return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null;
@@ -482,8 +585,17 @@ export class HistoryService {
 
   private parseAmount(raw: string): number | null {
     let s = (raw || '').trim();
-    if (!s || !/^[\d.,]+$/.test(s)) return null;
-    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    if (!s) return null;
+
+    // 🛡️ Remove prefixo de moeda e espaços (R$, US$, etc.)
+    s = s.replace(/[A-Za-z$]/g, '').trim();
+    if (!s) return null;
+
+    // Formato brasileiro: 1.000,00 → 1000.00
+    if (s.includes(',')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    }
+
     const v = parseFloat(s);
     return isNaN(v) ? null : v;
   }

@@ -13,6 +13,7 @@ do tenant sem sair da tela).
 Upload via TEXTO (file.text()) — zero multipart/boundary (ADR-066).
 */
 'use client';
+import { useClientContextStore } from '@/store/clientContextStore';
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
@@ -132,6 +133,7 @@ export default function CicloContabilPage() {
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccount, setNewAccount] = useState({ code: '', name: '' });
   const [busy, setBusy] = useState(false);
+  const { activeClientId, setActiveClient } = useClientContextStore(); // 🆕 ADR-077
 
   // Carrega a carteira de clientes ao montar — COM diagnóstico visível
   useEffect(() => {
@@ -146,8 +148,10 @@ export default function CicloContabilPage() {
           ? payload.data
           : Array.isArray(payload?.clients)
           ? payload.clients
-          : [];
-        setClients(list);
+          : [];        setClients(list);
+        // 🆕 ADR-077: reabre a página já no cliente em trabalho
+        const saved = list.find((c: any) => c.id === activeClientId);
+        if (saved) setClientId(saved.id);        setClients(list);
         if (list.length === 0) {
           toast.error('Backend respondeu, mas sem clientes (verifique o tenant logado).');
         }
@@ -160,7 +164,30 @@ export default function CicloContabilPage() {
       }
     })();
   }, []);
+  // =================================================================
+  // 🆕 ADR-081: carrega os dados PERSISTIDOS ao abrir/trocar cliente.
+  // Corrige o bug "some no F5": balancete + razão + sugeridor passam
+  // a vir do banco sempre que um cliente é selecionado.
+  // =================================================================
+  async function loadPersistedData(id: string) {
+    try {
+      const [t, l, m] = await Promise.all([
+        api.get('/accounting/trial-balance', { params: { clientId: id } }),
+        api.get('/accounting/ledger', { params: { clientId: id } }),
+        api.get('/accounting/ledger/counterparty-map', { params: { clientId: id } }),
+      ]);
+      setTbList(t.data.data || []);
+      setLgList(l.data.data || []);
+      setCpMap(m.data.data || {});
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao carregar dados contábeis do cliente.');
+    }
+  }
 
+  useEffect(() => {
+    if (clientId) loadPersistedData(clientId);
+    else { setTbList([]); setLgList([]); setCpMap({}); }
+  }, [clientId]);
   // ── Importa BALANCETE (texto → JSON, sem multipart) ──
   async function importTrialBalance() {
     if (!clientId || !tbFile) return toast.error('Selecione cliente e arquivo do balancete.');
@@ -215,7 +242,26 @@ export default function CicloContabilPage() {
       toast.error(e.response?.data?.message || 'Erro ao importar razão.');
     } finally { setBusy(false); }
   }
-
+  // =================================================================
+  // 🆕 BLOCO 7 (ADR-080): promove o razão a lançamentos contábeis,
+  // alimentando o DRE Oficial e a Exportação SCI. Idempotente (ADR-076).
+  // =================================================================
+  async function promoteLedger() {
+    if (!clientId) return toast.error('Selecione o cliente.');
+    setBusy(true);
+    try {
+      const r = await api.post('/accounting/ledger/promote', { clientId });
+      const d = r.data.data;
+      toast.success(
+        `Razão promovido: ${d.created} lançamento(s) no DRE!` +
+        (d.duplicados ? ` • ${d.duplicados} já existiam (bloqueados).` : '') +
+        (d.semContraparte ? ` • ${d.semContraparte} sem contraparte no sugeridor.` : '') +
+        (d.semConta ? ` • ${d.semConta} sem conta no plano.` : ''),
+      );
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao promover o razão.');
+    } finally { setBusy(false); }
+  }
   // ── Abre as linhas de um balancete importado ──
   async function openRows(id: string) {
     try {
@@ -268,7 +314,11 @@ export default function CicloContabilPage() {
         {/* 🆕 CORREÇÃO: texto preto/escuro no select */}
         <select
           value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
+          onChange={(e) => {
+            setClientId(e.target.value);
+            const c = clients.find((x) => x.id === e.target.value);
+            setActiveClient(e.target.value || null, c?.companyName || c?.name || null);
+          }}
           className="px-3 py-2.5 border border-slate-300 rounded-lg text-sm bg-white min-w-[260px] text-slate-900 font-medium"
         >
           <option value="">— Selecione o cliente —</option>
@@ -353,6 +403,14 @@ export default function CicloContabilPage() {
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 Importar Razão
+              </button>
+                            <button
+                onClick={promoteLedger}
+                disabled={busy || lgList.length === 0}
+                className="mt-2 flex items-center gap-2 px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50"
+              >
+                <BookOpen className="h-4 w-4" />
+                Promover Razão → Lançamentos (DRE)
               </button>
               <div className="space-y-1 pt-2">
                 {lgList.map((lg) => (

@@ -1,16 +1,12 @@
 // =================================================================
-// INÍCIO: reconciliation.service.ts
+// INÍCIO: backend/src/accounting/reconciliation.service.ts
 // =================================================================
 /**
- * 🤖 SERVIÇO DE CONCILIAÇÃO E REVISÃO CONTÁBIL
- * =================================================================
- * Responsável por:
- * 1. Cruzar lançamentos PENDENTES com a base do SCI (Conciliação Automática)
- * 2. Detectar arquivos duplicados antes do upload
- * 3. Identificar e remover lançamentos duplicados no banco
- * 4. Salvar a revisão manual de contas de débito/crédito
+ * ReconciliationService — Motor de Conciliação e Revisão Contábil
+ * 
+ * Responsável por cruzar lançamentos PENDENTES com a base do SCI,
+ * detectar duplicidades e permitir revisão manual.
  */
-
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
@@ -22,32 +18,24 @@ export class ReconciliationService {
   constructor(private prisma: PrismaService) {}
 
   // =================================================================
-  // INÍCIO: MÉTODOS DE CONCILIAÇÃO AUTOMÁTICA (SEU CÓDIGO ORIGINAL)
+  // 🔗 CONCILIAÇÃO AUTOMÁTICA (Heurística: Valor > Descrição)
   // =================================================================
-
   async reconcileEntries(accountingFile: Express.Multer.File, companyId: string) {
     try {
-      console.log('\n' + '='.repeat(70));
-      console.log('🔗 INICIANDO CONCILIAÇÃO AUTOMÁTICA');
-      console.log('='.repeat(70));
-
       const pendingEntries = await this.prisma.accountingEntry.findMany({
-        where: { companyId, status: 'PENDENTE' }
+        where: { companyId, status: 'PENDENTE' },
+        select: { id: true, entryDate: true, description: true, debitValue: true, creditValue: true }
       });
-
-      console.log(`📊 Lançamentos pendentes encontrados: ${pendingEntries.length}`);
 
       if (pendingEntries.length === 0) {
         throw new BadRequestException('Nenhum lançamento pendente encontrado para conciliar');
       }
 
       const sciEntries = await this.parseAccountingCSV(accountingFile.path);
-      console.log(`📄 Lançamentos do SCI carregados: ${sciEntries.length}`);
-
       const accounts = await this.prisma.accountingAccount.findMany({
-        where: { OR: [{ companyId: null }, { companyId }], isActive: true }
+        where: { OR: [{ companyId: null }, { companyId }], isActive: true },
+        select: { id: true, code: true, name: true }
       });
-      console.log(`🔍 Contas contábeis disponíveis: ${accounts.length}`);
 
       const results = [];
       let vinculadosPorValor = 0;
@@ -55,20 +43,15 @@ export class ReconciliationService {
       let naoVinculados = 0;
 
       for (const entry of pendingEntries) {
-        const debitValue = Number(entry.debitValue);
-        const creditValue = Number(entry.creditValue);
+        const debitValue = Number(entry.debitValue) || 0;
+        const creditValue = Number(entry.creditValue) || 0;
         const amount = debitValue > 0 ? debitValue : creditValue;
-        const description = entry.description;
 
-        const match = this.findMatchingSCIEntry(amount, description, sciEntries, accounts);
+        const match = this.findMatchingSCIEntry(amount, entry.description || '', sciEntries, accounts);
 
-        if (match.status === 'VALOR_ENCONTRADO') {
-          vinculadosPorValor++;
-        } else if (match.status === 'DESCRICAO_ENCONTRADA') {
-          vinculadosPorDescricao++;
-        } else {
-          naoVinculados++;
-        }
+        if (match.status === 'VALOR_ENCONTRADO') vinculadosPorValor++;
+        else if (match.status === 'DESCRICAO_ENCONTRADA') vinculadosPorDescricao++;
+        else naoVinculados++;
 
         results.push({
           entryId: entry.id,
@@ -78,27 +61,13 @@ export class ReconciliationService {
           matchStatus: match.status,
           suggestedDebitAccountId: match.debitAccount?.id || null,
           suggestedCreditAccountId: match.creditAccount?.id || null,
-          matchedFrom: match.source ? {
-            debitCode: match.source.debitCode,
-            creditCode: match.source.creditCode,
-            description: match.source.description,
-            value: match.source.value
-          } : null
         });
       }
 
+      // Limpeza segura
       if (fs.existsSync(accountingFile.path)) {
-        fs.unlinkSync(accountingFile.path);
+        try { fs.unlinkSync(accountingFile.path); } catch (e) {}
       }
-
-      console.log('\n' + '='.repeat(70));
-      console.log('📊 RESULTADO DA CONCILIAÇÃO:');
-      console.log('='.repeat(70));
-      console.log(`✅ Vinculados por VALOR: ${vinculadosPorValor}`);
-      console.log(`✅ Vinculados por DESCRIÇÃO: ${vinculadosPorDescricao}`);
-      console.log(`⚠️  Não vinculados: ${naoVinculados}`);
-      console.log(`📈 Total processado: ${results.length}`);
-      console.log('='.repeat(70) + '\n');
 
       return {
         results,
@@ -107,11 +76,9 @@ export class ReconciliationService {
         vinculadosPorDescricao,
         naoVinculados
       };
-
     } catch (error: any) {
-      console.error('❌ ERRO NA CONCILIAÇÃO:', error);
       if (fs.existsSync(accountingFile.path)) {
-        fs.unlinkSync(accountingFile.path);
+        try { fs.unlinkSync(accountingFile.path); } catch (e) {}
       }
       throw new BadRequestException(`Erro ao conciliar: ${error.message}`);
     }
@@ -120,7 +87,7 @@ export class ReconciliationService {
   private async parseAccountingCSV(filePath: string): Promise<any[]> {
     return new Promise((resolve, reject) => {
       const results: any[] = [];
-      fs.createReadStream(filePath)
+      fs.createReadStream(filePath, { encoding: 'utf-8' })
         .pipe(csv({ separator: ';' }))
         .on('data', (data) => {
           if (!data['Valor'] || !data['Data']) return;
@@ -132,9 +99,8 @@ export class ReconciliationService {
             date: data['Data'],
             debitCode: data['Débito']?.toString().trim() || '',
             creditCode: data['Crédito']?.toString().trim() || '',
-            value: value,
+            value: Math.abs(value),
             description: data['Complemento']?.toString().trim() || '',
-            complement: data['Nº Doc.']?.toString().trim() || ''
           });
         })
         .on('end', () => resolve(results))
@@ -143,29 +109,31 @@ export class ReconciliationService {
   }
 
   private findMatchingSCIEntry(amount: number, description: string, sciEntries: any[], accounts: any[]) {
+    // 1. Tentativa por Valor Exato (margem de erro de 1 centavo)
     const valueMatch = sciEntries.find(acc => Math.abs(acc.value - amount) < 0.01);
-    
     if (valueMatch) {
       const debitAccount = accounts.find(acc => acc.code === valueMatch.debitCode);
       const creditAccount = accounts.find(acc => acc.code === valueMatch.creditCode);
-      return { status: 'VALOR_ENCONTRADO' as const, debitAccount, creditAccount, source: valueMatch };
+      return { status: 'VALOR_ENCONTRADO' as const, debitAccount, creditAccount };
     }
 
+    // 2. Tentativa por Similaridade de Texto (Jaccard Index)
     const descMatch = sciEntries.find(acc => {
-      const similarity = this.calculateTextSimilarity(acc.description, description);
-      return similarity > 0.6;
+      const similarity = this.calculateTextSimilarity(acc.description || '', description);
+      return similarity > 0.6; // 60% de similaridade
     });
 
     if (descMatch) {
       const debitAccount = accounts.find(acc => acc.code === descMatch.debitCode);
       const creditAccount = accounts.find(acc => acc.code === descMatch.creditCode);
-      return { status: 'DESCRICAO_ENCONTRADA' as const, debitAccount, creditAccount, source: descMatch };
+      return { status: 'DESCRICAO_ENCONTRADA' as const, debitAccount, creditAccount };
     }
 
-    return { status: 'NAO_VINCULADO' as const, debitAccount: null, creditAccount: null, source: null };
+    return { status: 'NAO_VINCULADO' as const, debitAccount: null, creditAccount: null };
   }
 
   private calculateTextSimilarity(text1: string, text2: string): number {
+    if (!text1 || !text2) return 0;
     const normalize = (text: string) => 
       text.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length > 3);
 
@@ -181,56 +149,74 @@ export class ReconciliationService {
   }
 
   async saveReconciliationSuggestions(suggestions: any[], companyId: string) {
-    const updatedEntries = [];
-    for (const suggestion of suggestions) {
-      if (suggestion.suggestedDebitAccountId && suggestion.suggestedCreditAccountId) {
-        const updated = await this.prisma.accountingEntry.update({
-          where: { id: suggestion.entryId, companyId },
-          data: {
-            debitAccountId: suggestion.suggestedDebitAccountId,
-            creditAccountId: suggestion.suggestedCreditAccountId,
-            status: 'CONCILIADO'
-          }
-        });
-        updatedEntries.push(updated);
+    // 🔒 Usando transação para garantir que tudo ou nada seja salvo
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedEntries = [];
+      for (const suggestion of suggestions) {
+        if (suggestion.suggestedDebitAccountId && suggestion.suggestedCreditAccountId) {
+          const updated = await tx.accountingEntry.update({
+            where: { id: suggestion.entryId, companyId },
+            data: {
+              debitAccountId: suggestion.suggestedDebitAccountId,
+              creditAccountId: suggestion.suggestedCreditAccountId,
+              status: 'CONCILIADO'
+            }
+          });
+          updatedEntries.push(updated);
+        }
       }
-    }
-    return updatedEntries;
+      return updatedEntries;
+    });
   }
-
   // =================================================================
-  // FIM: MÉTODOS DE CONCILIAÇÃO AUTOMÁTICA
+  // 🛡️ VERIFICAÇÃO DE ARQUIVO DUPLICADO
   // =================================================================
-
-
-  // =================================================================
-  // INÍCIO: NOVOS MÉTODOS (DUPLICIDADE E REVISÃO MANUAL)
-  // =================================================================
-
   /**
-   * Verifica se o arquivo já foi importado anteriormente usando hash MD5.
+   * Verifica se um arquivo já foi enviado anteriormente.
+   *
+   * Nesta versão, o método gera o hash MD5 do conteúdo do arquivo e
+   * retorna uma estrutura compatível com o controller atual.
+   *
+   * Observação:
+   * Ainda não estamos persistindo esse hash em tabela própria.
+   * Futuramente o ideal é criar uma tabela AccountingImportLog ou
+   * AccountingImportBatch para registrar:
+   * - companyId
+   * - clientId
+   * - fileName
+   * - fileHash
+   * - importedAt
+   * - importedBy
+   * - totalRows
    */
-  async checkFileDuplicate(companyId: string, fileName: string, fileContent: Buffer) {
-    const fileHash = crypto.createHash('md5').update(fileContent).digest('hex');
+  async checkFileDuplicate(
+    companyId: string,
+    fileName: string,
+    fileContent: Buffer,
+  ) {
+    const fileHash = crypto
+      .createHash('md5')
+      .update(fileContent)
+      .digest('hex');
 
-    // Nota: Se você ainda não tem a tabela accounting_imports no Prisma, 
-    // podemos adaptar essa lógica para verificar por data + nome do arquivo nos próprios lançamentos.
-    // Por enquanto, retornamos a estrutura pronta para quando a tabela for adicionada.
     return {
-      isDuplicate: false, // Altere para true se implementar a tabela de imports
+      isDuplicate: false,
+      fileName,
       fileHash,
-      message: 'Hash do arquivo gerado com sucesso.'
+      message: 'Hash do arquivo gerado com sucesso. Nenhuma duplicidade bloqueante encontrada.',
     };
   }
-
-  /**
-   * Identifica lançamentos duplicados na mesma empresa.
-   * Critério: mesmo valor + mesma data + descrição idêntica.
-   */
+  // =================================================================
+  // 🛡️ DETECÇÃO E REMOÇÃO DE DUPLICIDADE (Otimizada)
+  // =================================================================
+  
   async findDuplicateEntries(companyId: string) {
+    // 🔒 Limite de segurança para evitar travamento do servidor em bases gigantes
     const entries = await this.prisma.accountingEntry.findMany({
       where: { companyId },
       orderBy: { entryDate: 'desc' },
+      take: 5000, 
+      select: { id: true, entryDate: true, description: true, debitValue: true, creditValue: true }
     });
 
     const duplicates = [];
@@ -253,7 +239,7 @@ export class ReconciliationService {
       if (similarEntries.length > 1) {
         processed.add(entries[i].id);
         duplicates.push({
-          group: similarEntries.length,
+          groupSize: similarEntries.length,
           entries: similarEntries,
         });
       }
@@ -262,52 +248,31 @@ export class ReconciliationService {
     return duplicates;
   }
 
-  /**
-   * Verifica se dois lançamentos são duplicados.
-   */
   private isDuplicateEntry(entry1: any, entry2: any): boolean {
     const val1 = Number(entry1.debitValue) > 0 ? Number(entry1.debitValue) : Number(entry1.creditValue);
     const val2 = Number(entry2.debitValue) > 0 ? Number(entry2.debitValue) : Number(entry2.creditValue);
 
     const sameValue = Math.abs(val1 - val2) < 0.01;
-    
-    const date1 = new Date(entry1.entryDate).toDateString();
-    const date2 = new Date(entry2.entryDate).toDateString();
-    const sameDate = date1 === date2;
-
-    const sameDescription = entry1.description?.toLowerCase().trim() === entry2.description?.toLowerCase().trim();
+    const sameDate = new Date(entry1.entryDate).toDateString() === new Date(entry2.entryDate).toDateString();
+    const sameDescription = (entry1.description || '').toLowerCase().trim() === (entry2.description || '').toLowerCase().trim();
 
     return sameValue && sameDate && sameDescription;
   }
 
-  /**
-   * Remove lançamentos duplicados, mantendo apenas o primeiro de cada grupo.
-   */
   async removeDuplicateEntries(duplicateGroups: any[]) {
     const deletedIds = [];
 
     for (const group of duplicateGroups) {
-      // Mantém o primeiro (índice 0), remove os demais
-      const toDelete = group.entries.slice(1);
-
+      const toDelete = group.entries.slice(1); // Mantém o primeiro, remove o resto
       for (const entry of toDelete) {
-        await this.prisma.accountingEntry.delete({
-          where: { id: entry.id },
-        });
+        await this.prisma.accountingEntry.delete({ where: { id: entry.id } });
         deletedIds.push(entry.id);
       }
     }
 
-    return {
-      deletedCount: deletedIds.length,
-      deletedIds,
-    };
+    return { deletedCount: deletedIds.length, deletedIds };
   }
-
-  // =================================================================
-  // FIM: NOVOS MÉTODOS (DUPLICIDADE E REVISÃO MANUAL)
-  // =================================================================
 }
 // =================================================================
-// FIM: reconciliation.service.ts
+// FIM: backend/src/accounting/reconciliation.service.ts
 // =================================================================

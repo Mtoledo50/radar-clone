@@ -155,7 +155,16 @@ export class AccountingController {
       ),
     };
   }
-
+  /** 🆕 Bloco 4 (ADR-078): puxa o último fechamento bancário p/ o contábil */
+  @Post('bridge-from-banking')
+  async bridgeFromBanking(@Request() req, @Body() body: { clientId: string }) {
+    try {
+      const data = await this.service.bridgeFromBanking(req.user.companyId, req.user.id, body.clientId);
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
   // =================================================================
   // 🆕 ETAPA 1 — CICLO CONTÁBIL DO CLIENTE (Balancete + Razão)
   // =================================================================
@@ -190,7 +199,16 @@ export class AccountingController {
     );
     return { success: true, data: result };
   }
-
+  /** 🆕 Bloco 7 (ADR-080): promove o razão importado a lançamentos (alimenta o DRE) */
+  @Post('ledger/promote')
+  async promoteLedger(@Request() req, @Body() body: { clientId: string }) {
+    try {
+      const data = await this.ledgerService.promoteLedgerToEntries(req.user.companyId, body.clientId);
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
   @Get('ledger')
   async listLedgerImports(@Request() req, @Query('clientId') clientId: string) {
     return { success: true, data: await this.ledgerService.listLedgerImports(req.user.companyId, clientId) };

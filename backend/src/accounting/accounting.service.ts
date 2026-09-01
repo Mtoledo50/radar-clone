@@ -700,6 +700,69 @@ export class AccountingService {
     });
     return { clientId, accountingPlan: updated.accountingPlan };
   } 
+  // =================================================================
+  // 🌉 PONTE BANCÁRIO → CONTÁBIL (Bloco 4 — ADR-078)
+  // =================================================================
+  /**
+   * Puxa os lançamentos do último Fechamento Mensal (bancário) do cliente
+   * e cria AccountingEntry PENDENTES — sem reimportar CSV.
+   * - Idempotente (ADR-076): não duplica o que já existe.
+   * - Human-in-the-loop (ADR-030): entra PENDENTE; contas definidas na conciliação.
+   */
+  async bridgeFromBanking(companyId: string, userId: string, clientId: string) {
+    const statement = await this.prisma.bankStatement.findFirst({
+      where: { companyId, clientId },
+      orderBy: [{ year: 'desc' }, { month: 'desc' }],
+      include: { transactions: { orderBy: { date: 'asc' } } },
+    });
+    if (!statement || statement.transactions.length === 0) {
+      throw new BadRequestException('Nenhum fechamento bancário encontrado para este cliente.');
+    }
+
+    const norm = (s: string) => (s || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    const keyOf = (date: Date, amt: number, desc: string) =>
+      `${new Date(date).toISOString().slice(0, 10)}|${amt.toFixed(2)}|${norm(desc)}`;
+
+    const existing = await this.prisma.accountingEntry.findMany({
+      where: { companyId, clientId },
+      select: { entryDate: true, debitValue: true, creditValue: true, description: true },
+    });
+    const keys = new Set(
+      existing.map((e) =>
+        keyOf(new Date(e.entryDate), Math.max(Number(e.debitValue), Number(e.creditValue)), e.description),
+      ),
+    );
+
+    const drafts: any[] = [];
+    let duplicados = 0;
+    for (const t of statement.transactions) {
+      const amt = Math.abs(Number(t.amount));
+      if (amt <= 0) continue;
+      const desc = t.description || 'Sem descrição';
+      const k = keyOf(new Date(t.date), amt, desc);
+      if (keys.has(k)) { duplicados++; continue; }
+      keys.add(k);
+      drafts.push({
+        companyId,
+        clientId,
+        entryDate: new Date(t.date),
+        description: desc,
+        counterpartyCpfCnpj: null,
+        debitValue: Number(t.amount) < 0 ? amt : 0,
+        creditValue: Number(t.amount) > 0 ? amt : 0,
+        source: 'PONTE_BANCARIO',
+        status: 'PENDENTE',
+      });
+    }
+
+    const period = `${String(statement.month).padStart(2, '0')}/${statement.year}`;
+    if (drafts.length === 0) {
+      return { imported: 0, duplicados, period, message: 'Fechamento bancário já integrado. Nenhum lançamento novo.' };
+    }
+
+    await this.prisma.accountingEntry.createMany({ data: drafts });
+    return { imported: drafts.length, duplicados, period };
+  }
 }
 // =================================================================
 // FIM: backend/src/accounting/accounting.service.ts
