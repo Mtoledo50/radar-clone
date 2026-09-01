@@ -13,6 +13,7 @@ do tenant sem sair da tela).
 Upload via TEXTO (file.text()) — zero multipart/boundary (ADR-066).
 */
 'use client';
+
 import { useClientContextStore } from '@/store/clientContextStore';
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/axios';
@@ -295,7 +296,25 @@ export default function CicloContabilPage() {
   }
 
   const cpEntries = Object.entries(cpMap);
-
+  // 🆕 Bloco 8: excluir razão importado (com confirmação)
+  async function handleDeleteLedger(id: string, periodLabel: string) {
+    if (!window.confirm(
+      `Excluir o razão "${periodLabel}"?\n` +
+      `As linhas importadas serão removidas.\n` +
+      `(Lançamentos já promovidos ao DRE NÃO são apagados.)`,
+    )) return;
+    try {
+      const res = await api.delete(`/accounting/ledger/${id}`);
+      if (!res.data.success) { toast.error(res.data.message); return; }
+      toast.success(`Razão ${periodLabel} excluído.`);
+      const l = await api.get('/accounting/ledger', { params: { clientId } });
+      setLgList(l.data.data || []);
+      const m = await api.get('/accounting/ledger/counterparty-map', { params: { clientId } });
+      setCpMap(m.data.data || {});
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao excluir razão.');
+    }
+  }
   // =================================================================
   // RENDER
   // =================================================================
@@ -413,12 +432,23 @@ export default function CicloContabilPage() {
                 Promover Razão → Lançamentos (DRE)
               </button>
               <div className="space-y-1 pt-2">
-                {lgList.map((lg) => (
-                  /* 🆕 CORREÇÃO: texto preto/escuro */
-                  <div key={lg.id} className="text-sm bg-slate-50 rounded-lg px-3 py-2 text-slate-900 font-medium">
-                    {lg.periodLabel} • {lg._count?.entries ?? 0} lançamentos
-                  </div>
-                ))}
+                            {lgList.map((lg: any) => (
+              <div
+                key={lg.id}
+                className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+              >
+                <span>
+                  {lg.periodLabel} • {lg.entryCount ?? lg._count?.entries ?? lg.entries?.length ?? ''} lançamentos
+                </span>
+                <button
+                  onClick={() => handleDeleteLedger(lg.id, lg.periodLabel)}
+                  title="Excluir razão"
+                  className="rounded p-1 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
               </div>
             </div>
           </div>

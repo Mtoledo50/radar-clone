@@ -763,6 +763,21 @@ export class AccountingService {
     await this.prisma.accountingEntry.createMany({ data: drafts });
     return { imported: drafts.length, duplicados, period };
   }
+  /**
+   * 🧹 Limpeza controlada: remove apenas lançamentos gerados por automação
+   * (promoção do razão, importação de extrato, ponte bancária).
+   * Lançamentos MANUAIS são sempre preservados.
+   */
+  async clearAutomatedEntries(companyId: string, clientId: string) {
+    const result = await this.prisma.accountingEntry.deleteMany({
+      where: {
+        companyId,
+        clientId,
+        source: { in: ['PROMOCAO_RAZAO', 'IMPORTACAO_EXTRATO', 'PONTE_BANCARIO'] },
+      },
+    });
+    return { deleted: result.count };
+  }  
 }
 // =================================================================
 // FIM: backend/src/accounting/accounting.service.ts

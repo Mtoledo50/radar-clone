@@ -19,11 +19,13 @@ import {
   UseInterceptors, UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { AccountingService } from './accounting.service';
 import { TrialBalanceService } from './trial-balance.service';
 import { LedgerService } from './ledger.service';
 import { SmartImportService } from './smart-import.service';
 import { ImportService } from './import.service';
+import { PdfExtractService } from './domain/pdf/pdf-extract.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -37,6 +39,8 @@ export class AccountingController {
     private readonly ledgerService: LedgerService,
     private readonly smartImport: SmartImportService,
     private readonly importService: ImportService,
+    private readonly pdfExtract: PdfExtractService,
+
   ) {}
 
   // =================================================================
@@ -289,7 +293,47 @@ export class AccountingController {
       return { success: false, message: error.message };
     }
   }
+// Extratos de Bancos 
+  /** 🆕 Lista bancos disponíveis p/ UI (ADR-098) */
+  @Get('pdf-adapters')
+  async listPdfAdapters() {
+    return { success: true, data: this.pdfExtract.listAdapters() };
+  }
 
+  /** 🆕 Extrai PDF de extrato — banco opcional forçado pela UI */
+@Post('extract-pdf')
+@UseInterceptors(FileInterceptor('file', {
+  storage: memoryStorage(), // 🛡️ mantém o buffer em RAM (não grava em disco)
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB de limite de segurança
+}))
+async extractPdf(
+  @UploadedFile() file: Express.Multer.File,
+  @Body('bank') bank?: string,
+) {
+  console.log('📥 Arquivo recebido no controller:', {
+    fieldname: file?.fieldname,
+    originalname: file?.originalname,
+    mimetype: file?.mimetype,
+    size: file?.size,
+    hasBuffer: !!file?.buffer,
+    bufferLength: file?.buffer?.length,
+  });
+
+  if (!file) {
+    return { success: false, message: 'Nenhum arquivo enviado' };
+  }
+
+  if (!file.buffer || file.buffer.length === 0) {
+    return { success: false, message: 'Arquivo recebido sem conteúdo (buffer vazio).' };
+  }
+
+  try {
+    const result = await this.pdfExtract.extract(file.buffer, bank);
+    return { success: true, data: result };
+  } catch (error: any) {
+    return { success: false, message: error.message };
+  }
+}
   // =================================================================
   // 🆕 ADR-072 — PLANOS DE CONTAS POR CLIENTE
   // =================================================================
@@ -329,7 +373,27 @@ export class AccountingController {
       return { success: false, message: error.message };
     }
   }
+  /** 🆕 Bloco 8: exclui uma importação de razão */
+  @Delete('ledger/:id')
+  async deleteLedger(@Request() req, @Param('id') id: string) {
+    try {
+      const data = await this.ledgerService.deleteLedgerImport(req.user.companyId, id);
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
 
+    /** 🆕 Limpa lançamentos gerados por automação (mantém manuais) */
+  @Post('entries/clear-automated')
+  async clearAutomatedEntries(@Request() req, @Body() body: { clientId: string }) {
+    try {
+      const data = await this.service.clearAutomatedEntries(req.user.companyId, body.clientId);
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  }
   // =================================================================
   // (ANTIGO, intacto) IMPORT MULTIPART — compatibilidade
   // =================================================================
