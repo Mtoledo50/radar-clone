@@ -228,7 +228,38 @@ export class AccountingService {
     if (!entry) throw new NotFoundException('Lançamento não encontrado');
     return this.prisma.accountingEntry.delete({ where: { id } });
   }
+  /**
+   * Busca lançamentos contábeis de um cliente em um período específico,
+   * incluindo os relacionamentos com as contas de débito e crédito.
+   * Essencial para a tela de Extrato/Razão Analítico.
+   */
+  async getEntriesByPeriod(companyId: string, clientId: string, startDate: string, endDate: string) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999); // Garante que pegue todo o dia final
 
+    return this.prisma.accountingEntry.findMany({
+      where: {
+        companyId,
+        clientId,
+        entryDate: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: {
+        debitAccount: {
+          select: { code: true, name: true },
+        },
+        creditAccount: {
+          select: { code: true, name: true },
+        },
+      },
+      orderBy: {
+        entryDate: 'asc',
+      },
+    });
+  }
   // =================================================================
   // 📤 EXPORTAÇÃO SCI — v2 (ADR-072)
   // Formato ALVO:

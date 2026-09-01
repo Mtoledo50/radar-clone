@@ -389,6 +389,8 @@ model Client {
   cnabMovimentos    CnabMovimento[]
   cobrancaEventos   CobrancaEvento[]
   billingInstructions BillingInstruction[]
+    // 🆕 Portal do Cliente — tokens de acesso
+  portalTokens  ClientPortalToken[]
   
   @@index([userId])
   @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
@@ -2650,4 +2652,19 @@ enum NotificationType {
   TASK_OVERDUE     // tarefa atrasada
   PROPOSAL_VIEWED  // proposta visualizada
   SYSTEM           // mensagem do sistema
+}
+
+model ClientPortalToken {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  token       String   @unique  // token público (ex: "abc123-def456")
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+  
+  @@index([clientId])
+  @@index([token])
+  @@map("client_portal_tokens")
 }
