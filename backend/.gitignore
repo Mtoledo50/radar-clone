@@ -5,3 +5,16 @@ dist
 .env.*
 *.log
 .git
+
+# Arquivos compactados
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Backups
+backup/
+*.backup
+
+# Node modules (se não estiver lá)
+node_modules/
