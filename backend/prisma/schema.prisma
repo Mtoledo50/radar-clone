@@ -2668,3 +2668,14 @@ model ClientPortalToken {
   @@index([token])
   @@map("client_portal_tokens")
 }
+
+model ClientServiceActivation {
+  id          String   @id @default(cuid())
+  companyId   String
+  clientId    String
+  serviceCode String
+  activatedAt DateTime @default(now())
+  activatedBy String?
+
+  @@unique([companyId, clientId, serviceCode])
+}

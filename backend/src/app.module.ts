@@ -3,7 +3,7 @@
 // =================================================================
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ReportsModule } from './reports/reports.module';
+//import { ReportsModule } from './reports/reports.module';
 
 // Core
 import { PrismaModule } from './prisma/prisma.module';
@@ -60,7 +60,7 @@ import { HealthModule } from './health/health.module';
   imports: [
     // 1. Core (Infraestrutura base)
     PrismaModule,
-    ReportsModule,
+    //ReportsModule,
     ScheduleModule.forRoot(), // Deve ser importado apenas uma vez, no nível raiz
 
     // 2. Autenticação e Dashboard
