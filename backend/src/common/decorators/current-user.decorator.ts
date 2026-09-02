@@ -1,12 +1,23 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+// src/common/decorators/current-user.decorator.ts
+import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 
-/**
- * Decorator para extrair o usuário autenticado do request de forma limpa.
- * Uso: @CurrentUser() user: UserPayload
- */
+export interface UserPayload {
+  sub: string;       // userId
+  companyId: string; // Essencial para SaaS (Multi-tenancy)
+  email: string;
+  role: string;
+}
+
 export const CurrentUser = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext) => {
+  (data: keyof UserPayload | undefined, ctx: ExecutionContext) => {
     const request = ctx.switchToHttp().getRequest();
-    return request.user; // Assume que o JwtAuthGuard já populou request.user
+    const user = request.user;
+
+    if (!user) {
+      // Isso evita o TypeError e retorna HTTP 401 automaticamente
+      throw new UnauthorizedException('Token ausente ou inválido. Faça login novamente.');
+    }
+
+    return data ? user[data] : user;
   },
 );

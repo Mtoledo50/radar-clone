@@ -42,6 +42,7 @@ import {
   Telescope,
   Trophy, // 🆕 Sprint D3
   ShieldCheck, // 🆕 FD-8
+  FolderOpen,
   
   
 } from 'lucide-react';
@@ -87,8 +88,9 @@ const SECTIONS = [
 // CONFIGURAÇÃO DOS ITENS DO MENU (Reorganizado para Fluxo Linear)
 // =================================================================
 const allMenuItems: MenuItem[] = [
+
   // ─────────────────────────────────────────────────────────
-  // 📊 OPERACIONAL (Gestão do Escritório)
+  // 📊 OPERACIONAL
   // ─────────────────────────────────────────────────────────
   {
     id: 'dashboard',
@@ -113,6 +115,7 @@ const allMenuItems: MenuItem[] = [
     children: [
       { id: 'pessoas', title: 'Colaboradores', href: '/dashboard/pessoas' },
       { id: 'turnover', title: 'Turnover', href: '/dashboard/turnover' },
+      { id: 'benchmark-cargos', title: 'Benchmark de Cargos', href: '/dashboard/pessoas/benchmark' },
     ],
   },
   {
@@ -122,6 +125,13 @@ const allMenuItems: MenuItem[] = [
     icon: UsersRound,
     section: 'operacional',
   },
+  {
+  id: 'client-workspace',
+  title: 'Ficha do Cliente (Setores)',
+  href: '/dashboard/clientes/workspace',
+  icon: FolderOpen,
+  section: 'operacional',
+},
   {
     id: 'operacional',
     title: 'Projetos e Tarefas',
@@ -144,42 +154,22 @@ const allMenuItems: MenuItem[] = [
     icon: Calculator,
     section: 'comercial',
     children: [
+      { id: 'precificacao-base', title: 'Calculadora de Precificação', href: '/dashboard/precificacao' },
       { id: 'propostas', title: 'Propostas Comerciais', href: '/dashboard/precificacao/propostas' },
       { id: 'meus-planos', title: 'Meus Planos', href: '/dashboard/precificacao/meus-planos' },
+      { id: 'desempenho', title: 'Desempenho', href: '/dashboard/precificacao/desempenho' },
     ],
   },
   {
     id: 'planejamento',
-    title: 'Planejamento Estratégico',
+    title: 'Planejamento',
     href: '/dashboard/planejamento',
     icon: CalendarDays,
     section: 'comercial',
   },
 
   // ─────────────────────────────────────────────────────────
-  // 📒 ROTINA CONTÁBIL (Fluxo Mensal do Cliente)
-  // ─────────────────────────────────────────────────────────
-    {
-    id: 'rotina-contabil',
-    title: 'Rotina Contábil',
-    href: '/dashboard/contabil',
-    icon: BookOpen,
-    section: 'contabil',
-    children: [
-      { id: 'contabil-plano', title: '1. Plano de Contas (SCI)', href: '/dashboard/contabil/plano-contas' },
-      { id: 'ciclo-contabil', title: '2. Ciclo Contábil (Balancete/Razão)', href: '/dashboard/contabil/ciclo-contabil' },
-      { id: 'integracao-sci', title: '3. Integração SCI (Extrato)', href: '/dashboard/contabil' },
-      { id: 'extrato-contabil', title: '4. Extrato / Razão Analítico', href: '/dashboard/contabil/extrato' },
-      // 🆕 RESTAURADO: a página que mostra o plano de contas + sugestões pelos lançamentos anteriores
-      { id: 'conciliacao', title: '5. Conciliação Manual + Automática', href: '/dashboard/lancamentos/revisao' },
-      { id: 'dre-cliente', title: '6. DRE e Guias do Cliente', href: '/dashboard/bi/dre-cliente' },
-      // Utilitário legado (não entra na numeração do fluxo, mas não some do menu)
-      { id: 'revisao-sci', title: 'Revisão de Lançamentos (SCI)', href: '/dashboard/contabil/revisao' },
-    ],
-  },
-
-  // ─────────────────────────────────────────────────────────
-  // 🧾 FISCAL & BANCÁRIO
+  // 🧾 FISCAL
   // ─────────────────────────────────────────────────────────
   {
     id: 'fiscal',
@@ -188,53 +178,181 @@ const allMenuItems: MenuItem[] = [
     icon: Receipt,
     section: 'fiscal',
     children: [
-      { id: 'fiscal-notas', title: 'Notas Fiscais (NF-e/NFS-e)', href: '/dashboard/fiscal/notas' },
-      { id: 'fiscal-apuracao', title: 'Apuração de Impostos', href: '/dashboard/fiscal/apuracao' },
+      { id: 'fiscal-import', title: 'Importar NF-e', href: '/dashboard/fiscal' },
+      { id: 'fiscal-notas', title: 'Notas Fiscais', href: '/dashboard/fiscal/notas' },
+      { id: 'fiscal-estoque', title: 'Estoque', href: '/dashboard/fiscal/estoque' },
+      { id: 'fiscal-apuracao', title: 'Apuração ICMS', href: '/dashboard/fiscal/apuracao' },
+      { id: 'fiscal-sped', title: 'SPED Fiscal', href: '/dashboard/fiscal/sped' },
+      { id: 'fiscal-comparativo', title: 'Comparativo', href: '/dashboard/fiscal/comparativo' },
+      { id: 'fiscal-relatorio', title: 'Relatório Inventário', href: '/dashboard/fiscal/relatorio-inventario' },
     ],
-  },
-  {
-    id: 'bancario',
-    title: 'Bancário',
-    href: '/dashboard/fechamento',
-    icon: Landmark,
-    section: 'bancario',
-          children: [
-        { id: 'extratos', title: 'Extratos e Conciliação', href: '/dashboard/fechamento' },
-        { id: 'extrato-pdf', title: 'Extratos PDF → CSV', href: '/dashboard/fechamento/extrato-pdf' }, // 🆕 ADR-098
-        { id: 'cobranca', title: 'Cobrança e CNAB', href: '/dashboard/funcionario-digital/cobranca' },
-      ],
   },
 
   // ─────────────────────────────────────────────────────────
-  // 📈 INTELIGÊNCIA & AUTOMAÇÃO
+  // 🏦 BANCÁRIO
+  // ─────────────────────────────────────────────────────────
+  {
+    id: 'fechamento',
+    title: 'Fechamento + DRE Bancário',
+    href: '/dashboard/fechamento',
+    icon: Wallet,
+    section: 'bancario',
+  },
+  {
+    id: 'extrato-pdf',
+    title: 'Extratos PDF → CSV',
+    href: '/dashboard/fechamento/extrato-pdf',
+    icon: FileText,
+    section: 'bancario',
+  },
+  {
+    id: 'cobranca',
+    title: 'Cobrança CNAB',
+    href: '/dashboard/funcionario-digital/cobranca',
+    icon: Landmark,
+    section: 'bancario',
+  },
+
+  // ─────────────────────────────────────────────────────────
+  // 📒 CONTÁBIL
+  // ─────────────────────────────────────────────────────────
+  {
+    id: 'contabil',
+    title: 'Integração SCI',
+    href: '/dashboard/contabil',
+    icon: BookOpen,
+    section: 'contabil',
+    children: [
+      { id: 'contabil-sci', title: 'Importar / Exportar SCI', href: '/dashboard/contabil' },
+      { id: 'ciclo-contabil', title: 'Ciclo Contábil do Cliente', href: '/dashboard/contabil/ciclo-contabil' },
+      { id: 'contabil-plano', title: 'Plano de Contas', href: '/dashboard/contabil/plano-contas' },
+      { id: 'contabil-extrato', title: 'Extrato / Razão Analítico', href: '/dashboard/contabil/extrato' },
+      { id: 'contabil-revisao', title: 'Revisão de Lançamentos', href: '/dashboard/contabil/revisao' },
+    ],
+  },
+  {
+    id: 'lancamentos',
+    title: 'Lançamentos Contábeis',
+    href: '/dashboard/lancamentos',
+    icon: FileText,
+    section: 'contabil',
+    children: [
+      { id: 'lancamentos', title: 'Todos os Lançamentos', href: '/dashboard/lancamentos' },
+      { id: 'revisao-manual', title: 'Revisão Manual + Automática', href: '/dashboard/lancamentos/revisao' },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────
+  // 📈 INTELIGÊNCIA
   // ─────────────────────────────────────────────────────────
   {
     id: 'funcionario-digital',
-    title: 'Aurora (Automação)',
+    title: 'Aurora (Funcionário Digital)',
     href: '/dashboard/funcionario-digital',
     icon: Bot,
     section: 'inteligencia',
-    children: [
-      { id: 'aurora-runs', title: 'Execuções e Pendências', href: '/dashboard/funcionario-digital' },
-      { id: 'relatorios-mensais', title: 'Relatórios Mensais PDF', href: '/dashboard/funcionario-digital/relatorios' },
-      { id: 'guias-imposto', title: 'Guias de Imposto', href: '/dashboard/funcionario-digital/guias' },
-    ],
+  },
+  {
+    id: 'relatorios-mensais',
+    title: 'Relatórios Mensais',
+    href: '/dashboard/funcionario-digital/relatorios',
+    icon: FileText,
+    section: 'inteligencia',
+  },
+  {
+    id: 'nfse',
+    title: 'NFS-e',
+    href: '/dashboard/funcionario-digital/nfse',
+    icon: Receipt,
+    section: 'inteligencia',
+  },
+  {
+    id: 'guias-imposto',
+    title: 'Guias de Imposto',
+    href: '/dashboard/funcionario-digital/guias',
+    icon: Scale,
+    section: 'inteligencia',
+  },
+  {
+    id: 'legalizacao',
+    title: 'Legalização & Cofre',
+    href: '/dashboard/funcionario-digital/legalizacao',
+    icon: ShieldCheck,
+    section: 'inteligencia',
   },
   {
     id: 'bi',
-    title: 'Business Intelligence',
+    title: 'DRE do Escritório',
     href: '/dashboard/bi',
-    icon: BarChart3,
+    icon: Building,
     section: 'inteligencia',
-    children: [
-      { id: 'bi-escritorio', title: 'DRE do Escritório', href: '/dashboard/bi' },
-      { id: 'bi-dre-cliente', title: 'DRE do Cliente (Oficial)', href: '/dashboard/bi/dre-cliente' },
-      { id: 'ponto-fora-da-curva', title: 'Ponto Fora da Curva', href: '/dashboard/ponto-fora-da-curva' },
-    ],
+  },
+  {
+    id: 'bi-dre-cliente',
+    title: 'DRE do Cliente (Oficial)',
+    href: '/dashboard/bi/dre-cliente',
+    icon: BookOpen,
+    section: 'inteligencia',
+  },
+  {
+    id: 'ponto-fora-da-curva',
+    title: 'Ponto Fora da Curva',
+    href: '/dashboard/ponto-fora-da-curva',
+    icon: AlertTriangle,
+    section: 'inteligencia',
+  },
+  {
+    id: 'indicadores',
+    title: 'Indicadores',
+    href: '/dashboard/indicadores',
+    icon: Activity,
+    section: 'inteligencia',
+  },
+  {
+    id: 'indicadores-custom',
+    title: 'Indicadores Customizados',
+    href: '/dashboard/indicadores-custom',
+    icon: Calculator,
+    section: 'inteligencia',
+  },
+  {
+    id: 'score',
+    title: 'Score do Escritório',
+    href: '/dashboard/score',
+    icon: Gauge,
+    section: 'inteligencia',
+  },
+  {
+    id: 'mentoria',
+    title: 'Visão de Futuro',
+    href: '/dashboard/mentoria',
+    icon: Telescope,
+    section: 'inteligencia',
+  },
+  {
+    id: 'ranking',
+    title: 'Ranking de Níveis',
+    href: '/dashboard/ranking',
+    icon: Trophy,
+    section: 'inteligencia',
+  },
+  {
+    id: 'planejamento-tributario',
+    title: 'Planejamento Tributário',
+    href: '/dashboard/planejamento-tributario',
+    icon: Scale,
+    section: 'inteligencia',
+  },
+  {
+    id: 'reforma-tributaria',
+    title: 'Reforma Tributária',
+    href: '/dashboard/reforma-tributaria',
+    icon: Scale,
+    section: 'inteligencia',
   },
 
   // ─────────────────────────────────────────────────────────
-  // ⚙️ SISTEMA (Admin)
+  // ⚙️ SISTEMA (admin-only)
   // ─────────────────────────────────────────────────────────
   {
     id: 'admin',
@@ -245,6 +363,7 @@ const allMenuItems: MenuItem[] = [
     section: 'sistema',
     children: [
       { id: 'admin-overview', title: 'Visão Geral', href: '/dashboard/admin' },
+      { id: 'admin-catalogo', title: 'Catálogo de Serviços', href: '/dashboard/admin/catalogo' },
       { id: 'admin-usuarios', title: 'Gestão de Usuários', href: '/dashboard/admin/usuarios' },
     ],
   },

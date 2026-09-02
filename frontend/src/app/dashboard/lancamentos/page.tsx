@@ -1,6 +1,6 @@
 'use client';
 // =================================================================
-// INÍCIO: frontend/src/app/dashboard/lancamentos/page.tsx (v3)
+// INÍCIO: frontend/src/app/dashboard/lancamentos/page.tsx (v3 - CORRIGIDO)
 // =================================================================
 // v3 (ADR-072):
 //  • Partida dobrada real: D e C obrigatórios, valor espelha,
@@ -11,8 +11,8 @@
 //    ordenação por código / nome / nº.
 // =================================================================
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // 🆕 atalho p/ Integração SCIimport api from '@/lib/axios';
-import api from '@/lib/axios';                // 🆕 CORRIGIDO: linha separada
+import { useRouter } from 'next/navigation';
+import api from '@/lib/axios';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -63,7 +63,7 @@ interface Client {
   id: string;
   companyName: string;
   cnpj?: string;
-  accountingPlan?: string | null; // 🆕 ADR-072
+  accountingPlan?: string | null;
 }
 
 interface ReconciledStatement {
@@ -81,7 +81,7 @@ interface ReconciledStatement {
 // COMPONENTE PRINCIPAL
 // =================================================================
 export default function LancamentosPage() {
-  const router = useRouter(); // 🆕 navegação do atalho "Exportar p/ SCI"
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('lancamentos');
   const [entries, setEntries] = useState<AccountingEntry[]>([]);
   const [accounts, setAccounts] = useState<AccountingAccount[]>([]);
@@ -99,7 +99,6 @@ export default function LancamentosPage() {
   const [editingAccount, setEditingAccount] = useState<AccountingAccount | null>(null);
   const [accountForm, setAccountForm] = useState({ code: '', name: '', type: 'ATIVO', nature: 'DEVEDORA', level: 1 });
 
-  // 🆕 Aba Plano de Contas: filtro por plano + ordenação (código/nome/nº)
   const [planFilter, setPlanFilter] = useState<string>('all');
   const [accountSortField, setAccountSortField] = useState<'code' | 'name' | 'seq'>('code');
   const [accountSortDir, setAccountSortDir] = useState<'asc' | 'desc'>('asc');
@@ -143,8 +142,12 @@ export default function LancamentosPage() {
         api.get('/accounting/entries'),
         api.get('/accounting/accounts'),
       ]);
-      setEntries(entriesRes.data.data || []);
-      setAccounts(accountsRes.data.data || []);
+      // 🛡️ Quick Fix (linha 1444): o backend pode retornar { data: [...], meta }
+      // (paginado) ou array direto. Normaliza para SEMPRE guardar array no state.
+      const rawEntries = entriesRes.data?.data;
+      const rawAccounts = accountsRes.data?.data;
+      setEntries(Array.isArray(rawEntries) ? rawEntries : (rawEntries?.data ?? []));
+      setAccounts(Array.isArray(rawAccounts) ? rawAccounts : (rawAccounts?.data ?? []));
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
       toast.error('Erro ao carregar dados contábeis');
@@ -165,7 +168,10 @@ export default function LancamentosPage() {
   // =================================================================
   // FILTROS / FORMATADORES / HELPERS
   // =================================================================
-  const filteredEntries = entries.filter((entry) => {
+  const entriesList = Array.isArray(entries) ? entries : ((entries as any)?.data || []);
+
+  // ✅ CORRIGIDO: filteredEntries agora está corretamente declarado
+  const filteredEntries = entriesList.filter((entry: AccountingEntry) => {
     const matchesSearch =
       entry.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entry.counterpartyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -179,7 +185,6 @@ export default function LancamentosPage() {
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const formatDate = (date: string) => new Date(date).toLocaleDateString('pt-BR');
 
-  // 🆕 ADR-072: contas do plano ativo do cliente vinculado no modal
   const modalClient = form.clientId ? clients.find((c) => c.id === form.clientId) : null;
   const accountsForModal = modalClient?.accountingPlan
     ? accounts.filter((a) => a.planName === modalClient.accountingPlan)
@@ -187,7 +192,6 @@ export default function LancamentosPage() {
   const accLabel = (a: AccountingAccount) =>
     `${a.seq || a.accountNumber ? `${a.seq || a.accountNumber} • ` : ''}${a.code} - ${a.name}`;
 
-  // 🆕 Aba Plano de Contas: planos distintos + lista filtrada/ordenada
   const plans = Array.from(new Set(accounts.map((a) => a.planName || 'Padrão'))).sort();
   const seqNum = (a: AccountingAccount) => parseInt(a.seq || a.accountNumber || '0', 10) || 0;
   const filteredAccounts = (() => {
@@ -232,19 +236,19 @@ export default function LancamentosPage() {
     if (!confirm(`Deseja forçar a conciliação de ${pendentes.length} lançamento(s) pendente(s)?`)) return;
     try {
       await Promise.all(pendentes.map((id) => api.put(`/accounting/entries/${id}/conciliate`, {})));
-  toast.success(`${pendentes.length} lançamento(s) conciliado(s) com sucesso!`, {
-    action: {
-      label: '📤 Ir p/ Exportação SCI',
-      onClick: () => router.push('/dashboard/contabil'),
-    },
-  });      setSelectedEntries([]);
+      toast.success(`${pendentes.length} lançamento(s) conciliado(s) com sucesso!`, {
+        action: {
+          label: '📤 Ir p/ Exportação SCI',
+          onClick: () => router.push('/dashboard/contabil'),
+        },
+      });
+      setSelectedEntries([]);
       loadData();
     } catch (err) {
       toast.error('Erro ao conciliar lançamentos');
     }
   }
 
-  // 🆕 Conciliação rápida (botão ✓ na tabela)
   async function handleConciliate(id: string) {
     try {
       await api.put(`/accounting/entries/${id}/conciliate`, {});
@@ -288,12 +292,6 @@ export default function LancamentosPage() {
     setShowModal(true);
   }
 
-  /**
-   * 🆕 PARTIDA DOBRADA REAL (v3):
-   * exige conta de DÉBITO e de CRÉDITO; o valor informado de um lado
-   * espelha no outro; salva com o status escolhido no modal
-   * (o modal auto-sugere CONCILIADO quando as duas contas são preenchidas).
-   */
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!form.debitAccountId || !form.creditAccountId) {
@@ -306,8 +304,8 @@ export default function LancamentosPage() {
       toast.error('Informe o valor do lançamento.');
       return;
     }
-    if (dVal > 0 && cVal <= 0) cVal = dVal; // espelha
-    if (cVal > 0 && dVal <= 0) dVal = cVal; // espelha
+    if (dVal > 0 && cVal <= 0) cVal = dVal;
+    if (cVal > 0 && dVal <= 0) dVal = cVal;
 
     setSubmitting(true);
     try {
@@ -392,7 +390,7 @@ export default function LancamentosPage() {
   }
 
   // =================================================================
-  // EXTRATOS CONCILIADOS: resumo + 🖨️ IMPRESSÃO + 📄 PDF
+  // EXTRATOS CONCILIADOS
   // =================================================================
   function getReconciledStatements(): ReconciledStatement[] {
     const clientMap = new Map<string, AccountingEntry[]>();
@@ -420,7 +418,6 @@ export default function LancamentosPage() {
   const sortedEntries = (stmt: ReconciledStatement) =>
     [...stmt.entries].sort((a, b) => a.entryDate.localeCompare(b.entryDate));
 
-  // 🖨️ Imprimir (abre janela de impressão do navegador)
   function handlePrintStatement(stmt: ReconciledStatement) {
     const w = window.open('', '_blank', 'width=980,height=720');
     if (!w) return toast.error('Permita pop-ups para imprimir.');
@@ -458,7 +455,6 @@ export default function LancamentosPage() {
     w.document.close();
   }
 
-  // 📄 PDF (jsPDF + autotable)
   function handlePdfStatement(stmt: ReconciledStatement) {
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -583,21 +579,20 @@ export default function LancamentosPage() {
               </div>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowReconciliationModal(true)}
                 className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors shadow-sm"
               >
                 <Zap className="h-5 w-5" /> Conciliar Automaticamente
               </button>
-              {/* 🆕 Atalho: termina a conciliação → gera o arquivo do SCI */}
-           <button
-            onClick={() => router.push('/dashboard/contabil')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors shadow-sm"
-          >
-            <FileDown className="h-5 w-5" />
-            Exportar p/ SCI
-          </button>
+              <button
+                onClick={() => router.push('/dashboard/contabil')}
+                className="flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors shadow-sm"
+              >
+                <FileDown className="h-5 w-5" />
+                Exportar p/ SCI
+              </button>
             </div>
 
             <div className="overflow-x-auto">
@@ -666,7 +661,7 @@ export default function LancamentosPage() {
           </div>
         )}
 
-        {/* ================= ABA 2: PLANO DE CONTAS (v3) ================= */}
+        {/* ================= ABA 2: PLANO DE CONTAS ================= */}
         {activeTab === 'contas' && (
           <div className="space-y-4">
             <div className="flex flex-col lg:flex-row lg:items-center gap-3">
@@ -742,7 +737,7 @@ export default function LancamentosPage() {
         {/* ================= ABA 3: IMPORTAR EXTRATO ================= */}
         {activeTab === 'importar' && <SmartImportTab onImportSuccess={loadData} />}
 
-        {/* ================= ABA 4: EXTRATOS CONCILIADOS (v3) ================= */}
+        {/* ================= ABA 4: EXTRATOS CONCILIADOS ================= */}
         {activeTab === 'extratos' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -764,7 +759,6 @@ export default function LancamentosPage() {
                         <p className="text-sm text-slate-600">{stmt.totalEntries} lançamento(s) no total</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* 🆕 v3: impressão em impressora e PDF */}
                         <button
                           onClick={() => handlePrintStatement(stmt)}
                           className="inline-flex items-center gap-1 px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold bg-white hover:bg-slate-50"
@@ -829,7 +823,7 @@ export default function LancamentosPage() {
         )}
       </div>
 
-      {/* ================= MODAL NOVO/EDIÇÃO DE LANÇAMENTO (v3) ================= */}
+      {/* ================= MODAL NOVO/EDIÇÃO DE LANÇAMENTO ================= */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -873,7 +867,6 @@ export default function LancamentosPage() {
                     <p className="text-xs text-blue-600 mt-1">📒 Contas filtradas pelo plano {modalClient.accountingPlan} deste cliente.</p>
                   )}
                 </div>
-                {/* 🆕 v3: status manual */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">Status</label>
                   <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className={inputClass}>
@@ -1005,7 +998,7 @@ export default function LancamentosPage() {
         </div>
       )}
 
-      {/* MODAL DE CONCILIAÇÃO AUTOMÁTICA (mantido) */}
+      {/* MODAL DE CONCILIAÇÃO AUTOMÁTICA */}
       {showReconciliationModal && (
         <ReconciliationModal
           onClose={() => setShowReconciliationModal(false)}
@@ -1017,7 +1010,7 @@ export default function LancamentosPage() {
 }
 
 // =================================================================
-// MODAL DE CONCILIAÇÃO AUTOMÁTICA (sem alterações)
+// MODAL DE CONCILIAÇÃO AUTOMÁTICA
 // =================================================================
 function ReconciliationModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [file, setFile] = useState<File | null>(null);
@@ -1188,5 +1181,5 @@ function ReconciliationModal({ onClose, onSuccess }: { onClose: () => void; onSu
   );
 }
 // =================================================================
-// FIM: frontend/src/app/dashboard/lancamentos/page.tsx (v3)
+// FIM: frontend/src/app/dashboard/lancamentos/page.tsx (v3 - CORRIGIDO)
 // =================================================================
