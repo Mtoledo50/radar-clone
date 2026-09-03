@@ -1,0 +1,31 @@
+{
+  "mapeamento_contas": {
+    "06.254434.0-9": {
+      "banco": "banrisul",
+      "codigo_plano_contas": "817",
+      "descricao": "Banrisul Alvorada (Principal)"
+    },
+    "06.239412.0-7": {
+      "banco": "banrisul",
+      "codigo_plano_contas": "812",
+      "descricao": "Banrisul Secundária"
+    },
+    "28241-8": {
+      "banco": "sicredi",
+      "codigo_plano_contas": "806",
+      "descricao": "Sicredi 28241-8"
+    },
+    "67914-3": {
+      "banco": "bb",
+      "codigo_plano_contas": "810",
+      "descricao": "Banco do Brasil Principal"
+    },
+    "86919-1": {
+      "banco": "sicredi",
+      "codigo_plano_contas": "800",
+      "descricao": "Sicredi Principal"
+    }
+  },
+  "conta_padrao_despesas_bancarias": "565",
+  "conta_padrao_investimentos": "817"
+}
