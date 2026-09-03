@@ -1,0 +1,51 @@
+{
+  "banrisul": {
+    "conta_corrente": "615",
+    "conta_investimentos": "817",
+    "regras": {
+      "RESGATE AUTOMATICO CDB": {
+        "debito": "817",
+        "credito": "615",
+        "descricao": "Resgate de aplicação CDB"
+      },
+      "TARIFA MAN.CC/ATIVA": {
+        "debito": "565",
+        "credito": "615",
+        "descricao": "Tarifa de manutenção de conta corrente"
+      },
+      "TARIFA PIX TRANSFERENCIA": {
+        "debito": "565",
+        "credito": "615",
+        "descricao": "Tarifa de transferência PIX"
+      },
+      "RENOVACAO DE CADASTRO": {
+        "debito": "565",
+        "credito": "615",
+        "descricao": "Renovação de cadastro bancário"
+      },
+      "CESTA DE RELACIONAMENTO": {
+        "debito": "565",
+        "credito": "615",
+        "descricao": "Cesta de serviços bancários"
+      },
+      "DOC/TED INTERNET PJ": {
+        "debito": "565",
+        "credito": "615",
+        "descricao": "Tarifa DOC/TED via internet"
+      }
+    }
+  }, 
+      "sicredi": {
+    "conta_corrente": "806",
+    "regras": {
+      "CESTA DE RELACIONAMENTO": {
+        "debito": "565",
+        "credito": "806"
+      },
+      "DOC/TED INTERNET PJ": {
+        "debito": "565",
+        "credito": "806"
+      }
+    }
+  }
+}

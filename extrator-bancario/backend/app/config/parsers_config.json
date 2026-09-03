@@ -1,0 +1,54 @@
+{
+  "parsers": {
+    "banrisul": {
+      "ativo": true,
+      "nome": "BANRISUL",
+      "assinaturas": [
+        "BANRISUL",
+        "AGENCIA:",
+        "CONTA..:",
+        "MOVIMENTOS DA CONTA CORRENTE"
+      ],
+      "classe": "app.parsers.banrisul.ParserBanrisul",
+      "descricao": "Banco do Estado do Rio Grande do Sul"
+    },
+    "itau": {
+      "ativo": false,
+      "nome": "ITAÚ",
+      "assinaturas": [
+        "ITAÚ UNIBANCO",
+        "Agência",
+        "Conta Corrente"
+      ],
+      "classe": "app.parsers.itau.ParserItau",
+      "descricao": "Banco Itaú Unibanco"
+    },
+    "bradesco": {
+      "ativo": false,
+      "nome": "BRADESCO",
+      "assinaturas": [
+        "BRADESCO",
+        "Agência",
+        "Conta"
+      ],
+      "classe": "app.parsers.bradesco.ParserBradesco",
+      "descricao": "Banco Bradesco"
+    },
+    "bb": {
+      "ativo": false,
+      "nome": "BANCO DO BRASIL",
+      "assinaturas": [
+        "BANCO DO BRASIL",
+        "Agência",
+        "Conta"
+      ],
+      "classe": "app.parsers.bb.ParserBB",
+      "descricao": "Banco do Brasil"
+    }
+  },
+  "configuracoes": {
+    "max_paginas_leitura": 2,
+    "threshold_similaridade": 95.0,
+    "permitir_override_manual": true
+  }
+}

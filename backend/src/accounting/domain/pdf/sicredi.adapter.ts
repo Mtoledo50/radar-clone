@@ -1,48 +1,54 @@
-import { BankAdapter, NormalizedRow, NUM, money, isNoise } from './types';
+import { BankAdapter, NormalizedRow, money, isNoise } from './types';
 
+/**
+ * 🏦 Adapter Sicredi — v4
+ * FIX: valores negativos (débitos) com sinal '-' à esquerda OU '-' à direita.
+ * Agrupa extração multi-linha por data e exige VALOR + SALDO no fim da linha.
+ */
 export const sicrediAdapter: BankAdapter = {
   id: 'sicredi',
   label: 'Sicredi',
   detect: (t) => /Cooperativa:|PIX_CRED|PIX_DEB|ibpj\.sicredi/i.test(t),
+
   parse: (text) => {
-    const rows: NormalizedRow[] = [];
-    const lines = text
+    // 1) Limpa linhas e remove o "|" da tabela do PDF
+    const raw = text
       .split(/\r?\n/)
-      .map((l) => l.replace(/^\s*\|\s*/, '').trim()) // Remove | do início
+      .map((l) => l.replace(/^\s*\|/, '').replace(/\s+/g, ' ').trim())
       .filter(Boolean);
 
-    for (const line of lines) {
-      if (isNoise(line)) continue;
-      if (/^SALDO\s+/i.test(line)) continue;
-      if (/^---/.test(line)) continue;
-      if (/^Data\s+Descrição/i.test(line)) continue;
-
-      // Pattern flexível: Data | Descrição completa | Valor | Saldo
-      // Exemplo: 01/06/2026 RECEBIMENTO PIX 36049204004 JOSE CAPPELLARI PIX_CRED 200,00 8.743,78
-      // Exemplo: 03/06/2026 PAGAMENTO PIX 00360305000104 CEF MATRIZ PIX_DEB -125,35 9.740,04
-      const m = line.match(
-        new RegExp(`^(\\d{2}/\\d{2}/\\d{4})\\s+(.+?)\\s+(-?${NUM})\\s+${NUM}\\s*$`),
-      );
-
-      if (!m) continue;
-
-      const date = m[1];
-      let description = m[2].trim();
-      const value = money(m[3]);
-
-      if (!value) continue;
-
-      // Remove sufixos PIX_CRED/PIX_DEB da descrição (são metadados, não fazem parte do histórico)
-      description = description.replace(/\s+(PIX_CRED|PIX_DEB|CX\d+)\s*$/i, '').trim();
-
-      // Regra do cliente: negativo = débito (saída), positivo = crédito (entrada)
-      if (value < 0) {
-        rows.push({ date, description, debit: Math.abs(value), credit: 0 });
-      } else {
-        rows.push({ date, description, debit: 0, credit: value });
-      }
+    // 2) Agrupa: lançamento novo começa com data; demais linhas completam
+    const groups: string[] = [];
+    for (const line of raw) {
+      if (/^\d{2}\/\d{2}\/\d{4}\b/.test(line)) groups.push(line);
+      else if (groups.length) groups[groups.length - 1] += ' ' + line;
     }
 
+    // 3) Valor aceita '-' na frente OU atrás (332,50-)
+    const V = `(-?\\d{1,3}(?:\\.\\d{3})*,\\d{2}-?)`;
+    const re = new RegExp(`^(\\d{2}/\\d{2}/\\d{4})\\s+(.+?)\\s+${V}\\s+${V}\\s*$`);
+
+    const normSinal = (s: string) => (s.endsWith('-') ? '-' + s.slice(0, -1) : s);
+
+    const rows: NormalizedRow[] = [];
+    for (const g of groups) {
+      const m = g.match(re);
+      if (!m) continue;
+
+      const [, date, rawDesc, vValor] = m;
+      const valor = money(normSinal(vValor));
+      if (!valor) continue; // ignora SALDO ANTERIOR / linhas sem valor
+
+      // Remove token de documento do fim da descrição (PIX_CRED, I00469, CX...)
+      const description = rawDesc
+        .replace(/\s+(PIX_CRED|PIX_DEB|I\d+|CX\d+|\d{6,})$/i, '')
+        .trim();
+      if (!description || isNoise(description)) continue;
+
+      // Regra do cliente: negativo = débito, positivo = crédito
+      if (valor < 0) rows.push({ date, description, debit: Math.abs(valor), credit: 0 });
+      else rows.push({ date, description, debit: 0, credit: valor });
+    }
     return rows;
   },
 };
