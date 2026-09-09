@@ -1,0 +1,162 @@
+[33m5096b2e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m unificação de inicialização
+[33ma235919[m pequenos ajustes no extrator bancário
+[33mad2ab29[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Extrator Bancário
+[33m510793a[m tag stable-2026-09-02
+[33md0d6d95[m[33m ([m[1;33mtag: [m[1;33mv0.1-stable[m[33m)[m restauração ok
+[33mfc47660[m chore: configure Git LFS for PDFs
+[33m8153c4c[m checkpoint: ficha do cliente funcionando
+[33m4dfeee7[m Funcionalide de importação de pdfs de extratos bancarios
+[33me9b9955[m ajustes de rotina
+[33m27ebc18[m / 📊 EXTRATO CONTÁBIL / RAZÃO ANALÍTICO (Para a nova tela de visualização)
+[33mcfdbdf9[m 🏆 Resumo da Fase 3 (Hardening de Produção) — CONCLUÍDA ✅
+[33m049f568[m Checklist de Validação
+[33m0b3d841[m 🎉 Excelente! Módulo de Tarefas & Projetos homologado com sucesso!
+[33mbb2e8f8[m módulo de Tarefas & Projetos homologado
+[33m1dca64c[m 🎉 Módulo de Gestão de Usuários concluído com padrão Enterprise
+[33m7817042[m criação do modulo ADMIN
+[33m057fd04[m troca de banco de dados
+[33m73e22fa[m Atualização dos Planos
+[33mf4c8917[m seeds adicionados
+[33mca26025[m 🅰️ Opção A: Sprint A4 — Fechamento com Ganho
+[33m2076fab[m Simulador "Dinheiro na Mesa
+[33me9f9681[m  Plano de Ação: Produção
+[33mbdccf8e[m 🎉 Catálogo de Ajuda Expandido — HOMOLOGADO!
+[33mc47944b[m 1) 🚀 Sprint 33 — CI/CD + Sentry + backup (o "seguro invisível")
+[33m4a5fceb[m 🎉 FASE 6 HOMOLOGADA — fechamento documental da Aurora (FD-5 → 6)
+[33m28c3616[m 📡 Fase 5 — Providers reais de envio (SendGrid + Twilio) com fallback seguro
+[33m9271aea[m 🎨 Fase 4 — Tela "Cobrança & CNAB" no Frontend
+[33md6f92ec[m 🤖 Aurora FD-5 — CNAB 240/400 + Régua de Cobrança (Entrega all-in-one)
+[33m17112d5[m .
+[33mf1bb1d4[m Merge branch 'main' of https://github.com/Mtoledo50/radar-clone
+[33m94aa6e4[m rada no ar
+[33m914004c[m Fix formatting in README for CONTÁBIL section
+[33me7e98db[m fechamento oficial do Ciclo Contábil SCI (ETAPAS 1–3) com os ADRs da fase.
+[33me202f05[m AJUSTES DE CODIGO PARA IMPORTAR BALANCETE E RAZAO
+[33m48c32ba[m ✅ Plano "SCI 90113": 0 criadas, 1207 atualizadas (1207 antigas desativadas)
+[33mcecee3d[m 📚 Explicações das Páginas + Botão "❓ O que é isso?"
+[33m4f82916[m 🤖 AURORA BATCH (FD-5 + FD-6 + FD-8)
+[33m1feb8d6[m 🧹 ITEM 0 — CASA ARRUMADA
+[33m03eb430[m 🚀 SPRINT D3 — Ranking de Níveis (entrega all-in-one)
+[33md0ff204[m 🎉 D2 HOMOLOGADA — checklist vivo no ar!
+[33m54f6289[m [Sprint D1] 2026-08 — Visão de Futuro (Fase D — Mentoria)
+[33m5d885ca[m 🚀 SPRINT D1 — Visão de Futuro (entrega all-in-one)
+[33m3803b92[m 🎉 Score C4 no ar — e os números fecham perfeitamente!
+[33m9611b3f[m [Sprint C3] 2026-08 — Indicadores Customizados com Fórmula (Fase C — Mercado)
+[33mdfcc75e[m 🚀 Sprint C3 — Indicadores com Fórmula (abertura completa)
+[33m3275006[m 🚀 Sprint C2 — Serviços Extras com Preço Médio (abertura)
+[33mffc46aa[m 🚀 Fase C aberta — Sprint C1: Benchmark de Softwares
+[33m0becfb8[m 🚀 Sprint B5 — Benchmark de Cargos por Setor (abertura)
+[33m79e0a71[m [Sprint B4] 2026-08 — Entrevista de Desligamento com IA (Fase B — Pessoas)
+[33m71d2343[m Sprint B4 — Entrevista de Desligamento com IA
+[33m3540097[m Distribuição por Setor VALIDADA (Fase B — Pessoas)
+[33m5e78b59[m Gestão de Pessoas
+[33m98e8be4[m 🚀 Sprint A7 — Dashboard de Desempenho (abertura)
+[33meeaabce[m 🚀 Sprint A6 — PDF v2 Premium + PNG da Capa (WhatsApp)
+[33m4fef4a2[m 🚀 Sprint A5 — White-label (Proposta com Branding do Cliente)
+[33m07a31d3[m 🚀 Sprint A4 — Fechamento com Ganho (Frontend)
+[33m9baf1f9[m Sprint FD: Aurora 7 skills (FD-1..FD-4) + NFS-e ABRASF + IMAP + guias DAS/ISS + docs
+[33m214e127[m Configuração de Email para Aurora
+[33m7921f75[m Auditoria Tributária de NF-e (Base × Alíquota)
+[33m48f9ec0[m FD-3a + FD-4: NFS-e ABRASF + guias DAS/ISS com memoria de calculo + PDFs imprimiveis
+[33mb748183[m FD-2 final + FD-3a: MonthlyReportSkill (99 PDFs) + NfseImportSkill (ABRASF) + UIs Relatorios/NFS-e + ADRs 033-037
+[33m8760e2e[m  FD-3a HOMOLOGADA! Os 3 prints provam o ciclo completo
+[33m51af37e[m 🏆 ENTREGA COMPLETA! A aba "Relatórios Mensais" está no ar
+[33mb424033[m 🏆 HOMOLOGADO! O primeiro pacote mensal da Aurora nasceu!
+[33mab33c29[m ajuste na importação das notas fiscais
+[33m21015e5[m 🎯 Sprint F5 — Coluna "Produtos" + Ordenação A–Z (Código Completo)
+[33m9692e56[m atualização da documentação
+[33m2a996a0[m urora em produção controlada com dados reais 🎉
+[33mb705d7a[m atualização documentação
+[33mf03a565[m 🏆 CENTRAL DE APROVAÇÕES HOMOLOGADA — FD-2 fechada com chave de ouro!
+[33mb092b5a[m modified:   README.md
+[33mf7bf587[m Atuializção da Documentação
+[33m4a24201[m PASSO 6/6 parte 1: ligar os crons aos toggles
+[33m349d5e9[m 🎉 PASSO 5/6 100% CONCLUÍDO — as 2 skills funcionam perfeitamente!
+[33mb7058c1[m implementação da aurora
+[33m4f7a0eb[m Atualização do projeto
+[33mfef209a[m 🚀 PASSO 3/6 — Orquestrador (o coração da Aurora)
+[33m64df8e8[m 🎉 Aurora acordou! Sprint FD-1 — Iniciando Passo 1/6
+[33m8a67900[m [Sprint A2 - Parte 1] 2026-08 — Integração do Motor de Herança com o Banco
+[33m1385185[m readme atualizado
+[33m9457d11[m docker implementado
+[33m2424c0a[m Next.js 16 com App Router e Turbopack
+[33m35d72b2[m docker com problemas--- resolvendo ...
+[33mb42c5b2[m correção de erros do docker
+[33m5e45463[m atualizado readme
+[33m603a1f0[m readme atualizado
+[33m69c3e97[m 🎯 Sprint 29 — Conciliação Automática Banco × NF-e (Completa)
+[33m946f2c3[m correção de bugs
+[33mdf1d4fc[m SPRINT 26 — DRE do Cliente (Contábil × Bancário)
+[33mc1d5a21[m Autocomplete de Contas (Sprint 25.2.2)
+[33m20cdfa2[m Fechamento Bancário 100% Operacional
+[33mda10e3f[m DRE - RENAN
+[33ma89e05d[m 🎉 Backend da Sprint 21 Homologado!
+[33me7e85e2[m atualizando readm-me
+[33m1391951[m 🎉 Sprint 20 Homologada no Estoque!
+[33m06584ad[m FRONTEND: Mostrar "Cód. Unificado" no Estoque
+[33m00e1b24[m CORREÇÃO DE ERROS AO IMPORTAR ESTOQUE
+[33mc809953[m Sprint 14 Pronta para Validação Final
+[33me9f621e[m relatorio comparativo
+[33m8627a63[m Sprint 11 está completa
+[33mcb40801[m Sprint 10 Homologada! — Sprint 11: Comparativo Estoque Inicial × NF-e
+[33m57e18e9[m  Sprint 10: Estoque Inicial via CSV + Comparativo NF-e × Inventário. 🎯
+[33mecbe9bc[m 🎉 Sprint 9 Parte 1 Homologada! — Parte 2: Frontend de Gestão de Notas
+[33m0fd61c7[m Checklist da Parte 2A (Store + Componente) txt
+[33m7d61bd5[m Backend Sprint 8 Homologado!
+[33m1a6877e[m 🏁 FASE 1 DO MÓDULO FISCAL — 100% CONCLUÍDA!
+[33m85a3b65[m Frontend da Apuração de ICMS
+[33m484b7ab[m Sprint 5 está completa
+[33m830e579[m Parte 1: Backend de Métricas
+[33md31f3aa[m Frontend Fiscal
+[33mde97e44[m 🎉 Parser Homologado
+[33meea2c80[m Ativar o Módulo Fiscal no Backend
+[33m8bbddf9[m Homologação — Etapa 2B
+[33m927edc9[m Etapa 2A Homologada
+[33mbe93a37[m Backend: Módulo Fiscal (Fornecedores)
+[33mf10dbfa[m Projetos
+[33mc0a35fa[m  página de Projetos
+[33m3716855[m BASE HISTÓRICA POR CLIENTE (memória do ano anterior)
+[33m53e6b1b[m 🎯 Impacto no Fluxo Comercial
+[33m25efc1d[m ### 🔐 Sistema de Autenticação com Sincronização de Cookies
+[33m52631be[m 📊 Relatório de Alterações da Sessão
+[33m530b06d[m Seed de Dados Demo (Demonstração Comercial)
+[33m6aab84c[m ### 🛡️ Admin Overview (Dashboard Executivo)
+[33ma0664fe[m Sistema de Permissões e Menu Dinâmico
+[33m68a07d4[m ### 🛡️ Módulo de Planos Comerciais (Enterprise)
+[33mf6c522f[m Construtor de Propostas Comerciais
+[33m93cd99b[m 🎯 Motor de Propostas Comerciais (Enterprise)
+[33ma539868[m nova UX de Onboardin
+[33meccf051[m melhoria na multi seleção
+[33m3ac663a[m 🎯 Melhoria: Multi-seleção de Tipo de Serviço com Chips/Tags
+[33m4f1aaf7[m Autocomplete melhorado! Agora mostra todas as contas com 'Caixa' ordenadas corretamente
+[33m1b1b22f[m iniciando a criação da tora de conciliações
+[33mf6b8716[m PLANO DE CONTAS
+[33m9d2a7ca[m Rotas de planejamento mapeadas e salvando com sucesso
+[33mbed53db[m gestão completa das 18 categorias de softwares
+[33m9c9001e[m Proposta pública funcionando, planos aparecendo
+[33mcb2a1df[m MÓDULO DE PRECIFICAÇÃO 100% OPERACIONAL!
+[33m9ab2b71[m turnover corrigido e funcionando!"
+[33m1064b9e[m Atualização: Carteira de Clientes (Gestão de Carteira)
+[33m189ee0b[m inserido comentarios nos arquivos
+[33md5dd90b[m xportação para Excel/CSV: Gera uma planilha com
+[33m69fd6ce[m Botões de exportação PDF e Excel funcionando perfeitame
+[33m3b323e1[m Tooltips informativos funcionando perfeitamente! Visual ficou muito profissiona
+[33ma8de281[m Atualização: Gráfico de Taxa de Conversão no CRM
+[33m39905e6[m Gráfico de Linha de Taxa de Conversão
+[33m08a5f61[m Atualização: Filtros de Período no CRM de Propostas
+[33mffd07f0[m readme atualizado
+[33m6117c38[m  Implementação dos Filtros de Período nos gráficos do CRM.
+[33m900e087[m Gráfico de Pizza (Motivos de Perda)
+[33mabb7768[m gráficos do CRM
+[33mfea728f[m Dashboard Comercial (CRM) funcionando perfeitamente! KPIs e modais OK!
+[33mca20d5e[m Etapa 5: Dashboard Comercial (CRM de Propostas).
+[33md08e3e6[m Merge branch 'main' of https://github.com/Mtoledo50/radar-clone
+[33mc223f82[m Etapa 4: Geração de PDF da Proposta.
+[33m9c04bae[m Fix formatting in README.md
+[33mc53da60[m Update README.md
+[33m4124fed[m Update README with architecture and folder structure
+[33m56ef06c[m Update README with frontend architecture details
+[33mf5f3f7a[m segunda fase do projeto implementada..
+[33mba0612f[m radar conta certa v001
+[33me71e7ac[m .
+[33m05ad405[m .
