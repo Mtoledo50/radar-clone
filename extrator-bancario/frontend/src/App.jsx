@@ -1,237 +1,453 @@
 import { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import LancamentosTable from './components/LancamentosTable';
+import ModalSalvarRegrasLote from './components/ModalSalvarRegrasLote'; // 🆕 NOVO
 import { parseExtrato, classificarLancamentos, gerarCSV, getDownloadURL } from './services/api';
+import axios from 'axios';
 import './App.css';
 
 /**
- * Componente Principal - Extrator Bancário
+ * Componente Principal — Extrator Bancário
  * 
- * Fluxo:
- * 1. Usuário faz upload do PDF
- * 2. Backend extrai os lançamentos
- * 3. Sistema classifica automaticamente (matching com histórico)
- * 4. Usuário revisa/edita lançamentos pendentes
- * 5. Gera CSV no formato Aurora para importação no sistema contábil
+ * 🆕 FLUXO OTIMIZADO (Lote no final):
+ * 1. Upload do PDF → Extração automática
+ * 2. Classificação (Regras Fixas + Aprendidas + Histórico)
+ * 3. Usuário revisa/edita lançamentos pendentes (sem modal)
+ * 4. No final: botão "💾 Salvar Regras Aprendidas"
+ * 5. Modal em lote mostra resumo e confirma
+ * 6. Gera CSV para importação no sistema contábil
  */
 function App() {
-  // Estados do componente
-  const [extrato, setExtrato] = useState(null);        // Dados do extrato processado
-  const [loading, setLoading] = useState(false);        // Indicador de carregamento
-  const [error, setError] = useState(null);             // Mensagem de erro
-  const [csvUrl, setCsvUrl] = useState(null);           // URL para download do CSV
+  const [extrato, setExtrato] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [csvUrl, setCsvUrl] = useState(null);
+  const [progress, setProgress] = useState('');
+  
+  // 🆕 NOVO: Modal de regras em lote
+  const [modalLoteOpen, setModalLoteOpen] = useState(false);
+  const [regrasParaSalvar, setRegrasParaSalvar] = useState([]);
 
   /**
-   * Handler principal - Processa o arquivo PDF enviado pelo usuário
-   * @param {File} file - Arquivo PDF do extrato bancário
+   * Handler principal — Processa o arquivo PDF enviado
    */
   const handleFileSelect = async (file) => {
     console.log("📤 Novo arquivo selecionado:", file.name);
     
-    // Reset de estados anteriores
     setLoading(true);
     setError(null);
     setCsvUrl(null);
-    setExtrato(null); // Limpa extrato anterior para forçar re-renderização
+    setExtrato(null);
+    setProgress('📤 Enviando PDF...');
 
     try {
-      // PASSO 1: Parse do PDF (extração dos dados brutos)
-      console.log(" Passo 1: Extraindo dados do PDF...");
-      const parseResult = await parseExtrato(file);
+      setProgress('🔍 Extraindo dados do PDF via Mistral OCR...');
       
-      if (!parseResult.success) {
-        throw new Error(parseResult.message || 'Erro ao processar PDF');
+      // A API retorna os dados diretamente, sem envelope {success: true}
+      const dadosExtrato = await parseExtrato(file);
+      
+      // Validação correta: verifica se os dados e os lançamentos existem
+      if (!dadosExtrato || !dadosExtrato.lancamentos) {
+        throw new Error('Resposta inválida do servidor: dados ausentes');
+      }
+
+      console.log('✅ PDF parseado com sucesso:', dadosExtrato.banco, 
+                  '- Lançamentos:', dadosExtrato.lancamentos.length);
+
+      setProgress('🤖 Classificando lançamentos...');
+      
+      // Passa os dados diretamente para a classificação
+      const classifyResult = await classificarLancamentos(dadosExtrato);
+      
+      if (!classifyResult || !classifyResult.lancamentos) {
+        // Fallback caso a API de classificação também retorne direto
+        setExtrato(dadosExtrato);
+      } else {
+        setExtrato(classifyResult);
       }
       
-      console.log("✅ PDF parseado:", parseResult.data.banco, "- Lancamentos:", parseResult.data.lancamentos.length);
-
-      // PASSO 2: Classificação automática (matching com histórico + regras)
-      console.log("🔍 Passo 2: Classificando lançamentos...");
-      const classifyResult = await classificarLancamentos(parseResult.data);
-      
-      if (!classifyResult.success) {
-        throw new Error(classifyResult.message || 'Erro ao classificar');
-      }
-      
-      console.log("✅ Classificação concluída:");
-      console.log("   - Matches automáticos:", classifyResult.summary.matches);
-      console.log("   - Para revisão:", classifyResult.summary.revisoes);
-
-      // PASSO 3: Atualiza estado com extrato classificado
-      console.log("📊 Atualizando estado com dados processados...");
-      setExtrato(classifyResult.data);
-      
-      // Scroll suave para o topo para mostrar o resumo
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        setProgress('');
       }, 100);
       
     } catch (err) {
-      // Tratamento de erro
-      console.error("❌ Erro no processamento:", err);
-      setError(err.message);
+      console.error('❌ Erro no processamento:', err);
+      
+      if (err.code === 'ECONNABORTED') {
+        setError('⏱️ Timeout: O processamento demorou muito. Tente um arquivo menor.');
+      } else if (err.response) {
+        setError(`❌ Erro do servidor: ${err.response.data.detail || err.response.statusText}`);
+      } else {
+        setError(`❌ Erro: ${err.message}`);
+      }
+      
+      setProgress('');
     } finally {
       setLoading(false);
     }
   };
-
   /**
-   * Handler para edição manual de lançamentos
-   * Permite que o usuário altere as contas de débito/crédito
-   * @param {number} index - Índice do lançamento na lista
-   * @param {object} values - Novos valores {conta_debito, conta_credito}
+   * 🆕 NOVO: Handler para edição manual de lançamentos
+   * Agora apenas atualiza o estado, SEM abrir modal
+   * Marca o lançamento como "editado_manualmente" para o lote final
    */
   const handleEditar = (index, values) => {
-    // Cria cópia imutável do extrato
     const updated = { ...extrato };
     
-    // Atualiza o lançamento específico
     updated.lancamentos[index].conta_debito = values.conta_debito;
     updated.lancamentos[index].conta_credito = values.conta_credito;
-    updated.lancamentos[index].status = 'aprovado'; // Marca como aprovado após edição
+    updated.lancamentos[index].status = 'aprovado';
+    updated.lancamentos[index].editado_manualmente = true; //  Flag para identificar edições
     
-    // Atualiza estado (trigger re-render)
     setExtrato(updated);
     
     console.log(`✏️ Lançamento ${index} atualizado: D=${values.conta_debito} C=${values.conta_credito}`);
   };
 
   /**
-   * Handler para geração do CSV no formato Aurora
-   * Envia apenas lançamentos aprovados (com D/C definidos)
+   *  NOVO: Prepara e abre o modal de salvamento em lote
+   * Agrupa lançamentos editados manualmente por tipo+conta
+   */
+  const handleAbrirModalRegras = () => {
+    if (!extrato) return;
+
+    // Filtra apenas lançamentos editados manualmente
+    const editados = extrato.lancamentos.filter(l => l.editado_manualmente);
+    
+    if (editados.length === 0) {
+      alert('️ Nenhum lançamento foi editado manualmente. Edite pelo menos um lançamento para salvar regras.');
+      return;
+    }
+
+      // Agrupa por tipo (para evitar regras duplicadas)
+  const regrasAgrupadas = {};
+  editados.forEach(lanc => {
+    // 🛡️ CORREÇÃO: Remove espaços invisíveis da conta e do tipo
+    const contaLimpa = extrato.conta ? String(extrato.conta).replace(/\s+/g, '') : 'DESCONHECIDA';
+    const tipoLimpo = lanc.tipo ? String(lanc.tipo).trim().toUpperCase() : 'DESCONHECIDO';
+    
+    const chave = `${tipoLimpo}__${contaLimpa}`;
+    
+    if (!regrasAgrupadas[chave]) {
+      regrasAgrupadas[chave] = {
+        descricao_parcial: tipoLimpo,
+        conta: contaLimpa, // Salva a versão limpa
+        banco: extrato.banco ? String(extrato.banco).toLowerCase().trim() : 'desconhecido',
+        debito: lanc.conta_debito ? String(lanc.conta_debito).trim() : null,
+        credito: lanc.conta_credito ? String(lanc.conta_credito).trim() : null,
+        quantidade: 0
+      };
+    }
+    regrasAgrupadas[chave].quantidade += 1;
+  });
+
+    const regrasLista = Object.values(regrasAgrupadas);
+    setRegrasParaSalvar(regrasLista);
+    setModalLoteOpen(true);
+  };
+
+  /**
+   * 🆕 NOVO: Salva todas as regras em lote via API
+   */
+  const handleSalvarRegrasLote = async () => {
+    try {
+      const response = await axios.post('http://localhost:8000/api/salvar-regras-lote', {
+        regras: regrasParaSalvar,
+        criado_por: "usuario_frontend"
+      });
+
+      alert(`✅ ${response.data.message}\n\nPróximos extratos desta conta já virão classificados automaticamente!`);
+      setModalLoteOpen(false);
+      setRegrasParaSalvar([]);
+    } catch (error) {
+      console.error("❌ Erro ao salvar regras:", error);
+      alert(`Erro ao salvar regras: ${error.message}`);
+    }
+  };
+
+  /**
+   * Handler para geração do CSV
    */
   const handleGerarCSV = async () => {
     setLoading(true);
+    setProgress(' Gerando CSV...');
     
     try {
-      console.log("📥 Gerando CSV Aurora...");
       const result = await gerarCSV(extrato);
       
       if (result.success) {
-        // Obtém URL de download
         const downloadUrl = getDownloadURL(result.data.filename);
         setCsvUrl(downloadUrl);
-        console.log("✅ CSV gerado:", result.data.filename);
+        setProgress('✅ CSV gerado com sucesso!');
+        console.log('✅ CSV gerado:', result.data.filename);
+        
+        setTimeout(() => setProgress(''), 2000);
       } else {
         throw new Error(result.message || 'Erro ao gerar CSV');
       }
     } catch (err) {
-      console.error("❌ Erro ao gerar CSV:", err);
-      setError(err.message);
+      console.error(' Erro ao gerar CSV:', err);
+      setError(`❌ Erro ao gerar CSV: ${err.message}`);
+      setProgress('');
     } finally {
       setLoading(false);
     }
   };
 
+  // 🆕 NOVO: Conta quantos lançamentos foram editados manualmente
+  const totalEditados = extrato?.lancamentos.filter(l => l.editado_manualmente).length || 0;
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
-      {/* Cabeçalho */}
-      <h1>🏦 Extrator Bancário</h1>
+      <h1 style={{ 
+        textAlign: 'center', 
+        color: '#333',
+        marginBottom: '30px',
+        fontSize: '32px'
+      }}>
+        🏦 Extrator Bancário Inteligente
+      </h1>
       
-      {/* Área de Upload */}
       <FileUpload onFileSelect={handleFileSelect} />
 
-      {/* Indicador de Carregamento */}
       {loading && (
-        <p style={{ marginTop: '20px', textAlign: 'center', fontSize: '18px' }}>
-          ⏳ Processando...
-        </p>
-      )}
-      
-      {/* Mensagem de Erro */}
-      {error && (
-        <p style={{ 
+        <div style={{ 
           marginTop: '20px', 
-          color: 'red', 
-          backgroundColor: '#ffe6e6', 
-          padding: '15px', 
+          padding: '20px', 
+          backgroundColor: '#e3f2fd', 
           borderRadius: '8px',
-          border: '1px solid #ffcccc'
+          border: '1px solid #90caf9',
+          textAlign: 'center'
         }}>
-          ❌ Erro: {error}
-        </p>
+          <p style={{ margin: 0, fontSize: '16px', color: '#1976d2' }}>
+            {progress || '⏳ Processando...'}
+          </p>
+          <div style={{ 
+            marginTop: '10px', 
+            height: '4px', 
+            backgroundColor: '#bbdefb',
+            borderRadius: '2px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              height: '100%',
+              backgroundColor: '#1976d2',
+              width: '100%',
+              animation: 'loading 2s ease-in-out infinite'
+            }}></div>
+          </div>
+        </div>
       )}
 
-      {/* Resumo e Tabela (só aparece após processamento) */}
+      {error && (
+        <div style={{ 
+          marginTop: '20px', 
+          padding: '20px', 
+          backgroundColor: '#ffebee', 
+          borderRadius: '8px',
+          border: '1px solid #ef9a9a',
+          color: '#c62828'
+        }}>
+          <p style={{ margin: 0, fontSize: '16px' }}>{error}</p>
+        </div>
+      )}
+
       {extrato && (
         <>
-          {/* Card de Resumo */}
           <div style={{ 
             marginTop: '20px', 
-            padding: '20px', 
+            padding: '25px', 
             backgroundColor: '#f0f8ff', 
             borderRadius: '8px',
-            border: '1px solid #b3d1ff'
+            border: '2px solid #b3d1ff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
           }}>
-            <h3 style={{ marginTop: 0 }}>📊 Resumo do Extrato</h3>
+            <h3 style={{ marginTop: 0, color: '#1976d2', textAlign: 'center' }}>
+              📊 Resumo do Extrato
+            </h3>
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: '10px' 
+              gap: '15px' 
             }}>
-              <p><strong>Banco:</strong> {extrato.banco}</p>
-              <p><strong>Agência:</strong> {extrato.agencia}</p>
-              <p><strong>Conta:</strong> {extrato.conta}</p>
-              <p><strong>Competência:</strong> {extrato.competencia}</p>
-              <p><strong>Total de lançamentos:</strong> {extrato.lancamentos.length}</p>
+              <div style={{ padding: '10px', backgroundColor: 'white', borderRadius: '6px' }}>
+                <strong style={{ color: '#666' }}>Banco:</strong>
+                <div style={{ marginTop: '5px', fontSize: '18px', fontWeight: 'bold', color: '#333' }}>
+                  {extrato.banco}
+                </div>
+              </div>
+              <div style={{ padding: '10px', backgroundColor: 'white', borderRadius: '6px' }}>
+                <strong style={{ color: '#666' }}>Agência:</strong>
+                <div style={{ marginTop: '5px', fontSize: '18px', fontWeight: 'bold', color: '#333' }}>
+                  {extrato.agencia}
+                </div>
+              </div>
+              <div style={{ padding: '10px', backgroundColor: 'white', borderRadius: '6px' }}>
+                <strong style={{ color: '#666' }}>Conta:</strong>
+                <div style={{ marginTop: '5px', fontSize: '18px', fontWeight: 'bold', color: '#333' }}>
+                  {extrato.conta}
+                </div>
+              </div>
+              <div style={{ padding: '10px', backgroundColor: 'white', borderRadius: '6px' }}>
+                <strong style={{ color: '#666' }}>Competência:</strong>
+                <div style={{ marginTop: '5px', fontSize: '18px', fontWeight: 'bold', color: '#333' }}>
+                  {extrato.competencia}
+                </div>
+              </div>
+              <div style={{ padding: '10px', backgroundColor: 'white', borderRadius: '6px', gridColumn: 'span 2' }}>
+                <strong style={{ color: '#666' }}>Total de lançamentos:</strong>
+                <div style={{ marginTop: '5px', fontSize: '18px', fontWeight: 'bold', color: '#333' }}>
+                  {extrato.lancamentos.length}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Tabela de Lançamentos */}
           <LancamentosTable
             lancamentos={extrato.lancamentos}
             onEditar={handleEditar}
           />
 
-          {/* Botões de Ação */}
-          <div style={{ marginTop: '30px', textAlign: 'center', paddingBottom: '40px' }}>
+          {/* 🆕 NOVO: Botões de ação no final */}
+          <div style={{ 
+            marginTop: '30px', 
+            textAlign: 'center', 
+            paddingBottom: '40px',
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '15px',
+            flexWrap: 'wrap'
+          }}>
+            {/* 🆕 Botão Salvar Regras Aprendidas */}
             <button
-              onClick={handleGerarCSV}
+              onClick={handleAbrirModalRegras}
+              disabled={totalEditados === 0}
               style={{
-                padding: '15px 30px',
-                fontSize: '16px',
+                padding: '18px 36px',
+                fontSize: '18px',
                 fontWeight: 'bold',
-                backgroundColor: '#28a745',
+                backgroundColor: totalEditados === 0 ? '#ccc' : '#ff9800',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                transition: 'background-color 0.3s'
+                cursor: totalEditados === 0 ? 'not-allowed' : 'pointer',
+                boxShadow: totalEditados === 0 ? 'none' : '0 4px 12px rgba(255, 152, 0, 0.4)',
+                transition: 'all 0.3s',
+                opacity: totalEditados === 0 ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
               }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#218838'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#28a745'}
+              onMouseOver={(e) => {
+                if (totalEditados > 0) {
+                  e.target.style.backgroundColor = '#f57c00';
+                  e.target.style.transform = 'translateY(-2px)';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (totalEditados > 0) {
+                  e.target.style.backgroundColor = '#ff9800';
+                  e.target.style.transform = 'translateY(0)';
+                }
+              }}
+            >
+               Salvar Regras Aprendidas
+              {totalEditados > 0 && (
+                <span style={{
+                  backgroundColor: 'white',
+                  color: '#ff9800',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '14px'
+                }}>
+                  {totalEditados}
+                </span>
+              )}
+            </button>
+
+            {/* Botão Gerar CSV */}
+            <button
+              onClick={handleGerarCSV}
+              disabled={loading}
+              style={{
+                padding: '18px 36px',
+                fontSize: '18px',
+                fontWeight: 'bold',
+                backgroundColor: loading ? '#ccc' : '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                boxShadow: loading ? 'none' : '0 4px 12px rgba(40, 167, 69, 0.4)',
+                transition: 'all 0.3s',
+                opacity: loading ? 0.6 : 1
+              }}
+              onMouseOver={(e) => {
+                if (!loading) {
+                  e.target.style.backgroundColor = '#218838';
+                  e.target.style.transform = 'translateY(-2px)';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!loading) {
+                  e.target.style.backgroundColor = '#28a745';
+                  e.target.style.transform = 'translateY(0)';
+                }
+              }}
             >
               📥 Gerar CSV para o SaaS
             </button>
 
-            {/* Link de Download (aparece após geração do CSV) */}
+            {/* Link de Download */}
             {csvUrl && (
               <a
                 href={csvUrl}
                 download
                 style={{
-                  marginLeft: '15px',
-                  padding: '15px 30px',
-                  fontSize: '16px',
+                  padding: '18px 36px',
+                  fontSize: '18px',
                   fontWeight: 'bold',
                   backgroundColor: '#007bff',
                   color: 'white',
                   textDecoration: 'none',
                   borderRadius: '8px',
-                  display: 'inline-block',
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                  transition: 'background-color 0.3s'
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  boxShadow: '0 4px 12px rgba(0, 123, 255, 0.4)',
+                  transition: 'all 0.3s'
                 }}
-                onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-                onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+                onMouseOver={(e) => {
+                  e.target.style.backgroundColor = '#0056b3';
+                  e.target.style.transform = 'translateY(-2px)';
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.backgroundColor = '#007bff';
+                  e.target.style.transform = 'translateY(0)';
+                }}
               >
-                💾 Baixar Arquivo CSV
+                 Baixar Arquivo CSV
               </a>
             )}
           </div>
         </>
       )}
+
+      {/* 🆕 NOVO: Modal de salvamento em lote */}
+      <ModalSalvarRegrasLote
+        isOpen={modalLoteOpen}
+        onClose={() => setModalLoteOpen(false)}
+        regras={regrasParaSalvar}
+        onConfirmar={handleSalvarRegrasLote}
+      />
+
+      <style>{`
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </div>
   );
 }

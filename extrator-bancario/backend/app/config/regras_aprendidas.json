@@ -1,0 +1,153 @@
+{
+  "regras": [
+    {
+      "id": "rule_f58dd4d4",
+      "descricao_parcial": "PIX ENVIADO",
+      "conta_origem": "06.254434.0-9",
+      "banco": "banrisul",
+      "debito": "",
+      "credito": "823",
+      "criado_em": "2026-09-03T10:01:35.312136",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:43:19.938613",
+      "vezes_usado": 2
+    },
+    {
+      "id": "rule_a87ff28e",
+      "descricao_parcial": "PGTO BOLETO",
+      "conta_origem": "06.254434.0-9",
+      "banco": "banrisul",
+      "debito": "",
+      "credito": "615",
+      "criado_em": "2026-09-03T10:07:54.443903",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:07:54.443908",
+      "vezes_usado": 1
+    },
+    {
+      "id": "rule_4105f797",
+      "descricao_parcial": "RESGATE AUTOMATICO CDB",
+      "conta_origem": "06.254434.0-9",
+      "banco": "banrisul",
+      "debito": "817",
+      "credito": "823",
+      "criado_em": "2026-09-03T10:43:19.937865",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:43:19.937870",
+      "vezes_usado": 1
+    },
+    {
+      "id": "rule_324bce0c",
+      "descricao_parcial": "TARIFA MAN.CC/ATIVA",
+      "conta_origem": "06.254434.0-9",
+      "banco": "banrisul",
+      "debito": "565",
+      "credito": "823",
+      "criado_em": "2026-09-03T10:43:19.938631",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:43:19.938633",
+      "vezes_usado": 1
+    },
+    {
+      "id": "rule_fd378857",
+      "descricao_parcial": "RESGATE AUTOMATICO CDB",
+      "conta_origem": "06.255491.0-6",
+      "banco": "banrisul",
+      "debito": "817",
+      "credito": "822",
+      "criado_em": "2026-09-03T10:44:13.490221",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:45:25.560283",
+      "vezes_usado": 2
+    },
+    {
+      "id": "rule_d6226b0f",
+      "descricao_parcial": "PIX ENVIADO",
+      "conta_origem": "06.255491.0-6",
+      "banco": "banrisul",
+      "debito": "",
+      "credito": "822",
+      "criado_em": "2026-09-03T10:44:13.490895",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:44:13.490898",
+      "vezes_usado": 1
+    },
+    {
+      "id": "rule_d1a73500",
+      "descricao_parcial": "PGTO BOLETO",
+      "conta_origem": "06.255491.0-6",
+      "banco": "banrisul",
+      "debito": "",
+      "credito": "822",
+      "criado_em": "2026-09-03T10:44:13.491560",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:44:13.491563",
+      "vezes_usado": 1
+    },
+    {
+      "id": "rule_4091d4d3",
+      "descricao_parcial": "TARIFA MAN.CC/ATIVA",
+      "conta_origem": "06.255491.0-6",
+      "banco": "banrisul",
+      "debito": "565",
+      "credito": "822",
+      "criado_em": "2026-09-03T10:45:25.560307",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:45:25.560307",
+      "vezes_usado": 1
+    },
+    {
+      "id": "rule_5b027cc6",
+      "descricao_parcial": "TARIFA PIX TRANSFERENCIA",
+      "conta_origem": "06.255491.0-6",
+      "banco": "banrisul",
+      "debito": "565",
+      "credito": "822",
+      "criado_em": "2026-09-03T10:45:25.560970",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:45:25.560974",
+      "vezes_usado": 1
+    },
+    {
+      "id": "rule_2e9b2996",
+      "descricao_parcial": "RESGATE AUTOMATICO",
+      "conta_origem": "06.239412.0-7",
+      "banco": "banrisul",
+      "debito": "812",
+      "credito": "814",
+      "criado_em": "2026-09-03T10:48:51.722189",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:48:51.722194",
+      "vezes_usado": 1
+    },
+    {
+      "id": "rule_c7212011",
+      "descricao_parcial": "PIX ENVIADO",
+      "conta_origem": "06.239412.0-7",
+      "banco": "banrisul",
+      "debito": "",
+      "credito": "812",
+      "criado_em": "2026-09-03T10:48:51.722949",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T10:48:51.722952",
+      "vezes_usado": 1
+    },
+    {
+      "id": "rule_9558b111",
+      "descricao_parcial": "RECEBIMENTO PIX",
+      "conta_origem": "28241-8",
+      "banco": "sicredi",
+      "debito": "806",
+      "credito": null,
+      "criado_em": "2026-09-03T14:54:39.965022",
+      "criado_por": "usuario_frontend",
+      "ultima_atualizacao": "2026-09-03T14:54:39.965029",
+      "vezes_usado": 1
+    }
+  ],
+  "metadata": {
+    "ultima_atualizacao": "2026-09-03T14:54:39.965254",
+    "total_regras": 12,
+    "versao": "1.0"
+  }
+}

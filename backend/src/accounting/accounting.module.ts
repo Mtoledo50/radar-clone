@@ -20,6 +20,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 // Infrastructure
 import { PrismaModule } from '../prisma/prisma.module';
+import { AuthModule } from '../auth/auth.module';  // 🆕 ADR-107 — JwtAuthGuard depende do JwtService
 
 // Domain: PDF Extraction
 import { PdfExtractService } from './domain/pdf/pdf-extract.service';
@@ -41,10 +42,13 @@ import { TrialBalanceService } from './trial-balance.service';
 import { LedgerService } from './ledger.service';
 import { SmartImportService } from './smart-import.service';
 import { ClientWorkspaceService } from './client-workspace.service';
-
+// conciliação junto com o extrato bancário
+import { BankSuggestController } from './bank-suggest.controller';
+import { BankSuggestService } from './bank-suggest.service';
 @Module({
   imports: [
     PrismaModule,
+    AuthModule,  // 🆕 ADR-107 — fornece JwtService para JwtAuthGuard
     
     // 🆕 Necessário para chamadas HTTP externas (ex: APIs de bancos, validação de CNPJ)
     HttpModule.register({
@@ -72,6 +76,8 @@ import { ClientWorkspaceService } from './client-workspace.service';
     HistoryController,
     AccountTemplateController,
     ClientWorkspaceController,
+    BankSuggestController,  // 🆕 ADR-107 — análise e sugestão de contas direto no extrato
+
   ],
   
   providers: [
@@ -89,6 +95,9 @@ import { ClientWorkspaceService } from './client-workspace.service';
     TrialBalanceService,
     ReconciliationService,
     HistoryService,
+    
+    // 🆕 ADR-107: Sugestão de contas no extrato bancário
+    BankSuggestService,
   ],
   
   exports: [

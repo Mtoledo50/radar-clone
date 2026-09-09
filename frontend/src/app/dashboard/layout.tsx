@@ -216,6 +216,15 @@ const allMenuItems: MenuItem[] = [
   // ─────────────────────────────────────────────────────────
   // 📒 CONTÁBIL
   // ─────────────────────────────────────────────────────────
+
+  {
+  id: 'central-contabil',
+  title: '🏢 Central Contábil do Cliente',
+  href: '/dashboard/central-contabil',
+  icon: BookOpen,
+  section: 'contabil',
+},
+
   {
     id: 'contabil',
     title: 'Integração SCI',

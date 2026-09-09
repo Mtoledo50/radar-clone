@@ -2679,3 +2679,21 @@ model ClientServiceActivation {
 
   @@unique([companyId, clientId, serviceCode])
 }
+// =================================================================
+// 🆕 ADR-107: Regra de aprendizado contábil (contraparte → contas D/C)
+// =================================================================
+model CounterpartyAccountRule {
+  id              String   @id @default(uuid())
+  companyId       String
+  clientId        String?
+  pattern         String   /// contraparte/descrição normalizada
+  debitAccountId  String?
+  creditAccountId String?
+  hits            Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([companyId, clientId, pattern])
+  @@index([companyId, pattern])
+  @@map("counterparty_account_rules")
+}
