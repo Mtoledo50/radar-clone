@@ -80,7 +80,13 @@ interface ReconciledStatement {
 // =================================================================
 // COMPONENTE PRINCIPAL
 // =================================================================
-export default function LancamentosPage() {
+export default function LancamentosPage({
+  embedded = false,
+  lockedClientId,
+}: {
+  embedded?: boolean;
+  lockedClientId?: string;
+}) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('lancamentos');
   const [entries, setEntries] = useState<AccountingEntry[]>([]);
@@ -130,10 +136,15 @@ export default function LancamentosPage() {
   // =================================================================
   // CARREGAMENTO
   // =================================================================
-  useEffect(() => {
+   useEffect(() => {
     loadData();
     loadClients();
   }, []);
+
+  // 🆕 ADR-106: embutida na Central → trava o filtro no cliente selecionado
+  useEffect(() => {
+    if (lockedClientId) setFilterClient(lockedClientId);
+  }, [lockedClientId]);
 
   async function loadData() {
     try {

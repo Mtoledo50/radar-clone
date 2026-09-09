@@ -80,8 +80,8 @@ const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julh
 // =================================================================
 // 🧩 COMPONENTE PRINCIPAL DA PÁGINA
 // =================================================================
-export default function FechamentoMensalPage() {
-  // -----------------------------------------------------------------
+export default function FechamentoMensalPage({ embedded = false }: { embedded?: boolean }) {
+   // -----------------------------------------------------------------
   // 🌐 ESTADO GLOBAL: cliente fiscal selecionado (Zustand)
   // -----------------------------------------------------------------
   const { selected } = useFiscalClientStore();
@@ -165,6 +165,14 @@ export default function FechamentoMensalPage() {
   const [newAccName, setNewAccName] = useState('PAGBANK');
   const [savingAcc, setSavingAcc] = useState(false);
 
+    // -----------------------------------------------------------------
+  // 🤖 ESTADO: análise e sugestão de contas (ADR-107)
+  // -----------------------------------------------------------------
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [applyingSuggest, setApplyingSuggest] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [suggestLearn, setSuggestLearn] = useState(true); // ON por padrão (ADR-107)
   // =================================================================
   // 📥 CARREGAMENTO DO EXTRATO DO MÊS
   // =================================================================
@@ -469,7 +477,61 @@ export default function FechamentoMensalPage() {
       setPromoting(false);
     }
   };
+  // =================================================================
+  // 🤖 ANÁLISE E SUGESTÃO DE CONTAS (ADR-107 — sem exportar/reimportar)
+  // =================================================================
+  const openSuggest = async () => {
+    if (!statement) return;
+    setAnalyzing(true);
+    setSuggestOpen(true);
+    try {
+      const [{ data: accData }, { data: sugData }] = await Promise.all([
+        api.get('/accounting/accounts'),
+        api.post('/accounting/bank-suggest/analyze', { statementId: statement.id }),
+      ]);
+      setAccounts(accData.data || []);
+      setSuggestions(sugData.suggestions || []);
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao analisar.');
+      setSuggestOpen(false);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
+  const updateSuggestion = (id: string, patch: Partial<any>) =>
+    setSuggestions((prev) => prev.map((s) => (s.bankTransactionId === id ? { ...s, ...patch } : s)));
+
+  const applySuggestions = async () => {
+    const items = suggestions
+      .filter((s) => !s.alreadyLinked && s.debitAccountId && s.creditAccountId)
+      .map((s) => ({
+        bankTransactionId: s.bankTransactionId,
+        debitAccountId: s.debitAccountId,
+        creditAccountId: s.creditAccountId,
+      }));
+    if (items.length === 0) { toast.error('Preencha D e C em pelo menos uma linha.'); return; }
+    setApplyingSuggest(true);
+    try {
+      const { data } = await api.post('/accounting/bank-suggest/apply', {
+        statementId: statement.id,
+        clientId: selected.id || null,
+        learn: suggestLearn,
+        items,
+      });
+      toast.success(
+        `${data.created} lançamento(s) PENDENTE(s) criado(s)` +
+        `${data.learned ? ` • ${data.learned} regra(s) aprendida(s)` : ''}` +
+        `${data.skipped ? `• ${data.skipped} ignorado(s)` : ''}.`,
+      );
+      setSuggestOpen(false);
+      await loadStatement();
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao aplicar.');
+    } finally {
+      setApplyingSuggest(false);
+    }
+  };
   // =================================================================
   // 📊 MEMOS: cálculos derivados (DRE, autosoma, filtros, relatório)
   // =================================================================
@@ -683,6 +745,7 @@ export default function FechamentoMensalPage() {
   return (
     <div className="space-y-6">
       {/* ---------- CABEÇALHO ---------- */}
+      {!embedded && (
       <div className="flex items-end justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
@@ -692,7 +755,7 @@ export default function FechamentoMensalPage() {
         </div>
         <FiscalClientSelector />
       </div>
-
+    )}
       {/* ---------- BANNER DO CLIENTE SELECIONADO ---------- */}
       {selected.id && (
         <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 flex items-center gap-3">
@@ -751,6 +814,11 @@ export default function FechamentoMensalPage() {
               <button onClick={() => setDreOpen(true)} disabled={transactions.length === 0} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
                 <BarChart3 className="h-4 w-4" /> Gerar DRE
               </button>
+                        {statement && !isClosed && (
+            <button onClick={openSuggest} disabled={transactions.length === 0} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold rounded-lg disabled:opacity-50">
+              <Sparkles className="h-4 w-4" /> Analisar e sugerir contas
+            </button>
+          )}
               <button onClick={exportTransactions} disabled={transactions.length === 0} className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50">
                 <FileDown className="h-4 w-4" /> Exportar Extrato
               </button>
@@ -1326,7 +1394,66 @@ export default function FechamentoMensalPage() {
           </div>
         </div>
       )}
-
+    {/* ---------- MODAL: ANÁLISE E SUGESTÃO DE CONTAS (ADR-107) ---------- */}
+    {suggestOpen && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl w-full max-w-5xl max-h-[85vh] flex flex-col">
+          <div className="flex items-center justify-between p-5 border-b border-slate-200">
+            <div>
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-600" /> Analisar e sugerir contas
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">REGRA = aprendido • AUTO = razão histórico • REVISAR = manual</p>
+            </div>
+            <button onClick={() => setSuggestOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
+          </div>
+          <div className="p-5 overflow-y-auto space-y-3">
+            {analyzing ? (
+              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 text-purple-600 animate-spin" /></div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-2"><p className="text-[10px] text-green-700 font-bold uppercase">Auto</p><p className="text-lg font-bold text-green-800">{suggestions.filter((s) => s.confidence === 'AUTO').length}</p></div>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2"><p className="text-[10px] text-yellow-700 font-bold uppercase">Regra</p><p className="text-lg font-bold text-yellow-800">{suggestions.filter((s) => s.confidence === 'REGRA').length}</p></div>
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-2"><p className="text-[10px] text-orange-700 font-bold uppercase">Revisar</p><p className="text-lg font-bold text-orange-800">{suggestions.filter((s) => s.confidence === 'REVISAR').length}</p></div>
+                </div>
+                <div className="space-y-2">
+                  {suggestions.map((s) => (
+                    <div key={s.bankTransactionId} className={`grid grid-cols-12 gap-2 items-center border border-slate-200 rounded-lg p-2 ${s.alreadyLinked ? 'bg-slate-50 opacity-60' : 'bg-white'}`}>
+                      <div className="col-span-3 text-xs text-slate-700 truncate" title={s.description}>
+                        <span className="text-slate-400">{new Date(s.date).toLocaleDateString('pt-BR')}</span> • {s.counterparty || s.description}
+                      </div>
+                      <div className={`col-span-1 text-xs font-semibold text-right ${s.amount >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatBRL(Math.abs(s.amount))}</div>
+                      <div className="col-span-1 text-center">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${s.confidence === 'AUTO' ? 'bg-green-100 text-green-700' : s.confidence === 'REGRA' ? 'bg-yellow-100 text-yellow-700' : 'bg-orange-100 text-orange-700'}`}>{s.confidence}</span>
+                      </div>
+                      <div className="col-span-3">
+                        <AccountCombobox accounts={accounts} value={s.debitAccountId || ''} valueKey="id" onSelect={(acc) => updateSuggestion(s.bankTransactionId, { debitAccountId: acc ? acc.id : '' })} placeholder="Débito..." className="w-full" />
+                      </div>
+                      <div className="col-span-3">
+                        <AccountCombobox accounts={accounts} value={s.creditAccountId || ''} valueKey="id" onSelect={(acc) => updateSuggestion(s.bankTransactionId, { creditAccountId: acc ? acc.id : '' })} placeholder="Crédito..." className="w-full" />
+                      </div>
+                      <div className="col-span-1 text-[10px] text-slate-400 text-center">{s.alreadyLinked ? 'já lançado' : ''}</div>
+                    </div>
+                  ))}
+                </div>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input type="checkbox" checked={suggestLearn} onChange={(e) => setSuggestLearn(e.target.checked)} className="rounded" />
+                  Aprender p/ próximo mês (grava contraparte → contas D/C)
+                </label>
+              </>
+            )}
+          </div>
+          <div className="flex gap-2 p-5 border-t border-slate-200 bg-slate-50">
+            <button onClick={() => setSuggestOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-white">Cancelar</button>
+            <button onClick={applySuggestions} disabled={analyzing || applyingSuggest} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg disabled:opacity-50">
+              {applyingSuggest ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              {applyingSuggest ? 'Aplicando...' : 'Aplicar e criar lançamentos (PENDENTE)'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
       {/* ---------- MODAL: RELATÓRIO POR NATUREZA ---------- */}
       {reportOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

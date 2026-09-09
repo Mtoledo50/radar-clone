@@ -1,0 +1,121 @@
+{
+  "mapeamento": {
+    "BANRISUL": {
+      "contas_especificas": {
+        "06.255491.0-6": {
+          "conta_contabil": "822",
+          "descricao": "Banrisul - Conta 06.255491.0-6"
+        },
+        "06.254434.0-9": {
+          "conta_contabil": "817",
+          "descricao": "Banrisul - Conta 06.254434.0-9"
+        },
+        "06.239412.0-7": {
+          "conta_contabil": "812",
+          "descricao": "Banrisul - Conta 06.239412.0-7"
+        },
+        "06.063766.0-5": {
+          "conta_contabil": "751",
+          "descricao": "Banrisul - Conta 06.063766.0-5 (Ag 0215)"
+        },
+        "06.233699.0-2": {
+          "conta_contabil": "801",
+          "descricao": "Banrisul - Conta 06.233699.0-2"
+        },
+        "06.232250.0-5": {
+          "conta_contabil": "805",
+          "descricao": "Banrisul - Conta 06.232250.0-5"
+        }
+      },
+      "conta_padrao": {
+        "conta_contabil": "615",
+        "descricao": "Banrisul S/A (Conta Genérica)"
+      }
+    },
+    "SICREDI": {
+      "contas_especificas": {
+        "28241-8": {
+          "conta_contabil": "806",
+          "descricao": "Sicredi - Conta 28241-8"
+        },
+        "86919-1": {
+          "conta_contabil": "800",
+          "descricao": "Sicredi - Conta 86919-1"
+        },
+        "07417-6": {
+          "conta_contabil": "819",
+          "descricao": "Sicredi - Conta 07417-6"
+        },
+        "82048-5": {
+          "conta_contabil": "820",
+          "descricao": "Sicredi - Conta 82048-5"
+        }
+      },
+      "conta_padrao": {
+        "conta_contabil": "617",
+        "descricao": "Sicredi (Conta Genérica)"
+      }
+    },
+    "BANCO_DO_BRASIL": {
+      "contas_especificas": {
+        "67914-3": {
+          "conta_contabil": "810",
+          "descricao": "Banco do Brasil - Conta 67914-3"
+        },
+        "44911-3": {
+          "conta_contabil": "824",
+          "descricao": "Banco do Brasil - Conta 44911-3"
+        },
+        "28768-7": {
+          "conta_contabil": "758",
+          "descricao": "Banco do Brasil - Conta 28768-7 (Ag 486-3)"
+        }
+      },
+      "conta_padrao": {
+        "conta_contabil": "7",
+        "descricao": "Banco do Brasil S/A (Conta Genérica)"
+      }
+    },
+    "BRADESCO": {
+      "contas_especificas": {
+        "44335-2": {
+          "conta_contabil": "755",
+          "descricao": "Bradesco - Conta 44335-2 (Ag 1775)"
+        }
+      },
+      "conta_padrao": {
+        "conta_contabil": "9",
+        "descricao": "Bradesco S/A (Conta Genérica)"
+      }
+    },
+    "ITAU": {
+      "contas_especificas": {
+        "23803-0": {
+          "conta_contabil": "752",
+          "descricao": "Itaú - Conta 23803-0 (Ag 1438)"
+        },
+        "24174-5": {
+          "conta_contabil": "753",
+          "descricao": "Itaú - Conta 24174-5 (Ag 1438)"
+        }
+      },
+      "conta_padrao": {
+        "conta_contabil": "616",
+        "descricao": "Itaú (Conta Genérica)"
+      }
+    },
+    "BANCO_CORA": {
+      "contas_especificas": {},
+      "conta_padrao": {
+        "conta_contabil": "816",
+        "descricao": "Banco Cora S/A"
+      }
+    }
+  },
+  "metadata": {
+    "ultima_atualizacao": "2026-09-03",
+    "total_bancos": 6,
+    "total_contas_mapeadas": 18,
+    "versao": "1.0"
+  }
+}
