@@ -1,16 +1,31 @@
 'use client';
 
 // =================================================================
-// INÍCIO: frontend/src/app/dashboard/fechamento/extrato-pdf/page.tsx
+// frontend/src/app/dashboard/fechamento/extrato-pdf/page.tsx
 // =================================================================
-/** 🧾 ADR-098 — Extratos PDF → CSV: caixa por banco, preview e importação. */
+/**
+ * 🧾 ADR-098 — Extratos PDF → CSV
+ * 🆕 Sprint F11-a (ADR-048) — Unificação com o Extrator Bancário Python
+ *
+ * Cadeia de extração:
+ *   1) Extrator Python (FastAPI :8000) — parsers específicos + Mistral OCR
+ *   2) Fallback nativo do NestJS (adapters existentes) se o Python estiver fora
+ *
+ * A página continua exibindo preview + CSV + importação p/ contábil,
+ * independente de qual motor processou.
+ */
 import { useEffect, useRef, useState } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 import { FileUp, Loader2, Download, Upload } from 'lucide-react';
 import { useClientContextStore } from '@/store/clientContextStore';
 
-interface Row { date: string; description: string; debit: number; credit: number }
+interface Row {
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+}
 
 export default function ExtratoPdfPage() {
   const { activeClientId } = useClientContextStore();
@@ -21,7 +36,12 @@ export default function ExtratoPdfPage() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 🆕 F11-a: qual motor processou o último upload
+  const [engine, setEngine] = useState<string | null>(null);
 
+  // ---------------------------------------------------------------
+  // Carrega clientes + lista de adaptadores do backend
+  // ---------------------------------------------------------------
   useEffect(() => {
     (async () => {
       try {
@@ -40,45 +60,63 @@ export default function ExtratoPdfPage() {
     })();
   }, []);
 
-async function handleUpload(file: File) {
-  console.log('📤 Enviando arquivo:', {
-    name: file.name,
-    size: file.size,
-    type: file.type,
-  });
-
-  setBusy(true);
-  setResult(null);
-  try {
-    const fd = new FormData();
-    fd.append('file', file);
-    fd.append('bank', bank);
-
-    console.log('📋 FormData criado:', {
-      hasFile: fd.has('file'),
-      hasBank: fd.has('bank'),
+  // ---------------------------------------------------------------
+  // 🆕 F11-a: upload UNIFICADO
+  // Endpoint /extract-pdf-unified decide Python vs nativo no backend.
+  // A resposta tem shape {success, engine, data}
+  // ---------------------------------------------------------------
+  async function handleUpload(file: File) {
+    console.log('📤 Enviando arquivo:', {
+      name: file.name,
+      size: file.size,
+      type: file.type,
     });
 
-    const res = await api.post('/accounting/extract-pdf', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    setBusy(true);
+    setResult(null);
+    setEngine(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('bank', bank);
 
-    console.log('📨 Resposta recebida:', res.data);
+      console.log('📋 FormData criado:', {
+        hasFile: fd.has('file'),
+        hasBank: fd.has('bank'),
+      });
 
-    if (!res.data.success) {
-      toast.error(res.data.message);
-      return;
+      // 🆕 F11-a: endpoint UNIFICADO (proxy Python → fallback nativo)
+      const res = await api.post('/accounting/extract-pdf-unified', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      console.log('📨 Resposta recebida:', res.data);
+
+      if (!res.data.success) {
+        toast.error(res.data.message || 'Falha na extração.');
+        return;
+      }
+
+      // 🆕 F11-a: guarda qual motor processou (badge da UI)
+      setEngine(res.data.engine || 'nativo');
+      setResult(res.data.data);
+      toast.success(
+        `${res.data.data.bankLabel}: ${res.data.data.totalRows} lançamento(s) • ` +
+          (res.data.engine === 'extrator-python'
+            ? 'motor: Extrator Python (OCR)'
+            : 'motor: adaptadores nativos'),
+      );
+    } catch (e: any) {
+      console.error('❌ Erro no upload:', e);
+      toast.error(e.response?.data?.message || 'Erro ao extrair o PDF.');
+    } finally {
+      setBusy(false);
     }
-
-    setResult(res.data.data);
-    toast.success(`${res.data.data.bankLabel}: ${res.data.data.totalRows} lançamento(s) reconhecido(s).`);
-  } catch (e: any) {
-    console.error('❌ Erro no upload:', e);
-    toast.error(e.response?.data?.message || 'Erro ao extrair o PDF.');
-  } finally {
-    setBusy(false);
   }
-}
+
+  // ---------------------------------------------------------------
+  // Gera CSV padrão (UTF-8 + BOM para o Excel acentuar corretamente)
+  // ---------------------------------------------------------------
   function buildCsv(): string {
     if (!result) return '';
     const lines = ['Data;Débito;Crédito;Complemento;CNPJ'];
@@ -95,7 +133,7 @@ async function handleUpload(file: File) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `extrato-${result.bank}.csv`;
+    a.download = `extrato-${result.bank || result.bankLabel || 'banco'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('CSV padrão baixado.');
@@ -111,14 +149,17 @@ async function handleUpload(file: File) {
       const d = res.data.data;
       toast.success(
         `Importado p/ contábil: ${d.imported} PENDENTE(S)` +
-        (d.duplicadosIgnorados ? ` • ${d.duplicadosIgnorados} duplicado(s) bloqueado(s).` : ''),
+          (d.duplicadosIgnorados
+            ? ` • ${d.duplicadosIgnorados} duplicado(s) bloqueado(s).`
+            : ''),
       );
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Erro ao importar.');
     }
   }
 
-  const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  const fmt = (v: number) =>
+    Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
   return (
     <div className="space-y-6">
@@ -133,7 +174,9 @@ async function handleUpload(file: File) {
       <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">Cliente destino</label>
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+              Cliente destino
+            </label>
             <select
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
@@ -141,13 +184,27 @@ async function handleUpload(file: File) {
             >
               <option value="">— Selecione —</option>
               {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.companyName}</option>
+                <option key={c.id} value={c.id}>
+                  {c.companyName}
+                </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">Banco do extrato</label>
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+              Banco do extrato
+            </label>
             <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setBank('auto')}
+                className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                  bank === 'auto'
+                    ? 'border-teal-600 bg-teal-600 text-white'
+                    : 'border-slate-300 bg-white text-slate-600 hover:border-teal-400'
+                }`}
+              >
+                Auto-detectar
+              </button>
               {adapters.map((a) => (
                 <button
                   key={a.id}
@@ -189,6 +246,26 @@ async function handleUpload(file: File) {
       {/* Resultado */}
       {result && (
         <>
+          {/* 🆕 F11-a: badge do motor + cabeçalho do extrato (quando disponível) */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-bold ${
+                engine === 'extrator-python'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+              }`}
+            >
+              {engine === 'extrator-python'
+                ? '🐍 Motor: Extrator Python (parsers + OCR)'
+                : '🧩 Motor: Adaptadores nativos'}
+            </span>
+            {result.agencia && (
+              <span className="text-xs text-slate-500">
+                Ag {result.agencia} • Conta {result.conta} • Comp {result.competencia}
+              </span>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-white p-4 text-center">
               <p className="text-xs font-semibold uppercase text-slate-500">Banco detectado</p>
@@ -230,19 +307,35 @@ async function handleUpload(file: File) {
               <table className="w-full">
                 <thead className="border-b border-slate-200 bg-slate-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-slate-600">Data</th>
-                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-slate-600">Complemento</th>
-                    <th className="px-4 py-2 text-right text-xs font-bold uppercase text-slate-600">Débito</th>
-                    <th className="px-4 py-2 text-right text-xs font-bold uppercase text-slate-600">Crédito</th>
+                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-slate-600">
+                      Data
+                    </th>
+                    <th className="px-4 py-2 text-left text-xs font-bold uppercase text-slate-600">
+                      Complemento
+                    </th>
+                    <th className="px-4 py-2 text-right text-xs font-bold uppercase text-slate-600">
+                      Débito
+                    </th>
+                    <th className="px-4 py-2 text-right text-xs font-bold uppercase text-slate-600">
+                      Crédito
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
                   {(result.rows as Row[]).slice(0, 50).map((r, i) => (
                     <tr key={i} className="hover:bg-slate-50">
-                      <td className="whitespace-nowrap px-4 py-2 text-sm text-slate-900">{r.date}</td>
-                      <td className="max-w-md truncate px-4 py-2 text-sm text-slate-700">{r.description}</td>
-                      <td className="px-4 py-2 text-right text-sm text-red-600">{r.debit ? fmt(r.debit) : '-'}</td>
-                      <td className="px-4 py-2 text-right text-sm text-emerald-600">{r.credit ? fmt(r.credit) : '-'}</td>
+                      <td className="whitespace-nowrap px-4 py-2 text-sm text-slate-900">
+                        {r.date}
+                      </td>
+                      <td className="max-w-md truncate px-4 py-2 text-sm text-slate-700">
+                        {r.description}
+                      </td>
+                      <td className="px-4 py-2 text-right text-sm text-red-600">
+                        {r.debit ? fmt(r.debit) : '-'}
+                      </td>
+                      <td className="px-4 py-2 text-right text-sm text-emerald-600">
+                        {r.credit ? fmt(r.credit) : '-'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

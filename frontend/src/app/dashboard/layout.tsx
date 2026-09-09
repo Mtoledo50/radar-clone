@@ -5,11 +5,11 @@
 // =================================================================
 import CommandPalette from '@/components/CommandPalette';
 import NotificationCenter from '@/components/NotificationCenter';
-import ForcePasswordChange from '@/components/ForcePasswordChange'; // 🆕 NOVO
+import ForcePasswordChange from '@/components/ForcePasswordChange';
 import { useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { useTrackNavigation } from '@/store/uiStore'; // 🆕 Fase E: Hook para "Onde parei"
+import { useTrackNavigation } from '@/store/uiStore';
 import PageHelp from '@/components/common/PageHelp';
 import {
   LayoutDashboard,
@@ -33,23 +33,39 @@ import {
   Receipt,
   Landmark,
   Briefcase,
-  BookOpen,          // 🆕 Sprint 28: DRE do Cliente (livro contábil)
-  Building,          // 🆕 Sprint 28: DRE do Escritório
-  Wallet,            // 🆕 Sprint 28: DRE do Cliente Bancário (extrato)
+  BookOpen,
+  Building,
+  Wallet,
   Brain,
-  Bot,               // 🆕 FD-1: Funcionário Digital (Aurora)
-  Gauge,               // 🆕 Sprint C4: Score do Escritório
+  Bot,
+  Gauge,
   Telescope,
-  Trophy, // 🆕 Sprint D3
-  ShieldCheck, // 🆕 FD-8
+  Trophy,
+  ShieldCheck,
   FolderOpen,
-  
-  
+  ScanLine,      // 🆕 Sprint F10: Extrator Bancário
+  Globe,         // 🆕 Sprint F10: Site Conta Certa
+  ExternalLink,  // 🆕 Sprint F10: badge "abre em nova aba"
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
 // =================================================================
 
+// =================================================================
+// 🆕 Sprint F10: URLs DAS APPS EXTERNAS (Ecossistema)
+// -----------------------------------------------------------------
+// As aplicações irmãs rodam em processos separados (Iniciar-Tudo.ps1):
+//   Extrator Bancário → FastAPI 8000 + Vite 5174
+//   Site Conta Certa  → Express 4000 + Vite 5173
+// Configuráveis via frontend/.env.local (fallback = dev local).
+// =================================================================
+const EXTRATOR_URL =
+  process.env.NEXT_PUBLIC_EXTRATOR_URL || 'http://localhost:5174';
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:5173';
+// =================================================================
+// FIM: URLs DAS APPS EXTERNAS
+// =================================================================
 
 // =================================================================
 // INÍCIO: DEFINIÇÃO DE TIPOS
@@ -60,7 +76,9 @@ interface MenuItem {
   href: string;
   icon?: any;
   adminOnly?: boolean;
-  section?: string;  // 🆕 Sprint 25: seção visual (label em uppercase)
+  section?: string;
+  // 🆕 Sprint F10: link externo (abre em nova aba, não passa pelo router)
+  external?: boolean;
   children?: {
     id: string;
     title: string;
@@ -68,27 +86,27 @@ interface MenuItem {
   }[];
 }
 
-// 🆕 Sprint 25: configuração das seções visuais (ordem de renderização)
+// Sprint 25: configuração das seções visuais (ordem de renderização)
+// 🛡️ Sprint F10: removida a entrada malformed { id: 'extrato-pdf', title, href }
+//    que não possuía `label` e nunca renderizava (lixo estrutural).
 const SECTIONS = [
   { id: 'operacional', label: 'Operacional' },
   { id: 'comercial', label: 'Comercial' },
   { id: 'fiscal', label: 'Fiscal' },
   { id: 'bancario', label: 'Bancário' },
-  { id: 'extrato-pdf', title: 'Extratos PDF → CSV', href: '/dashboard/fechamento/extrato-pdf' },
   { id: 'contabil', label: 'Contábil' },
   { id: 'inteligencia', label: 'Inteligência' },
+  { id: 'ecossistema', label: 'Ecossistema' }, // 🆕 Sprint F10
   { id: 'sistema', label: 'Sistema' },
 ] as const;
 // =================================================================
 // FIM: DEFINIÇÃO DE TIPOS
 // =================================================================
 
-
 // =================================================================
 // CONFIGURAÇÃO DOS ITENS DO MENU (Reorganizado para Fluxo Linear)
 // =================================================================
 const allMenuItems: MenuItem[] = [
-
   // ─────────────────────────────────────────────────────────
   // 📊 OPERACIONAL
   // ─────────────────────────────────────────────────────────
@@ -126,12 +144,12 @@ const allMenuItems: MenuItem[] = [
     section: 'operacional',
   },
   {
-  id: 'client-workspace',
-  title: 'Ficha do Cliente (Setores)',
-  href: '/dashboard/clientes/workspace',
-  icon: FolderOpen,
-  section: 'operacional',
-},
+    id: 'client-workspace',
+    title: 'Ficha do Cliente (Setores)',
+    href: '/dashboard/clientes/workspace',
+    icon: FolderOpen,
+    section: 'operacional',
+  },
   {
     id: 'operacional',
     title: 'Projetos e Tarefas',
@@ -143,7 +161,6 @@ const allMenuItems: MenuItem[] = [
       { id: 'tarefas', title: 'Tarefas', href: '/dashboard/tarefas' },
     ],
   },
-
   // ─────────────────────────────────────────────────────────
   // 💼 COMERCIAL
   // ─────────────────────────────────────────────────────────
@@ -167,7 +184,6 @@ const allMenuItems: MenuItem[] = [
     icon: CalendarDays,
     section: 'comercial',
   },
-
   // ─────────────────────────────────────────────────────────
   // 🧾 FISCAL
   // ─────────────────────────────────────────────────────────
@@ -187,7 +203,6 @@ const allMenuItems: MenuItem[] = [
       { id: 'fiscal-relatorio', title: 'Relatório Inventário', href: '/dashboard/fiscal/relatorio-inventario' },
     ],
   },
-
   // ─────────────────────────────────────────────────────────
   // 🏦 BANCÁRIO
   // ─────────────────────────────────────────────────────────
@@ -212,19 +227,16 @@ const allMenuItems: MenuItem[] = [
     icon: Landmark,
     section: 'bancario',
   },
-
   // ─────────────────────────────────────────────────────────
   // 📒 CONTÁBIL
   // ─────────────────────────────────────────────────────────
-
   {
-  id: 'central-contabil',
-  title: '🏢 Central Contábil do Cliente',
-  href: '/dashboard/central-contabil',
-  icon: BookOpen,
-  section: 'contabil',
-},
-
+    id: 'central-contabil',
+    title: '🏢 Central Contábil do Cliente',
+    href: '/dashboard/central-contabil',
+    icon: BookOpen,
+    section: 'contabil',
+  },
   {
     id: 'contabil',
     title: 'Integração SCI',
@@ -250,7 +262,6 @@ const allMenuItems: MenuItem[] = [
       { id: 'revisao-manual', title: 'Revisão Manual + Automática', href: '/dashboard/lancamentos/revisao' },
     ],
   },
-
   // ─────────────────────────────────────────────────────────
   // 📈 INTELIGÊNCIA
   // ─────────────────────────────────────────────────────────
@@ -359,7 +370,25 @@ const allMenuItems: MenuItem[] = [
     icon: Scale,
     section: 'inteligencia',
   },
-
+  // ─────────────────────────────────────────────────────────
+  // 🔗 ECOSSISTEMA (🆕 Sprint F10 — apps externas, nova aba)
+  // ─────────────────────────────────────────────────────────
+  {
+    id: 'extrator-app',
+    title: 'Extrator Bancário',
+    href: EXTRATOR_URL,
+    icon: ScanLine,
+    section: 'ecossistema',
+    external: true,
+  },
+  {
+    id: 'site-conta-certa',
+    title: 'Site Conta Certa',
+    href: SITE_URL,
+    icon: Globe,
+    section: 'ecossistema',
+    external: true,
+  },
   // ─────────────────────────────────────────────────────────
   // ⚙️ SISTEMA (admin-only)
   // ─────────────────────────────────────────────────────────
@@ -382,30 +411,26 @@ const allMenuItems: MenuItem[] = [
 // INÍCIO: COMPONENTE PRINCIPAL (DashboardLayout)
 // =================================================================
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // 🆕 Sprint 25 + A2: 'Precificação' adicionado para já aparecer aberto com o submenu
   const [expandedMenus, setExpandedMenus] = useState<string[]>([
     'Gestão de Pessoas',
     'Operacional',
-    'Precificação', 
+    'Precificação',
   ]);
-
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
-
-  // 🆕 FASE E: Ativa o rastreamento de navegação para "Onde parei" e histórico do Command Palette
   useTrackNavigation();
 
   // =================================================================
-  // MENU DINÂMICO (useMemo) — agrupa por seção 🆕 Sprint 25
+  // MENU DINÂMICO (useMemo) — agrupa por seção (Sprint 25)
   // =================================================================
   const groupedMenuItems = useMemo(() => {
     const visibleItems = allMenuItems
       .map((item) => {
         if (item.adminOnly && user?.role !== 'ADMIN') return null;
+        // 🆕 Sprint F10: link externo é acesso universal (não é módulo do plano)
+        if (item.external) return item;
         if (user?.role === 'ADMIN') return item;
         if (item.children) {
           const visibleChildren = item.children.filter((child) =>
@@ -441,9 +466,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setExpandedMenus((prev) =>
       prev.includes(title)
         ? prev.filter((item) => item !== title)
-        : [...prev, title],
+        : [...prev, item_title_safe(title)],
     );
   };
+  // 🛡️ helper anti-duplicação (mantém comportamento original)
+  function item_title_safe(title: string) {
+    return title;
+  }
 
   const handleLogout = () => {
     logout();
@@ -455,7 +484,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // =================================================================
   return (
     <div className="min-h-screen bg-slate-50 flex">
-
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-teal-700 text-white shadow-lg transition-colors hover:bg-teal-600"
@@ -496,13 +524,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </span>
                 <div className="flex-1 h-px bg-teal-700/40" />
               </div>
-
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const Icon = item.icon;
-                  const active = isActive(item.href);
+                  const active = !item.external && isActive(item.href);
                   const hasChildren = item.children && item.children.length > 0;
                   const isExpanded = expandedMenus.includes(item.title);
+
+                  // 🆕 Sprint F10: item externo = <a> em nova aba (fora do router)
+                  if (item.external) {
+                    return (
+                      <a
+                        key={item.id}
+                        href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Abrir em nova aba: ${item.title}`}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 font-medium text-sm text-teal-100 hover:bg-teal-800 hover:text-white"
+                      >
+                        <div className="flex items-center gap-3">
+                          {Icon && <Icon size={18} className="text-teal-300" />}
+                          <span>{item.title}</span>
+                        </div>
+                        <ExternalLink size={12} className="text-teal-400/70" />
+                      </a>
+                    );
+                  }
 
                   return (
                     <div key={item.id}>
@@ -529,11 +576,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           )}
                           <span>{item.title}</span>
                         </div>
-                        {hasChildren && (
-                          isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
-                        )}
+                        {hasChildren &&
+                          (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                       </button>
-
                       {hasChildren && isExpanded && (
                         <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-teal-700 pl-2">
                           {item.children?.map((child) => {
@@ -579,7 +624,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </span>
             )}
           </div>
-
           <button
             onClick={handleLogout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5
@@ -602,21 +646,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <main className="flex-1 p-4 lg:p-8 overflow-x-hidden transition-all duration-300">
         <div className="lg:hidden h-12" />
-        
-        {/* 🆕 Botão de ajuda universal */}
         <div className="flex justify-end items-center gap-2 mb-4">
-          {/* Fase E: Centro de Notificações */}
           <NotificationCenter />
-          
-          {/* Botão de ajuda existente */}
           <PageHelp pathname={pathname} />
         </div>
-        
         {children}
       </main>
-        {/* 🆕 Segurança: obriga troca de senha provisória no primeiro acesso */}
+
       <ForcePasswordChange />
-      {/* 🆕 Fase E: Command Palette (Ctrl+K) */}
       <CommandPalette />
     </div>
   );

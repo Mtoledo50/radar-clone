@@ -1,10 +1,16 @@
-# 🎯 Radar Conta Certa — SaaS de Gestão para Escritórios Contábeis
+# 🎯 Radar Conta Certa — SaaS de Gestão e Automação para Escritórios Contábeis
 
 <div align="center">
 
-![status](https://img.shields.io/badge/status-produção_beta-yellow) ![Next](https://img.shields.io/badge/Next.js-16.2-black) ![React](https://img.shields.io/badge/React-19-blue) ![Nest](https://img.shields.io/badge/NestJS-10-red) ![Prisma](https://img.shields.io/badge/Prisma-5-blue) ![PG](https://img.shields.io/badge/PostgreSQL-15-blue)
+![status](https://img.shields.io/badge/status-produção_local_ativa-green) 
+![Next](https://img.shields.io/badge/Next.js-16-black) 
+![React](https://img.shields.io/badge/React-19-blue) 
+![Nest](https://img.shields.io/badge/NestJS-10-red) 
+![Python](https://img.shields.io/badge/Python-3.14-yellow) 
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-teal)
+![PG](https://img.shields.io/badge/PostgreSQL-15-blue)
 
-**Dois produtos em uma plataforma: a gestão do escritório contábil e a operação mensal completa dos seus clientes.**
+**Dois produtos em uma plataforma: a gestão do escritório contábil e a operação mensal automatizada dos seus clientes.**
 
 </div>
 
@@ -12,199 +18,157 @@
 
 ## 📖 Sobre o Projeto
 
-O **Radar Conta Certa** é um SaaS multi-tenant desenvolvido para a **Conta Certa Soluções Empresariais**. Ele resolve dois problemas centrais de um escritório contábil:
+O **Radar Conta Certa** é um ecossistema de software multi-tenant desenvolvido para a **Conta Certa Soluções Empresariais**. Ele resolve dois problemas centrais de um escritório contábil de médio porte:
 
-### 🏢 Produto 1 — Gestão do Escritório
-Centraliza **clientes, contratos e honorários**, mostra **onde o escritório perde dinheiro** e transforma serviços prestados em **planos monetizáveis** (precificação por horas, complexidade e margem).
+### 🏢 Produto 1 — Gestão do Escritório (Radar)
+Centraliza clientes, contratos e honorários, mostra onde o escritório perde dinheiro e transforma serviços prestados em planos monetizáveis (precificação por horas, complexidade e margem).
 
-### 📒 Produto 2 — Operação Mensal do Cliente
-Automatiza a rotina contábil de cada cliente em um fluxo linear e auditável:
-
-```
-1. Plano de Contas → 2. Ciclo Contábil → 3. Importar Extrato →
-4. Conciliação → 5. Extrato/Razão + DRE → 6. Guias + Exportar SCI
-```
-
-🚀 Mapa confirmado + Script unificado definitivo
-✅ Portas 100% confirmadas
-App
-Serviço
-Porta
-Fonte
-🌐 Site Conta Certa
-Backend (Express)
-4000
-server.js:23
-🌐 Site Conta Certa
-Frontend (Vite)
-5173
-vite.config.js:5
-📊 Radar
-Backend (NestJS)
-3001
-main.ts + CORS
-📊 Radar
-Frontend (Next.js)
-3002
-fallback (3000 conflita)
-🏦 Extrator Bancário
-Backend (FastAPI)
-8000
-padrão FastAPI (sem porta inline)
-🏦 Extrator Bancário
-Frontend (Vite)
-5174
-forçado via CLI (5173 já usada pelo Site)
-🐳 Postgres Radar
-Docker
-5433
-start-dev.ps1
-🐳 Postgres Site
-Docker
-5434
-docker-compose.yml (porta interna)
-🐳 Postgres Local
-Nativo
-5432
-Test-NetConnection ✅
----🎉 TUDO VERDE! 6/6 apps no ar — Sprint F9 concluída
-Marcos, olha essa tabela final:
-App
-URL
-Status
-Site Frontend
-http://localhost:5173
-✅
-Radar Backend
-http://localhost:3001
-✅
-Radar Frontend
-http://localhost:3002
-✅
-Extrator Backend
-http://localhost:8000
-✅
-Extrator Frontend
-http://localhost:5174
-✅
-Postgres Radar
-localhost:5433
-✅
-
-
-## 🧭 Rotina Contábil Mensal (fluxo central)
-
-| Passo | Tela | Rota | O que faz |
-|---|---|---|---|
-| 1 | Plano de Contas (SCI) | `/dashboard/contabil/plano-contas` | Planos por cliente (ADR-072) |
-| 2 | Ciclo Contábil | `/dashboard/contabil/ciclo-contabil` | Balancete inicial + Razão/Livro Caixa |
-| 3 | Integração SCI | `/dashboard/contabil` | Importa extrato (CSV ou ponte bancária) — **idempotente** |
-| 4 | Conciliação | Automática na Integração + Manual em `/dashboard/lancamentos/revisao` | Sugestões por histórico + busca por **código unificado** |
-| 5 | Extrato / Razão Analítico | `/dashboard/contabil/extrato` | Consulta, filtros e impressão PDF |
-| 6 | DRE, Guias e SCI | `/dashboard/bi/dre-cliente` + Integração | DRE/Balancete PDF white-label + TXT p/ SCI-Único |
-
-O **FlowStepper** (barra visual no topo da Integração SCI) guia o contador pelo fluxo com status real de cada passo — sem "telas misteriosas".
-
----
-
-## 🗂️ Módulos do Sistema
-
-| Área | Módulo | Rotas principais |
-|---|---|---|
-| Operacional | Dashboard Executivo, Minha Empresa, Pessoas/Turnover, Carteira de Clientes, Projetos/Tarefas | `/dashboard`, `/dashboard/clientes`, `/dashboard/pessoas` |
-| Comercial | Precificação, Propostas, Planos, Planejamento | `/dashboard/precificacao/*`, `/dashboard/planejamento` |
-| Contábil | Plano de Contas, Ciclo Contábil, Integração SCI, Extrato/Razão, Conciliação, Lançamentos | `/dashboard/contabil/*`, `/dashboard/lancamentos/*` |
-| Fiscal | NF-e, NFS-e, Estoque, Apuração ICMS, SPED | `/dashboard/fiscal/*` |
-| Bancário | Fechamento Mensal, Naturezas, DRE Bancário, Cobrança CNAB | `/dashboard/fechamento`, `/dashboard/funcionario-digital/cobranca` |
-| Inteligência | Aurora (Funcionário Digital), Relatórios PDF, Guias, BI, DRE do Escritório/Cliente, Score | `/dashboard/funcionario-digital/*`, `/dashboard/bi/*` |
-| Cliente Final | Portal do Cliente (token seguro, 90 dias) | `/portal/[token]` |
-| Sistema | Administração (empresas, usuários, catálogo) | `/dashboard/admin/*` |
-
----
-
-## 🧠 Decisões de Arquitetura (ADRs)
-
-| ADR | Decisão |
-|---|---|
-| 004 | Multi-tenant single-database com isolamento por `companyId` |
-| 030 | Regra de Ouro: ações com risco legal **nunca** são automáticas (human-in-the-loop) |
-| 066/067 | Reimportação idempotente (overlap + anti-duplicidade) |
-| 070/072 | Plano de contas SCI por cliente, com código unificado (`seq`/`reducedCode`) |
-| 075 | Layout oficial de exportação SCI-Único v3 (TAB, UTF-8 BOM, contas 8 dígitos) |
-| 076 | **Importação de extrato idempotente**: auto-limpeza de duplicados PENDENTES + bloqueio de linhas já existentes |
-| 077 | **Cliente Ativo**: contexto global persistido (Zustand) — todas as telas da rotina abrem com o cliente em trabalho |
-| 078 | **Ponte Bancário→Contábil**: o Fechamento Mensal alimenta o contábil sem reimportar CSV |
-| 079 | **Busca unificada de contas**: nome + classificação + unificado + SCI + reduzido (ignora pontuação) |
-| 097 | Motor de PDF white-label no backend (`@react-pdf/renderer`) com cores do tenant |
-
----
-
-## 🛠️ Stack Tecnológica
-
-| Camada | Tecnologia |
-|---|---|
-| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind, Zustand (persist), Sonner, Lucide, jsPDF |
-| Backend | NestJS 10, TypeScript, Prisma 5, JWT, class-validator, bcrypt, `@react-pdf/renderer`, csv-parser |
-| Banco | PostgreSQL 15+ |
-| Infra | Node 20+, npm, Git |
-
----
-
-## 🚀 Instalação
-
-```bash
-# Backend
-cd backend
-npm install
-cp .env.example .env          # DATABASE_URL, JWT_SECRET, PORT=3001
-npx prisma generate
-npx prisma migrate deploy
-npm run seed                  # popula dados de teste
-npm run start:dev
-
-# Frontend
-cd frontend
-npm install
-cp .env.example .env.local    # NEXT_PUBLIC_API_URL=http://localhost:3001
-npm run dev
-```
-
-**Credenciais (seed):** `admin@contacerta.com.br` / `Admin@123456`
-
-> ⚠️ **Nota técnica:** o backend usa JSX nos templates de PDF. O `tsconfig.json` do backend **deve** conter `"jsx": "react"` e `@types/react` em devDependencies.
-
----
-
-## 📂 Estrutura de Pastas (principais)
+### 📒 Produto 2 — Operação Mensal do Cliente (Radar + Extrator)
+Automatiza a rotina contábil de cada cliente em um fluxo linear, auditável e com aprovação humana obrigatória (Human-in-the-Loop):
 
 ```text
-radar-clone/
-├── frontend/src/
-│   ├── app/dashboard/
-│   │   ├── contabil/            # Integração SCI, ciclo, plano, extrato
-│   │   ├── lancamentos/revisao/ # Conciliação Manual + Automática
-│   │   ├── fechamento/          # Fechamento Mensal (bancário)
-│   │   ├── fiscal/  bi/  funcionario-digital/  clientes/  precificacao/
-│   ├── components/contabil/FlowStepper.tsx
-│   └── store/{authStore,clientContextStore}.ts
-├── backend/src/
-│   ├── accounting/   # history, import, reconciliation, ledger, trial-balance, smart-import
-│   ├── banking/      # fechamento mensal, naturezas, DRE bancário
-│   ├── reports/      # templates PDF (DRE, Balancete, Proposta)
-│   ├── fiscal/  digital-employee/  clients/  pricing/  ...
-│   └── prisma/{schema.prisma,seed.ts}
-```
+1. Plano de Contas → 2. Ciclo Contábil → 3. Importar Extrato (PDF/CSV via Extrator Python) → 
+4. Conciliação (Sugestão por Score) → 5. Aprovação Humana → 6. Extrato/Razão + DRE + Exportar SCI
 
----
+🌐 Ecossistema e Mapa de Portas (Dev Local)
+O sistema é composto por 3 aplicações principais e bancos de dados isolados. O boot unificado é feito via Iniciar-Tudo.ps1.
+App                      Serviço            Porta       Observação
+🌐 Site Conta Certa     Frontend (Vite)     5173        Landing page e portal público
+🌐 Site Conta Certa     Backend (Express)   4000        API do site público
+📊 Radar                Frontend (Next.js)  3002        Painel principal do escritório
+📊 Radar                Backend (NestJS)    3001        API principal, regras de negócio, PDFs
+🏦 Extrator Bancário    Frontend (Vite)     5174        Interface dedicada de upload e revisão de extratos
+🏦 Extrator Bancário    Backend (FastAPI)   8000        API Python de OCR, parsing e geração de CSV
+🐳 Postgres Local       Nativo              5432        DADOS REAIS (não tocar, usado pelo Site)
+🐳 Postgres Radar       Docker              5433        Banco virgem para desenvolvimento do Radar
 
-## 🗺️ Roadmap
+✅ Status: 6/6 apps no ar via Iniciar-Tudo.ps1 (Sprint F9 homologada). Produção local ativa via túnel Cloudflare.
 
-- ✅ **Fases 1–2** — Fundação + BI Contábil
-- ✅ **Fase 3** — Fiscal, Bancário, Aurora, Portal do Cliente
-- ✅ **Fase 4** — Projetos/Tarefas + Portal com DRE real
-- ✅ **Fase 5** — Relatórios PDF white-label + reorganização do fluxo contábil (ADRs 076–079)
-- 🔜 **Fase 6** — Envio automático de PDFs por e-mail, integrações Domínio/Questor, CI/CD + deploy, testes automatizados
+🧭 Rotina Contábil Mensal (Fluxo Central)
 
----
+Passo  Tela                    Rota                                O que faz 
+1      Plano de Contas (SCI)   /dashboard/contabil/plano-contas    Planos por cliente com código unificado (ADR-072)
+2      Ciclo Contábil          /dashboard/contabil/ciclo-contabil  Balancete inicial + Razão/Livro Caixa
+3      Integração de Extratos   /dashboard/fechamento/extrato-pdf   Upload de PDF → Extrator Python (Mistral OCR) → JSON classificado
+4      Conciliação              /dashboard/lancamentos/revisao      Sugestões por histórico + busca por código unificado + aprovação humana
+5      Extrato / Razão Analítico /dashboard/contabil/extrato        Consulta, filtros e impressão PDF white-label
+6     DRE, Guias e SCI          /dashboard/bi/dre-cliente           DRE/Balancete PDF + TXT formatado para SCI-Único v3
 
-<div align="center">Feito com ❤️ pela equipe Conta Certa • Copyright © 2026</div>
+O FlowStepper (barra visual no topo da Integração) guia o contador pelo fluxo com status real de cada passo.
+
+🏦 Módulo Extrator Bancário (App Irmã em Python)
+Implementado na Sprint F11, este módulo é responsável por transformar PDFs brutos de bancos em dados estruturados prontos para conciliação.
+Fluxo de Processamento:
+Upload: Frontend envia PDF para POST /api/parse-extrato.
+Extração Híbrida: Tenta parsers nativos (pdfplumber/PyMuPDF). Se falhar ou retornar vazio, aciona Mistral OCR via HTTP direto (fallback universal).
+Normalização: Remove caracteres full-width (：, ，, √), pipes de markdown (|) e normaliza espaços.
+Parsing Stateful: Identifica o banco e aplica regex específicas. O parser do Banrisul é stateful (mantém estado entre linhas) para lidar com quebras de linha do OCR.
+LGPD: Mascara documentos sensíveis (ex: 10.601 → **.601) antes de retornar ao frontend.
+Human-in-the-Loop: Dados chegam como "status": "pendente". O usuário edita as contas de débito/crédito e clica em "Salvar Regras Aprendidas".
+Exportação: Gera CSV compatível com Domínio/Alterdata/Sênior/Contmatic (utf-8-sig, delimitador ;).
+Parsers Suportados:
+
+Banco               Estratégia de Parsing                                               Status
+Banco do Brasil     Regex em tabela markdown + detecção por palavras-chave flexíveis    ✅
+Sicredi             Regex em linha única com identificação de PIX_CRED/PIX_DEB          ✅
+Banrisul            Parser Stateful: Associa dia, tipo, documento, valor, CPF e Nome que o OCR separou em linhas distintas                                                             ✅
+
+🧠 Decisões de Arquitetura (ADRs Canônicos)
+
+ADR     Decisão
+004     Multi-tenant single-database com isolamento por companyId
+030     Regra de Ouro: Ações com risco legal ou contábil nunca são automáticas (Human-in-the-Loop obrigatório)
+066/067 Reimportação idempotente (overlap + anti-duplicidade)
+070/072 Plano de contas SCI por cliente, com código unificado
+075/076 Layout oficial de exportação SCI-Único v3 + Importação de extrato idempotente
+097     Motor de PDF white-label no backend (@react-pdf/renderer)
+103     Iniciar-Tudo.ps1: boot unificado com kill cirúrgico por porta e healthchecks
+105     CORS multi-origem configurado para permitir comunicação entre Site (5173), Extrator (5174) e Radar (3002)
+106     Proxy NestJS → Python em /accounting/extract-pdf-unified com fallback gracioso
+107     Mistral OCR como fallback universal via HTTP direto (sem SDK) para evitar quebras de versão. Custo: $4/1000 págs.
+108     Parser stateful para Banrisul: Lida com quebra de linha do OCR (dia/tipo em uma linha, valor em outra)
+109     Persistência de regras em JSON: data/regras/regras_aprendidas.json com merge idempotente por (descricao + conta). Transição futura para PostgreSQL.
+110     Mascaramento LGPD: Aplicado no backend (mascarar_documento()) antes de enviar dados ao frontend. Últimos 3 dígitos preservados.
+111     CSV Contábil: Formato padrão BR (utf-8-sig para abrir no Excel, delimitador ;, quoting ALL).
+112     Human-in-the-Loop no fluxo: Lançamentos chegam como "pendente". Regras só são salvas após edição e aprovação manual em lote.
+
+🛠️ Stack Tecnológica
+Camada                Tecnologia
+Frontend (Radar)      Next.js 16 (App Router), React 19, TypeScript, Tailwind, Zustand, Sonner, Lucide            
+Frontend (Extrator)   Vite, React, react-dropzone, Axios
+Backend (Radar)       NestJS 10, TypeScript, Prisma 5, JWT, @react-pdf/renderer, csv-parser
+Backend (Extrator)    Python 3.14, FastAPI, uvicorn, requests, pdfplumber, PyMuPDF
+IA / OCR              Mistral OCR API (via HTTP direto)
+Banco de Dados        PostgreSQL 15+ (Local e Docker)
+Infra / DevOps        Docker Compose, Cloudflare Tunnel, PowerShell 5.1 (scripts ASCII puro)
+
+🚀 Instalação e Boot Unificado
+Não inicie os serviços manualmente. Use o script unificado que garante a ordem correta, mata processos presos nas portas e verifica healthchecks.
+
+# 1. Navegue até a raiz do projeto
+cd C:\Site conta-certa
+
+# 2. Execute o boot unificado (Development)
+.\Iniciar-Tudo.ps1
+
+# 3. Para produção local (com túnel Cloudflare ativo)
+.\Iniciar-Tudo.ps1 -Prod
+
+# 4. Para subir apenas o Extrator (útil para dev focado)
+.\Iniciar-Tudo.ps1 -ExtratorOnly
+
+Credenciais de Seed (Radar): admin@contacerta.com.br / Admin@123456
+⚠️ Regras de Segurança e .env (CRÍTICO)
+O arquivo extrator-bancario/backend/.env NUNCA deve ser commitado. Ele está no .gitignore.
+Incidente Resolvido (09/09/2026): Uma chave API foi exposta acidentalmente. O histórico Git foi reescrito com git filter-repo --force para remover qualquer rastro do arquivo .env. A chave foi rotacionada.
+Se o GitHub bloquear um push por "secret scanning", siga o protocolo de rotação de chave e limpeza de histórico imediatamente.
+
+📂 Estrutura de Pastas (Visão Macro)
+
+C:\Site conta-certa\
+├── site/                          # Site Conta Certa (Vite + Express)
+├── radar-clone/                   # Radar Principal (Next.js + NestJS)
+│   ├── frontend/src/              # App Router, components, store
+│   └── backend/src/               # Controllers, services, prisma, pdf templates
+├── extrator-bancario/             # 🆕 App Irmã: Extrator de PDFs
+│   ├── frontend/                  # Vite + React (:5174)
+│   └── backend/
+│       ├── app/
+│       │   ├── main.py            # FastAPI endpoints (parse, classificar, csv, regras)
+│       │   ├── models/            # Pydantic models (ExtratoBancario, LancamentoBancario)
+│       │   ├── parsers/
+│       │   │   ├── ocr_parser.py  # Parser genérico com lógica stateful (Banrisul) e normalização
+│       │   │   └── parser_factory.py # Detecta banco e orquestra fallback
+│       │   └── services/
+│       │       └── ocr_service.py # Chamada HTTP direta à Mistral OCR API
+│       ├── data/
+│       │   ├── uploads/           # PDFs temporários (limpos após processamento)
+│       │   ├── exports/           # CSVs gerados para download
+│       │   └── regras/            # regras_aprendidas.json (persistência local)
+│       ├── .env                   # ⛔ NUNCA COMMITAR (MISTRAL_API_KEY)
+│       └── .gitignore
+├── docker-compose.yml             # Orquestração dos bancos Docker
+└── Iniciar-Tudo.ps1               # Script de boot unificado
+
+🗺️ Roadmap — Onde chegamos e onde vamos
+✅ Fases 1–5: Fundação, BI, Fiscal, Bancário, Aurora (FD-1 a FD-6), Portal do Cliente, PDFs white-label.
+✅ Sprints F8–F11: Catálogo Permanente, Ops unificado, Menu Ecossistema, Extrator Bancário v1.0 com Mistral OCR.
+🔜 Fase 6 (Próximos Passos):
+F11-b: Modo Professor (Mapeamento assistido de layouts de extrato desconhecidos via IA).
+Migração de Regras: Mover regras_aprendidas.json para tabela PostgreSQL no Radar (multi-tenant).
+Classificação Automática: Usar as regras salvas para pre-classificar lançamentos futuros (mantendo a revisão humana).
+Hardening de Produção: CI/CD, Sentry (monitoramento de erros), backups automatizados do Postgres.
+
+🧠 Continuidade do Projeto (Sistema de Memória para IA)
+Para qualquer IA ou desenvolvedor que assumir este projeto:
+Leia sempre o CONTEXTO_PROJETO.md (cole inteiro no início da conversa).
+Consulte o CHANGELOG.md para entender a evolução das sprints.
+Regra de Ouro: Nenhum sprint novo começa sem o anterior homologado.
+Governança de ADRs: O registro canônico vive no §3 do CONTEXTO_PROJETO.md. Nunca reutilize números de ADR.
+
+<div align="center">
+
+Feito com ❤️ pela equipe Conta Certa para transformar a contabilidade brasileira.
+Copyright © 2026 Conta Certa Soluções Empresariais. Proprietary License.
+</div>
+

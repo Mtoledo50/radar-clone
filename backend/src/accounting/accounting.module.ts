@@ -17,6 +17,7 @@ import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ExtractorProxyService } from './domain/pdf/extractor-proxy.service'; // 🆕 F11-a
 
 // Infrastructure
 import { PrismaModule } from '../prisma/prisma.module';
@@ -84,7 +85,8 @@ import { BankSuggestService } from './bank-suggest.service';
     // Core Business Logic
     AccountingService,
     ClientWorkspaceService, // 🐛 FIX: Estava faltando. Causaria crash no boot.
-    
+    ExtractorProxyService, // 🆕 F11-a
+
     // Import & Processing Pipeline
     ImportService,
     SmartImportService,

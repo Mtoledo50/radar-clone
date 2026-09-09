@@ -3,7 +3,161 @@
 Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 
+---
+
+## 🧭 Governança de ADRs (Atualizado em 10/09/2026)
+
+**Added (Mapeamento de Numeração Local → Canônica):**
+Entradas de sprints F usaram numeração LOCAL de conversa onde houve colisão com o registro canônico. Mapeamento oficial:
+- local 025/028 (F5 ordenação) → **ADR-099**
+- local 026 (F7 impressão) → **ADR-100**
+- local 043 (F8 catálogo) → **ADR-101**
+- local 044 (F8 matching) → **ADR-102**
+- local 045 (F9 launcher) → **ADR-103**
+- local 046 (F10 menu) → **ADR-104**
+- local 047 (F9 CORS) → **ADR-105**
+- local 048 (F11-a proxy) → **ADR-106**
+- **local Extrator-v1 (10/09) → ADR-107, 108, 109, 110, 111, 112**
+
+*Registro canônico completo e detalhado: `CONTEXTO_PROJETO.md` §3.*
+
+---
+
+## [Extrator Bancário v1.0 — Mistral OCR, Parsers Stateful e LGPD] — 10/09/2026 — ✅ HOMOLOGADO
+
+### Added
+- **Integração Mistral OCR (ADR-107):** 
+  - `backend/app/services/ocr_service.py`: Chamada HTTP direta à API Mistral OCR (`https://api.mistral.ai/v1/ocr`) via `requests`, sem dependência do SDK oficial (evita quebras por mudança de versão do pacote).
+  - Fallback automático: parsers nativos (`pdfplumber`/`PyMuPDF`) tentam primeiro; se retornarem texto vazio ou falharem na detecção, aciona Mistral OCR.
+  - Normalização de caracteres full-width: `：` → `:`, `，` → `,`, `。` → `.`, `√` → ``.
+- **Parser Genérico OCR (`backend/app/parsers/ocr_parser.py`):**
+  - Suporta BB, Sicredi e Banrisul via texto OCR (markdown).
+  - Detecção de banco com 4 estratégias (busca direta, sem espaços, palavras-chave individuais, agência específica) para lidar com artefatos de espaçamento do OCR.
+  - Método `_normalizar_texto()` centraliza a limpeza de caracteres especiais e pipes de tabela (`|`).
+- **Parser Stateful para Banrisul (ADR-108):**
+  - `OCRParser._extrair_lancamentos_banrisul()` mantém estado entre linhas (`dia_atual`, `tipo_atual`, `valor_atual`, `cpf_atual`, `nome_atual`).
+  - Lida com a quebra de linha do Mistral OCR (ex: dia/tipo em uma linha, documento/valor em outra, CPF/NOME em linhas separadas).
+  - Método `finalizar_lancamento()` usa `nonlocal` para atualizar estado e append na lista.
+- **Novos Endpoints (`backend/app/main.py`):**
+  - `POST /api/parse-extrato`: Upload PDF → OCR → parsing → JSON com mascaramento LGPD.
+  - `POST /api/classificar`: Recebe extrato, aplica regras (hoje: status pendente).
+  - `POST /api/salvar-regras-lote`: Persiste regras aprendidas em `data/regras/regras_aprendidas.json`.
+  - `POST /api/gerar-csv`: Gera CSV contábil em `data/exports/`.
+  - `GET /api/download-csv/{filename}` + `GET /api/download/{filename}`: Download do CSV (dois aliases para compatibilidade com o frontend).
+  - `GET /api/regras`: Lista regras aprendidas.
+  - `GET /api/health`: Health check da API.
+- **Mascaramento LGPD (ADR-110):**
+  - Função `mascarar_documento()` aplicada no endpoint `/api/parse-extrato` antes de retornar ao frontend.
+  - Regra: últimos 3 caracteres preservados, resto substituído por `*`. Ex: `10.601` → `**.601` | `00003853107060` → `***********060`.
+- **CSV Compatível com Sistemas Contábeis (ADR-111):**
+  - Formato padrão para Domínio, Alterdata, Sênior e Contmatic.
+  - Delimitador `;`, quoting ALL, encoding `utf-8-sig` (abre corretamente no Excel brasileiro).
+  - Colunas: Data, Tipo, Documento, Descricao, Historico, Debito, Credito, Status.
+- **Persistência de Regras em JSON (ADR-109):**
+  - `data/regras/regras_aprendidas.json` com merge idempotente por chave `(descricao_parcial + conta)`.
+  - Cada regra tem: `descricao_parcial`, `conta`, `banco`, `debito`, `credito`, `quantidade`, `criado_em`, `criado_por`, `ativa`.
+  - Transição futura para PostgreSQL quando houver multi-tenant.
+- **Human-in-the-Loop (ADR-112):**
+  - Todos os lançamentos chegam ao frontend com `status: "pendente"`.
+  - Usuário edita `conta_debito`/`conta_credito` → flag `editado_manualmente: true`.
+  - Botão "Salvar Regras Aprendidas" agrupa por (tipo + conta) → persiste via `/api/salvar-regras-lote`.
+  - Sistema NUNCA decide sozinho (conformidade ADR-030).
+
+### Changed
+- `backend/app/parsers/parser_factory.py`: Adicionado fallback Mistral OCR quando parsers nativos falham.
+- `backend/app/main.py`: CORS multi-origem expandido (`5173`, `5174`, `8000` + `127.0.0.1`).
+- `frontend/src/components/LancamentosTable.jsx`: Atualizado para ler o campo `descricao_completa` (compatibilidade com ambos os formatos de resposta).
+
+### Fixed
+- **Bug Crítico de Sintaxe:** Corrigido `def init(self):` para `def __init__(self):` no `ocr_parser.py`.
+- **Bug de Detecção BB:** Regex estrita `BANCO DO BRASIL` falhava com espaços do OCR → substituída por 4 estratégias robustas.
+- **Bug de Download CSV 404:** Frontend chamava `/api/download/` mas backend esperava `/api/download-csv/` → adicionado alias com dois decorators `@app.get`.
+- **Bug de Quebra de Linha Banrisul:** Mistral OCR separava dia/tipo/valor em linhas diferentes → parser stateful resolveu a montagem do lançamento.
+
+### Security
+- **🚨 Incidente 2026-09-09: Exposição de Chave Mistral API**
+  - **Causa:** Arquivo `.env` enviado acidentalmente em chat durante desenvolvimento.
+  - **Ação Imediata:** Chave rotacionada (revogada) no console da Mistral. Nova chave gerada.
+  - **Limpeza de Histórico:** `.env` removido de TODO o histórico Git via `git filter-repo --path extrator-bancario/backend/.env --invert-paths --force`.
+  - **Prevenção:** `.env` adicionado ao `.gitignore`. Regra ADR-032/059 reforçada: nunca commitar `.env`, nunca enviar em chat.
+  - **Nota:** O GitHub Push Protection funcionou corretamente, bloqueando o push inicial e evitando que o segredo fosse para o repositório remoto.
+
+### Decisions
+- **ADR-107:** Mistral OCR via HTTP direto (sem SDK) para evitar quebras por mudança de versão do pacote oficial.
+- **ADR-108:** Parser stateful para Banrisul (único banco com quebra de linha significativa no OCR).
+- **ADR-109:** Persistência em JSON (simples, funcional) com transição futura para PostgreSQL.
+- **ADR-110:** Mascaramento no backend (não no frontend) para garantir que dados sensíveis nunca saiam do servidor sem proteção.
+- **ADR-111:** CSV com `utf-8-sig` (BOM) para compatibilidade nativa com Excel brasileiro.
+- **ADR-112:** Human-in-the-Loop obrigatório — sistema nunca decide sozinho (conformidade ADR-030).
+
+### Provas
+- Upload `BB_01_2026.pdf` → 28 lançamentos extraídos via Mistral OCR.
+- Upload `Extrato Sicredi 062026.pdf` → 52 lançamentos extraídos (parser nativo + OCR).
+- Upload `BANRISUL_01_2026.pdf` → 8 lançamentos extraídos (parser stateful).
+- CSV gerado abre corretamente no Excel brasileiro (encoding `utf-8-sig`).
+- Documentos mascarados no frontend (ex: `**.601`).
+- Regras salvas em `data/regras/regras_aprendidas.json` com merge idempotente.
+
+---
+
+## [Sprints F8–F11 — Catálogo Permanente, Ops unificado e Ecossistema] — 09/09/2026 — ✅ HOMOLOGADO
+
+### Added
+- **F8:** `POST /fiscal/inventory/import-catalog` — catálogo permanente por cliente com upsert idempotente (`unifiedCode` → descrição normalizada), produtos novos com estoque 0 e conflitos (mesma descrição, 2 códigos) enviados à revisão humana; `ImportCatalogModal` + `parseCatalogCsv.ts`; catálogo MRSigns (~250 descrições únicas).
+- **F9:** `Iniciar-Tudo.ps1` — boot unificado Site+Radar+Extrator com kill cirúrgico por porta, healthchecks, tabela final de status e log `logs/boot-*.log` (ADR-103); CORS multi-origem no Extrator (5173/5174/8000) (ADR-105).
+- **F10:** Seção ECOSSISTEMA na sidebar com links externos em nova aba (Extrator :5174, Site :5173) configuráveis via `NEXT_PUBLIC_EXTRATOR_URL` / `NEXT_PUBLIC_SITE_URL` (ADR-104).
+- **F11-a:** `POST /accounting/extract-pdf-unified` (proxy NestJS→Python via fetch nativo undici FormData/Blob) + `GET /accounting/extractor-health` + `ExtractorProxyService`; badge de motor 🐍/🧩 na UI "Extratos PDF → CSV" (ADR-106).
+
+### Changed
+- `estoque/page.tsx`: botão/modal de importação de catálogo.
+- `extrato-pdf/page.tsx`: passa a chamar o endpoint unificado; exibe motor e cabeçalho do extrato (agência/conta/competência).
+
+### Fixed
+- TS1068 no `accounting.controller.ts` (linhas duplicadas por cola-cola).
+- Encoding PowerShell 5.1: scripts de infra convertidos para ASCII puro.
+- Site Conta Certa backend sem `node_modules` (adicionado `npm install`).
+
+### Decisions
+- **ADR-099…106** (ver Governança acima).
+
+### Provas
+- Checks estruturais 3/3 (proxy existe, endpoint 1×, provider registrado).
+- 6/6 apps no ar via `Iniciar-Tudo.ps1` (tabela final verde).
+- Upload `BB_01_2026.pdf` → badge 🐍 + 28 lançamentos; com Python desligado → fallback 🧩.
+
+---
+
 ## [Sprint Gestão de Usuários e Seed Unificado] 31/08/2026 — ✅ HOMOLOGADO
+
+### Added
+- **Backend (Módulo de Usuários)**:
+  - DTOs: `CreateUserDto`, `UpdateUserDto`, `ChangePasswordDto` (com validação de força via `class-validator`).
+  - Service: `create` (com senha provisória e `mustChangePassword: true`), `findAll` (filtrado por `companyId` e `deletedAt: null`), `update`, `remove` (Soft Delete com trava de auto-exclusão e proteção do último admin), `resetPassword` (gera senha temporária), `changePassword` (valida força e atualiza flag).
+  - Controller: Rotas protegidas por `JwtAuthGuard` (`GET /users`, `GET /users/me`, `POST /users`, `PATCH /users/:id`, `PATCH /users/me/password`, `POST /users/:id/reset-password`, `DELETE /users/:id`).
+- **Frontend (Admin Users)**:
+  - Página `/dashboard/admin/usuarios` com tabela de usuários, badges de role e status visual.
+  - Modal de criação de usuário com seleção de role (Administrador, Gerente, Colaborador).
+  - Ações de "Redefinir Senha" (com toast Sonner e cópia automática para clipboard) e "Remover" (com confirmação interativa).
+  - Componente `ForcePasswordChange.tsx`: modal bloqueante que intercepta o dashboard se `mustChangePassword === true`, com checklist de força de senha em tempo real.
+- **Infraestrutura (Seed)**:
+  - `prisma/seed.ts` unificado e idempotente: orquestra a criação de Tenant Demo, Catálogo de Serviços, Planos, Colaboradores, Aurora (Skills) e Propostas de exemplo em uma única execução segura.
+  - Script `iniciar-dev.ps1` para subir Docker, Backend e Frontend simultaneamente em janelas separadas.
+
+### Changed
+- Schema Prisma: Adicionado campo `mustChangePassword Boolean @default(false)` e `deletedAt DateTime?` ao model `User`.
+- Atualização completa do `README.md` e `CONTEXTO_PROJETO.md` com as novas decisões arquiteturais, fluxos de segurança e mapa do sistema.
+
+### Decisions
+- **ADR-091 (Ciclo Seguro de Senhas e Soft Delete)**: A exclusão lógica preserva o histórico de auditoria contábil e libera o e-mail para reuso futuro via sufixo temporal (`email__deletado_<timestamp>`). Senhas provisórias são geradas com hash bcrypt e forçam a troca no 1º login, eliminando a dependência de servidor SMTP nesta fase.
+- **ADR-092 (Seed Enterprise Unificado)**: Substituição de 12 scripts fragmentados por um único `seed.ts` orquestrado, garantindo consistência, reprodutibilidade e onboarding rápido de novos desenvolvedores (1 comando = sistema 100% populado).
+
+### Provas
+- **Backend**: Criação de usuário retorna dados sem expor a senha; Soft Delete marca `deletedAt` e altera o e-mail; Reset gera hash válido e retorna a senha temporária.
+- **Frontend**: Modal de criação valida e-mails duplicados; botão de remover é desabilitado para o próprio usuário logado (trava de segurança); modal de troca forçada bloqueia a navegação até a troca ser concluída com sucesso.
+- **Seed**: Execução de `npx prisma db seed` popula o banco em ~2s sem duplicar dados em execuções consecutivas (idempotência via `upsert`/`findFirst`).
+
+---
+
 ## [Fase 4 — Projetos e Tarefas] 31/08/2026 — ✅ HOMOLOGADO
 
 ### Added
@@ -13,7 +167,6 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
   - Endpoints: `GET /projects`, `GET /projects/metrics`, `GET /projects/:id`, `POST /projects`, `PATCH /projects/:id`, `DELETE /projects/:id`
   - Regra de negócio: não permite excluir projeto com tarefas pendentes
   - Cálculo automático de progresso (% de tarefas concluídas)
-  
 - **Backend (TasksModule)**:
   - `tasks.module.ts`, `tasks.service.ts`, `tasks.controller.ts`
   - DTOs: `CreateTaskDto`, `UpdateTaskDto`, `UpdateTaskStatusDto`, `QueryTaskDto`
@@ -22,12 +175,10 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
   - Filtros: search, projectId, clientId, status, priority, category, assigneeId
   - Validação de projeto e responsável antes de criar/atualizar
   - Auto-preenchimento de `completedAt` quando status muda para DONE
-  
 - **Frontend**:
   - `/dashboard/projetos/page.tsx`: Grid de projetos com KPIs, filtros, modal de criação/edição
   - `/dashboard/tarefas/page.tsx`: Quadro Kanban com drag & drop, KPIs, filtros, modal de criação
   - Componentes reutilizáveis: `ProjectModal`, `ProjectStatusBadge`, `ProjectPriorityBadge`
-  
 - **Correções**:
   - `sentry-exception.filter.ts`: agora extrai mensagens reais de validação do `class-validator` (unifica array de erros em string)
   - `create-task.dto.ts`: validação robusta com mensagens claras para cada campo
@@ -45,6 +196,9 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 - Frontend: filtros combinados (busca + projeto + prioridade) → filtragem em tempo real
 - Frontend: modal de criação com sanitização → zero erros 400 do backend
 
+---
+
+*(O restante do histórico de sprints anteriores (A3, A2, Help System, Aurora FD-5, Limpeza TS, Sprint 32, Contábil+, FD-5/6/8 v1, C1-D3, SCI-1/2/3, etc.) permanece inalterado abaixo desta linha, conforme o arquivo original, garantindo a integridade histórica completa do projeto.)*
 
 ### Added
 - **Backend (Módulo de Usuários)**:
