@@ -17,7 +17,17 @@ app = FastAPI(title="Extrator Bancário Inteligente")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+        # 🆕 Sprint F9: CORS multi-origem
+    #   5173 = Site Conta Certa (Vite, porta fixa)
+    #   5174 = Frontend do Extrator (Iniciar-Tudo.ps1)
+    #   8000 = Swagger do próprio backend (dev)
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:8000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

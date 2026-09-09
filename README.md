@@ -25,7 +25,72 @@ Automatiza a rotina contábil de cada cliente em um fluxo linear e auditável:
 4. Conciliação → 5. Extrato/Razão + DRE → 6. Guias + Exportar SCI
 ```
 
----
+🚀 Mapa confirmado + Script unificado definitivo
+✅ Portas 100% confirmadas
+App
+Serviço
+Porta
+Fonte
+🌐 Site Conta Certa
+Backend (Express)
+4000
+server.js:23
+🌐 Site Conta Certa
+Frontend (Vite)
+5173
+vite.config.js:5
+📊 Radar
+Backend (NestJS)
+3001
+main.ts + CORS
+📊 Radar
+Frontend (Next.js)
+3002
+fallback (3000 conflita)
+🏦 Extrator Bancário
+Backend (FastAPI)
+8000
+padrão FastAPI (sem porta inline)
+🏦 Extrator Bancário
+Frontend (Vite)
+5174
+forçado via CLI (5173 já usada pelo Site)
+🐳 Postgres Radar
+Docker
+5433
+start-dev.ps1
+🐳 Postgres Site
+Docker
+5434
+docker-compose.yml (porta interna)
+🐳 Postgres Local
+Nativo
+5432
+Test-NetConnection ✅
+---🎉 TUDO VERDE! 6/6 apps no ar — Sprint F9 concluída
+Marcos, olha essa tabela final:
+App
+URL
+Status
+Site Frontend
+http://localhost:5173
+✅
+Radar Backend
+http://localhost:3001
+✅
+Radar Frontend
+http://localhost:3002
+✅
+Extrator Backend
+http://localhost:8000
+✅
+Extrator Frontend
+http://localhost:5174
+✅
+Postgres Radar
+localhost:5433
+✅
+
 
 ## 🧭 Rotina Contábil Mensal (fluxo central)
 
