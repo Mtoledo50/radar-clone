@@ -1,225 +1,207 @@
 ﻿# 🧠 CONTEXTO_PROJETO.md — Radar Conta Certa
-Arquivo de injeção de contexto. Cole INTEIRO no início de toda conversa nova.
-Última atualização: 27/08/2026 (pós-Fase 6 — Aurora de cobrança completa).
-ADR-028 Versionamento de propostas: versões são imutáveis após criação;
-nova versão é clone com version+1, isCurrent=true, status=DRAFT;
-cadeia ligada por originalProposalId; comparação por diff de campos + itens.
 
+**Arquivo de injeção de contexto.** Cole INTEIRO no início de toda conversa nova.
+**Última atualização:** 10/09/2026 (pós-Sprint Extrator Bancário v1.0 — Mistral OCR, parsers stateful, LGPD e Human-in-the-Loop).
+
+---
 
 ## 1. Método oficial de trabalho
 Sprints autocontidas. ADR-034.2 — entrega all-in-one:
-- arquivos completos sempre que possível (novos ou quebrados);
-- delta cirúrgico só em arquivo estrutural em produção (schema, app.module, layouts);
-- backend + frontend + seed + validação + docs na mesma entrega;
-- scripts únicos quando aceleram homologação.
-Preferência do Marcos: mais rápido, ágil e testável, tudo em um bloco só.
-Regra de ouro: nenhum sprint novo começa sem o anterior homologado.
+- Arquivos completos sempre que possível (novos ou quebrados).
+- Delta cirúrgico só em arquivo estrutural em produção (schema, app.module, layouts).
+- Backend + frontend + seed + validação + docs na mesma entrega.
+- Scripts únicos quando aceleram homologação.
+- **Preferência do Marcos:** mais rápido, ágil e testável, tudo em um bloco só.
+- **Regra de ouro:** nenhum sprint novo começa sem o anterior homologado.
+
+---
 
 ## 2. Stack atual
-Backend: NestJS • Prisma • PostgreSQL • JWT • RBAC @Roles() • serviços
-determinísticos • PDFs no backend (jspdf 2.5.2 + jspdf-autotable 3.8.2 pinados) •
-notificações plugáveis via fetch nativo (SendGrid/Twilio/Log — ADR-086).
-Frontend: Next.js App Router • React • Tailwind • Axios c/ interceptor JWT •
-Sonner • Lucide • gráficos CSS puro quando possível.
-Banco:
-- Postgres LOCAL porta 5432 = dados REAIS (usuário postgres; NÃO tocar).
-- Docker Compose porta 5433 = banco virgem p/ testes (radar_user/radar_password/
-  radar_db; radar_user SEM CREATEDB → usar db push ou migrate deploy, nunca
-  migrate dev com shadow database).
-Portas dev ativas: site institucional 3000 • backend NestJS 3001 • frontend
-Radar dev 3005 (Docker Desktop instável; rebuild das imagens PENDENTE).
+**Backend Radar:** NestJS 10 • Prisma 5 • PostgreSQL • JWT • RBAC `@Roles()` • serviços determinísticos • PDFs no backend (jspdf 2.5.2 + jspdf-autotable 3.8.2 pinados) • notificações plugáveis via fetch nativo (SendGrid/Twilio/Log — ADR-086).
 
-## 3. ADRs principais
-ADR-001 Gráficos CSS puro (Recharts incompatível c/ React 19+Turbopack).
-ADR-002 CSV com UTF-8+BOM (acentos no Excel).
-ADR-003 Zustand persist p/ SSR seguro.
-ADR-004 Multi-tenant single-database por companyId.
-ADR-020 Herança de planos derivada em memória; independente não herda E não doa;
-ordem por multiplicador; preços com round2.
-ADR-021 Ícones Lucide: tooltip via wrapper <span title>.
-ADR-022 Proibido arquivo de backup dentro de src/ (quebra next build).
-ADR-023 Optional chaining (?.) em .map de opcionais no JSX.
-ADR-024 Sonner: action/cancel exigem onClick (usar () => {} p/ só fechar).
-ADR-025 RBAC em 3 camadas (Middleware/UI → @Roles() → RolesGuard).
-ADR-030 Regra de Ouro da Aurora: prepara/classifica/calcula/sugere; obrigação
-legal nunca é transmitida sem aprovação humana.
-ADR-031 Cálculo determinístico no backend (tributos, scores, guias, métricas).
-ADR-032 Cofres AES-256-GCM p/ credenciais/certificados (implementado na FD-8).
-ADR-034/034.1/034.2 Arquivos estruturais = delta cirúrgico; novos/quebrados =
-completo; sprints autocontidas.
-ADR-035 PDFs no backend c/ versões pinadas.
-ADR-036 NFS-e ABRASF 2.0 c/ adaptadores municipais; XML desconhecido preserva rawXml.
-ADR-037 Origem do documento em source: MANUAL/EMAIL/PORTAL/OCR.
-ADR-038 Memória de cálculo auditável (steps/sources/lawRef em JSON).
-ADR-039 IMAP como coletor (source = EMAIL).
-ADR-043.1 Logo proporcional (chip branco, nunca clipar em círculo).
-ADR-051 Benchmark de cargos: catálogo estático versionado, gaps em memória.
-ADR-054 Fórmulas seguras por whitelist (proibido eval/Function).
-ADR-055 Score 0–100 determinístico, 5 dimensões ponderadas.
-ADR-056 Mentoria derivada do Score, catálogo fixo, zero IA generativa.
-ADR-057 Checklist persistido por tenant (idempotente companyId+title+source).
-ADR-058 Ranking de níveis (Bronze→Diamante) multi-tenant.
-ADR-066 Ciclo Contábil por cliente: balancete+razão+sugeridor ("esse e somente
-esse cliente").
-ADR-067 Idempotência de imports contábeis (reimportar substitui, nunca duplica).
-ADR-068 Sugestão em 3 camadas (memória do razão → regras → revisão) c/ revisão
-humana obrigatória; upload por texto (zero multipart).
-ADR-069 Conta bancária da partida detectada pela seção do extrato (multi-conta).
-ADR-070 Plano sincronizado do balancete: seq ("Conta") + code ("Classificação").
-ADR-071 Encoding de CSV detectado (UTF-8 → Windows-1252 fallback).
-ADR-072 Multi-planos por cliente: Client.accountingPlan = fonte da verdade.
-ADR-073 Exportação SCI c/ nºs reduzidos e decimal com PONTO.
-ADR-074 Partida dobrada manual: D e C obrigatórios, valor espelhado (D=C),
-auto-CONCILIADO; conciliação em lote; impressão/PDF dos extratos por cliente.
-ADR-077 Radar em produção usa o Postgres REAL local (5432, radar_db) via
-host.docker.internal:5432; sem container de banco novo.
-ADR-078 typescript.ignoreBuildErrors=true apenas no build Docker.
-ADR-079 Túnel Cloudflare único p/ site + Radar (radar./radar-api.).
-ADR-080 `migrate resolve --applied` p/ sincronizar _prisma_migrations quando o
-DDL já existe; nunca reset em banco com dados.
-ADR-081 ARG/ENV NEXT_PUBLIC_* antes do `next build` no Dockerfile.
-ADR-082 Scroll suave nativo em vez de hash do router.
-ADR-083 Limpeza técnica de erros TS antes de remover `ignoreBuildErrors`.
-ADR-084 Domínio puro CNAB isolado (parsers/builders sem banco/HTTP); aprovação
-humana obrigatória em toda cobrança automática.
-ADR-085 Arquitetura híbrida FD-5: BillingInstruction = fonte de verdade;
-CnabArquivo/Movimento = histórico CNAB; CobrancaRegra/Evento = régua c/ workflow
-humano.
-ADR-086 Notificações plugáveis por estratégia (SendGrid/Twilio/Log) via fetch
-nativo (zero deps); MODO LOG sem chaves; falha real → FALHOU (sem fallback
-silencioso).
-ADR-087 Vínculo Client↔cobrança/evento por auto-match determinístico (nome
-normalizado) + seleção manual; destinatário = override humano > contato do
-client (contactEmail/contactPhone) > modo log.
-ADR-088 Monitoramento e backup opt-in por ambiente (Sentry + Backup local). 
-Sem DSN/chaves no .env, o sistema roda em silêncio total (zero custo em dev). 
-Backup via script PowerShell nativo (pg_dump) agendado no Windows Task Scheduler, 
-independente do runtime Node.js.
-ADR-089 Ajuda contextual em 2 camadas (Progressive Disclosure): modal rápido
-para usuários casuais + página detalhada para operadores.
-ADR-090 Catálogo centralizado em TypeScript (type-safe, sem CMS externo).
-🆕 ADR-091 Gestão de Usuários e Ciclo Seguro de Senhas: Soft Delete (preserva
-auditoria e libera e-mail via sufixo temporal), troca forçada no 1º login via
-modal bloqueante, senha provisória com hash bcrypt, travas de auto-exclusão e
-proteção do último admin do tenant.
-🆕 ADR-092 Seed Enterprise Unificado e Idempotente: substituição de scripts
-fragmentados por um único `prisma/seed.ts` orquestrado (Tenant → Catálogo →
-Pessoas → Aurora → Propostas), garantindo consistência e reprodutibilidade.
+**Frontend Radar:** Next.js App Router • React 19 • TypeScript • Tailwind • Axios c/ interceptor JWT • Sonner • Lucide • gráficos CSS puro quando possível.
+
+**🆕 Extrator Bancário (App Irmã Python):** Python 3.14 • FastAPI • uvicorn • `requests` • `pdfplumber` + `PyMuPDF` • Mistral OCR (fallback para PDFs escaneados/complexos) • Frontend Vite/React próprio (:5174).
+
+**🆕 Site Conta Certa (App Irmã):** Vite/React + Express (Node).
+
+**Banco de Dados:**
+- Postgres LOCAL porta `5432` = dados REAIS (usuário postgres; **NÃO tocar**).
+- Docker Compose porta `5433` = banco virgem p/ testes (radar_user/radar_password/radar_db; radar_user SEM CREATEDB → usar `db push` ou `migrate deploy`, nunca `migrate dev` com shadow database).
+
+**Infra:** Docker Compose raiz + túnel Cloudflare (produção local, ADR-077/079) • 🆕 `Iniciar-Tudo.ps1` p/ dev unificado (F9, ADR-103).
+
+---
+
+## 3. ADRs principais (Registro Canônico)
+001 Gráficos CSS puro • 002 CSV com UTF-8+BOM • 003 Zustand persist p/ SSR seguro • 004 Multi-tenant single-database por companyId • 020 Herança de planos derivada em memória • 021 Ícones Lucide: tooltip via wrapper `<span title>` • 022 Proibido arquivo de backup dentro de `src/` • 023 Optional chaining (`?.`) em `.map` de opcionais no JSX • 024 Sonner: action/cancel exigem `onClick` • 025 RBAC em 3 camadas • 030 **Regra de Ouro da Aurora:** prepara/classifica/calcula/sugere; obrigação legal nunca é transmitida sem aprovação humana • 031 Cálculo determinístico no backend • 032 Cofres AES-256-GCM p/ credenciais • 034/034.1/034.2 Arquivos estruturais = delta cirúrgico; novos/quebrados = completo • 035 PDFs no backend c/ versões pinadas • 036 NFS-e ABRASF 2.0 c/ adaptadores • 037 Origem do documento em `source` • 038 Memória de cálculo auditável • 039 IMAP como coletor • 043.1 Logo proporcional • 051 Benchmark de cargos • 054 Fórmulas seguras por whitelist • 055 Score 0–100 determinístico • 056 Mentoria derivada do Score • 057 Checklist persistido por tenant • 058 Ranking de níveis multi-tenant • 066 Ciclo Contábil por cliente • 067 Idempotência de imports contábeis • 068 Sugestão em 3 camadas c/ revisão humana obrigatória • 069 Conta bancária da partida detectada pela seção do extrato • 070 Plano sincronizado do balancete • 071 Encoding de CSV detectado • 072 Multi-planos por cliente • 073 Exportação SCI c/ nºs reduzidos e decimal com PONTO • 074 Partida dobrada manual • 077 Radar em produção usa Postgres REAL local (5432) via `host.docker.internal` • 078 `typescript.ignoreBuildErrors=true` apenas no build Docker • 079 Túnel Cloudflare único p/ site + Radar • 080 `migrate resolve --applied` p/ sincronizar migrations • 081 ARG/ENV `NEXT_PUBLIC_*` antes do `next build` • 082 Scroll suave nativo • 083 Limpeza técnica de erros TS • 084 Domínio puro CNAB isolado • 085 Arquitetura híbrida FD-5 • 086 Notificações plugáveis por estratégia • 087 Vínculo Client↔cobrança por auto-match • 088 Monitoramento e backup opt-in • 089 Ajuda contextual em 2 camadas • 090 Catálogo centralizado em TypeScript • 091 Gestão de Usuários e Ciclo Seguro de Senhas • 092 Seed Enterprise Unificado e Idempotente • 093 Drag & Drop nativo HTML5 • 094 Proteção de integridade em projetos • 095 KPIs calculados no backend.
+
+**🆕 ADRs do Extrator Bancário (10/09/2026):**
+- **ADR-107:** Mistral OCR como fallback universal via HTTP direto (sem SDK) para evitar quebras de versão. Normalização de caracteres full-width.
+- **ADR-108:** Parser stateful para Banrisul, mantendo estado entre linhas para lidar com quebras de linha do OCR.
+- **ADR-109:** Persistência de regras de classificação em JSON (`data/regras/regras_aprendidas.json`) com merge idempotente, com transição futura para PostgreSQL.
+- **ADR-110:** Mascaramento LGPD de documentos sensíveis aplicado no backend antes do retorno ao frontend (últimos 3 dígitos preservados).
+- **ADR-111:** Geração de CSV compatível com sistemas contábeis brasileiros (Domínio, Alterdata, Sênior, Contmatic) usando delimitador `;` e encoding `utf-8-sig`.
+- **ADR-112:** Human-in-the-Loop obrigatório no fluxo de classificação. Lançamentos chegam como "pendente" e regras só são salvas após edição e aprovação manual em lote.
+
+---
 
 ## 4. Status macro
-Sprints 1–32 concluídas: dashboard, clientes, operacional, fiscal (NF-e/estoque/
-ICMS/SPED), bancário (fechamento/DREs), contábil (plano/partidas/SCI), revisão
-inteligente, BI, ponto fora da curva.
-CICLO CONTÁBIL SCI (ETAPAS 1–3) ✅ HOMOLOGADO em 25/08/2026.
-SPRINT 32 ✅ HOMOLOGADA: produção local Radar+Site via túnel Cloudflare
-(radar.contacerta.com.br + radar-api.contacerta.com.br).
-🆕 MÓDULO DE USUÁRIOS ✅ HOMOLOGADO: CRUD, RBAC, Soft Delete, Troca Forçada e Seed Unificado.
-AURORA FD-5+Fases 4/5/6 ✅ HOMOLOGADA em 27/08/2026 (ver §6 e §9).
-FASE 4 (Projetos e Tarefas) ✅ HOMOLOGADA em 31/08/2026 (ver §11).
+- Sprints 1–32 concluídas e homologadas (dashboard, clientes, operacional, fiscal, bancário, contábil, BI, Aurora FD-1→FD-6+FD-8, FD-5 v2, usuários, projetos).
+- **🆕 Extrator Bancário v1.0 homologado (10/09/2026):** 3 parsers (BB/Sicredi/Banrisul) + Mistral OCR fallback + LGPD + Human-in-the-Loop + CSV contábil.
+- Produção local: túnel Cloudflare (`radar.contacerta.com.br` + `radar-api.contacerta.com.br`) — Sprint 32 ✅.
 
+---
 
 ## 5. Plano 2.0 — Fases concluídas
-Fase A (Comercial) completa: A1→A7.
-Fase B (Pessoas) completa: B1→B5.
-Fase C (Mercado) completa: C1→C4 (Score real 51 = Prata 🥈).
-Fase D (Mentoria) completa: D1→D3.
+Fase A (Comercial: A1–A7) ✅ • Fase B (Pessoas: B1–B5) ✅ • Fase C (Mercado: C1–C4) ✅ • Fase D (Mentoria: D1–D3) ✅ • Fase E (UX: palette, "onde parei", notificações) ✅.
+
+---
 
 ## 6. Funcionário Digital Aurora
-Conceito: JARVIS contábil — acorda, prepara, confere, sugere; nunca executa
-sozinho obrigação legal (ADR-030).
-Concluída: FD-1 fundação • FD-2 relatórios+aprovações • FD-3a NFS-e ABRASF •
-FD-3b coleta IMAP • FD-4 guias (DAS/ISS/DARF c/ memória) • FD-6 EFD-Contribuições
-• FD-8 legalização + cofre AES-256-GCM.
-FD-5 v2 ✅ (27/08): CNAB 240/400 (domínio puro, 16 testes) + régua de cobrança c/
-aprovação humana + notificações plugáveis + vínculo Client + tela 4 abas c/
-autopreenchimento da carteira. Backend c/ 19 rotas /billing (JwtAuthGuard).
-Pendente: FD-7 integrações Domínio/Questor/Sage • FD-9 DP leve.
+Conceito: JARVIS contábil (ADR-030). 
+Concluído: FD-1 • FD-2 (+relatórios) • FD-3a/b • FD-4 guias • FD-5 v2 CNAB 240/400 + régua • FD-6 EFD • FD-8 cofre/legalização.
+Pendente: FD-7 (Domínio/Questor/Sage) • FD-9 (DP leve).
 
-### 7. Páginas principais
-Operacional: /dashboard • /dashboard/minha-empresa • /dashboard/pessoas •
-/dashboard/pessoas/benchmark • /dashboard/clientes • /dashboard/projetos •
-/dashboard/tarefas.
-Comercial: /dashboard/precificacao • .../meus-planos • .../desempenho •
-/dashboard/planejamento.
-Fiscal/Bancário/Contábil: /dashboard/fiscal(+notas/estoque/apuracao/sped/
-comparativo) • /dashboard/fechamento • /dashboard/lancamentos •
-/dashboard/contabil(+plano-contas/ciclo-contabil).
-Inteligência: /dashboard/funcionario-digital(+relatorios/nfse/guias/
-cobranca ⭐ 4 abas) • /dashboard/bi(+dre-cliente) • /dashboard/ponto-fora-da-curva
-• /dashboard/indicadores(+custom) • /dashboard/score • /dashboard/mentoria •
-/dashboard/ranking • /dashboard/planejamento-tributario •
-/dashboard/reforma-tributaria.
-Administração: /dashboard/admin • /dashboard/admin/catalogo • 
-🆕 /dashboard/admin/usuarios.
-Fase A (Comercial): A1 herança de planos ✅(domínio) • A2 valor ref. + dinheiro na
-mesa ✅(backend + frontend) • A3 versões de proposta • A4 fechamento c/ ganho •
-A5 white-label • A6 PDF v2+PNG • A7 dashboard desempenho.
+---
+
+## 7. Páginas principais
+Operacional/Comercial/Fiscal/Bancário/Contábil/Inteligência/Admin conforme versão 27/08.
+**🆕 Novas:** `/dashboard/fechamento/extrato-pdf` (unificado F11-a) • links ECOSSISTEMA (Extrator :5174, Site :5173) na sidebar.
+
+---
 
 ## 8. O que falta para terminar
-Bloco Aurora: FD-7 • FD-9 (FD-5/6/8 ✅).
-Fase E (UX): E1 command palette Ctrl+K • E2 "onde parou" • E3 notificações.
-Produção 33–34: CI/CD (GitHub Actions) • Sentry + backup automático •
-rebuild Docker das imagens c/ Aurora (paridade dev/prod).
-Backlog pós-produção (22/08): DEV: testes de domínio (Vitest) • auditoria cofre +
-rate limit + LGPD • paginação/máscaras • busca de entidades no Ctrl+K • BullMQ p/
-Aurora • Portal do Cliente. CONTÁBIL: calendário de obrigações por regime/município
-• retenções NFS-e • Simples c/ Fator R • Score de Compliance por cliente •
-checklist de fechamento • ECD/ECF • ICMS-ST por NCM/CEST • ISS por município •
-créditos tributários. REGRA: nada entra antes das Sprints 33–34.
+- **🆕 F11-b:** Modo Professor (mapeamento assistido de layouts de extrato desconhecidos).
+- **🆕 Migração de Regras:** Mover persistência de regras do JSON para PostgreSQL (multi-tenant).
+- Aurora: FD-7 • FD-9.
+- Produção: Sprints 33–34 (CI/CD, Sentry, backup, rebuild Docker c/ Aurora).
+- Portal do Cliente • Relatórios PDF profissionais • Testes E2E (Playwright).
+- **REGRA:** nada entra antes das Sprints 33–34.
+
+---
 
 ## 9. Status atual e próximos passos
+✅ F8–F11 homologadas (09/09): catálogo MRSigns importado; 6/6 apps no ar via `Iniciar-Tudo.ps1`; proxy Extrator com badge 🐍 e fallback 🧩 validados.
+✅ **Extrator Bancário v1.0 homologado (10/09):** 3 parsers + Mistral OCR + LGPD + Human-in-the-Loop + CSV contábil + persistência de regras JSON.
+**PRÓXIMO (escolher 1):** F11-b Modo Professor • FD-7 integrações • Sprints 33–34.
+**EM ANDAMENTO:** hardening de produção (Sentry backend, CI/CD, backup).
 
-### ✅ FASES CONCLUÍDAS
-- Fases 1-2.5: Fundação + BI + Fiscal + Bancário + Contábil (Sprints 1-30)
-- Fase 3: Produção (Docker, CI/CD, Backup) — parcial
-- Fase A: Comercial (A1-A7) ✅
-- Fase B: Pessoas (B1-B5) ✅
-- Fase C: Mercado (C1-C4) ✅
-- Fase D: Mentoria (D1-D3) ✅
-- Fase E: UX (Command Palette, Notificações, "Onde parei") ✅
-- **Fase 4: Projetos e Tarefas ✅ (31/08/2026)**
-
-###  EM ANDAMENTO
-- Aurora FD-7 (Integrações Domínio/Questor/Sage)
-- Aurora FD-9 (DP Leve)
-- Hardening de Produção (Sentry backend, CI/CD, Backup)
-
-###  PRÓXIMAS FASES
-- Portal do Cliente (visão externa para clientes)
-- Relatórios PDF Profissionais (DRE, Balancete, Propostas)
-- Testes Automatizados (Playwright E2E)
+---
 
 ## 10. Instrução para a nova IA
-Leia este arquivo, confirme com "Yes", e continue EXATAMENTE do §9.
-Não reimplementar sprints concluídas; não mudar stack; seguir método do §1.
+Leia este arquivo, confirme com "Yes", e continue EXATAMENTE do §11.
+Não reimplementar sprints concluídas; não mudar stack; seguir método do §1 e governança de ADRs do §1/§3.
 
-## 11. Fase 4 — Projetos e Tarefas (31/08/2026)
+---
 
-### Módulos Implementados
-- **ProjectsModule**: CRUD completo de projetos com métricas, filtros, validação de cliente
-- **TasksModule**: CRUD completo de tarefas com Kanban, métricas, filtros, validação de projeto/responsável
+## 11. Fase 4 — Projetos e Tarefas (31/08/2026) ✅
+ProjectsModule/TasksModule completos (Kanban, KPIs backend, soft delete, integridade projeto×tarefas). ADR-093/094/095. Detalhes no CHANGELOG.
 
-### Endpoints Principais
-- `GET /projects` — lista projetos com filtros (status, priority, clientId, search)
-- `GET /projects/metrics` — KPIs (total, active, onHold, completed, overdue, overallProgress)
-- `POST /projects` — cria projeto (valida clientId se fornecido)
-- `PATCH /projects/:id` — atualiza projeto (auto-preenche completedAt se status=COMPLETED)
-- `DELETE /projects/:id` — soft delete (bloqueia se houver tarefas pendentes)
+---
 
-- `GET /tasks` — lista tarefas com filtros (status, priority, category, projectId, assigneeId, search)
-- `GET /tasks/metrics` — KPIs (total, backlog, todo, inProgress, review, done, overdue, unassigned, completionRate)
-- `POST /tasks` — cria tarefa (valida projectId e assigneeId se fornecidos)
-- `PATCH /tasks/:id` — atualiza tarefa (auto-preenche completedAt se status=DONE)
-- `DELETE /tasks/:id` — soft delete
+## 12. 🆕 ECOSSISTEMA & OPERAÇÃO LOCAL (F9–F11)
+**RAIZ REAL:** `C:\Site conta-certa` (site/ + radar-clone/ + docker-compose.yml + Iniciar-Tudo.ps1). Extrator vive em `radar-clone/extrator-bancario/`.
 
-### Frontend
-- `/dashboard/projetos` — Grid de projetos com KPIs, filtros, modal de criação/edição
-- `/dashboard/tarefas` — Quadro Kanban com drag & drop nativo HTML5, KPIs, filtros, modal de criação
+**Portas dev:** 
+- Site FE 5173 / Site API 4000 
+- Radar FE 3002 / Radar BE 3001 
+- **Extrator FE 5174 / Extrator BE 8000** 
+- Postgres 5432 (real) / 5433 (Docker).
 
-### ADRs
-- **ADR-093**: Drag & Drop nativo HTML5 (zero dependências extras)
-- **ADR-094**: Proteção de integridade — projeto só pode ser excluído se não tiver tarefas pendentes
-- **ADR-095**: KPIs calculados no backend (consistência e performance)
+**Boot único:** `.\Iniciar-Tudo.ps1` (idem `-Prod` p/ Docker; `-SiteOnly`/`-RadarOnly`/`-ExtratorOnly` p/ parcial). Logs: `C:\Site conta-certa\logs\boot-*.log`.
+**PowerShell 5.1:** scripts de infra DEVEM ser ASCII puro (emoji/acentos quebram parse).
 
-### Status
-✅ HOMOLOGADO em 31/08/2026.
+**Extrator endpoints:**
+- `POST /api/parse-extrato` — Upload PDF → OCR → parsing → JSON com LGPD
+- `POST /api/classificar` — Recebe extrato, aplica regras (hoje: status pendente)
+- `POST /api/salvar-regras-lote` — Persiste regras aprendidas em JSON
+- `POST /api/gerar-csv` — Gera CSV contábil em `data/exports/`
+- `GET /api/download-csv/{filename}` — Download do CSV (alias: `/api/download/{filename}`)
+- `GET /api/regras` — Lista regras aprendidas
+- `GET /api/health` — Health check
+
+**Radar endpoints novos:** `POST /accounting/extract-pdf-unified` • `GET /accounting/extractor-health` • `POST /fiscal/inventory/import-catalog`.
+
+**🔐 Segurança:**
+- Chave Mistral do `.env` do extrator foi exposta em chat (09/09) → ROTACIONADA e nunca commitar `.env` (regra ADR-032/059).
+- `.env` removido de todo o histórico Git via `git filter-repo --force`.
+- Validação de tipo (apenas PDF) e tamanho máximo (10MB) no upload.
+- Proteção contra path traversal no download de CSV.
+
+---
+
+## 13. 🆕 EXTRATOR BANCÁRIO — ARQUITETURA DETALHADA (10/09/2026)
+
+### Fluxo principal:
+
+text
+PDF → [Parser Nativo (pdfplumber/PyMuPDF)] → [Se falhar: Mistral OCR] → OCRParser → JSON com LGPD → Frontend → Edição humana → Salvar regras → CSV contábil
+
+
+### Parsers implementados:
+| Banco | Parser | Estratégia | Status |
+|-------|--------|------------|--------|
+| BB | `ParserBB` (nativo) + `OCRParser._extrair_lancamentos_bb` | Regex em tabela markdown + detecção por palavras-chave flexíveis | ✅ |
+| Sicredi | `ParserSicredi` (nativo) + `OCRParser._extrair_lancamentos_sicredi` | Regex em linha única com identificação de `PIX_CRED`/`PIX_DEB` | ✅ |
+| Banrisul | `ParserBanrisul` (nativo) + `OCRParser._extrair_lancamentos_banrisul` | **Stateful:** mantém estado entre linhas (dia, tipo, valor, CPF, nome) para lidar com quebra de linha do OCR | ✅ |
+
+### Normalização OCR (`_normalizar_texto`):
+- Caracteres full-width: `：` → `:`, `，` → `,`, `。` → `.`, `√` → ``
+- Pipes markdown: `|` → ` `
+- Separadores: `---` → removidos
+- Múltiplos espaços: normalizados (preservando `\n`)
+
+### Detecção de banco (4 estratégias):
+1. Busca direta: `BANRISUL`, `SICREDI`, `BANCO DO BRASIL`
+2. Busca sem espaços: `BANCOBRASIL`
+3. Palavras-chave individuais: `BANCO` + `BRASIL`
+4. Agência específica: regex `Agência.*?1430` → BB
+
+### Estrutura de arquivos do Extrator:
+```text
+extrator-bancario/
+├── backend/
+│   ├── .env (NUNCA commitar — ADR-032/059)
+│   ├── .gitignore (contém .env)
+│   ├── app/
+│   │   ├── main.py (FastAPI + endpoints)
+│   │   ├── models/lancamento.py (ExtratoBancario, LancamentoBancario, SinalMovimento)
+│   │   ├── parsers/
+│   │   │   ├── base.py (BaseParser)
+│   │   │   ├── bb.py (ParserBB nativo)
+│   │   │   ├── banrisul.py (ParserBanrisul nativo)
+│   │   │   ├── sicredi.py (ParserSicredi nativo)
+│   │   │   ├── parser_factory.py (Detecta banco + orquestra fallback Mistral)
+│   │   │   └── ocr_parser.py (Parser genérico pós-OCR com lógica stateful)
+│   │   └── services/
+│   │       └── ocr_service.py (Chamada HTTP direta à Mistral OCR API)
+│   └── data/
+│       ├── uploads/ (temporário, limpo após processamento)
+│       ├── exports/ (CSVs gerados)
+│       └── regras/regras_aprendidas.json (persistência local)
+└── frontend/ (Vite/React :5174)
+    └── src/
+        ├── App.jsx
+        ├── components/ (FileUpload, LancamentosTable, ModalSalvarRegrasLote)
+        └── services/api.js
+
+Regras de negócio configuráveis (ADR-109):
+Regras de classificação salvas em JSON (transição futura para PostgreSQL).
+Merge idempotente por chave (descricao_parcial + conta).
+Cada regra tem: descricao_parcial, conta, banco, debito, credito, quantidade, criado_em, criado_por, ativa.
+Conformidade LGPD (ADR-110):
+Mascaramento de documentos no endpoint /api/parse-extrato via função mascarar_documento().
+Regra: últimos 3 caracteres preservados, resto substituído por * (ex: 10.601 → **.601).
+Logs nunca contêm dados sensíveis.
+Chaves API nunca em código (sempre em .env + .gitignore).
+14. 🆕 INCIDENTES DE SEGURANÇA REGISTRADOS
+2026-09-09 — Exposição de chave Mistral API
+Causa: Arquivo .env enviado acidentalmente em chat durante desenvolvimento.
+Ação Imediata: Chave rotacionada (revogada) no console da Mistral. Nova chave gerada e aplicada localmente.
+Limpeza de Histórico: .env removido de TODO o histórico Git via git filter-repo --path extrator-bancario/backend/.env --invert-paths --force.
+Prevenção: .env adicionado ao .gitignore. Regra ADR-032/059 reforçada: nunca commitar .env, nunca enviar em chat.
+Nota: O GitHub Push Protection funcionou corretamente, bloqueando o push inicial e evitando que o segredo fosse para o repositório remoto.
+Documento autocontido. Qualquer IA que ler este arquivo terá contexto completo para continuar o desenvolvimento sem ambiguidades.
+
+

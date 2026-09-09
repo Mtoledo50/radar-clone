@@ -29,6 +29,7 @@ import { PdfExtractService } from './domain/pdf/pdf-extract.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { ExtractorProxyService } from './domain/pdf/extractor-proxy.service'; // 🆕 F11-a
 
 @Controller('accounting')
 @UseGuards(JwtAuthGuard)
@@ -40,6 +41,7 @@ export class AccountingController {
     private readonly smartImport: SmartImportService,
     private readonly importService: ImportService,
     private readonly pdfExtract: PdfExtractService,
+    private readonly extractorProxy: ExtractorProxyService, // 🆕 F11-a
 
   ) {}
 
@@ -334,6 +336,58 @@ async extractPdf(
     return { success: false, message: error.message };
   }
 }
+
+  /**
+   * 🆕 F11-a (ADR-048): extração UNIFICADA de PDF de extrato.
+   * Cadeia: 1º Extrator Python (parsers + Mistral OCR) → fallback
+   * adaptadores nativos (PdfExtractService). Nunca aplica cegamente:
+   * a página continua exibindo preview + CSV + importação revisada.
+   */
+  @Post('extract-pdf-unified')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 },
+  }))
+  async extractPdfUnified(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('bank') bank?: string,
+  ) {
+    if (!file?.buffer?.length) {
+      return { success: false, message: 'Nenhum arquivo enviado' };
+    }
+
+    // 1) Motor Python (extrator-bancario :8000)
+    try {
+      const data = await this.extractorProxy.parse(
+        file.buffer,
+        file.originalname,
+        bank,
+      );
+      return { success: true, engine: 'extrator-python', data };
+    } catch (e: any) {
+      console.log(`⚠️ Motor Python falhou (${e.message}) → fallback nativo`);
+    }
+
+    // 2) Fallback: adaptadores nativos (comportamento ANTERIOR intacto)
+    try {
+      const data = await this.pdfExtract.extract(file.buffer, bank);
+      return { success: true, engine: 'nativo', data };
+    } catch (e: any) {
+      return { success: false, message: e.message };
+    }
+  }
+
+  /** 🆕 F11-a: saúde do motor Python (badge da UI) */
+  @Get('extractor-health')
+  async extractorHealth() {
+    return {
+      success: true,
+      data: {
+        online: await this.extractorProxy.health(),
+        url: process.env.EXTRATOR_URL || 'http://localhost:8000',
+      },
+    };
+  }
   // =================================================================
   // 🆕 ADR-072 — PLANOS DE CONTAS POR CLIENTE
   // =================================================================
