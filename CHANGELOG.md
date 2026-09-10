@@ -4,6 +4,46 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 **Formato:** [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/)
 
 ---
+[Sprints F8–F12] 09–10/09/2026 — Fiscal Ops, Ecossistema e Cadastro Completo ✅ HOMOLOGADO
+Added
+- F8: Catálogo permanente por cliente — `POST /fiscal/inventory/import-catalog`
+  (upsert idempotente por unifiedCode/descrição normalizada; produtos novos com
+  estoque 0; conflitos mesma-descrição-2-códigos → revisão humana) +
+  `ImportCatalogModal` + `parseCatalogCsv.ts`; catálogo MRSigns (~250 descrições).
+- F9: `Iniciar-Tudo.ps1` — boot unificado Site+Radar+Extrator (kill cirúrgico por
+  porta, healthchecks, tabela final de status, log em `logs/boot-*.log`);
+  CORS multi-origem no Extrator FastAPI (5173/5174/8000).
+- F10: seção ECOSSISTEMA no menu — links externos em nova aba (Extrator :5174,
+  Site :5173) configuráveis via `NEXT_PUBLIC_EXTRATOR_URL` / `NEXT_PUBLIC_SITE_URL`.
+- F11-a: `POST /accounting/extract-pdf-unified` (proxy NestJS→Python via fetch
+  nativo/undici FormData) + `GET /accounting/extractor-health` + badge de motor
+  🐍 Python /  nativo na UI "Extratos PDF → CSV".
+- F12: migração `20260910_f12_client_registry` — 25 colunas novas em `Client`
+  (endereço, regime, NIRE, inscrições, datas de relacionamento, tags, s3dId) +
+  enum `TaxRegime` + tabelas `client_contacts` e `client_department_owners`.
+- F12: `POST /clients/import-s3d` — parser header-driven de 44 colunas,
+  agrupamento por CNPJ (1 linha = 1 contato), contatos substituídos a cada
+  reimportação, deptos por upsert; `ImportS3dModal` (Parse→Revisão→Confirmar).
+- F12.4: `ClientProfileModal` — Ficha Completa do cliente (Identificação,
+  Endereço, Relacionamento, Tags, Contatos 1-N com flag primário, Time interno
+  por departamento) acessível pelo olho 👁 na Carteira.
+Changed
+- `client.service.ts` findAll inclui `contacts` + `departmentOwners`.
+- `clientes/page.tsx`: botão "Importar S3D (completo)" + render do modal.
+Decisions
+- ADR-099 catálogo permanente idempotente (conflitos → revisão, nunca cego).
+- ADR-100 launcher unificado com kill por porta + healthchecks (nunca taskkill global).
+- ADR-101 menu Ecossistema: apps irmãs como links externos (nova aba).
+- ADR-102 CORS do Extrator multi-origem explícito (sem wildcard em produção).
+- ADR-103 proxy NestJS→Python com fallback gracioso aos adapters nativos.
+- ADR-104 contatos e responsáveis como relações 1-N (fim do contato único).
+- ADR-105 import S3D idempotente por s3dId→CNPJ→nome; deptos por upsert.
+- ADR-106 Ficha Completa somente leitura (edição continua no wizard existente).
+Provas
+- F12: ~90 empresas / ~150 contatos / 14 deptos importados; ficha da BAUER exibe
+  contato primário + 14 responsáveis; reimportação → created 0 (idempotente).
+- F11-a: PDF BB → 28 lançamentos via motor 🐍; com Python desligado → fallback 🧩.
+- F8: catálogo MRSigns reimportado sem duplicar (unifiedCode estável).
 
 ## 🧭 Governança de ADRs (Atualizado em 10/09/2026)
 

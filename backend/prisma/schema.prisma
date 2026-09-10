@@ -42,6 +42,16 @@ enum ClientStatus {
   SUSPENSO  /// Inadimplente / Suspenso
 }
 
+// 🆕 Sprint F12 (ADR-114): regime tributário do cliente
+enum TaxRegime {
+  SIMPLES_NACIONAL
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+  MEI
+  DOMESTICAS_CEI
+  OUTROS
+}
+
 enum ServiceType {
   CONTABIL    /// Contábil
   FISCAL      /// Fiscal
@@ -350,6 +360,36 @@ model Client {
   contactPhone          String?
   
     observations          String?               @db.Text
+
+  // 🆕 Sprint F12 — cadastro completo (import S3D, ADR-111..115)
+  tradeName            String?
+  taxRegime            TaxRegime?
+  nire                 String?
+  municipalRegistration     String?
+  municipalRegistrationDate DateTime?
+  stateRegistrations   String[]  @default([])
+  isStateExempt        Boolean   @default(false)
+  otherIdentifiers     String?   @db.Text
+  phone                String?   /// Telefone da EMPRESA (≠ contactPhone)
+  address              String?
+  addressNumber        String?
+  addressComplement    String?
+  addressDistrict      String?
+  addressCity          String?
+  addressState         String?
+  addressZip           String?
+  website              String?
+  s3dNickname          String?   /// Apelido e-contínuo (S3D)
+  companyGroup         String?
+  foundationDate       DateTime? /// Data de abertura da empresa
+  clientSince          DateTime? /// ADR-115: início do relacionamento
+  clientUntil          DateTime? /// ADR-115: fim do relacionamento
+  s3dRegistrationDate  DateTime? /// Cadastro no S3D
+  tags                 String[]  @default([])
+  s3dId                Int?      @unique /// Âncora de reimportação S3D
+
+  contacts         ClientContact[]         // 🆕 ADR-111
+  departmentOwners ClientDepartmentOwner[] // 🆕 ADR-112
 
   // 🆕 Sprint 23: dados contratuais importados (planilha de honorários)
   lastPaymentDate       DateTime?
@@ -2697,3 +2737,96 @@ model CounterpartyAccountRule {
   @@index([companyId, pattern])
   @@map("counterparty_account_rules")
 }
+
+// ==========================================
+// MÓDULO DE ENVIO E RASTREAMENTO DE E-MAILS
+// ==========================================
+
+model EmailEnvio {
+  id              String   @id @default(uuid())
+  
+  // Dados do Cliente (usamos String para não quebrar seu schema atual. 
+  // Se quiser, depois podemos linkar com seu model 'Cliente' existente)
+  clienteId       String?  
+  clienteNome     String
+  clienteCnpj     String
+  clienteEmail    String
+  
+  // Dados do Arquivo
+  nomeArquivo     String
+  caminhoOriginal String   // Onde o arquivo estava na pasta A_Processar
+  caminhoFinal    String?  // Para onde ele foi movido na pasta Enviados
+  
+  // Dados do E-mail
+  assunto         String
+  corpoEmail      String?  @db.Text // Usaremos HTML aqui
+  
+  // Token secreto para o Tracking (Pixel e Link de Download)
+  trackingToken   String   @unique @default(uuid())
+  
+  // Status do Envio
+  status          String   @default("PENDENTE") // PENDENTE, ENVIADO, FALHOU
+  
+  // Rastreamento (O que queremos saber)
+  enviado         Boolean  @default(false)
+  aberto          Boolean  @default(false)
+  baixado         Boolean  @default(false)
+  
+  // Datas e Horários (Para o painel de controle)
+  dataEnvio       DateTime?
+  dataAbertura    DateTime?
+  dataDownload    DateTime?
+  
+  // Auditoria (Quem enviou)
+  usuarioEnvioId  String?
+  
+  criadoEm        DateTime @default(now())
+  atualizadoEm    DateTime @updatedAt
+
+  @@map("email_envios")
+}
+
+// =================================================================
+// 🆕 SPRINT F12 — CONTATOS DO CLIENTE (ADR-111, 1-N)
+// =================================================================
+model ClientContact {
+  id          String   @id @default(uuid())
+  companyId   String
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  name        String
+  role        String?              /// Sócio-Administrador, Financeiro...
+  phone       String?
+  email       String?
+  departments String[] @default([]) /// ["Fiscal", "Contábil"]
+  isPrimary   Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId, clientId])
+  @@map("client_contacts")
+}
+
+// =================================================================
+// 🆕 SPRINT F12 — RESPONSÁVEL INTERNO POR DEPARTAMENTO (ADR-112)
+// =================================================================
+model ClientDepartmentOwner {
+  id          String   @id @default(uuid())
+  companyId   String
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  department  String               /// Fiscal, Pessoal, Legalização, BPO...
+  ownerName   String               /// Nome do responsável interno
+  employeeId  String?              /// Vínculo futuro com Employee
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, clientId, department])
+  @@index([companyId, clientId])
+  @@map("client_department_owners")
+}
+

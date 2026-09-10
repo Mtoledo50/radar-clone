@@ -20,7 +20,8 @@ import {
   ChevronRight, ChevronLeft, DollarSign, Sparkles, Upload, ExternalLink, // 🆕 Adicionado ExternalLink
 } from 'lucide-react';
 import ImportClientsModal from '@/components/clients/ImportClientsModal';
-
+import ImportS3dModal from '@/components/clients/ImportS3dModal'; // 🆕 F12
+import ClientProfileModal from '@/components/clients/ClientProfileModal'; // 🆕 F12.4
 // =================================================================
 // TIPOS E INTERFACES
 // =================================================================
@@ -89,6 +90,7 @@ export default function ClientesPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [currentTab, setCurrentTab] = useState(1);
+  const [showS3dModal, setShowS3dModal] = useState(false); // 🆕 F12
   const [form, setForm] = useState({
     companyName: '',
     cnpj: '',
@@ -395,6 +397,11 @@ export default function ClientesPage() {
         <div className="flex gap-3 flex-wrap">
           <button onClick={() => setShowImportModal(true)} className={btnSecondary}>
             <Upload className="h-5 w-5" /> Importar CSV
+          </button>
+          <button onClick={() => setShowS3dModal(true)}
+            className={btnSecondary}
+            >
+          <Building2 className="h-5 w-5" /> Importar S3D (completo)
           </button>
           <button onClick={exportToPDF} className={btnSecondary}>
             <FileText className="h-5 w-5" /> Exportar
@@ -787,77 +794,17 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* MODAL: VISUALIZAR */}
-      {showViewModal && selectedClient && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                <Eye className="h-6 w-6 text-blue-600" /> {selectedClient.companyName}
-              </h2>
-              <button onClick={() => setShowViewModal(false)} className="text-slate-400 hover:text-slate-600"><X className="h-6 w-6" /></button>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase">CNPJ</label>
-                  <p className="text-slate-900">{selectedClient.cnpj || '-'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase">Contato</label>
-                  <p className="text-slate-900">{selectedClient.contactName || '-'}</p>
-                </div>
-              </div>
-              {selectedClient.accountingPlan && (
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase">Plano de Contas (SCI)</label>
-                  <p className="text-sm font-bold text-blue-700">📒 {selectedClient.accountingPlan}</p>
-                </div>
-              )}
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                  <Crown className="h-4 w-4 text-teal-600" /> Contrato Ativo
-                </h3>
-                {selectedClient.contracts && selectedClient.contracts.length > 0 ? (
-                  <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
-                    <p className="font-bold text-teal-900">
-                      Plano {selectedClient.contracts[0].commercialPlan.name}
-                    </p>
-                    <p className="text-sm text-teal-700 mt-1">
-                      Honorário: R$ {selectedClient.contracts[0].monthlyFee.toFixed(2)} / mês
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-500 italic">Sem plano mensal ativo.</p>
-                )}
-              </div>
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
-                  <Package className="h-4 w-4 text-purple-600" /> Serviços Avulsos Contratados
-                </h3>
-                {selectedClient.services && selectedClient.services.length > 0 ? (
-                  <ul className="space-y-2">
-                    {selectedClient.services.map((s) => (
-                      <li key={s.id} className="flex justify-between items-center p-2 bg-slate-50 rounded">
-                        <span className="text-sm font-medium text-slate-900">{s.serviceItem.name}</span>
-                        <span className="text-xs text-slate-500">{s.serviceItem.recurrence}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-slate-500 italic">Nenhum serviço avulso.</p>
-                )}
-              </div>
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button onClick={() => setShowViewModal(false)} className={btnSecondary}>Fechar</button>
-                <button onClick={() => { setShowViewModal(false); openEditModal(selectedClient); }} className={btnPrimary}>
-                  <Edit2 className="h-4 w-4" /> Editar Contrato
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+  {/* MODAL: VISUALIZAR — 🆕 F12.4 Ficha Completa */}
+  {showViewModal && selectedClient && (
+    <ClientProfileModal
+      client={selectedClient as any}
+      onClose={() => setShowViewModal(false)}
+      onEdit={() => {
+        setShowViewModal(false);
+        openEditModal(selectedClient);
+      }}
+    />
+  )}
 
       {/* MODAL: EXCLUSÃO */}
       {showDeleteModal && selectedClient && (
@@ -884,10 +831,19 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* MODAL: IMPORTAR CSV */}
+      {/* Modal de importação legado (Sprint 23 — honorários/contrato) */}
       {showImportModal && (
         <ImportClientsModal
           onClose={() => setShowImportModal(false)}
+          onImported={() => loadInitialData()}
+        />
+      )}
+
+      {/* 🆕 Sprint F12: importação S3D completa (endereço, contatos, deptos) */}
+      {showS3dModal && (
+        <ImportS3dModal
+          open={showS3dModal}
+          onClose={() => setShowS3dModal(false)}
           onImported={() => loadInitialData()}
         />
       )}
