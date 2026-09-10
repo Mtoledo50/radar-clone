@@ -122,6 +122,13 @@ export class ClientService {
             serviceItem: { include: { category: true } },
           },
         },
+        // 🆕 Sprint F12.4: ficha completa — contatos e time interno vindos do S3D
+        contacts: {
+          orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }],
+        },
+        departmentOwners: {
+          orderBy: { department: 'asc' },
+        },
       },
     });
   }

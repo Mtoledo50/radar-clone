@@ -18,6 +18,9 @@ Sprints autocontidas. ADR-034.2 — entrega all-in-one:
 
 ## 2. Stack atual
 **Backend Radar:** NestJS 10 • Prisma 5 • PostgreSQL • JWT • RBAC `@Roles()` • serviços determinísticos • PDFs no backend (jspdf 2.5.2 + jspdf-autotable 3.8.2 pinados) • notificações plugáveis via fetch nativo (SendGrid/Twilio/Log — ADR-086).
+Extrator Bancário (app irmã): Python FastAPI + pdfplumber/PyMuPDF + Mistral OCR
+(:8000) + frontend Vite (:5174); proxy NestJS→Python no Radar (ADR-103).
+
 
 **Frontend Radar:** Next.js App Router • React 19 • TypeScript • Tailwind • Axios c/ interceptor JWT • Sonner • Lucide • gráficos CSS puro quando possível.
 
@@ -35,6 +38,15 @@ Sprints autocontidas. ADR-034.2 — entrega all-in-one:
 
 ## 3. ADRs principais (Registro Canônico)
 001 Gráficos CSS puro • 002 CSV com UTF-8+BOM • 003 Zustand persist p/ SSR seguro • 004 Multi-tenant single-database por companyId • 020 Herança de planos derivada em memória • 021 Ícones Lucide: tooltip via wrapper `<span title>` • 022 Proibido arquivo de backup dentro de `src/` • 023 Optional chaining (`?.`) em `.map` de opcionais no JSX • 024 Sonner: action/cancel exigem `onClick` • 025 RBAC em 3 camadas • 030 **Regra de Ouro da Aurora:** prepara/classifica/calcula/sugere; obrigação legal nunca é transmitida sem aprovação humana • 031 Cálculo determinístico no backend • 032 Cofres AES-256-GCM p/ credenciais • 034/034.1/034.2 Arquivos estruturais = delta cirúrgico; novos/quebrados = completo • 035 PDFs no backend c/ versões pinadas • 036 NFS-e ABRASF 2.0 c/ adaptadores • 037 Origem do documento em `source` • 038 Memória de cálculo auditável • 039 IMAP como coletor • 043.1 Logo proporcional • 051 Benchmark de cargos • 054 Fórmulas seguras por whitelist • 055 Score 0–100 determinístico • 056 Mentoria derivada do Score • 057 Checklist persistido por tenant • 058 Ranking de níveis multi-tenant • 066 Ciclo Contábil por cliente • 067 Idempotência de imports contábeis • 068 Sugestão em 3 camadas c/ revisão humana obrigatória • 069 Conta bancária da partida detectada pela seção do extrato • 070 Plano sincronizado do balancete • 071 Encoding de CSV detectado • 072 Multi-planos por cliente • 073 Exportação SCI c/ nºs reduzidos e decimal com PONTO • 074 Partida dobrada manual • 077 Radar em produção usa Postgres REAL local (5432) via `host.docker.internal` • 078 `typescript.ignoreBuildErrors=true` apenas no build Docker • 079 Túnel Cloudflare único p/ site + Radar • 080 `migrate resolve --applied` p/ sincronizar migrations • 081 ARG/ENV `NEXT_PUBLIC_*` antes do `next build` • 082 Scroll suave nativo • 083 Limpeza técnica de erros TS • 084 Domínio puro CNAB isolado • 085 Arquitetura híbrida FD-5 • 086 Notificações plugáveis por estratégia • 087 Vínculo Client↔cobrança por auto-match • 088 Monitoramento e backup opt-in • 089 Ajuda contextual em 2 camadas • 090 Catálogo centralizado em TypeScript • 091 Gestão de Usuários e Ciclo Seguro de Senhas • 092 Seed Enterprise Unificado e Idempotente • 093 Drag & Drop nativo HTML5 • 094 Proteção de integridade em projetos • 095 KPIs calculados no backend.
+
+ADR-099 Catálogo permanente por cliente (upsert unifiedCode/descrição; conflitos→revisão).
+ADR-100 Iniciar-Tudo.ps1: kill por porta + healthchecks + log unificado.
+ADR-101 Menu Ecossistema: apps irmãs em nova aba via NEXT_PUBLIC_*_URL.
+ADR-102 CORS do Extrator multi-origem explícito.
+ADR-103 Proxy NestJS→Python (extract-pdf-unified) c/ fallback nativo.
+ADR-104 ClientContact e ClientDepartmentOwner 1-N (fim do contato único).
+ADR-105 Import S3D idempotente (s3dId→CNPJ→nome); deptos por upsert.
+ADR-106 Ficha Completa do cliente somente leitura (modal).
 
 **🆕 ADRs do Extrator Bancário (10/09/2026):**
 - **ADR-107:** Mistral OCR como fallback universal via HTTP direto (sem SDK) para evitar quebras de versão. Normalização de caracteres full-width.
@@ -86,7 +98,16 @@ Operacional/Comercial/Fiscal/Bancário/Contábil/Inteligência/Admin conforme ve
 ✅ **Extrator Bancário v1.0 homologado (10/09):** 3 parsers + Mistral OCR + LGPD + Human-in-the-Loop + CSV contábil + persistência de regras JSON.
 **PRÓXIMO (escolher 1):** F11-b Modo Professor • FD-7 integrações • Sprints 33–34.
 **EM ANDAMENTO:** hardening de produção (Sentry backend, CI/CD, backup).
-
+EM ANDAMENTO
+Sprints F8–F12 ✅ HOMOLOGADAS em 10/09/2026 (catálogo permanente, launcher
+unificado, Ecossistema, proxy Extrator, cadastro completo S3D + ficha).
+Aurora FD-7 (Integrações Domínio/Questor/Sage) • Aurora FD-9 (DP Leve).
+Hardening de Produção (Sentry backend, CI/CD, Backup) — Sprints 33–34.
+PRÓXIMAS FASES (escolher 1)
+F11-b Modo Professor: mapeamento assistido de layouts de extrato desconhecidos
+("onde é data? valor? D/C?") gerando templates determinísticos reutilizáveis.
+NF-e de SAÍDA (vendas) com débito de ICMS e baixa de estoque.
+A4 Fechamento com Ganho (camada comercial) • Portal do Cliente • Testes E2E.
 ---
 
 ## 10. Instrução para a nova IA
