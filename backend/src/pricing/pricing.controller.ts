@@ -18,6 +18,11 @@ export class PricingController {
   constructor(private pricingService: PricingService) {}
 
   @Get()
+    // Endpoint para destravar o carregamento do painel executivo
+  @Get('metrics')
+  async getMetrics() {
+    return { status: 'ok', data: [] };
+  }
   async findAll(@Request() req) {
     const pricings = await this.pricingService.findAll(req.user.companyId);
     return { data: pricings };

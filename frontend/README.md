@@ -448,7 +448,7 @@ Módulo de Turnover (/turnover)
 Módulo de Precificação (/pricings)
 * Responsável por: Modelos de precificação de serviços
 * Features: Cálculo automático, complexidade, margens
-* Endpoints: /pricings, /pricings/metrics
+//* Endpoints: /pricings, /pricings/metrics
 
 Módulo de Planejamento (/plannings)
 * Responsável por: Metas e objetivos estratégicos
