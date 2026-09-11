@@ -9,7 +9,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { EmailModule } from './modules/email/email.module'; 
+//import { EmailModule } from './modules/email/email.module'; 
 
 
 // User Management & Admin (Governança e Multi-Tenant)
@@ -58,12 +58,14 @@ import { ClientPortalModule } from './client-portal/client-portal.module';
 // 🆕 Health Check (ADR-088)
 import { HealthModule } from './health/health.module';
 
+import { ComunicadosModule } from './comunicados/comunicados.module';
+
 @Module({
   imports: [
     // 1. Core (Infraestrutura base)
     PrismaModule,
     // 👇 2. Adicione o EmailModule na lista de imports
-    EmailModule, 
+    //EmailModule, 
     //ReportsModule,
     ScheduleModule.forRoot(), // Deve ser importado apenas uma vez, no nível raiz
 
@@ -114,6 +116,11 @@ import { HealthModule } from './health/health.module';
 
     // 12. Health Check
     HealthModule,
+
+    // 13. Comunicados
+    ComunicadosModule,
+
+
   ],
 })
 export class AppModule {}

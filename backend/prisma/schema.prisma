@@ -223,6 +223,10 @@ model Company {
   cobrancaRegras    CobrancaRegra[]
   cobrancaEventos   CobrancaEvento[]
 
+  emailTemplates  EmailTemplate[]
+  emailEnvios     EmailEnvio[]
+  arquivosFila    ArquivoFila[]
+
   trialBalances  TrialBalance[]   // 🆕 ETAPA 1 - ciclo contábil
   ledgerImports  LedgerImport[]   // 🆕 ETAPA 1 - ciclo contábil
   
@@ -2738,52 +2742,191 @@ model CounterpartyAccountRule {
   @@map("counterparty_account_rules")
 }
 
-// ==========================================
-// MÓDULO DE ENVIO E RASTREAMENTO DE E-MAILS
-// ==========================================
+// =================================================================
+// 🆕 SPRINT F13 — MÓDULO DE ENVIO E RASTREAMENTO DE E-MAILS
+// ADRs: 113 (Watch Folder), 114 (Tracking), 115 (Templates),
+//       117 (Human-in-the-Loop), 118 (Parser CNPJ), 119 (Auditoria)
+// =================================================================
+
+enum StatusEnvio {
+  PENDENTE_APROVACAO
+  AGENDADO
+  ENVIANDO
+  ENVIADO
+  FALHOU
+  CANCELADO
+}
+
+enum TipoEventoEmail {
+  ENVIADO
+  ENTREGUE
+  ABERTO
+  BAIXADO
+  FALHA
+  REENVIO
+  CANCELADO
+}
+
+enum StatusArquivoFila {
+  DETECTADO
+  CLIENTE_IDENTIFICADO
+  SEM_CLIENTE
+  SEM_EMAIL
+  AGUARDANDO_APROVACAO
+  APROVADO
+  REJEITADO
+  ENVIADO
+  ARQUIVADO
+  ERRO
+}
+
+enum TipoDocumentoComunicado {
+  DAS
+  DARF
+  ISS
+  FGTS
+  IRPF
+  BALANCETE
+  DRE
+  INFORME_RENDIMENTO
+  E_SOCIAL
+  SPED
+  GENERICO
+}
+
+model EmailTemplate {
+  id            String                 @id @default(uuid())
+  companyId     String
+  company       Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  nome          String
+  tipoDocumento TipoDocumentoComunicado
+  assunto       String
+  corpoHtml     String                 @db.Text
+  ativo         Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  envios        EmailEnvio[]
+
+  @@unique([companyId, tipoDocumento])
+  @@index([companyId, ativo])
+  @@map("email_templates")
+}
 
 model EmailEnvio {
-  id              String   @id @default(uuid())
+  id                 String             @id @default(uuid())
+  companyId          String
+  company            Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
-  // Dados do Cliente (usamos String para não quebrar seu schema atual. 
-  // Se quiser, depois podemos linkar com seu model 'Cliente' existente)
-  clienteId       String?  
-  clienteNome     String
-  clienteCnpj     String
-  clienteEmail    String
+  // Vínculo com cliente (opcional — envios manuais podem não ter)
+  clienteId          String?
+  clienteNome        String
+  clienteCnpj        String?            @db.VarChar(18)
+  emailDestinatario  String
   
-  // Dados do Arquivo
-  nomeArquivo     String
-  caminhoOriginal String   // Onde o arquivo estava na pasta A_Processar
-  caminhoFinal    String?  // Para onde ele foi movido na pasta Enviados
+  // Conteúdo
+  assunto            String
+  corpoHtml          String             @db.Text
   
-  // Dados do E-mail
-  assunto         String
-  corpoEmail      String?  @db.Text // Usaremos HTML aqui
+  // Template usado (resolução: tipoDocumento → GENERICO → seed)
+  templateId         String?
+  template           EmailTemplate?     @relation(fields: [templateId], references: [id], onDelete: SetNull)
   
-  // Token secreto para o Tracking (Pixel e Link de Download)
-  trackingToken   String   @unique @default(uuid())
+  // Anexos (JSON array: [{nomeOriginal, caminhoRelativo, tamanhoBytes, mime}])
+  anexos             Json               @default("[]")
   
-  // Status do Envio
-  status          String   @default("PENDENTE") // PENDENTE, ENVIADO, FALHOU
+  // Estado
+  status             StatusEnvio        @default(PENDENTE_APROVACAO)
+  setor              String?            // Fiscal | Contábil | Pessoal | Legalização | BPO
   
-  // Rastreamento (O que queremos saber)
-  enviado         Boolean  @default(false)
-  aberto          Boolean  @default(false)
-  baixado         Boolean  @default(false)
+  // Retry
+  tentativas         Int                @default(0)
+  ultimoErro         String?            @db.Text
+  proximoRetryEm     DateTime?
   
-  // Datas e Horários (Para o painel de controle)
-  dataEnvio       DateTime?
-  dataAbertura    DateTime?
-  dataDownload    DateTime?
+  // Segurança do link de download (ADR-114)
+  tokenDownload      String             @unique @default(uuid())
+  linkExpiraEm       DateTime?
   
-  // Auditoria (Quem enviou)
-  usuarioEnvioId  String?
+  // Auditoria (ADR-030 — Human-in-the-Loop)
+  aprovadoPor        String?            // userId
+  aprovadoEm         DateTime?
+  enviadoPor         String?            // userId
+  enviadoEm          DateTime?
   
-  criadoEm        DateTime @default(now())
-  atualizadoEm    DateTime @updatedAt
+  // Primeiros eventos (cache p/ dashboard)
+  primeiraAberturaEm DateTime?
+  primeiroDownloadEm DateTime?
+  
+  // Eventos de tracking (timeline)
+  eventos            EmailEvento[]
+  
+  // Timestamps
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+  @@index([companyId, clienteId])
+  @@index([setor])
+  @@index([tokenDownload])
+  @@index([proximoRetryEm])
   @@map("email_envios")
+}
+
+model EmailEvento {
+  id        String          @id @default(uuid())
+  envioId   String
+  envio     EmailEnvio      @relation(fields: [envioId], references: [id], onDelete: Cascade)
+  tipo      TipoEventoEmail
+  ip        String?
+  userAgent String?         @db.Text
+  metadata  Json?           // {tentativa, erro, emailProvider, messageId, ...}
+  createdAt DateTime        @default(now())
+
+  @@index([envioId, createdAt])
+  @@index([tipo, createdAt])
+  @@map("email_eventos")
+}
+
+model ArquivoFila {
+  id              String              @id @default(uuid())
+  companyId       String
+  company         Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  nomeOriginal    String
+  caminhoAbsoluto String              @unique
+  tamanhoBytes    Int
+  mime            String?
+  
+  // Parser CNPJ (ADR-118)
+  cnpjDetectado   String?             @db.VarChar(18)
+  confianca       Float               @default(0)   // 0..1
+  
+  // Vínculo (pode ser nulo se CNPJ não encontrado)
+  clienteId       String?
+  clienteEmail    String?             // cache p/ exibir na fila
+  
+  // Metadados inferidos do nome do arquivo
+  tipoDocumento   TipoDocumentoComunicado?
+  competencia     String?             // 'YYYY-MM'
+  
+  // Estado da fila
+  status          StatusArquivoFila   @default(DETECTADO)
+  motivoRejeicao  String?             @db.Text
+  erro            String?             @db.Text
+  
+  // Vínculo com envio após aprovação
+  envioId         String?
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+  @@index([clienteId])
+  @@index([cnpjDetectado])
+  @@map("arquivos_fila")
 }
 
 // =================================================================
