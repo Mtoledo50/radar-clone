@@ -1,0 +1,841 @@
+openapi: 3.0.3
+info:
+  title: Radar Conta Certa API — Módulo Comunicados (F13)
+  description: |
+    Envio automatizado de documentos fiscais com rastreamento de
+    entrega, abertura e download (estilo Acessorias, superior).
+
+    Regras de ouro:
+    - ADR-030: nenhuma ação de risco é automática (aprovação humana obrigatória)
+    - ADR-004: multi-tenant por companyId extraído do JWT
+    - ADR-114: tracking de download é determinístico; abertura é best-effort
+  version: 1.0.0
+  contact:
+    name: Marcos Toledo
+    email: dev@contacerta.com.br
+
+servers:
+  - url: http://localhost:3001
+    description: Desenvolvimento local
+  - url: https://radar-api.contacerta.com.br
+    description: Produção (Cloudflare Tunnel)
+
+tags:
+  - name: Watch Folder
+    description: Monitoramento da pasta local (ADR-113)
+  - name: Fila de Arquivos
+    description: Aprovação humana antes do envio (ADR-030/117)
+  - name: Envios
+    description: Envios de email e timeline de tracking
+  - name: Templates
+    description: Templates Handlebars editáveis (ADR-115)
+  - name: Tracking
+    description: Endpoints PÚBLICOS de pixel e download (ADR-114)
+  - name: Configuração
+    description: Configurações do módulo
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ───────────────────────── WATCH FOLDER ─────────────────────────
+  /api/watch-folder/status:
+    get:
+      tags: [Watch Folder]
+      summary: Status do watcher
+      responses:
+        '200':
+          description: Status atual do monitoramento
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WatchFolderStatus' }
+              example:
+                ativo: true
+                pasta: "C:\\Documentos\\Enviar"
+                iniciadoEm: "2026-09-11T08:00:00.000Z"
+                arquivosDetectados: 14
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/watch-folder/iniciar:
+    post:
+      tags: [Watch Folder]
+      summary: Ativa o watcher em runtime
+      responses:
+        '200': { $ref: '#/components/responses/WatchFolderStatusOk' }
+        '409':
+          description: Watcher já está ativo
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/watch-folder/parar:
+    post:
+      tags: [Watch Folder]
+      summary: Desativa o watcher
+      responses:
+        '200': { $ref: '#/components/responses/WatchFolderStatusOk' }
+        '409':
+          description: Watcher já está parado
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/watch-folder/scan:
+    post:
+      tags: [Watch Folder]
+      summary: Varredura manual da pasta (reprocessa arquivos da raiz)
+      responses:
+        '200':
+          description: Resultado da varredura
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  novos: { type: integer, example: 3 }
+                  ignorados: { type: integer, example: 1 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───────────────────────── FILA DE ARQUIVOS ─────────────────────────
+  /api/arquivos-fila:
+    get:
+      tags: [Fila de Arquivos]
+      summary: Lista a fila de arquivos detectados
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/StatusArquivoFila' }
+      responses:
+        '200':
+          description: Fila paginada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/ArquivoFila' }
+                  - $ref: '#/components/schemas/Paginacao'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/arquivos-fila/{id}:
+    get:
+      tags: [Fila de Arquivos]
+      summary: Detalhe do arquivo + preview do email montado
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200':
+          description: Detalhe com preview
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArquivoFilaDetalhe' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/arquivos-fila/{id}/aprovar:
+    post:
+      tags: [Fila de Arquivos]
+      summary: Aprova o envio (Human-in-the-Loop — ADR-030)
+      description: |
+        Cria o EmailEnvio com status AGENDADO. Grava aprovadoPor/aprovadoEm
+        com o usuário autenticado. Sem esta chamada, NADA é enviado.
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AprovarArquivoDto' }
+      responses:
+        '201':
+          description: Envio criado e agendado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailEnvio' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Arquivo já aprovado ou rejeitado
+        '422':
+          description: Cliente sem email cadastrado
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/arquivos-fila/aprovar-lote:
+    post:
+      tags: [Fila de Arquivos]
+      summary: Aprova vários arquivos de uma vez
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: string, format: uuid }
+                  example: ["uuid-1", "uuid-2"]
+      responses:
+        '200':
+          description: Resultado por item (parcial é possível)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  aprovados: { type: integer, example: 2 }
+                  falhas:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        motivo: { type: string, example: "Cliente sem email" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/arquivos-fila/{id}/rejeitar:
+    post:
+      tags: [Fila de Arquivos]
+      summary: Rejeita o arquivo (move para rejeitados/)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, example: "Documento duplicado" }
+      responses:
+        '200': { description: Rejeitado }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/arquivos-fila/{id}/vincular-cliente:
+    post:
+      tags: [Fila de Arquivos]
+      summary: Vínculo manual quando o CNPJ não foi detectado/encontrado
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clienteId]
+              properties:
+                clienteId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Vínculo feito; status volta para AGUARDANDO_APROVACAO
+        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───────────────────────── ENVIOS ─────────────────────────
+  /api/email-envios:
+    get:
+      tags: [Envios]
+      summary: Lista envios com filtros
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/StatusEnvio' }
+        - name: clienteId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: setor
+          in: query
+          schema: { type: string, example: Fiscal }
+        - name: de
+          in: query
+          schema: { type: string, format: date, example: "2026-09-01" }
+        - name: ate
+          in: query
+          schema: { type: string, format: date, example: "2026-09-30" }
+      responses:
+        '200':
+          description: Lista paginada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/EmailEnvio' }
+                  - $ref: '#/components/schemas/Paginacao'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Envios]
+      summary: Envio manual (fora do watch folder)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CriarEnvioManualDto' }
+      responses:
+        '201':
+          description: Envio criado (status AGENDADO)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailEnvio' }
+        '422':
+          description: Cliente sem email cadastrado
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/email-envios/metricas:
+    get:
+      tags: [Envios]
+      summary: Métricas do período (taxas de envio/entrega/abertura/download)
+      parameters:
+        - name: de
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: ate
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Métricas agregadas
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MetricasEnvio' }
+              example:
+                periodo: { de: "2026-09-01", ate: "2026-09-30" }
+                total: 143
+                enviados: 140
+                falharam: 3
+                entregues: 133
+                abertos: 71
+                baixados: 128
+                taxas:
+                  envio: 0.979
+                  entrega: 0.95
+                  abertura: 0.507
+                  download: 0.914
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/email-envios/{id}:
+    get:
+      tags: [Envios]
+      summary: Detalhe do envio
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200':
+          description: Detalhe
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailEnvio' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/email-envios/{id}/eventos:
+    get:
+      tags: [Envios]
+      summary: Timeline de tracking do envio
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200':
+          description: Timeline + resumo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimelineEnvio' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/email-envios/{id}/reenviar:
+    post:
+      tags: [Envios]
+      summary: Reenvio manual (gera evento REENVIO)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200':
+          description: Reenviado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailEnvio' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Envio não está em estado reenviável
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/email-envios/{id}/cancelar:
+    post:
+      tags: [Envios]
+      summary: Cancela envio (bloqueia download do link proxy)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200': { description: Cancelado }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Envio já foi enviado (não pode cancelar)
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───────────────────────── TEMPLATES ─────────────────────────
+  /api/email-templates:
+    get:
+      tags: [Templates]
+      summary: Lista templates do tenant
+      responses:
+        '200':
+          description: Lista
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EmailTemplate' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Templates]
+      summary: Cria template
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailTemplateDto' }
+      responses:
+        '201':
+          description: Criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailTemplate' }
+        '409':
+          description: Já existe template ativo para este tipoDocumento
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/email-templates/{id}:
+    put:
+      tags: [Templates]
+      summary: Atualiza template
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailTemplateDto' }
+      responses:
+        '200':
+          description: Atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailTemplate' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [Templates]
+      summary: Desativa template (soft delete)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200': { description: Desativado }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/email-templates/{id}/preview:
+    post:
+      tags: [Templates]
+      summary: Renderiza preview com dados FICTÍCIOS (nunca dados reais)
+      parameters: [ { $ref: '#/components/parameters/Id' } ]
+      responses:
+        '200':
+          description: HTML renderizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  html: { type: string }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───────────────────────── TRACKING (PÚBLICO) ─────────────────────────
+  /track/open/{envioId}:
+    get:
+      tags: [Tracking]
+      security: []
+      summary: Tracking pixel (registra ABERTO)
+      description: |
+        Endpoint PÚBLICO. Retorna GIF 1x1 transparente com headers
+        anti-cache. Deduplica aberturas do mesmo IP/user-agent em < 1h.
+      parameters:
+        - name: envioId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: GIF 1x1
+          content:
+            image/gif:
+              schema: { type: string, format: binary }
+        '404':
+          description: envioId inexistente (retorna GIF mesmo assim p/ não enumerar)
+
+  /track/download/{envioId}/{token}:
+    get:
+      tags: [Tracking]
+      security: []
+      summary: Link proxy de download (registra BAIXADO — determinístico)
+      description: |
+        Endpoint PÚBLICO. O token UUID é a autenticação.
+        Retorna 404 genérico para token inválido (anti-enumeração)
+        e 410 para link expirado.
+      parameters:
+        - name: envioId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: token
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Arquivo (PDF/ZIP)
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '403':
+          description: Envio cancelado
+        '404':
+          description: Token inválido
+        '410':
+          description: Link expirado
+
+  # ───────────────────────── CONFIGURAÇÃO ─────────────────────────
+  /api/config/comunicados:
+    get:
+      tags: [Configuração]
+      summary: Configurações do módulo (segredos mascarados)
+      responses:
+        '200':
+          description: Configurações
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfigComunicados' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Configuração]
+      summary: Atualiza configurações (somente admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfigComunicadosDto' }
+      responses:
+        '200': { description: Atualizado }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/config/comunicados/testar-email:
+    post:
+      tags: [Configuração]
+      summary: Envia email de teste pelo provider configurado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [para]
+              properties:
+                para: { type: string, format: email, example: "teste@contacerta.com.br" }
+      responses:
+        '200':
+          description: Resultado do teste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, example: true }
+                  provider: { type: string, example: sendgrid }
+                  messageId: { type: string }
+                  erro: { type: string, nullable: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    PerPage:
+      name: perPage
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    Unauthorized:
+      description: Sem token ou token expirado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example: { statusCode: 401, message: "Unauthorized", error: "Unauthorized" }
+    Forbidden:
+      description: Sem permissão (role insuficiente)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example: { statusCode: 403, message: "Forbidden", error: "Forbidden" }
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Erro' }
+          example: { statusCode: 404, message: "Recurso não encontrado", error: "Not Found" }
+    WatchFolderStatusOk:
+      description: Operação realizada
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/WatchFolderStatus' }
+
+  schemas:
+    Erro:
+      type: object
+      properties:
+        statusCode: { type: integer }
+        message: { type: string }
+        error: { type: string }
+        timestamp: { type: string, format: date-time }
+        path: { type: string }
+
+    Paginacao:
+      type: object
+      properties:
+        meta:
+          type: object
+          properties:
+            page: { type: integer, example: 1 }
+            perPage: { type: integer, example: 20 }
+            total: { type: integer, example: 143 }
+            totalPages: { type: integer, example: 8 }
+
+    WatchFolderStatus:
+      type: object
+      properties:
+        ativo: { type: boolean }
+        pasta: { type: string }
+        iniciadoEm: { type: string, format: date-time, nullable: true }
+        arquivosDetectados: { type: integer }
+
+    StatusArquivoFila:
+      type: string
+      enum: [DETECTADO, CLIENTE_IDENTIFICADO, SEM_CLIENTE, SEM_EMAIL,
+             AGUARDANDO_APROVACAO, APROVADO, REJEITADO, ENVIADO, ARQUIVADO, ERRO]
+
+    StatusEnvio:
+      type: string
+      enum: [PENDENTE_APROVACAO, AGENDADO, ENVIANDO, ENVIADO, FALHOU, CANCELADO]
+
+    TipoEventoEmail:
+      type: string
+      enum: [ENVIADO, ENTREGUE, ABERTO, BAIXADO, FALHA, REENVIO, CANCELADO]
+
+    ArquivoFila:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nomeOriginal: { type: string, example: "DAS_12345678000195_JAN2026.pdf" }
+        tamanhoBytes: { type: integer, example: 204800 }
+        cnpjDetectado: { type: string, nullable: true, example: "12.345.678/0001-95" }
+        confianca: { type: number, format: float, example: 1.0 }
+        tipoDocumento: { type: string, nullable: true, example: DAS }
+        competencia: { type: string, nullable: true, example: "2026-01" }
+        cliente:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, format: uuid }
+            nome: { type: string }
+            email: { type: string, nullable: true }
+            setor: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/StatusArquivoFila' }
+        createdAt: { type: string, format: date-time }
+
+    ArquivoFilaDetalhe:
+      allOf:
+        - $ref: '#/components/schemas/ArquivoFila'
+        - type: object
+          properties:
+            previewEmail:
+              type: object
+              properties:
+                assunto: { type: string }
+                corpoHtml: { type: string }
+                anexos:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      nome: { type: string }
+                      tamanhoBytes: { type: integer }
+
+    AprovarArquivoDto:
+      type: object
+      properties:
+        emailDestinatario:
+          type: string
+          format: email
+          description: "Override do destinatário (default: email do cliente)"
+        templateId:
+          type: string
+          format: uuid
+          description: "Template específico (default: resolução por tipoDocumento)"
+        setor:
+          type: string
+          example: Fiscal
+
+    CriarEnvioManualDto:
+      type: object
+      required: [clienteId, assunto]
+      properties:
+        clienteId: { type: string, format: uuid }
+        assunto: { type: string, example: "DAS 01/2026" }
+        corpoHtml: { type: string, description: "Se omitido, usa template resolvido" }
+        templateId: { type: string, format: uuid }
+        setor: { type: string }
+        anexosBase64:
+          type: array
+          items:
+            type: object
+            required: [nome, conteudoBase64]
+            properties:
+              nome: { type: string }
+              conteudoBase64: { type: string }
+              mime: { type: string, example: application/pdf }
+
+    EmailEnvio:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        clienteNome: { type: string }
+        clienteCnpj: { type: string, nullable: true }
+        emailDestinatario: { type: string }
+        assunto: { type: string }
+        setor: { type: string, nullable: true }
+        status: { $ref: '#/components/schemas/StatusEnvio' }
+        tentativas: { type: integer }
+        anexos:
+          type: array
+          items:
+            type: object
+            properties:
+              nomeOriginal: { type: string }
+              tamanhoBytes: { type: integer }
+        aprovadoPor: { type: string, nullable: true }
+        aprovadoEm: { type: string, format: date-time, nullable: true }
+        enviadoEm: { type: string, format: date-time, nullable: true }
+        primeiraAberturaEm: { type: string, format: date-time, nullable: true }
+        primeiroDownloadEm: { type: string, format: date-time, nullable: true }
+        linkExpiraEm: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    EmailEvento:
+      type: object
+      properties:
+        tipo: { $ref: '#/components/schemas/TipoEventoEmail' }
+        em: { type: string, format: date-time }
+        metadata: { type: object, nullable: true }
+
+    TimelineEnvio:
+      type: object
+      properties:
+        envioId: { type: string, format: uuid }
+        timeline:
+          type: array
+          items: { $ref: '#/components/schemas/EmailEvento' }
+        resumo:
+          type: object
+          properties:
+            enviado: { type: boolean }
+            entregue: { type: boolean }
+            aberto: { type: boolean }
+            baixado: { type: boolean }
+            primeiraAberturaEm: { type: string, format: date-time, nullable: true }
+            primeiroDownloadEm: { type: string, format: date-time, nullable: true }
+
+    MetricasEnvio:
+      type: object
+      properties:
+        periodo:
+          type: object
+          properties:
+            de: { type: string, format: date }
+            ate: { type: string, format: date }
+        total: { type: integer }
+        enviados: { type: integer }
+        falharam: { type: integer }
+        entregues: { type: integer }
+        abertos: { type: integer }
+        baixados: { type: integer }
+        taxas:
+          type: object
+          properties:
+            envio: { type: number, format: float }
+            entrega: { type: number, format: float }
+            abertura: { type: number, format: float }
+            download: { type: number, format: float }
+
+    EmailTemplate:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nome: { type: string }
+        tipoDocumento: { type: string, example: DAS }
+        assunto: { type: string }
+        corpoHtml: { type: string }
+        ativo: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    EmailTemplateDto:
+      type: object
+      required: [nome, tipoDocumento, assunto, corpoHtml]
+      properties:
+        nome: { type: string, example: "Template DAS padrão" }
+        tipoDocumento:
+          type: string
+          enum: [DAS, DARF, ISS, FGTS, IRPF, BALANCETE, GENERICO]
+        assunto: { type: string, example: "{{documento.tipo}} {{documento.competencia}} — {{cliente.nome}}" }
+        corpoHtml: { type: string }
+
+    ConfigComunicados:
+      type: object
+      properties:
+        watchFolder:
+          type: object
+          properties:
+            enabled: { type: boolean }
+            path: { type: string }
+        provider: { type: string, enum: [log, smtp, sendgrid] }
+        docLinkTtlDays: { type: integer, example: 7 }
+        maxRetry: { type: integer, example: 3 }
+        anexoMaxMb: { type: integer, example: 10 }
+        publicBaseUrl: { type: string }
+
+    ConfigComunicadosDto:
+      type: object
+      properties:
+        watchFolderEnabled: { type: boolean }
+        watchFolderPath: { type: string }
+        provider: { type: string, enum: [log, smtp, sendgrid] }
+        docLinkTtlDays: { type: integer, minimum: 1, maximum: 90 }
+        maxRetry: { type: integer, minimum: 0, maximum: 10 }
+        anexoMaxMb: { type: integer, minimum: 1, maximum: 25 }
