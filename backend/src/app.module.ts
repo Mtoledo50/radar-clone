@@ -1,129 +1,120 @@
 // =================================================================
 // INÍCIO: backend/src/app.module.ts
+// Módulo raiz da aplicação. Organiza e registra todos os módulos e controllers.
 // =================================================================
+
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
-//import { ReportsModule } from './reports/reports.module';
 
-// Core
+// 1. Infraestrutura e Core
 import { PrismaModule } from './prisma/prisma.module';
+import { HealthModule } from './health/health.module';
+
+// 2. Autenticação e Governança
 import { AuthModule } from './auth/auth.module';
-import { DashboardModule } from './dashboard/dashboard.module';
-//import { EmailModule } from './modules/email/email.module'; 
-
-
-// User Management & Admin (Governança e Multi-Tenant)
 import { UsersModule } from './users/users.module';
 import { CompanyModule } from './company/company.module';
 import { AdminModule } from './admin/admin.module';
 
-// People & HR
+// 3. Gestão de Pessoas e Clientes
 import { EmployeeModule } from './employee/employee.module';
 import { TurnoverModule } from './turnover/turnover.module';
-
-// Clients & Commercial
 import { ClientModule } from './client/client.module';
 import { ClientImportModule } from './client/client-import.module';
+import { ClientPortalModule } from './client-portal/client-portal.module';
+
+// 4. Comercial, Propostas e Pricing
 import { CommercialPlansModule } from './commercial-plans/commercial-plans.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PricingCalculatorModule } from './pricing-calculator/pricing-calculator.module';
 import { ProposalsModule } from './proposals/proposals.module';
 
-// Accounting & BI
+// 5. Operações Contábeis, Fiscais e Bancárias
 import { AccountingModule } from './accounting/accounting.module';
-import { BiModule } from './bi/bi.module';
+import { FiscalModule } from './fiscal/fiscal.module';
+import { BankingModule } from './banking/banking.module';
+import { TaxModule } from './tax/tax.module'; // FD-4
 
-// Strategic Planning
+// 6. BI e Planejamento Estratégico
+import { BiModule } from './bi/bi.module';
 import { PlanningModule } from './planning/planning.module';
 
-// Operational Management
+// 7. Gestão Operacional (Tarefas e Projetos)
 import { TasksModule } from './tasks/tasks.module';
 import { ProjectsModule } from './projects/projects.module';
 
-// Operational Fiscal & Banking
-import { FiscalModule } from './fiscal/fiscal.module';
-import { BankingModule } from './banking/banking.module';
-
-// 🆕 Digital Employee (FD-1) — Aurora
+// 8. Funcionário Digital (Aurora) e Jurídico
 import { DigitalEmployeeModule } from './digital-employee/digital-employee.module';
-import { TaxModule } from './tax/tax.module'; // 🆕 FD-4
-
-// 🆕 Aurora FD-5 + FD-8 (batch atual)
 import { LegalModule } from './legal/legal.module';
 import { BillingModule } from './billing/billing.module';
 
-// 🆕 Portal do Cliente (ADR-096)
-import { ClientPortalModule } from './client-portal/client-portal.module';
-
-// 🆕 Health Check (ADR-088)
-import { HealthModule } from './health/health.module';
-
+// 9. Comunicação
 import { ComunicadosModule } from './comunicados/comunicados.module';
+
+// 10. 🆕 Novos Recursos (F13 - Tracking)
+import { TrackingController } from './tracking/tracking.controller';
 
 @Module({
   imports: [
-    // 1. Core (Infraestrutura base)
+    // --- Infraestrutura ---
     PrismaModule,
-    // 👇 2. Adicione o EmailModule na lista de imports
-    //EmailModule, 
-    //ReportsModule,
-    ScheduleModule.forRoot(), // Deve ser importado apenas uma vez, no nível raiz
+    ScheduleModule.forRoot(), // Agendador de tarefas (deve ser importado apenas uma vez na raiz)
+    HealthModule,             // Health Check (ADR-088)
 
-    // 2. Autenticação e Dashboard
+    // --- Autenticação e Governança ---
     AuthModule,
-    DashboardModule,
-
-    // 3. Governança, Multi-Tenant e Usuários
     UsersModule,
     CompanyModule,
     AdminModule,
 
-    // 4. Pessoas e RH
+    // --- Pessoas e Clientes ---
     EmployeeModule,
     TurnoverModule,
-
-    // 5. Clientes e Comercial
     ClientModule,
     ClientImportModule,
+    ClientPortalModule,
+
+    // --- Comercial e Pricing ---
     CommercialPlansModule,
     PricingModule,
     PricingCalculatorModule,
     ProposalsModule,
 
-    // 6. Contábil e BI
+    // --- Contábil, Fiscal e Bancário ---
     AccountingModule,
-    BiModule,
+    FiscalModule,
+    BankingModule,
+    TaxModule,
 
-    // 7. Planejamento Estratégico
+    // --- BI e Planejamento ---
+    BiModule,
     PlanningModule,
 
-    // 8. Gestão Operacional
+    // --- Operacional ---
     TasksModule,
     ProjectsModule,
 
-    // 9. Fiscal e Bancário
-    FiscalModule,
-    BankingModule,
-
-    // 10. Funcionário Digital (Aurora) e Obrigações
+    // --- Aurora e Jurídico ---
     DigitalEmployeeModule,
-    TaxModule,
     LegalModule,
     BillingModule,
 
-    // 11. Portal do Cliente
-    ClientPortalModule,
-
-    // 12. Health Check
-    HealthModule,
-
-    // 13. Comunicados
+    // --- Comunicação ---
     ComunicadosModule,
 
-
+    // Nota: Módulos como ReportsModule ou EmailModule podem ser descomentados e adicionados aqui quando forem utilizados.
   ],
+  
+  controllers: [
+    // 🆕 F13: Controller de Webhooks de Tracking
+    // IMPORTANTE: Controllers devem ficar SEMPRE neste array, NUNCA no array de 'imports'
+    TrackingController,
+  ],
+  
+  // providers: [], // Adicionar providers globais aqui se necessário no futuro
 })
 export class AppModule {}
+
 // =================================================================
 // FIM: backend/src/app.module.ts
 // =================================================================

@@ -2973,3 +2973,54 @@ model ClientDepartmentOwner {
   @@map("client_department_owners")
 }
 
+// ==========================================
+// F13 - TRACKING DE COMUNICAÇÕES
+// ==========================================
+model ComunicacaoEnvio {
+  id            String   @id @default(cuid())
+  protocolo     String   @unique // Liga com o $protocolo do bot
+  canal         String   // "whatsapp", "instagram", "facebook", "email"
+  contatoId     String?  // ID do contato no Radar (se existir)
+  conteudo      String   @db.Text
+  status        String   @default("enviado") // enviado, visualizado, respondido, concluido
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  eventos       ComunicacaoEvento[]
+}
+
+model ComunicacaoEvento {
+  id            String   @id @default(cuid())
+  envioId       String
+  tipo          String   // "enviado", "visualizado", "respondido", "concluido"
+  detalhes      String?  @db.Text
+  registradoEm  DateTime @default(now())
+
+  envio         ComunicacaoEnvio @relation(fields: [envioId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// F14 - MEMÓRIA PERMANENTE DO CLIENTE
+// ==========================================
+model MemoriaContato {
+  id            String   @id @default(cuid())
+  contatoId     String   @unique // ID do contato (unifica WhatsApp/Insta/Face)
+  documento     String?  @unique // CPF/CNPJ para unificação
+  ultimoAssunto String?
+  preferencias  Json?    // { canal: "whatsapp", horario: "manha" }
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  interacoes    MemoriaInteracao[]
+}
+
+model MemoriaInteracao {
+  id            String   @id @default(cuid())
+  contatoId     String
+  tipo          String   // "mensagem", "evento_tracking", "classificacao"
+  conteudo      String   @db.Text
+  metadata      Json?    // Dados extras (intenção, score, etc)
+  criadoEm      DateTime @default(now())
+
+  contato       MemoriaContato @relation(fields: [contatoId], references: [id], onDelete: Cascade)
+}
