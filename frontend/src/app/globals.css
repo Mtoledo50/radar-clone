@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -12,15 +13,37 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* ── FIX SPRINT F13 ─────────────────────────────────────────────
+   A UI do Radar é 100% light por design. O dark mode automático
+   via prefers-color-scheme deixava o texto dos inputs do modal
+   quase invisível (#ededed sobre fundo branco) em Windows dark.
+   Dark mode de verdade (com toggle) será implementado depois
+   via classe .dark — nunca via media query.
+   ─────────────────────────────────────────────────────────────── */
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Legibilidade garantida nos campos de formulário */
+input,
+select,
+textarea {
+  color: #0f172a;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  color: #475569 !important;
+  -webkit-text-fill-color: #475569 !important;
+  opacity: 1 !important;
+  background-color: #f8fafc !important;
 }
