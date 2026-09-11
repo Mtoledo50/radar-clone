@@ -10,9 +10,12 @@ import { ClientService } from './client.service';
 import { ClientController } from './client.controller';
 import { S3dImportService } from './s3d-import.service';
 import { S3dImportController } from './s3d-import.controller';
+import { ClientProfileService } from './client-profile.service';
+import { ClientProfileController } from './client-profile.controller';
 @Module({
-  controllers: [ClientController, S3dImportController],
-  providers: [ClientService, S3dImportService],
+// providers: + ClientProfileService,
+  controllers: [ClientController, S3dImportController, ClientProfileController],
+  providers: [ClientService, S3dImportService, ClientProfileService],
   exports: [ClientService],
 })
 export class ClientModule {}
