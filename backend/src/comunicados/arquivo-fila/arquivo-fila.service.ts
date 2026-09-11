@@ -9,6 +9,9 @@
 //   SEM_CLIENTE           → CNPJ ok, cliente não    → pasta pendentes/
 //   SEM_EMAIL             → cliente ok, sem email   → pasta pendentes/
 //   AGUARDANDO_APROVACAO  → tudo ok, humano aprova  → pasta pendentes/
+//
+// Integração com Bloco 3: o método aprovar() delega para EmailEnvioService
+// que orquestra o pipeline completo de envio (ADR-030, ADR-114, ADR-119).
 // ============================================================================
 import {
   Injectable,
@@ -22,6 +25,7 @@ import { MetadadosArquivoService } from '../cnpj-parser/metadados-arquivo.servic
 import { FileMoverService } from '../file-mover/file-mover.service';
 import { AprovarArquivoDto } from './dto/aprovar-arquivo.dto';
 import { VincularClienteDto } from './dto/vincular-cliente.dto';
+import { EmailEnvioService } from '../email-envio/email-envio.service';
 
 // Nota: import de 'fs/promises' removido — não era utilizado neste service
 // (quem move arquivos é o FileMoverService).
@@ -40,6 +44,7 @@ export class ArquivoFilaService {
     private readonly prisma: PrismaService,
     private readonly metadados: MetadadosArquivoService,
     private readonly fileMover: FileMoverService,
+    private readonly emailEnvio: EmailEnvioService,
   ) {}
 
   // --------------------------------------------------------------------------
@@ -347,27 +352,38 @@ export class ArquivoFilaService {
   // --------------------------------------------------------------------------
   /**
    * Aprova o envio. Regra de Ouro ADR-030: NADA é enviado sem esta chamada.
-   * Grava aprovadoPor/aprovadoEm (auditoria) e marca APROVADO.
-   * TODO(Bloco 3): criar o EmailEnvio de fato + disparar provider.
+   * Delega o pipeline completo para o EmailEnvioService:
+   *   1. Cria EmailEnvio (AGENDADO)
+   *   2. Renderiza template Handlebars
+   *   3. Injeta pixel de tracking
+   *   4. Gera token de download + expiração
+   *   5. Move arquivo para enviados/YYYY-MM/
+   *   6. Envia via provider (LOG/SMTP/SendGrid)
+   *   7. Grava evento ENVIADO ou FALHA
+   *
+   * ⚠️ Este método requer o Bloco 3 implementado (EmailEnvioService).
+   * Enquanto o Bloco 3 não é implementado, use a versão placeholder abaixo.
    */
   async aprovar(id: string, dto: AprovarArquivoDto, usuarioId: string) {
+    // ── Validação prévia: só pode aprovar quem está AGUARDANDO_APROVACAO ──
     const fila = await this.prisma.arquivoFila.findUnique({ where: { id } });
     if (!fila) throw new NotFoundException('Arquivo não encontrado');
 
-    // Só pode aprovar quem está aguardando aprovação
     if (fila.status !== StatusArquivoFila.AGUARDANDO_APROVACAO) {
       throw new ConflictException(
         `Arquivo não está apto para aprovação (status: ${fila.status})`,
       );
     }
 
-    // TODO(Bloco 3): criar EmailEnvio + agendar disparo pelo provider
-    await this.prisma.arquivoFila.update({
-      where: { id },
-      data: { status: StatusArquivoFila.APROVADO },
-    });
+    // ── BLOCO 3 ATIVO: delega para EmailEnvioService ───────────────────────
+    return this.emailEnvio.processarAprovacao(id, dto, usuarioId);
 
-    return { ok: true, message: 'Aprovado (EmailEnvio será criado no Bloco 3)' };
+    // ── TEMP (mantenha comentado enquanto Bloco 3 não é implementado) ──────
+    // await this.prisma.arquivoFila.update({
+    //   where: { id },
+    //   data: { status: StatusArquivoFila.APROVADO },
+    // });
+    // return { ok: true, message: 'Aprovado (EmailEnvio será criado no Bloco 3)' };
   }
 
   /**
