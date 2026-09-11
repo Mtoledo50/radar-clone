@@ -53,7 +53,8 @@ import { ComunicadosModule } from './comunicados/comunicados.module';
 
 // 10. 🆕 Novos Recursos (F13 - Tracking)
 import { TrackingController } from './tracking/tracking.controller';
-
+// F14 (Backend da Memória)
+import { MemoriaController } from './memoria/memoria.controller';
 @Module({
   imports: [
     // --- Infraestrutura ---
@@ -109,6 +110,7 @@ import { TrackingController } from './tracking/tracking.controller';
     // 🆕 F13: Controller de Webhooks de Tracking
     // IMPORTANTE: Controllers devem ficar SEMPRE neste array, NUNCA no array de 'imports'
     TrackingController,
+    MemoriaController, // 👈 adicione esta linha
   ],
   
   // providers: [], // Adicionar providers globais aqui se necessário no futuro
