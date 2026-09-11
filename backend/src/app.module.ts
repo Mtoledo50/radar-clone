@@ -9,6 +9,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { EmailModule } from './modules/email/email.module'; 
+
 
 // User Management & Admin (Governança e Multi-Tenant)
 import { UsersModule } from './users/users.module';
@@ -60,6 +62,8 @@ import { HealthModule } from './health/health.module';
   imports: [
     // 1. Core (Infraestrutura base)
     PrismaModule,
+    // 👇 2. Adicione o EmailModule na lista de imports
+    EmailModule, 
     //ReportsModule,
     ScheduleModule.forRoot(), // Deve ser importado apenas uma vez, no nível raiz
 

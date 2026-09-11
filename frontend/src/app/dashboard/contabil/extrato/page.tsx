@@ -139,7 +139,7 @@ export default function ExtratoContabilPage() {
     const totalDebit = entries.reduce((s, e) => s + Number(e.debitValue), 0);
     const totalCredit = entries.reduce((s, e) => s + Number(e.creditValue), 0);
     const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFontSize(10); doc.setFont(undefined, 'bold');
+    doc.setFontSize(10); doc.setFont('helvetica', 'bold');
     doc.text(`Total Débito: R$ ${totalDebit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 14, finalY);
     doc.text(`Total Crédito: R$ ${totalCredit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 100, finalY);
     doc.text(`Saldo: R$ ${(totalCredit - totalDebit).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 160, finalY);

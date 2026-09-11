@@ -799,7 +799,7 @@ export default function ClientesPage() {
     <ClientProfileModal
       client={selectedClient as any}
       onClose={() => setShowViewModal(false)}
-      onEdit={() => {
+      onEditContract={() => {
         setShowViewModal(false);
         openEditModal(selectedClient);
       }}
