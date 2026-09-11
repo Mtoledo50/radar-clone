@@ -8,15 +8,21 @@ export class CnpjParserService {
    * Retorna array vazio se nenhum for detectado.
    * ADR-118: aceita com ou sem pontuação.
    */
-  extrairTodos(nomeArquivo: string): string[] {
-    if (!nomeArquivo) return [];
-    const regex = /\b(\d{2}[.\-\/]?\d{3}[.\-\/]?\d{3}[.\-\/]?\d{4}[.\-\/]?\d{2})\b/g;
-    const matches = nomeArquivo.matchAll(regex);
-    return Array.from(matches)
-      .map((m) => m[1].replace(/\D/g, ''))
-      .filter((c) => this.validarChecksum(c));
-  }
-
+/**
+ * Extrai TODOS os candidatos de CNPJ do nome do arquivo (com/sem pontuação).
+ * Usa lookahead/lookbehind para aceitar _ como delimitador (word boundary do JS
+ * não funciona com underscore pois _ é \w).
+ * ADR-118: aceita com ou sem pontuação.
+ */
+extrairTodos(nomeArquivo: string): string[] {
+  if (!nomeArquivo) return [];
+  // (?<!\d) = não há dígito antes | (?!\d) = não há dígito depois
+  const regex = /(?<!\d)(\d{2}[.\-\/]?\d{3}[.\-\/]?\d{3}[.\-\/]?\d{4}[.\-\/]?\d{2})(?!\d)/g;
+  const matches = nomeArquivo.matchAll(regex);
+  return Array.from(matches)
+    .map((m) => m[1].replace(/\D/g, ''))
+    .filter((c) => this.validarChecksum(c));
+}
   /**
    * Retorna o PRIMEIRO CNPJ válido (apenas dígitos) ou null.
    */
