@@ -13,6 +13,7 @@ import { LogEmailProvider } from './email-provider/log-email.provider';
 import { SmtpEmailProvider } from './email-provider/smtp-email.provider';
 import { EmailTemplateService } from './email-template/email-template.service';
 import { EmailEnvioService } from './email-envio/email-envio.service';
+import { EmailRetryService } from './email-envio/email-retry.service';
 
 // ── Controllers ──
 import { WatchFolderController } from './watch-folder/watch-folder.controller';
@@ -27,6 +28,7 @@ import { EmailTemplateController } from './email-template/email-template.control
     ArquivoFilaController,
     EmailEnvioController,
     EmailTemplateController, // 🆕 F16-A
+    
 
   ],
   providers: [
@@ -41,6 +43,8 @@ import { EmailTemplateController } from './email-template/email-template.control
     SmtpEmailProvider,
     EmailTemplateService,
     EmailEnvioService,
+    EmailRetryService, // 🆕 F17-A
+
   ],
   exports: [
     CnpjParserService,

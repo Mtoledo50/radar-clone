@@ -1,16 +1,22 @@
 // ============================================================================
-// SPRINT F13 — EmailEnvioController
+// SPRINT F13 + F17-A — EmailEnvioController
 //
-// Endpoints para listar, detalhar e consultar timeline de envios.
-// Os endpoints de criação via aprovação estão no ArquivoFilaController.
+// Endpoints:
+//   GET  /api/email-envios                 lista com filtros + paginação
+//   GET  /api/email-envios/:id             detalhe com timeline completa
+//   POST /api/email-envios/:id/reenviar    🆕 F17-A: reenvio manual
 // ============================================================================
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StatusEnvio } from '@prisma/client';
+import { EmailRetryService } from './email-retry.service';
 
 @Controller('api/email-envios')
 export class EmailEnvioController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly retryService: EmailRetryService, // 🆕 F17-A
+  ) {}
 
   /**
    * Lista envios com filtros e paginação.
@@ -65,5 +71,14 @@ export class EmailEnvioController {
         eventos: { orderBy: { createdAt: 'asc' } },
       },
     });
+  }
+
+  /**
+   * 🆕 F17-A — Reenvio manual imediato (ignora backoff e limite de retries).
+   * Usado pelo botão "Reenviar" na tela de envios quando um email falhou.
+   */
+  @Post(':id/reenviar')
+  async reenviar(@Param('id') id: string) {
+    return this.retryService.reenviarManual(id);
   }
 }
