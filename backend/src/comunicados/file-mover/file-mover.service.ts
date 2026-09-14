@@ -6,7 +6,7 @@ import * as path from 'path';
 
 export interface MoverOptions {
   subpasta?: string; // ex: '2026-09' ou 'erros' ou 'rejeitados'
-  sufixo?: string;   // para evitar colisão
+  sufixo?: string;   // para evitar colisao
 }
 
 @Injectable()
@@ -15,40 +15,61 @@ export class FileMoverService {
   private readonly pastaBase: string;
 
   constructor(private readonly config: ConfigService) {
-    this.pastaBase = this.config.get<string>('WATCH_FOLDER_PATH')
-      ?? path.join(process.cwd(), 'data', 'enviar');
+    this.pastaBase =
+      this.config.get<string>('WATCH_FOLDER_PATH') ??
+      path.join(process.cwd(), 'data', 'enviar');
   }
-/**
- * F15 — Localiza o caminho REAL do arquivo.
- * O caminhoAbsoluto gravado no banco pode ficar desatualizado (o arquivo
- * já foi movido para pendentes/, erros/, etc.). Este método verifica os
- * candidatos em ordem e retorna o primeiro que existe no disco.
- */
-async resolverCaminhoAtual(
-  caminhoAbsoluto: string,
-  nomeOriginal: string,
-): Promise<string> {
-  const base =
-    this.config.get<string>('WATCH_FOLDER_PATH') ?? 'C:\\Documentos\\Enviar';
 
-  const candidatos = [
-    caminhoAbsoluto,
-    require('path').join(base, 'pendentes', nomeOriginal),
-    require('path').join(base, 'erros', nomeOriginal),
-    require('path').join(base, 'rejeitados', nomeOriginal),
-    require('path').join(base, nomeOriginal),
-  ];
+  /**
+   * F15 — Localiza o caminho REAL do arquivo.
+   * O caminhoAbsoluto gravado no banco pode ficar desatualizado (o arquivo
+   * ja foi movido para pendentes/, enviados/YYYY-MM/, etc.).
+   *
+   * FIX F15-5: agora tambem varre enviados/<YYYY-MM>/ — sem isso, o link de
+   * download de um arquivo JA APROVADO retornava 404.
+   */
+  async resolverCaminhoAtual(
+    caminhoAbsoluto: string,
+    nomeOriginal: string,
+  ): Promise<string> {
+    const base = this.pastaBase;
 
-  for (const candidato of candidatos) {
-    try {
-      await fs.access(candidato);
-      return candidato; // achou!
-    } catch {
-      // não existe aqui — tenta o próximo
+    // 1) Candidatos fixos (ordem do ciclo de vida)
+    const candidatos = [
+      caminhoAbsoluto,
+      path.join(base, 'pendentes', nomeOriginal),
+      path.join(base, 'erros', nomeOriginal),
+      path.join(base, 'rejeitados', nomeOriginal),
+      path.join(base, nomeOriginal),
+    ];
+    for (const candidato of candidatos) {
+      try {
+        await fs.access(candidato);
+        return candidato; // achou!
+      } catch {
+        // nao existe aqui — tenta o proximo
+      }
     }
+
+    // 2) FIX F15-5: varre enviados/<YYYY-MM>/ (arquivo ja aprovado)
+    try {
+      const meses = await fs.readdir(path.join(base, 'enviados'));
+      for (const mes of meses) {
+        const candidato = path.join(base, 'enviados', mes, nomeOriginal);
+        try {
+          await fs.access(candidato);
+          return candidato; // achou em enviados/2026-09/ etc.
+        } catch {
+          // tenta o proximo mes
+        }
+      }
+    } catch {
+      // pasta enviados/ nao existe ainda — segue em frente
+    }
+
+    return caminhoAbsoluto; // nao achou em lugar nenhum — erro tratado depois
   }
-  return caminhoAbsoluto; // não achou em lugar nenhum — erro será tratado depois
-}
+
   /**
    * Garante que a estrutura de pastas existe:
    *   {pastaBase}/
@@ -67,7 +88,7 @@ async resolverCaminhoAtual(
 
   /**
    * Move um arquivo da raiz para uma subpasta (ADR-119).
-   * Se já existir arquivo com mesmo nome, adiciona sufixo numérico.
+   * Se ja existir arquivo com mesmo nome, adiciona sufixo numerico.
    * @returns Caminho absoluto do arquivo movido
    */
   async mover(caminhoOrigem: string, options: MoverOptions = {}): Promise<string> {
@@ -97,13 +118,15 @@ async resolverCaminhoAtual(
     }
   }
 
-  /**
-   * Move para enviados/YYYY-MM/ (padrão de auditoria ADR-119)
-   */
-  async moverParaEnviados(caminhoOrigem: string, competencia: string | null): Promise<string> {
-    const ym = competencia && /^\d{4}-\d{2}$/.test(competencia)
-      ? competencia
-      : this.ymAtual();
+  /** Move para enviados/YYYY-MM/ (padrao de auditoria ADR-119) */
+  async moverParaEnviados(
+    caminhoOrigem: string,
+    competencia: string | null,
+  ): Promise<string> {
+    const ym =
+      competencia && /^\d{4}-\d{2}$/.test(competencia)
+        ? competencia
+        : this.ymAtual();
     return this.mover(caminhoOrigem, { subpasta: path.join('enviados', ym) });
   }
 
@@ -122,8 +145,6 @@ async resolverCaminhoAtual(
   private nomeUnico(name: string, ext: string, dir: string): string {
     let candidato = `${name}${ext}`;
     let counter = 1;
-    // Verificação síncrona simples — para nomes de arquivo únicos em pasta local
-    // o risco de colisão durante o fs.existsSync é desprezível
     while (fsSyncExists(path.join(dir, candidato))) {
       candidato = `${name}_${counter}${ext}`;
       counter++;

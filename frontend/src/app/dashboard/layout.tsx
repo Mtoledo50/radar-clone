@@ -1,12 +1,11 @@
 'use client';
-
 // =================================================================
 // INÍCIO: IMPORTS E DIRETIVAS
 // =================================================================
 import CommandPalette from '@/components/CommandPalette';
 import NotificationCenter from '@/components/NotificationCenter';
 import ForcePasswordChange from '@/components/ForcePasswordChange';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react'; // 🆕 F15: useEffect p/ badge
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 import { useTrackNavigation } from '@/store/uiStore';
@@ -46,6 +45,7 @@ import {
   ScanLine,      // 🆕 Sprint F10: Extrator Bancário
   Globe,         // 🆕 Sprint F10: Site Conta Certa
   ExternalLink,  // 🆕 Sprint F10: badge "abre em nova aba"
+  Mail,          // 🆕 F15: ícone da seção Comunicados
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
@@ -53,16 +53,14 @@ import {
 
 // =================================================================
 // 🆕 Sprint F10: URLs DAS APPS EXTERNAS (Ecossistema)
-// -----------------------------------------------------------------
-// As aplicações irmãs rodam em processos separados (Iniciar-Tudo.ps1):
-//   Extrator Bancário → FastAPI 8000 + Vite 5174
-//   Site Conta Certa  → Express 4000 + Vite 5173
-// Configuráveis via frontend/.env.local (fallback = dev local).
 // =================================================================
 const EXTRATOR_URL =
   process.env.NEXT_PUBLIC_EXTRATOR_URL || 'http://localhost:5174';
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:5173';
+
+// 🆕 F15: URL base do backend NestJS (usada pelo badge de pendentes)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 // =================================================================
 // FIM: URLs DAS APPS EXTERNAS
 // =================================================================
@@ -77,7 +75,6 @@ interface MenuItem {
   icon?: any;
   adminOnly?: boolean;
   section?: string;
-  // 🆕 Sprint F10: link externo (abre em nova aba, não passa pelo router)
   external?: boolean;
   children?: {
     id: string;
@@ -86,17 +83,17 @@ interface MenuItem {
   }[];
 }
 
-// Sprint 25: configuração das seções visuais (ordem de renderização)
-// 🛡️ Sprint F10: removida a entrada malformed { id: 'extrato-pdf', title, href }
-//    que não possuía `label` e nunca renderizava (lixo estrutural).
+// Configuração das seções visuais (ordem de renderização)
+// 🆕 F15: seção 'comunicados' inserida após 'operacional'
 const SECTIONS = [
   { id: 'operacional', label: 'Operacional' },
+  { id: 'comunicados', label: 'Comunicações' }, // 🆕 F15
   { id: 'comercial', label: 'Comercial' },
   { id: 'fiscal', label: 'Fiscal' },
   { id: 'bancario', label: 'Bancário' },
   { id: 'contabil', label: 'Contábil' },
   { id: 'inteligencia', label: 'Inteligência' },
-  { id: 'ecossistema', label: 'Ecossistema' }, // 🆕 Sprint F10
+  { id: 'ecossistema', label: 'Ecossistema' },
   { id: 'sistema', label: 'Sistema' },
 ] as const;
 // =================================================================
@@ -104,7 +101,7 @@ const SECTIONS = [
 // =================================================================
 
 // =================================================================
-// CONFIGURAÇÃO DOS ITENS DO MENU (Reorganizado para Fluxo Linear)
+// CONFIGURAÇÃO DOS ITENS DO MENU
 // =================================================================
 const allMenuItems: MenuItem[] = [
   // ─────────────────────────────────────────────────────────
@@ -161,6 +158,24 @@ const allMenuItems: MenuItem[] = [
       { id: 'tarefas', title: 'Tarefas', href: '/dashboard/tarefas' },
     ],
   },
+
+  // ─────────────────────────────────────────────────────────
+  // 📬 COMUNICADOS (🆕 F15 — Sprint F13/F15: watch folder + emails)
+  // ─────────────────────────────────────────────────────────
+  {
+    id: 'comunicados',
+    title: 'Central de Envios',
+    href: '/dashboard/comunicados',
+    icon: Mail,
+    section: 'comunicados',
+    children: [
+      { id: 'comunicados-hub', title: 'Central de Comunicados', href: '/dashboard/comunicados' },
+      { id: 'comunicados-fila', title: 'Fila de Aprovação', href: '/dashboard/comunicados/fila' },
+      { id: 'comunicados-envios', title: 'Histórico de Envios', href: '/dashboard/comunicados/envios' },
+      { id: 'comunicados-templates', title: 'Templates de Email', href: '/dashboard/comunicados/templates' },
+    ],
+  },
+
   // ─────────────────────────────────────────────────────────
   // 💼 COMERCIAL
   // ─────────────────────────────────────────────────────────
@@ -184,6 +199,7 @@ const allMenuItems: MenuItem[] = [
     icon: CalendarDays,
     section: 'comercial',
   },
+
   // ─────────────────────────────────────────────────────────
   // 🧾 FISCAL
   // ─────────────────────────────────────────────────────────
@@ -203,6 +219,7 @@ const allMenuItems: MenuItem[] = [
       { id: 'fiscal-relatorio', title: 'Relatório Inventário', href: '/dashboard/fiscal/relatorio-inventario' },
     ],
   },
+
   // ─────────────────────────────────────────────────────────
   // 🏦 BANCÁRIO
   // ─────────────────────────────────────────────────────────
@@ -227,6 +244,7 @@ const allMenuItems: MenuItem[] = [
     icon: Landmark,
     section: 'bancario',
   },
+
   // ─────────────────────────────────────────────────────────
   // 📒 CONTÁBIL
   // ─────────────────────────────────────────────────────────
@@ -262,6 +280,7 @@ const allMenuItems: MenuItem[] = [
       { id: 'revisao-manual', title: 'Revisão Manual + Automática', href: '/dashboard/lancamentos/revisao' },
     ],
   },
+
   // ─────────────────────────────────────────────────────────
   // 📈 INTELIGÊNCIA
   // ─────────────────────────────────────────────────────────
@@ -370,6 +389,7 @@ const allMenuItems: MenuItem[] = [
     icon: Scale,
     section: 'inteligencia',
   },
+
   // ─────────────────────────────────────────────────────────
   // 🔗 ECOSSISTEMA (🆕 Sprint F10 — apps externas, nova aba)
   // ─────────────────────────────────────────────────────────
@@ -389,6 +409,7 @@ const allMenuItems: MenuItem[] = [
     section: 'ecossistema',
     external: true,
   },
+
   // ─────────────────────────────────────────────────────────
   // ⚙️ SISTEMA (admin-only)
   // ─────────────────────────────────────────────────────────
@@ -406,30 +427,57 @@ const allMenuItems: MenuItem[] = [
     ],
   },
 ];
+// =================================================================
+// FIM: ITENS DO MENU
+// =================================================================
 
 // =================================================================
 // INÍCIO: COMPONENTE PRINCIPAL (DashboardLayout)
 // =================================================================
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // 🆕 F15: 'Comunicados' entra aberto por padrão
   const [expandedMenus, setExpandedMenus] = useState<string[]>([
     'Gestão de Pessoas',
     'Operacional',
     'Precificação',
+    'Comunicados',
   ]);
+  // 🆕 F15: contador de arquivos aguardando aprovação (badge na Fila)
+  const [filaPendentes, setFilaPendentes] = useState(0);
+
   const { user, logout } = useAuthStore();
   const router = useRouter();
   const pathname = usePathname();
   useTrackNavigation();
 
+  // 🆕 F15: busca o total de AGUARDANDO_APROVACAO a cada 30s p/ o badge
+  useEffect(() => {
+    const fetchPendentes = async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}/api/arquivos-fila?status=AGUARDANDO_APROVACAO&perPage=1`,
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setFilaPendentes(data.meta?.total ?? 0);
+        }
+      } catch {
+        // backend fora do ar: badge some silenciosamente
+      }
+    };
+    fetchPendentes();
+    const interval = setInterval(fetchPendentes, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   // =================================================================
-  // MENU DINÂMICO (useMemo) — agrupa por seção (Sprint 25)
+  // MENU DINÂMICO (useMemo) — agrupa por seção
   // =================================================================
   const groupedMenuItems = useMemo(() => {
     const visibleItems = allMenuItems
       .map((item) => {
         if (item.adminOnly && user?.role !== 'ADMIN') return null;
-        // 🆕 Sprint F10: link externo é acesso universal (não é módulo do plano)
         if (item.external) return item;
         if (user?.role === 'ADMIN') return item;
         if (item.children) {
@@ -448,7 +496,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     for (const sec of SECTIONS) {
       const items = visibleItems.filter((it) => it.section === sec.id);
       if (items.length > 0) {
-        grouped.push({ sectionId: sec.id, sectionLabel: sec.label, items });
+        grouped.push({ sectionId: sec.sectionId ?? sec.id, sectionLabel: sec.label, items });
       }
     }
     return grouped;
@@ -462,17 +510,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return pathname.startsWith(href);
   };
 
+  // 🆕 F15: o hub (/dashboard/comunicados) só ativa com match exato,
+  // senão ficaria "ativo" também dentro de /fila, /envios, etc.
+  const isActiveChild = (href: string) =>
+    href === '/dashboard/comunicados' ? pathname === href : isActive(href);
+
   const toggleMenu = (title: string) => {
     setExpandedMenus((prev) =>
       prev.includes(title)
         ? prev.filter((item) => item !== title)
-        : [...prev, item_title_safe(title)],
+        : [...prev, title],
     );
   };
-  // 🛡️ helper anti-duplicação (mantém comportamento original)
-  function item_title_safe(title: string) {
-    return title;
-  }
 
   const handleLogout = () => {
     logout();
@@ -531,7 +580,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   const hasChildren = item.children && item.children.length > 0;
                   const isExpanded = expandedMenus.includes(item.title);
 
-                  // 🆕 Sprint F10: item externo = <a> em nova aba (fora do router)
+                  // Link externo = <a> em nova aba (fora do router)
                   if (item.external) {
                     return (
                       <a
@@ -579,16 +628,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         {hasChildren &&
                           (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                       </button>
+
                       {hasChildren && isExpanded && (
                         <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-teal-700 pl-2">
                           {item.children?.map((child) => {
-                            const childActive = isActive(child.href);
+                            const childActive = isActiveChild(child.href);
                             return (
                               <button
                                 key={child.href}
                                 onClick={() => router.push(child.href)}
                                 className={`
-                                  w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors
+                                  w-full flex items-center justify-between gap-2 text-left px-3 py-1.5 rounded-lg text-xs transition-colors
                                   ${
                                     childActive
                                       ? 'bg-teal-800 text-white font-medium'
@@ -596,7 +646,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                   }
                                 `}
                               >
-                                {child.title}
+                                <span>{child.title}</span>
+                                {/* 🆕 F15: badge com pendentes na Fila de Aprovação */}
+                                {child.id === 'comunicados-fila' && filaPendentes > 0 && (
+                                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white">
+                                    {filaPendentes}
+                                  </span>
+                                )}
                               </button>
                             );
                           })}
