@@ -21,6 +21,9 @@ import { ArquivoFilaController } from './arquivo-fila/arquivo-fila.controller';
 import { EmailEnvioController } from './email-envio/email-envio.controller';
 import { EmailTemplateController } from './email-template/email-template.controller';
 
+// 🆕 F18-B — imports no topo
+import { PortalClienteService } from './portal-cliente/portal-cliente.service';
+import { PortalClienteController } from './portal-cliente/portal-cliente.controller';
 @Module({
   imports: [ConfigModule],
   controllers: [
@@ -28,10 +31,11 @@ import { EmailTemplateController } from './email-template/email-template.control
     ArquivoFilaController,
     EmailEnvioController,
     EmailTemplateController, // 🆕 F16-A
-    
+    PortalClienteController, // 🆕 F18-B
 
   ],
   providers: [
+    PortalClienteService, // 🆕 F18-B
     PrismaService,
     CnpjParserService,
     MetadadosArquivoService,
