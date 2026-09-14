@@ -688,6 +688,23 @@ Exemplo de ADR
 # ADR- ADR-120: Cache Redis para queries frequentes
 
 ## Status
+
+---
+
+## **ARQUIVO 4 — `README.md` (atualização do status)**
+
+Localize a seção "## 🗺️ Roadmap" e substitua a partir de "### 🔜 Fase 6" por:
+
+```markdown
+### ✅ Sprints F13-F17 — Sistema de Envio Completo (15/09/2026)
+- **F13:** Tracking de Comunicações (webhooks + funil visual) ✅
+- **F14:** Memória do Cliente (perfil unificado + timeline) ✅
+- **F15:** Watch Folder + Parser CNPJ + Fila de Aprovação + Tracking Pixel + SMTP Real ✅
+- **F16-A:** Templates de Email Editáveis (CRUD + preview ao vivo + 8 seeds) ✅
+- **F17-A:** Retry Automático com Backoff + Reenvio Manual (CRON + botão na tela) ✅
+
+**Pipeline completo testado:**
+
 Aprovada (2026)11. 12/09/2026-09-12
 
 ## Decisão
