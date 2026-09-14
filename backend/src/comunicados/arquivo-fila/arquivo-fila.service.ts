@@ -360,9 +360,6 @@ export class ArquivoFilaService {
    *   5. Move arquivo para enviados/YYYY-MM/
    *   6. Envia via provider (LOG/SMTP/SendGrid)
    *   7. Grava evento ENVIADO ou FALHA
-   *
-   * ⚠️ Este método requer o Bloco 3 implementado (EmailEnvioService).
-   * Enquanto o Bloco 3 não é implementado, use a versão placeholder abaixo.
    */
   async aprovar(id: string, dto: AprovarArquivoDto, usuarioId: string) {
     // ── Validação prévia: só pode aprovar quem está AGUARDANDO_APROVACAO ──
@@ -377,13 +374,6 @@ export class ArquivoFilaService {
 
     // ── BLOCO 3 ATIVO: delega para EmailEnvioService ───────────────────────
     return this.emailEnvio.processarAprovacao(id, dto, usuarioId);
-
-    // ── TEMP (mantenha comentado enquanto Bloco 3 não é implementado) ──────
-    // await this.prisma.arquivoFila.update({
-    //   where: { id },
-    //   data: { status: StatusArquivoFila.APROVADO },
-    // });
-    // return { ok: true, message: 'Aprovado (EmailEnvio será criado no Bloco 3)' };
   }
 
   /**
@@ -420,6 +410,7 @@ export class ArquivoFilaService {
     const fila = await this.prisma.arquivoFila.findUnique({ where: { id } });
     if (!fila) throw new NotFoundException('Arquivo não encontrado');
 
+    // Grava a rejeição + motivo (auditoria ADR-030)
     await this.prisma.arquivoFila.update({
       where: { id },
       data: {
@@ -429,7 +420,14 @@ export class ArquivoFilaService {
     });
 
     try {
-      await this.fileMover.moverParaRejeitados(fila.caminhoAbsoluto);
+      // 🔧 FIX F15-2: localiza o caminho REAL do arquivo antes de mover.
+      // O caminhoAbsoluto do banco pode estar desatualizado (o arquivo já
+      // foi movido para pendentes/ durante a detecção).
+      const caminhoReal = await this.fileMover.resolverCaminhoAtual(
+        fila.caminhoAbsoluto,
+        fila.nomeOriginal,
+      );
+      await this.fileMover.moverParaRejeitados(caminhoReal);
     } catch (err) {
       this.logger.warn(`Falha ao mover para rejeitados: ${err}`);
     }

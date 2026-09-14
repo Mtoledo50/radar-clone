@@ -2,7 +2,6 @@
 // INÍCIO: backend/src/app.module.ts
 // Módulo raiz da aplicação. Organiza e registra todos os módulos e controllers.
 // =================================================================
-
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -53,10 +52,13 @@ import { ComunicadosModule } from './comunicados/comunicados.module';
 
 // 10. 🆕 Novos Recursos (F13 - Tracking)
 import { TrackingController } from './tracking/tracking.controller';
+// 🆕 BLOCO 4 - Endpoints públicos de tracking (pixel + download)
+import { TrackingPublicoController } from './tracking/tracking-publico.controller';
+
 // F14 (Backend da Memória)
 import { MemoriaController } from './memoria/memoria.controller';
-
 import { AnaliseController } from './analise/analise.controller';
+
 @Module({
   imports: [
     // --- Infraestrutura ---
@@ -107,19 +109,18 @@ import { AnaliseController } from './analise/analise.controller';
 
     // Nota: Módulos como ReportsModule ou EmailModule podem ser descomentados e adicionados aqui quando forem utilizados.
   ],
-  
   controllers: [
     // 🆕 F13: Controller de Webhooks de Tracking
     // IMPORTANTE: Controllers devem ficar SEMPRE neste array, NUNCA no array de 'imports'
     TrackingController,
+    // 🆕 BLOCO 4: Endpoints públicos de tracking (pixel de abertura + download com token)
+    TrackingPublicoController,
     MemoriaController, // 👈 adicione esta linha
     AnaliseController, // 👈 adicione esta linha
   ],
-  
   // providers: [], // Adicionar providers globais aqui se necessário no futuro
 })
 export class AppModule {}
-
 // =================================================================
 // FIM: backend/src/app.module.ts
 // =================================================================
