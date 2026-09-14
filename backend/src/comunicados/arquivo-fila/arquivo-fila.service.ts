@@ -1,17 +1,18 @@
 // ============================================================================
-// SPRINT F13 — MÓDULO COMUNICADOS (ADR-113, ADR-117, ADR-118)
-// ArquivoFilaService: coração da fila de aprovação humana.
+// SPRINT F13 + F15 + F17 + F18-A — ArquivoFilaService
+// ----------------------------------------------------------------------------
+// Coração da fila de aprovação humana.
 //
-// Fluxo: WatchFolder detecta arquivo → este service faz o parsing (CNPJ,
-// tipo, competência), busca o cliente no banco, resolve o email e grava o
-// registro na fila com o status apropriado:
+// 🆕 F18-A: registrarDetecao() recebe companyId como parâmetro obrigatório
+//           (resolvido pelo WatchFolderService via slug da pasta).
+//           Remove o fallback `company.findFirst()` — isolamento total por tenant.
+//
+// Fluxo: WatchFolder detecta → este service faz parsing → busca cliente
+// → grava na fila com status apropriado:
 //   ERRO                  → sem CNPJ no nome        → pasta erros/
 //   SEM_CLIENTE           → CNPJ ok, cliente não    → pasta pendentes/
 //   SEM_EMAIL             → cliente ok, sem email   → pasta pendentes/
 //   AGUARDANDO_APROVACAO  → tudo ok, humano aprova  → pasta pendentes/
-//
-// Integração com Bloco 3: o método aprovar() delega para EmailEnvioService
-// que orquestra o pipeline completo de envio (ADR-030, ADR-114, ADR-119).
 // ============================================================================
 import {
   Injectable,
@@ -27,11 +28,9 @@ import { AprovarArquivoDto } from './dto/aprovar-arquivo.dto';
 import { VincularClienteDto } from './dto/vincular-cliente.dto';
 import { EmailEnvioService } from '../email-envio/email-envio.service';
 
-// Nota: import de 'fs/promises' removido — não era utilizado neste service
-// (quem move arquivos é o FileMoverService).
-
 export interface FiltroArquivoFila {
   status?: StatusArquivoFila;
+  companyId?: string; // 🆕 F18-A: filtro por tenant
   page?: number;
   perPage?: number;
 }
@@ -51,16 +50,45 @@ export class ArquivoFilaService {
   // REGISTRO DE DETECÇÃO (chamado pelo WatchFolderService)
   // --------------------------------------------------------------------------
   /**
-   * Pipeline completo de um arquivo recém-detectado na pasta monitorada:
-   * 1. Extrai metadados do nome (CNPJ + tipo + competência) — ADR-118
-   * 2. Detecta MIME pela extensão
-   * 3. Resolve o tenant (companyId) — ADR-004
+   * Pipeline completo de um arquivo recém-detectado na pasta monitorada.
+   *
+   * 🆕 F18-A: recebe companyId como parâmetro obrigatório
+   *           (resolvido pelo WatchFolderService via slug da pasta).
+   *
+   * 1. Valida o companyId (tenant ADR-004)
+   * 2. Extrai metadados do nome (CNPJ + tipo + competência) — ADR-118
+   * 3. Detecta MIME pela extensão
    * 4. Evita duplicidade (caminho já registrado)
-   * 5. Busca o cliente pelo CNPJ (comparação NORMALIZADA — ver Bug B)
+   * 5. Busca o cliente pelo CNPJ (comparação NORMALIZADA — Bug B)
    * 6. Resolve o email (ClientContact — Sprint F12)
    * 7. Grava ArquivoFila + move o arquivo para a pasta de destino
    */
-  async registrarDetecao(caminhoAbsoluto: string, tamanhoBytes: number) {
+  async registrarDetecao(
+    caminhoAbsoluto: string,
+    tamanhoBytes: number,
+    companyId: string, // 🆕 F18-A: obrigatório (vem do WatchFolderService)
+  ) {
+    // ── 0. Validação do tenant (ADR-004) ──────────────────────────────────
+    if (!companyId) {
+      this.logger.error(
+        `❌ companyId não fornecido para: ${caminhoAbsoluto}`,
+      );
+      await this.fileMover.moverParaErros(caminhoAbsoluto).catch(() => null);
+      return;
+    }
+
+    const companyExiste = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true },
+    });
+    if (!companyExiste) {
+      this.logger.error(
+        `❌ companyId inválido (${companyId}) para: ${caminhoAbsoluto}`,
+      );
+      await this.fileMover.moverParaErros(caminhoAbsoluto).catch(() => null);
+      return;
+    }
+
     // ── 1. Metadados do nome do arquivo ────────────────────────────────────
     const nomeOriginal = caminhoAbsoluto.split(/[/\\]/).pop()!;
     const meta = this.metadados.extrair(nomeOriginal);
@@ -83,16 +111,7 @@ export class ArquivoFilaService {
     };
     const mime = mimeMap[ext] ?? 'application/octet-stream';
 
-    // ── 3. Tenant (multi-tenant ADR-004) ────────────────────────────────────
-    // TODO(produção): companyId deve vir do contexto do watcher (uma pasta
-    // por tenant). Hoje usamos a primeira company (ambiente single-tenant dev).
-    const company = await this.prisma.company.findFirst();
-    if (!company) {
-      this.logger.error('❌ Nenhuma company cadastrada no banco');
-      return;
-    }
-
-    // ── 4. Anti-duplicidade: mesmo caminho já processado? ──────────────────
+    // ── 3. Anti-duplicidade: mesmo caminho já processado? ──────────────────
     const existente = await this.prisma.arquivoFila.findUnique({
       where: { caminhoAbsoluto },
     });
@@ -105,7 +124,7 @@ export class ArquivoFilaService {
     if (!meta.cnpj) {
       const fila = await this.prisma.arquivoFila.create({
         data: {
-          companyId: company.id,
+          companyId,
           nomeOriginal,
           caminhoAbsoluto,
           tamanhoBytes,
@@ -115,19 +134,17 @@ export class ArquivoFilaService {
         },
       });
       await this.fileMover.moverParaErros(caminhoAbsoluto);
-      this.logger.warn(`❌ CNPJ não detectado → movido para erros/ (${fila.id})`);
+      this.logger.warn(`❌ CNPJ não detectado → erros/ (${fila.id})`);
       return;
     }
 
-    // ── 5. Busca do cliente pelo CNPJ ───────────────────────────────────────
+    // ── 4. Busca do cliente pelo CNPJ (filtrado por companyId — 🆕 F18-A) ──
     // 🐛 BUG B — CORREÇÃO BLINDADA:
-    // O CNPJ pode estar gravado no banco COM pontuação ("08.432.644/0001-60",
-    // origem: importador S3D da UI) ou SEM pontuação ("08432644000160",
-    // origem: script ts-node). Comparação de string bruta falhava.
-    // Solução: normalizamos AMBOS os lados (só dígitos) antes de comparar.
+    // O CNPJ pode estar gravado no banco COM pontuação ou SEM pontuação.
+    // Normalizamos AMBOS os lados (só dígitos) antes de comparar.
     const cnpjLimpo = meta.cnpj.replace(/\D/g, '');
     const clientesDaCompany = await this.prisma.client.findMany({
-      where: { companyId: company.id },
+      where: { companyId }, // 🆕 F18-A: isolado por tenant
       select: { id: true, cnpj: true, companyName: true },
     });
     const cliente =
@@ -135,8 +152,6 @@ export class ArquivoFilaService {
         (c) => (c.cnpj ?? '').replace(/\D/g, '') === cnpjLimpo,
       ) ?? null;
 
-    // Log de diagnóstico: mostra o formato gravado no banco (ajuda a auditar
-    // qual importador populou o registro)
     if (cliente) {
       this.logger.debug(
         `🔗 Match CNPJ: arquivo=${cnpjLimpo} | banco=${cliente.cnpj}`,
@@ -147,13 +162,13 @@ export class ArquivoFilaService {
     if (!cliente) {
       const fila = await this.prisma.arquivoFila.create({
         data: {
-          companyId: company.id,
+          companyId,
           nomeOriginal,
           caminhoAbsoluto,
           tamanhoBytes,
           mime,
           cnpjDetectado: meta.cnpj,
-          confianca: 0.3, // CNPJ ok, mas sem vínculo → confiança parcial
+          confianca: 0.3,
           tipoDocumento: meta.tipoDocumento,
           competencia: meta.competencia,
           status: StatusArquivoFila.SEM_CLIENTE,
@@ -165,21 +180,21 @@ export class ArquivoFilaService {
       return;
     }
 
-    // ── 6. Resolução do email do cliente (ClientContact — Sprint F12) ──────
-    const email = await this.resolverEmailCliente(cliente.id, company.id);
+    // ── 5. Resolução do email do cliente (ClientContact — Sprint F12) ──────
+    const email = await this.resolverEmailCliente(cliente.id, companyId);
 
     // ── CASO 3: Cliente existe mas sem email → SEM_EMAIL ───────────────────
     if (!email) {
       const fila = await this.prisma.arquivoFila.create({
         data: {
-          companyId: company.id,
+          companyId,
           nomeOriginal,
           caminhoAbsoluto,
           tamanhoBytes,
           mime,
           cnpjDetectado: meta.cnpj,
           clienteId: cliente.id,
-          confianca: 0.7, // cliente ok, falta email
+          confianca: 0.7,
           tipoDocumento: meta.tipoDocumento,
           competencia: meta.competencia,
           status: StatusArquivoFila.SEM_EMAIL,
@@ -191,10 +206,10 @@ export class ArquivoFilaService {
       return;
     }
 
-    // ── CASO 4: Tudo ok → AGUARDANDO_APROVACAO (ADR-030: humano decide) ────
+    // ── CASO 4: Tudo ok → AGUARDANDO_APROVACAO (ADR-030) ──────────────────
     const fila = await this.prisma.arquivoFila.create({
       data: {
-        companyId: company.id,
+        companyId,
         nomeOriginal,
         caminhoAbsoluto,
         tamanhoBytes,
@@ -202,7 +217,7 @@ export class ArquivoFilaService {
         cnpjDetectado: meta.cnpj,
         clienteId: cliente.id,
         clienteEmail: email,
-        confianca: 1.0, // CNPJ + cliente + email = confiança total
+        confianca: 1.0,
         tipoDocumento: meta.tipoDocumento,
         competencia: meta.competencia,
         status: StatusArquivoFila.AGUARDANDO_APROVACAO,
@@ -217,19 +232,10 @@ export class ArquivoFilaService {
   // --------------------------------------------------------------------------
   // RESOLUÇÃO DE EMAIL DO CLIENTE
   // --------------------------------------------------------------------------
-  /**
-   * Resolve o email de destino buscando em ClientContact (Sprint F12).
-   * Ordem de precedência:
-   *   1. Contato marcado como primário (isPrimary) que tenha email
-   *   2. Qualquer contato do cliente que tenha email
-   * Obs.: a model Client NÃO possui campo email direto — emails vivem
-   * exclusivamente em ClientContact.
-   */
   private async resolverEmailCliente(
     clienteId: string,
     companyId: string,
   ): Promise<string | null> {
-    // 1. Contato primário com email
     const primario = await this.prisma.clientContact.findFirst({
       where: {
         companyId,
@@ -240,28 +246,25 @@ export class ArquivoFilaService {
     });
     if (primario?.email) return primario.email;
 
-    // 2. Qualquer contato com email
     const qualquer = await this.prisma.clientContact.findFirst({
       where: { companyId, clientId: clienteId, email: { not: null } },
     });
     if (qualquer?.email) return qualquer.email;
 
-    // 3. Sem email cadastrado em nenhum contato
     return null;
   }
 
   // --------------------------------------------------------------------------
-  // LISTAGEM (com filtros + paginação padrão do projeto)
+  // LISTAGEM (com filtros + paginação — 🆕 F18-A: filtro por companyId)
   // --------------------------------------------------------------------------
-  /**
-   * Lista a fila com filtro opcional por status e paginação.
-   * Retorna { data, meta } no padrão de paginação da API (docs/API.md §2.4).
-   */
   async listar(filtro: FiltroArquivoFila) {
-    const { status, page = 1, perPage = 20 } = filtro;
+    const { status, companyId, page = 1, perPage = 20 } = filtro;
     const skip = (page - 1) * perPage;
 
-    const where = status ? { status } : {};
+    const where: any = {};
+    if (status) where.status = status;
+    if (companyId) where.companyId = companyId; // 🆕 F18-A
+
     const [data, total] = await Promise.all([
       this.prisma.arquivoFila.findMany({
         where,
@@ -287,12 +290,8 @@ export class ArquivoFilaService {
   }
 
   // --------------------------------------------------------------------------
-  // DETALHE + PREVIEW (para a tela de aprovação humana — ADR-117)
+  // DETALHE + PREVIEW (ADR-117)
   // --------------------------------------------------------------------------
-  /**
-   * Detalhe completo do arquivo na fila, incluindo o PREVIEW do email que
-   * será enviado. O humano vê exatamente o que vai sair antes de aprovar.
-   */
   async detalhe(id: string) {
     const fila = await this.prisma.arquivoFila.findUnique({
       where: { id },
@@ -307,12 +306,7 @@ export class ArquivoFilaService {
     return { ...fila, previewEmail: preview };
   }
 
-  /**
-   * Monta o preview do email SEM gravar nada.
-   * Resolução de template (ADR-115): tipoDocumento exato → GENERICO → fallback.
-   */
   private async montarPreview(fila: any) {
-    // Template específico do tipo de documento (ex: DAS)
     const template = fila.tipoDocumento
       ? await this.prisma.emailTemplate.findUnique({
           where: {
@@ -324,7 +318,6 @@ export class ArquivoFilaService {
         })
       : null;
 
-    // Fallback: template GENERICO ativo do tenant
     const templateFallback =
       template ??
       (await this.prisma.emailTemplate.findFirst({
@@ -350,19 +343,7 @@ export class ArquivoFilaService {
   // --------------------------------------------------------------------------
   // APROVAÇÃO HUMANA (ADR-030 / ADR-117)
   // --------------------------------------------------------------------------
-  /**
-   * Aprova o envio. Regra de Ouro ADR-030: NADA é enviado sem esta chamada.
-   * Delega o pipeline completo para o EmailEnvioService:
-   *   1. Cria EmailEnvio (AGENDADO)
-   *   2. Renderiza template Handlebars
-   *   3. Injeta pixel de tracking
-   *   4. Gera token de download + expiração
-   *   5. Move arquivo para enviados/YYYY-MM/
-   *   6. Envia via provider (LOG/SMTP/SendGrid)
-   *   7. Grava evento ENVIADO ou FALHA
-   */
   async aprovar(id: string, dto: AprovarArquivoDto, usuarioId: string) {
-    // ── Validação prévia: só pode aprovar quem está AGUARDANDO_APROVACAO ──
     const fila = await this.prisma.arquivoFila.findUnique({ where: { id } });
     if (!fila) throw new NotFoundException('Arquivo não encontrado');
 
@@ -372,14 +353,9 @@ export class ArquivoFilaService {
       );
     }
 
-    // ── BLOCO 3 ATIVO: delega para EmailEnvioService ───────────────────────
     return this.emailEnvio.processarAprovacao(id, dto, usuarioId);
   }
 
-  /**
-   * Aprovação em lote. Falhas individuais NÃO abortam o lote:
-   * cada item retorna status ok/erro com motivo (parcial é aceitável).
-   */
   async aprovarLote(ids: string[], usuarioId: string) {
     const resultados: { id: string; status: 'ok' | 'erro'; motivo?: string }[] =
       [];
@@ -402,15 +378,10 @@ export class ArquivoFilaService {
   // --------------------------------------------------------------------------
   // REJEIÇÃO (ADR-030: motivo obrigatório)
   // --------------------------------------------------------------------------
-  /**
-   * Rejeita o arquivo com motivo obrigatório e move para rejeitados/.
-   * Falha ao mover o arquivo NÃO invalida a rejeição (loga warning).
-   */
   async rejeitar(id: string, motivo: string) {
     const fila = await this.prisma.arquivoFila.findUnique({ where: { id } });
     if (!fila) throw new NotFoundException('Arquivo não encontrado');
 
-    // Grava a rejeição + motivo (auditoria ADR-030)
     await this.prisma.arquivoFila.update({
       where: { id },
       data: {
@@ -420,9 +391,7 @@ export class ArquivoFilaService {
     });
 
     try {
-      // 🔧 FIX F15-2: localiza o caminho REAL do arquivo antes de mover.
-      // O caminhoAbsoluto do banco pode estar desatualizado (o arquivo já
-      // foi movido para pendentes/ durante a detecção).
+      // FIX F15-2: localiza o caminho REAL antes de mover
       const caminhoReal = await this.fileMover.resolverCaminhoAtual(
         fila.caminhoAbsoluto,
         fila.nomeOriginal,
@@ -436,13 +405,8 @@ export class ArquivoFilaService {
   }
 
   // --------------------------------------------------------------------------
-  // VÍNCULO MANUAL (quando o parser não encontrou o cliente)
+  // VÍNCULO MANUAL
   // --------------------------------------------------------------------------
-  /**
-   * Vínculo manual arquivo ↔ cliente. Usado quando o CNPJ não foi detectado
-   * ou não existe cliente para aquele CNPJ (status SEM_CLIENTE / ERRO).
-   * Após vincular, o registro volta para AGUARDANDO_APROVACAO.
-   */
   async vincularCliente(id: string, dto: VincularClienteDto) {
     const fila = await this.prisma.arquivoFila.findUnique({ where: { id } });
     if (!fila) throw new NotFoundException('Arquivo não encontrado');
@@ -452,7 +416,6 @@ export class ArquivoFilaService {
     });
     if (!cliente) throw new NotFoundException('Cliente não encontrado');
 
-    // Email: override manual > email resolvido dos contatos
     const email =
       dto.emailDestinatario ??
       (await this.resolverEmailCliente(cliente.id, fila.companyId));
@@ -468,11 +431,10 @@ export class ArquivoFilaService {
       data: {
         clienteId: cliente.id,
         clienteEmail: email,
-        // Mantém o CNPJ detectado; se não havia, usa o do cliente (normalizado)
         cnpjDetectado: fila.cnpjDetectado ?? (cliente as any).cnpj,
-        confianca: 1.0, // vínculo manual = confiança total
+        confianca: 1.0,
         status: StatusArquivoFila.AGUARDANDO_APROVACAO,
-        erro: null, // limpa o erro anterior
+        erro: null,
       },
     });
 

@@ -23,6 +23,9 @@
  * BENCHMARK (Sprint C1):
  *   GET    /company/software-benchmark  → benchmark de mercado (ADR-052)
  *
+ * 🆕 F18-A — LISTAGEM MULTI-TENANT:
+ *   GET    /company/companies   → lista companies ativas (para filtros)
+ *
  * 🛡️ Segurança:
  *   - Todas as rotas exigem JWT (JwtAuthGuard).
  *   - PATCH /company/branding é restrito a ADMIN (RolesGuard + @Roles).
@@ -33,6 +36,7 @@
  *   - ADR-025: RBAC com @Roles + 3 camadas.
  *   - ADR-043: fallback de cores Conta Certa.
  *   - ADR-052: benchmark híbrido (rede + catálogo v1).
+ *   - ADR-004: multi-tenant single-database por companyId.
  * =================================================================
  */
 import {
@@ -41,7 +45,7 @@ import {
   Post,
   Put,
   Patch,
-  Delete, // 🆕 Sprint D2: DELETE /company/mentoria/checklist/:id
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -55,6 +59,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UpdateBrandingDto } from './dto/update-branding.dto';
 import { ScoreService } from './score.service';
+import { PrismaService } from '../prisma/prisma.service'; // 🆕 F18-A
 
 /** Payload do JWT (espelho do que o JwtStrategy injeta). */
 interface UserPayload {
@@ -66,9 +71,11 @@ interface UserPayload {
 
 @Controller('company')
 export class CompanyController {
-  constructor(private readonly service: CompanyService,    
-             private readonly scoreService: ScoreService, // 🆕 Sprint C4
-) {}
+  constructor(
+    private readonly service: CompanyService,    
+    private readonly scoreService: ScoreService,
+    private readonly prisma: PrismaService, // 🆕 F18-A
+  ) {}
   
 
   // =================================================================
@@ -110,6 +117,58 @@ export class CompanyController {
   async updateProfile(@Request() req, @Param('id') id: string, @Body() body: any) {
     const data = await this.service.updateProfile(req.user.id, body);
     return { success: true, data, message: 'Dados da empresa atualizados com sucesso!' };
+  }
+
+  // =================================================================
+  // 🆕 F18-A — LISTAGEM DE COMPANIES (para filtros multi-tenant)
+  // =================================================================
+
+  /**
+   * GET /company/companies
+   * Lista companies ativas (id, name, slug) para preencher
+   * dropdowns de filtro no frontend (ex: Fila de Aprovação ADMIN).
+   *
+/**
+ * GET /company/companies
+ * Lista companies ativas (id, name, slug) para filtros multi-tenant.
+ * Endpoint PÚBLICO: retorna apenas dados estruturais não-sensíveis.
+ */
+@Get('companies')
+async listCompanies() {    // ✅ SEM @UseGuards
+  const companies = await this.prisma.company.findMany({
+    where: { deletedAt: null },
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: { name: 'asc' },
+  });
+
+  const data = companies.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: this.normalizarSlug(c.name),
+  }));
+
+  return {
+    success: true,
+    data,
+    message: `${data.length} empresa(s) encontrada(s)`,
+  };
+}
+
+  /**
+   * 🆕 F18-A: Mesma normalização de slug do WatchFolderService.
+   * "Conta Certa Demo" → "conta-certa-demo"
+   */
+  private normalizarSlug(nome: string): string {
+    return nome
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // remove acentos
+      .replace(/[^a-z0-9]+/g, '-')      // não-alnum vira "-"
+      .replace(/^-+|-+$/g, '')          // trim de hifens
+      .substring(0, 60);                // limite 60 chars
   }
 
   // =================================================================
@@ -197,6 +256,7 @@ export class CompanyController {
     const data = await this.service.getSoftwareBenchmark(user.companyId);
     return { success: true, data };
   }
+
   // =================================================================
   // 🆕 SPRINT C2 — BENCHMARK DE SERVIÇOS EXTRAS (ADR-053)
   // =================================================================
@@ -212,6 +272,7 @@ export class CompanyController {
     const data = await this.service.getExtraServicesBenchmark(user.companyId);
     return { success: true, data };
   }
+
   // =================================================================
   // 🆕 SPRINT C4 — SCORE 0–100 DO ESCRITÓRIO (ADR-055)
   // =================================================================
@@ -225,6 +286,7 @@ export class CompanyController {
     const data = await this.scoreService.getScore(user.companyId);
     return { success: true, data };
   }
+
   // =================================================================
   // 🆕 SPRINT D1 — MENTORIA: VISÃO DE FUTURO (ADR-056)
   // =================================================================
@@ -235,6 +297,7 @@ export class CompanyController {
     const data = await this.scoreService.getMentoria(user.companyId);
     return { success: true, data };
   }
+
   // =================================================================
   // 🆕 SPRINT D2 — CHECKLIST "MEU PLANO" (ADR-057)
   // =================================================================
@@ -246,7 +309,8 @@ export class CompanyController {
     const data = await this.scoreService.getChecklist(user.companyId);
     return { success: true, data };
   }
-    // =================================================================
+
+  // =================================================================
   // 🆕 SPRINT D3 — RANKING DE NÍVEIS (ADR-058)
   // =================================================================
   /** GET /company/ranking — seu nível + pódio da rede. */
