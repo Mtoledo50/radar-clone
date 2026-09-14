@@ -8,6 +8,142 @@ Data: 11 de Setembro de 2026
 Duração: ~4 horas de desenvolvimento contínuo
 Status: ✅ MVP funcional em produção
 Progresso: F13 (100%), F14 (100%), F15 (Backend 100%, Frontend 100%)
+
+
+---
+
+## **ARQUIVO 2 — `CHANGELOG.md` (adição das sprints F15-F17)**
+
+Adicione **no topo** do CHANGELOG.md (logo após o cabeçalho):
+
+```markdown
+## [Sprints F15-F17 — Sistema de Envio Completo] 15/09/2026 — ✅ HOMOLOGADO
+
+### Added
+
+**F15 — Frontend de Comunicados:**
+- **Tela Fila de Aprovação** (`/dashboard/comunicados/fila`): lista arquivos detectados pelo Watch Folder com preview do email, botões Aprovar/Rejeitar, filtros por status (AGUARDANDO_APROVACAO, SEM_CLIENTE, SEM_EMAIL, ERRO), polling a cada 5s.
+- **Tela Histórico de Envios** (`/dashboard/comunicados/envios`): timeline visual 📤→👁️→📥 com tooltips de data/hora, métricas do funil (Enviados, Abertos, Baixados, Taxa de Abertura, Falhas), modal de detalhes com preview do email + eventos + download.
+- **Hub Central** (`/dashboard/comunicados`): página de entrada com 3 cards navegáveis (Fila, Envios, Templates) + métricas ao vivo + pipeline visual (5 passos).
+- **Sidebar atualizada**: nova seção "Comunicações" com 4 sublinks (Central, Fila, Envios, Templates) + badge com contador de pendentes (atualiza a cada 30s).
+
+**F16-A — Templates de Email Editáveis:**
+- **Tela de Templates** (`/dashboard/comunicados/templates`): CRUD completo (criar, editar, excluir, toggle ativo/inativo), editor com preview ao vivo (renderização client-side com dados demo), lista de variáveis disponíveis.
+- **EmailTemplateController**: endpoints REST (GET/POST/PUT/DELETE + preview), multi-tenant por companyId.
+- **Seed de 8 templates**: DAS, DARF, ISS, FGTS, IRPF, BALANCETE, INFORME_RENDIMENTO, GENERICO (todos com assunto + corpo Handlebars).
+- **Preview ao vivo**: renderização client-side com contexto demo (cliente.nome, documento.competencia, link.download, etc.).
+
+**F17-A — Retry Automático + Reenvio Manual:**
+- **EmailRetryService**: CRON a cada 30s busca envios FALHOU com tentativas < 3 e proximoRetryEm vencido, backoff exponencial (1min → 5min → 25min), trava anti-sobreposição.
+- **Botão "Reenviar"** na tela de envios: reenvio manual imediato (ignora backoff e limite), registra evento com `origem: MANUAL`.
+- **Painel de falha no modal**: mostra ultimoErro, tentativas, proximoRetryEm, botão de reenvio.
+- **Timeline com metadata**: cada evento mostra tentativa + origem (CRON/MANUAL).
+- **Anti-duplicidade**: email já ENVIADO nunca é reenviado.
+
+**Backend (Módulo Comunicados):**
+- **Watch Folder Service** (ADR-113): chokidar monitora `WATCH_FOLDER_PATH`, detecta novos arquivos, ignora temporários (.tmp, ~$).
+- **CNPJ Parser Service** (ADR-118): regex flexível extrai CNPJ + tipo + competência do nome do arquivo (aceita múltiplos formatos).
+- **Arquivo Fila Service** (ADR-117): pipeline completo (detecta → parse → busca cliente → move para pendentes/erros/rejeitados), resolução de email via ClientContact, normalização de CNPJ (com/sem pontuação).
+- **Email Envio Service** (ADR-116/119): orquestra envio (cria EmailEnvio → resolve template → renderiza Handlebars → injeta pixel → gera token → move para enviados/YYYY-MM/ → envia via SMTP/LOG).
+- **Email Template Service** (ADR-115): renderização Handlebars com contexto completo (cliente, documento, link, empresa, setor), injeção de pixel de tracking.
+- **File Mover Service** (ADR-119): move arquivos entre pastas (pendentes/, enviados/YYYY-MM/, erros/, rejeitados/), garante estrutura de pastas, resolve caminho real (varre enviados/ para downloads de arquivos já movidos).
+- **Tracking Público Controller** (ADR-114): endpoints públicos sem autenticação (`/track/open/:envioId` retorna pixel 1x1 GIF, `/track/download/:envioId/:token` valida token + serve arquivo), grava eventos ABERTO/BAIXADO com IP + User-Agent.
+- **Email Provider Factory** (ADR-116): factory pattern para providers plugáveis (LogEmailProvider para dev, SmtpEmailProvider para produção).
+- **SmtpEmailProvider**: integração com Gmail/Workspace via nodemailer, suporte a anexos, tratamento de erros SMTP.
+
+**Frontend (Páginas Next.js):**
+- `/dashboard/comunicados/page.tsx` — Hub central com métricas + 3 cards navegáveis.
+- `/dashboard/comunicados/fila/page.tsx` — Fila de Aprovação com polling 5s + preview + botões Aprovar/Rejeitar.
+- `/dashboard/comunicados/envios/page.tsx` — Histórico com timeline + tooltips + modal de detalhes + botão Reenviar (F17-A).
+- `/dashboard/comunicados/templates/page.tsx` — Editor de templates com preview ao vivo + CRUD.
+
+**Schema Prisma (migrations):**
+- `email_envios`: 20+ campos (companyId, clienteId, assunto, corpoHtml, tokenDownload, linkExpiraEm, status, tentativas, ultimoErro, proximoRetryEm, primeiraAberturaEm, primeiroDownloadEm, aprovadoPor, enviadoEm, etc.).
+- `email_eventos`: tipo (ENVIADO/ABERTO/BAIXADO/FALHA), ip, userAgent, metadata (JSONB com provider/tentativa/origem/erro).
+- `email_templates`: nome, tipoDocumento (enum), assunto, corpoHtml, ativo.
+- `arquivo_filas`: nomeOriginal, caminhoAbsoluto, cnpjDetectado, tipoDocumento, competencia, clienteId, clienteEmail, confianca, status, erro, envioId.
+
+### Changed
+- `layout.tsx`: adicionada seção "Comunicações" no menu lateral com 4 sublinks + badge de pendentes.
+- `comunicados.module.ts`: registrados todos os services e controllers do módulo (Watch Folder, Arquivo Fila, Email Envio, Email Template, File Mover, Email Retry).
+
+### Fixed
+- **FIX F15-A**: botões Aprovar/Rejeitar na Fila estavam trocados (Aprovar chamava `/rejeitar` e vice-versa) — corrigido para endpoints corretos.
+- **FIX F15-2**: endpoint de download não encontrava arquivos já movidos para `enviados/YYYY-MM/` — `resolverCaminhoAtual` agora varre subpastas de enviados/.
+- **FIX F15-3**: assunto do email não era renderizado pelo Handlebars (ficava cru com `{{...}}`) — agora renderiza junto com o corpo.
+- **FIX F17-A-TS**: metadata do provider.enviar() não aceitava campos extras (tentativa/origem) — cast para `any` resolveu, auditoria oficial fica no EmailEvento (campo Json).
+
+### Decisions
+- **ADR-113:** Watch folder via chokidar (Node.js) — monitora pasta configurável, ignora temporários.
+- **ADR-114:** Tracking pixel 1x1 GIF + link proxy com token único + expiração (7 dias).
+- **ADR-115:** Templates Handlebars editáveis via painel admin.
+- **ADR-116:** Envio plugável (SMTP/LOG/SendGrid) seguindo ADR-086.
+- **ADR-117:** Human-in-the-loop obrigatório (nada é enviado sem aprovação humana).
+- **ADR-118:** Parser CNPJ flexível (aceita múltiplos formatos de nome de arquivo).
+- **ADR-119:** Pasta enviados/YYYY-MM/ para auditoria e conformidade LGPD.
+- **ADR-120:** Retry automático com backoff exponencial (1min → 5min → 25min) + reenvio manual ilimitado.
+
+### Provas
+- **Watch Folder:** drop de arquivo em `C:\Documentos\Enviar\` → detectado em <1s → movido para `pendentes/` → aparece na Fila.
+- **Parser CNPJ:** `DAS_08432644000160_SET2026.pdf` → extrai CNPJ `08432644000160`, tipo `DAS`, competência `2026-09` → busca cliente → match encontrado.
+- **SMTP Real:** aprovação na Fila → email enviado via Gmail → recebido em `marcostoledo@soluti.net.br` (verificado Spam também).
+- **Tracking Pixel:** abrir email → pixel carregado → evento ABERTO gravado com IP + User-Agent → timeline atualiza.
+- **Download com Token:** clicar no link → valida token + expiração → serve PDF → evento BAIXADO gravado → timeline atualiza.
+- **Retry Automático:** sabotar SMTP (porta 9999) → aprovação → falha → CRON recupera em ~1min (tentativa 2) → restaurar SMTP → CRON recupera em ~5min (tentativa 3) → email enviado.
+- **Reenvio Manual:** botão "Reenviar" na tela → ignora backoff/limite → tenta imediatamente → grava evento com `origem: MANUAL`.
+- **Templates Editáveis:** editar template DAS → mudar assunto para `[CONTA CERTA] Guia DAS...` → salvar → próximo envio de DAS usa o novo assunto.
+
+### Arquivos Criados/Modificados
+
+**Backend (`backend/src/comunicados/`):**
+- `watch-folder/watch-folder.service.ts` (novo)
+- `watch-folder/watch-folder.controller.ts` (novo)
+- `cnpj-parser/cnpj-parser.service.ts` (novo)
+- `cnpj-parser/metadados-arquivo.service.ts` (novo)
+- `arquivo-fila/arquivo-fila.service.ts` (novo)
+- `arquivo-fila/arquivo-fila.controller.ts` (novo)
+- `arquivo-fila/dto/aprovar-arquivo.dto.ts` (novo)
+- `arquivo-fila/dto/vincular-cliente.dto.ts` (novo)
+- `email-envio/email-envio.service.ts` (novo)
+- `email-envio/email-envio.controller.ts` (novo)
+- `email-envio/email-retry.service.ts` (novo — F17-A)
+- `email-template/email-template.service.ts` (novo)
+- `email-template/email-template.controller.ts` (novo)
+- `email-provider/email-provider.interface.ts` (novo)
+- `email-provider/email-provider.factory.ts` (novo)
+- `email-provider/log-email.provider.ts` (novo)
+- `email-provider/smtp-email.provider.ts` (novo)
+- `file-mover/file-mover.service.ts` (novo)
+- `tracking-publico/tracking-publico.controller.ts` (novo — F15)
+- `comunicados.module.ts` (modificado — registrados todos os providers/controllers)
+
+**Frontend (`frontend/src/app/dashboard/comunicados/`):**
+- `page.tsx` (novo — Hub central)
+- `fila/page.tsx` (novo — Fila de Aprovação)
+- `envios/page.tsx` (novo — Histórico de Envios + F17-A)
+- `templates/page.tsx` (novo — Editor de Templates)
+
+**Layout:**
+- `frontend/src/app/dashboard/layout.tsx` (modificado — seção "Comunicações" + badge de pendentes)
+
+**Banco de Dados:**
+- `prisma/schema.prisma` (modificado — adicionadas tabelas email_envios, email_eventos, email_templates, arquivo_filas)
+- Migrations aplicadas via `npx prisma db push`
+
+### Status
+✅ **HOMOLOGADO em ambiente local** (15/09/2026):
+- Watch Folder detectando arquivos em tempo real
+- Parser CNPJ extraindo metadados corretamente
+- Fila de Aprovação funcional com preview
+- SMTP real enviando emails (Gmail)
+- Tracking pixel + download com token funcionando
+- Retry automático recuperando falhas
+- Templates editáveis com preview ao vivo
+- Timeline completa (📤→👁️→📥) com tooltips
+
+---
+
+
 📊 O QUE FOI CONSTRUÍDO HOJE
 ✅ F13 — TRACKING DE COMUNICAÇÕES (COMPLETO)
 Backend:
