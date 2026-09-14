@@ -1,49 +1,29 @@
-import { Controller, Get, Post, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+// ============================================================================
+// SPRINT F13 + F18-A — WatchFolderController
+// ----------------------------------------------------------------------------
+// Endpoints:
+//   GET  /api/watch-folder/status   status do watcher + mapeamento de slugs
+//   POST /api/watch-folder/reload   recarrega cache de slugs após criar company
+// ============================================================================
+import { Controller, Get, Post } from '@nestjs/common';
 import { WatchFolderService } from './watch-folder.service';
 
-@ApiTags('Watch Folder')
-@ApiBearerAuth('JWT')
 @Controller('api/watch-folder')
 export class WatchFolderController {
-  constructor(private readonly watchFolder: WatchFolderService) {}
+  constructor(private readonly service: WatchFolderService) {}
 
   @Get('status')
-  @ApiOperation({ summary: 'Status do watcher' })
-  @ApiResponse({ status: 200, description: 'Status atual' })
   status() {
-    return this.watchFolder.status();
+    return this.service.getStatus();
   }
 
-  @Post('iniciar')
-  @ApiOperation({ summary: 'Ativa o watcher em runtime' })
-  @ApiResponse({ status: 200, description: 'Watcher ativado' })
-  @ApiResponse({ status: 409, description: 'Watcher já estava ativo' })
-  async iniciar() {
-    const status = this.watchFolder.status();
-    if (status.ativo) {
-      return { ok: false, message: 'Watcher já está ativo', status };
-    }
-    const novoStatus = await this.watchFolder.iniciar();
-    return { ok: true, status: novoStatus };
-  }
-
-  @Post('parar')
-  @ApiOperation({ summary: 'Desativa o watcher' })
-  @ApiResponse({ status: 200, description: 'Watcher desativado' })
-  async parar() {
-    const status = await this.watchFolder.parar();
-    return { ok: true, status };
-  }
-
-  @Post('scan')
-  @ApiOperation({
-    summary: 'Varredura manual da pasta',
-    description: 'Reprocessa arquivos na raiz que não dispararam evento add',
-  })
-  @ApiResponse({ status: 200, description: 'Resultado da varredura' })
-  async scan() {
-    const resultado = await this.watchFolder.scanManual();
-    return { ok: true, ...resultado };
+  /**
+   * 🆕 F18-A: Recarrega o cache de slugs em memória.
+   * Útil após criar uma nova empresa via admin, sem precisar reiniciar o backend.
+   */
+  @Post('reload')
+  async reload() {
+    await this.service.recarregarCache();
+    return { ok: true, message: 'Cache de slugs recarregado' };
   }
 }

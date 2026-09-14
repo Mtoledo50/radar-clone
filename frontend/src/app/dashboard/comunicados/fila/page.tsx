@@ -1,6 +1,11 @@
 ﻿// ============================================================================
-// SPRINT F15 — Fila de Aprovacao de Comunicados
+// SPRINT F15 + F18-A — Fila de Aprovacao de Comunicados
+// ----------------------------------------------------------------------------
 // MARCADOR F15-A: APROVAR_CHAMA_APROVAR (botoes corretos)
+// 🆕 F18-A: filtro por empresa (multi-tenant) + badge 🏢 da company do arquivo
+// 🆕 F18-A v2: lista de empresas vem de endpoint PUBLICO (/company/companies)
+//              — sem JWT e sem gate de role no dev (endpoint nao expoe dado
+//              sensivel; em producao, proteger a fila e re-gatear por ADMIN)
 // ============================================================================
 'use client';
 
@@ -29,6 +34,15 @@ interface ArquivoFila {
   status: StatusArquivoFila;
   erro: string | null;
   createdAt: string;
+  // 🆕 F18-A: company vem no include do backend
+  company?: { id: string; name: string };
+}
+
+// 🆕 F18-A: tipo para empresa
+interface Empresa {
+  id: string;
+  name: string;
+  slug?: string | null;
 }
 
 export default function FilaPage() {
@@ -37,12 +51,29 @@ export default function FilaPage() {
   const [filtroStatus, setFiltroStatus] = useState<StatusArquivoFila | 'TODOS'>(
     'AGUARDANDO_APROVACAO',
   );
+  // 🆕 F18-A: estados para filtro por empresa
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [filtroEmpresa, setFiltroEmpresa] = useState<string>('TODAS');
+
+  // 🆕 F18-A v2: endpoint PUBLICO — sem JWT, sem gate de role no dev.
+  // Roda uma unica vez no mount da pagina.
+  useEffect(() => {
+    fetch(`${API_URL}/company/companies`)
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((data) => setEmpresas(data.data || []))
+      .catch((err) => {
+        console.error('Erro ao carregar companies:', err);
+        setEmpresas([]);
+      });
+  }, []);
 
   useEffect(() => {
     const fetchArquivos = async () => {
       try {
         const params = new URLSearchParams();
         if (filtroStatus !== 'TODOS') params.append('status', filtroStatus);
+        // 🆕 F18-A: adiciona filtro por companyId
+        if (filtroEmpresa !== 'TODAS') params.append('companyId', filtroEmpresa);
         const response = await fetch(`${API_URL}/api/arquivos-fila?${params}`);
         const data = await response.json();
         setArquivos(data.data || []);
@@ -55,7 +86,7 @@ export default function FilaPage() {
     fetchArquivos();
     const interval = setInterval(fetchArquivos, 5000);
     return () => clearInterval(interval);
-  }, [filtroStatus]);
+  }, [filtroStatus, filtroEmpresa]);
 
   // MARCADOR F15-A: botao VERDE chama /aprovar
   const aprovar = async (id: string) => {
@@ -122,7 +153,9 @@ export default function FilaPage() {
         </p>
       </div>
 
-      <div className="mb-6 flex gap-2 flex-wrap">
+      {/* FILTROS */}
+      <div className="mb-6 flex gap-2 flex-wrap items-center">
+        {/* Filtros de status (originais F15) */}
         {(
           ['TODOS', 'AGUARDANDO_APROVACAO', 'SEM_CLIENTE', 'SEM_EMAIL', 'ERRO'] as const
         ).map((status) => (
@@ -142,6 +175,23 @@ export default function FilaPage() {
             {status === 'ERRO' && 'Erro'}
           </button>
         ))}
+
+        {/* 🆕 F18-A v2: filtro por empresa — aparece sempre que houver empresas */}
+        {empresas.length > 0 && (
+          <select
+            value={filtroEmpresa}
+            onChange={(e) => setFiltroEmpresa(e.target.value)}
+            className="px-4 py-2 rounded-lg border border-slate-200 bg-white font-medium text-sm"
+            title="Filtrar por empresa (multi-tenant)"
+          >
+            <option value="TODAS">Todas as empresas</option>
+            {empresas.map((e) => (
+              <option key={e.id} value={e.id}>
+                🏢 {e.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {loading ? (
@@ -201,13 +251,19 @@ function ArquivoCard({
           <h3 className="text-lg font-semibold text-slate-900 mb-1">
             {arquivo.nomeOriginal}
           </h3>
-          <div className="flex gap-2 items-center text-sm text-slate-600">
+          <div className="flex gap-2 items-center text-sm text-slate-600 flex-wrap">
             <span className={badgeColor + ' px-2 py-1 rounded text-xs font-medium'}>
               {arquivo.status}
             </span>
             <span className={confiancaColor + ' font-medium'}>
               Confianca: {(arquivo.confianca * 100).toFixed(0)}%
             </span>
+            {/* 🆕 F18-A: mostra nome da empresa do arquivo (multi-tenant) */}
+            {arquivo.company?.name && (
+              <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                🏢 {arquivo.company.name}
+              </span>
+            )}
           </div>
         </div>
       </div>

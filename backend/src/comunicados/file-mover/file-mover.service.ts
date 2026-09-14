@@ -1,4 +1,11 @@
-// backend/src/comunicados/file-mover/file-mover.service.ts
+// ============================================================================
+// SPRINT F15 + F18-A — FileMoverService
+// ----------------------------------------------------------------------------
+// Responsável por movimentar arquivos entre pastas do Watch Folder.
+//
+// 🆕 F18-A: Adicionado moverParaEnviadosTenant (isolamento por tenant)
+//           e resolverCaminhoAtual agora varre enviados/<slug>/YYYY-MM/
+// ============================================================================
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs/promises';
@@ -21,12 +28,12 @@ export class FileMoverService {
   }
 
   /**
-   * F15 — Localiza o caminho REAL do arquivo.
+   * F15 + F18-A — Localiza o caminho REAL do arquivo.
    * O caminhoAbsoluto gravado no banco pode ficar desatualizado (o arquivo
-   * ja foi movido para pendentes/, enviados/YYYY-MM/, etc.).
+   * já foi movido para pendentes/, enviados/<slug>/YYYY-MM/, etc.).
    *
-   * FIX F15-5: agora tambem varre enviados/<YYYY-MM>/ — sem isso, o link de
-   * download de um arquivo JA APROVADO retornava 404.
+   * FIX F15-5: varre enviados/ (antiga estrutura).
+   * 🆕 F18-A: varre enviados/<slug>/YYYY-MM/ (nova estrutura multi-tenant).
    */
   async resolverCaminhoAtual(
     caminhoAbsoluto: string,
@@ -47,33 +54,51 @@ export class FileMoverService {
         await fs.access(candidato);
         return candidato; // achou!
       } catch {
-        // nao existe aqui — tenta o proximo
+        // não existe aqui — tenta o próximo
       }
     }
 
-    // 2) FIX F15-5: varre enviados/<YYYY-MM>/ (arquivo ja aprovado)
+    // 2) Varre enviados/ (estrutura multi-tenant: enviados/<slug>/YYYY-MM/)
     try {
-      const meses = await fs.readdir(path.join(base, 'enviados'));
-      for (const mes of meses) {
-        const candidato = path.join(base, 'enviados', mes, nomeOriginal);
+      const enviadosDir = path.join(base, 'enviados');
+      const slugs = await fs.readdir(enviadosDir);
+      for (const slug of slugs) {
+        const slugPath = path.join(enviadosDir, slug);
+        const stat = await fs.stat(slugPath);
+        if (!stat.isDirectory()) continue;
+
+        // Pode ser <slug> (multi-tenant) ou <YYYY-MM> (estrutura antiga)
+        const subpastas = await fs.readdir(slugPath);
+        for (const sub of subpastas) {
+          const candidato = path.join(slugPath, sub, nomeOriginal);
+          try {
+            await fs.access(candidato);
+            return candidato; // achou em enviados/<slug>/YYYY-MM/
+          } catch {
+            // tenta a próxima
+          }
+        }
+
+        // Também checa se o arquivo está direto em enviados/<slug>/
+        const diretoNoSlug = path.join(slugPath, nomeOriginal);
         try {
-          await fs.access(candidato);
-          return candidato; // achou em enviados/2026-09/ etc.
+          await fs.access(diretoNoSlug);
+          return diretoNoSlug;
         } catch {
-          // tenta o proximo mes
+          // tenta o próximo slug
         }
       }
     } catch {
-      // pasta enviados/ nao existe ainda — segue em frente
+      // pasta enviados/ não existe ainda — segue em frente
     }
 
-    return caminhoAbsoluto; // nao achou em lugar nenhum — erro tratado depois
+    return caminhoAbsoluto; // não achou em lugar nenhum
   }
 
   /**
    * Garante que a estrutura de pastas existe:
    *   {pastaBase}/
-   *     enviados/{YYYY-MM}/
+   *     enviados/
    *     pendentes/
    *     rejeitados/
    *     erros/
@@ -88,7 +113,7 @@ export class FileMoverService {
 
   /**
    * Move um arquivo da raiz para uma subpasta (ADR-119).
-   * Se ja existir arquivo com mesmo nome, adiciona sufixo numerico.
+   * Se já existir arquivo com mesmo nome, adiciona sufixo numérico.
    * @returns Caminho absoluto do arquivo movido
    */
   async mover(caminhoOrigem: string, options: MoverOptions = {}): Promise<string> {
@@ -118,7 +143,10 @@ export class FileMoverService {
     }
   }
 
-  /** Move para enviados/YYYY-MM/ (padrao de auditoria ADR-119) */
+  /**
+   * Move para enviados/YYYY-MM/ (estrutura LEGADA — sem isolamento de tenant).
+   * Mantido para compatibilidade com registros antigos.
+   */
   async moverParaEnviados(
     caminhoOrigem: string,
     competencia: string | null,
@@ -128,6 +156,27 @@ export class FileMoverService {
         ? competencia
         : this.ymAtual();
     return this.mover(caminhoOrigem, { subpasta: path.join('enviados', ym) });
+  }
+
+  /**
+   * 🆕 F18-A — Move para enviados/<slug>/YYYY-MM/ (isolamento por tenant).
+   * Se companySlug for null, usa a estrutura legada (enviados/YYYY-MM/).
+   */
+  async moverParaEnviadosTenant(
+    caminhoOrigem: string,
+    competencia: string | null,
+    companySlug: string | null,
+  ): Promise<string> {
+    const ym =
+      competencia && /^\d{4}-\d{2}$/.test(competencia)
+        ? competencia
+        : this.ymAtual();
+
+    const subpasta = companySlug
+      ? path.join('enviados', companySlug, ym)
+      : path.join('enviados', ym);
+
+    return this.mover(caminhoOrigem, { subpasta });
   }
 
   async moverParaPendentes(caminho: string): Promise<string> {

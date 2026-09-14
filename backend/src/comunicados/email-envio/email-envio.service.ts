@@ -1,7 +1,18 @@
 // ============================================================================
-// SPRINT F13/F15 — EmailEnvioService (ADR-030, ADR-114, ADR-117, ADR-119)
-// MARCADOR F15-3: ASSUNTO_RENDERIZADO
-// MARCADOR F15-2: CAMINHO_REAL
+// SPRINT F13/F15/F18-A — EmailEnvioService (ADR-030, ADR-114, ADR-117, ADR-119)
+// ----------------------------------------------------------------------------
+// Orquestrador do envio de email. Fluxo:
+//   1. Valida ArquivoFila (só AGUARDANDO_APROVACAO)
+//   2. Carrega cliente + empresa
+//   3. Resolve destinatário
+//   4. Resolve template (tipo exato -> GENERICO -> fallback)
+//   5. Cria EmailEnvio (AGENDADO)
+//   6. Calcula expiração do link
+//   7. Renderiza ASSUNTO + CORPO com Handlebars (mesmo contexto)
+//   8. Injeta pixel e persiste (corpo + assunto renderizado)
+//   9. 🆕 F18-A: Move para enviados/<slug>/YYYY-MM/ (isolamento por tenant)
+//  10. Envia via provider com o assunto JÁ renderizado
+//  11. Grava evento e atualiza status
 // ============================================================================
 import {
   Injectable,
@@ -45,42 +56,42 @@ export class EmailEnvioService {
     dto: AprovarArquivoDto,
     usuarioId: string,
   ) {
-    // 1. Valida o ArquivoFila
+    // ── 1. Valida o ArquivoFila ───────────────────────────────────────────
     const fila = await this.prisma.arquivoFila.findUnique({
       where: { id: arquivoFilaId },
     });
-    if (!fila) throw new NotFoundException('Arquivo nao encontrado na fila');
+    if (!fila) throw new NotFoundException('Arquivo não encontrado na fila');
 
     if (fila.status !== StatusArquivoFila.AGUARDANDO_APROVACAO) {
       throw new ConflictException(
-        `Arquivo nao esta apto para envio (status: ${fila.status})`,
+        `Arquivo não está apto para envio (status: ${fila.status})`,
       );
     }
 
-    // 2. Carrega cliente e empresa
+    // ── 2. Carrega cliente e empresa ──────────────────────────────────────
     const cliente = fila.clienteId
       ? await this.prisma.client.findUnique({ where: { id: fila.clienteId } })
       : null;
     const company = await this.prisma.company.findUnique({
       where: { id: fila.companyId },
     });
-    if (!company) throw new NotFoundException('Empresa nao encontrada');
+    if (!company) throw new NotFoundException('Empresa não encontrada');
 
-    // 3. Resolve destinatario
+    // ── 3. Resolve destinatário ───────────────────────────────────────────
     const destinatario = dto.emailDestinatario ?? fila.clienteEmail;
     if (!destinatario) {
       throw new ConflictException(
-        'Destinatario nao definido. Informe emailDestinatario.',
+        'Destinatário não definido. Informe emailDestinatario.',
       );
     }
 
-    // 4. Resolve template
+    // ── 4. Resolve template ───────────────────────────────────────────────
     const template = await this.resolverTemplate(
       fila.companyId,
       fila.tipoDocumento,
     );
 
-    // 5. Cria o EmailEnvio (AGENDADO) — assunto entra cru aqui
+    // ── 5. Cria o EmailEnvio (AGENDADO) ───────────────────────────────────
     const envio = await this.prisma.emailEnvio.create({
       data: {
         companyId: fila.companyId,
@@ -106,11 +117,11 @@ export class EmailEnvioService {
     });
     this.logger.log(`EmailEnvio criado: ${envio.id} (AGENDADO)`);
 
-    // 6. Expiracao do link de download
+    // ── 6. Expiração do link de download ──────────────────────────────────
     const linkExpiraEm = new Date();
     linkExpiraEm.setDate(linkExpiraEm.getDate() + this.docLinkTtlDays);
 
-    // 7. Contexto unico para assunto + corpo
+    // ── 7. Contexto único para assunto + corpo ────────────────────────────
     const urlDownload = this.templateService.montarUrlDownload(
       envio.id,
       envio.tokenDownload,
@@ -140,7 +151,7 @@ export class EmailEnvioService {
       },
     };
 
-    // MARCADOR F15-3: ASSUNTO_RENDERIZADO — o assunto tambem e Handlebars
+    // FIX F15-3: o assunto TAMBEM é template Handlebars
     const assuntoRenderizado = this.templateService.renderizar(
       envio.assunto,
       contexto,
@@ -150,7 +161,7 @@ export class EmailEnvioService {
       contexto,
     );
 
-    // 8. Injeta pixel e persiste corpo + assunto renderizado
+    // ── 8. Injeta pixel e persiste corpo + assunto renderizado ────────────
     const htmlFinal = this.templateService.injetarPixelTracking(
       htmlRenderizado,
       envio.id,
@@ -164,9 +175,12 @@ export class EmailEnvioService {
       },
     });
 
-    // 9. MARCADOR F15-2: CAMINHO_REAL — localiza o arquivo no disco
+    // ── 9. 🆕 F18-A: Move arquivo para enviados/<slug>/YYYY-MM/ ───────────
+    // Isolamento por tenant: cada empresa tem sua subpasta em enviados/.
+    // Fallback: se company não tiver slug, normaliza o nome da empresa.
     let caminhoFinal: string | null = null;
     try {
+      // FIX F15-2: localiza o caminho REAL (arquivo pode já estar em pendentes/)
       const caminhoReal = await this.fileMover.resolverCaminhoAtual(
         fila.caminhoAbsoluto,
         fila.nomeOriginal,
@@ -177,22 +191,38 @@ export class EmailEnvioService {
           data: { caminhoAbsoluto: caminhoReal },
         });
       }
-      caminhoFinal = await this.fileMover.moverParaEnviados(
+
+      // 🆕 F18-A: busca slug da company para isolar enviados por tenant
+      const companySlug =
+        (company as any)?.slug ??
+        (company?.name
+          ? company.name
+              .toLowerCase()
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '') // remove acentos
+              .replace(/[^a-z0-9]+/g, '-')      // espaços/vírgulas viram hifen
+              .replace(/^-+|-+$/g, '')          // trim de hifens
+              .substring(0, 60)                  // limite de 60 chars
+          : null);
+
+      caminhoFinal = await this.fileMover.moverParaEnviadosTenant(
         caminhoReal,
         fila.competencia,
+        companySlug,
       );
-      this.logger.log(`Arquivo movido para: ${caminhoFinal}`);
-       // FIX F15-5: sincroniza o banco com o caminho FINAL (enviados/YYYY-MM/)
+      this.logger.log(`📁 Arquivo movido para: ${caminhoFinal}`);
+
+      // FIX F15-5: sincroniza o banco com o caminho FINAL (para download)
       await this.prisma.arquivoFila.update({
         where: { id: fila.id },
         data: { caminhoAbsoluto: caminhoFinal },
       });
     } catch (err: any) {
-      this.logger.error(`Falha ao mover arquivo: ${err.message}`);
+      this.logger.error(`❌ Falha ao mover arquivo: ${err.message}`);
       caminhoFinal = fila.caminhoAbsoluto;
     }
 
-    // 10. Envia via provider com assunto renderizado
+    // ── 10. Envia via provider com assunto RENDERIZADO ────────────────────
     const provider = this.providerFactory.getProvider();
     this.logger.log(`Enviando via provider: ${provider.nome}`);
     const resultado = await provider.enviar({
@@ -205,7 +235,7 @@ export class EmailEnvioService {
       metadata: { envioId: envio.id, companyId: fila.companyId },
     });
 
-    // 11. Evento + status final
+    // ── 11. Evento + status final ─────────────────────────────────────────
     if (resultado.sucesso) {
       await this.prisma.emailEvento.create({
         data: {
@@ -261,6 +291,8 @@ export class EmailEnvioService {
           status: StatusEnvio.FALHOU,
           ultimoErro: resultado.erro,
           tentativas: 1,
+          // 🆕 F17-A: agenda primeiro retry automático em 1 minuto
+          proximoRetryEm: new Date(Date.now() + 60 * 1000),
         },
       });
       await this.prisma.arquivoFila.update({
