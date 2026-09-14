@@ -18,7 +18,37 @@ export class FileMoverService {
     this.pastaBase = this.config.get<string>('WATCH_FOLDER_PATH')
       ?? path.join(process.cwd(), 'data', 'enviar');
   }
+/**
+ * F15 — Localiza o caminho REAL do arquivo.
+ * O caminhoAbsoluto gravado no banco pode ficar desatualizado (o arquivo
+ * já foi movido para pendentes/, erros/, etc.). Este método verifica os
+ * candidatos em ordem e retorna o primeiro que existe no disco.
+ */
+async resolverCaminhoAtual(
+  caminhoAbsoluto: string,
+  nomeOriginal: string,
+): Promise<string> {
+  const base =
+    this.config.get<string>('WATCH_FOLDER_PATH') ?? 'C:\\Documentos\\Enviar';
 
+  const candidatos = [
+    caminhoAbsoluto,
+    require('path').join(base, 'pendentes', nomeOriginal),
+    require('path').join(base, 'erros', nomeOriginal),
+    require('path').join(base, 'rejeitados', nomeOriginal),
+    require('path').join(base, nomeOriginal),
+  ];
+
+  for (const candidato of candidatos) {
+    try {
+      await fs.access(candidato);
+      return candidato; // achou!
+    } catch {
+      // não existe aqui — tenta o próximo
+    }
+  }
+  return caminhoAbsoluto; // não achou em lugar nenhum — erro será tratado depois
+}
   /**
    * Garante que a estrutura de pastas existe:
    *   {pastaBase}/
