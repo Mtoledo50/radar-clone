@@ -3021,6 +3021,25 @@ model MemoriaInteracao {
   conteudo      String   @db.Text
   metadata      Json?    // Dados extras (intenção, score, etc)
   criadoEm      DateTime @default(now())
-
+  analise       AnaliseConversa? // 👈 Adicione apenas esta linha
   contato       MemoriaContato @relation(fields: [contatoId], references: [id], onDelete: Cascade)
 }
+
+   // ==========================================
+   // F15 - ANÁLISE E CLASSIFICAÇÃO (Módulo Manual)
+   // ==========================================
+   model AnaliseConversa {
+     id            String   @id @default(cuid())
+     interacaoId   String   @unique // Liga 1:1 com a interação original
+     
+     tipo          String?  // Ex: "Dúvida simples", "Abertura de empresa"
+     complexidade  Int?     // 1 a 5 estrelas
+     tempoGastoMin Int?     // Minutos gastos no atendimento
+     observacao    String?  @db.Text
+     status        String   @default("pendente") // "pendente" ou "classificado"
+     
+     criadoEm      DateTime @default(now())
+     atualizadoEm  DateTime @updatedAt
+
+     interacao     MemoriaInteracao @relation(fields: [interacaoId], references: [id], onDelete: Cascade)
+   }

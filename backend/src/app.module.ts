@@ -55,6 +55,8 @@ import { ComunicadosModule } from './comunicados/comunicados.module';
 import { TrackingController } from './tracking/tracking.controller';
 // F14 (Backend da Memória)
 import { MemoriaController } from './memoria/memoria.controller';
+
+import { AnaliseController } from './analise/analise.controller';
 @Module({
   imports: [
     // --- Infraestrutura ---
@@ -111,6 +113,7 @@ import { MemoriaController } from './memoria/memoria.controller';
     // IMPORTANTE: Controllers devem ficar SEMPRE neste array, NUNCA no array de 'imports'
     TrackingController,
     MemoriaController, // 👈 adicione esta linha
+    AnaliseController, // 👈 adicione esta linha
   ],
   
   // providers: [], // Adicionar providers globais aqui se necessário no futuro
