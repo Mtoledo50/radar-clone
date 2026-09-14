@@ -18,6 +18,7 @@ import { EmailEnvioService } from './email-envio/email-envio.service';
 import { WatchFolderController } from './watch-folder/watch-folder.controller';
 import { ArquivoFilaController } from './arquivo-fila/arquivo-fila.controller';
 import { EmailEnvioController } from './email-envio/email-envio.controller';
+import { EmailTemplateController } from './email-template/email-template.controller';
 
 @Module({
   imports: [ConfigModule],
@@ -25,6 +26,8 @@ import { EmailEnvioController } from './email-envio/email-envio.controller';
     WatchFolderController,
     ArquivoFilaController,
     EmailEnvioController,
+    EmailTemplateController, // 🆕 F16-A
+
   ],
   providers: [
     PrismaService,

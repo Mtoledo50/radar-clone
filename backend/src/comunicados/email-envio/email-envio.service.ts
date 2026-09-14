@@ -182,6 +182,11 @@ export class EmailEnvioService {
         fila.competencia,
       );
       this.logger.log(`Arquivo movido para: ${caminhoFinal}`);
+       // FIX F15-5: sincroniza o banco com o caminho FINAL (enviados/YYYY-MM/)
+      await this.prisma.arquivoFila.update({
+        where: { id: fila.id },
+        data: { caminhoAbsoluto: caminhoFinal },
+      });
     } catch (err: any) {
       this.logger.error(`Falha ao mover arquivo: ${err.message}`);
       caminhoFinal = fila.caminhoAbsoluto;
