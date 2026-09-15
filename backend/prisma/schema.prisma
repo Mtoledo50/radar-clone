@@ -28,6 +28,13 @@ enum UserRole {
   CLIENTE     /// Acesso do Cliente (Portal)
 }
 
+   enum Canal {
+     WHATSAPP
+     INSTAGRAM
+     FACEBOOK
+     EMAIL
+     OUTRO
+   }
 enum EmployeeStatus {
   ACTIVE    /// Ativo
   INACTIVE  /// Inativo / Férias
@@ -2984,7 +2991,7 @@ model ClientDepartmentOwner {
 model ComunicacaoEnvio {
   id            String   @id @default(cuid())
   protocolo     String   @unique // Liga com o $protocolo do bot
-  canal         String   // "whatsapp", "instagram", "facebook", "email"
+  canal         Canal   // "whatsapp", "instagram", "facebook", "email"
   contatoId     String?  // ID do contato no Radar (se existir)
   conteudo      String   @db.Text
   status        String   @default("enviado") // enviado, visualizado, respondido, concluido
@@ -3008,20 +3015,32 @@ model ComunicacaoEvento {
 // F14 - MEMÓRIA PERMANENTE DO CLIENTE
 // ==========================================
 model MemoriaContato {
-  id            String   @id @default(cuid())
-  contatoId     String   @unique // ID do contato (unifica WhatsApp/Insta/Face)
-  documento     String?  @unique // CPF/CNPJ para unificação
-  ultimoAssunto String?
-  preferencias  Json?    // { canal: "whatsapp", horario: "manha" }
-  criadoEm      DateTime @default(now())
-  atualizadoEm  DateTime @updatedAt
+  id               String             @id @default(cuid())
+  contatoId        String             @unique // ID mestre unificado (ex: CPF/CNPJ ou ID interno)
+  documento        String?            @unique
+  ultimoAssunto    String?
+  
+  // 🆕 F16: Identificadores por canal para unificação
+  telefone         String?  
+  instagramId      String?  
+  facebookId       String?  
 
-  interacoes    MemoriaInteracao[]
+  interacoes       MemoriaInteracao[]
+  criadoEm         DateTime           @default(now())
+  atualizadoEm     DateTime           @updatedAt
 }
 
 model MemoriaInteracao {
   id            String   @id @default(cuid())
   contatoId     String
+ // 🆕 F16: Origem da mensagem
+  canal         Canal    @default(WHATSAPP) 
+  canalExternoId String? // Ex: ID da mensagem no Instagram/WhatsApp
+  // =================================================================
+// 🔒 F17: Relação inversa com LockConversa
+// Permite saber se uma interação está travada por algum atendente
+// =================================================================
+  lock LockConversa?
   tipo          String   // "mensagem", "evento_tracking", "classificacao"
   conteudo      String   @db.Text
   metadata      Json?    // Dados extras (intenção, score, etc)
@@ -3048,3 +3067,28 @@ model MemoriaInteracao {
 
      interacao     MemoriaInteracao @relation(fields: [interacaoId], references: [id], onDelete: Cascade)
    }
+// =================================================================
+// 🔒 F17: MODEL DE LOCK DE CONVERSA
+// Impede que dois atendentes atendam a mesma conversa simultaneamente
+// =================================================================
+model LockConversa {
+  id              String      @id @default(cuid())
+  interacaoId     String      @unique // Trava uma interação específica
+  atendenteId     String      // ID do usuário que assumiu
+  atendenteNome   String      // Nome para exibição rápida (ex: "Ana Silva")
+  bloqueadoEm     DateTime    @default(now())
+  expiraEm        DateTime    // Auto-libera após 30 min
+  status          LockStatus  @default(ATIVO)
+
+  interacao       MemoriaInteracao @relation(fields: [interacaoId], references: [id], onDelete: Cascade)
+
+  @@index([atendenteId])
+  @@index([expiraEm])
+}
+
+// Enum para status do lock
+enum LockStatus {
+  ATIVO       // Trava vigente
+  LIBERADO    // Atendente liberou manualmente
+  EXPIRADO    // Tempo acabou, liberou automático
+}

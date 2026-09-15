@@ -1,6 +1,7 @@
 // =================================================================
-// F14 - Frontend: Página de Memória do Cliente
+// F14/F16 - Frontend: Página de Memória do Cliente
 // Permite buscar um contato e visualizar seu perfil unificado e histórico.
+// Atualizado para suportar Multi-canal (F16)
 // =================================================================
 
 'use client';
@@ -13,6 +14,7 @@ interface Interacao {
   conteudo: string;
   metadata: any;
   criadoEm: string;
+  canal?: string; // 🆕 F16: Canal de origem da mensagem (WHATSAPP, INSTAGRAM, FACEBOOK)
 }
 
 interface Perfil {
@@ -20,6 +22,10 @@ interface Perfil {
   documento: string | null;
   ultimoAssunto: string | null;
   totalInteracoes: number;
+  // 🆕 F16: Novos campos de contato unificado
+  telefone?: string | null;
+  instagramId?: string | null;
+  facebookId?: string | null;
 }
 
 interface MemoriaData {
@@ -32,6 +38,16 @@ export default function MemoriaPage() {
   const [data, setData] = useState<MemoriaData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // 🆕 F16: Função auxiliar para exibir o ícone do canal
+  const getCanalIcon = (canal: string) => {
+    switch (canal) {
+      case 'WHATSAPP': return '📱 WhatsApp';
+      case 'INSTAGRAM': return '📸 Instagram';
+      case 'FACEBOOK': return '📘 Facebook';
+      default: return '💬 Mensagem';
+    }
+  };
 
   const buscarMemoria = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +87,7 @@ export default function MemoriaPage() {
             type="text"
             value={contatoId}
             onChange={(e) => setContatoId(e.target.value)}
-            placeholder="Digite o ID ou CPF/CNPJ..."
+            placeholder="Digite o ID, CPF/CNPJ ou Telefone..."
             className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <button
@@ -100,6 +116,27 @@ export default function MemoriaPage() {
                 <p className="text-xs text-gray-500 uppercase">Documento</p>
                 <p className="text-gray-900">{data.perfil.documento || 'Não informado'}</p>
               </div>
+              
+              {/* 🆕 F16: Exibir novos campos de contato se existirem */}
+              {data.perfil.telefone && (
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Telefone</p>
+                  <p className="text-gray-900">📱 {data.perfil.telefone}</p>
+                </div>
+              )}
+              {data.perfil.instagramId && (
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Instagram ID</p>
+                  <p className="text-gray-900">📸 {data.perfil.instagramId}</p>
+                </div>
+              )}
+              {data.perfil.facebookId && (
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">Facebook ID</p>
+                  <p className="text-gray-900">📘 {data.perfil.facebookId}</p>
+                </div>
+              )}
+
               <div>
                 <p className="text-xs text-gray-500 uppercase">Último Assunto</p>
                 <p className="text-gray-900 font-medium text-blue-700">
@@ -122,7 +159,12 @@ export default function MemoriaPage() {
               <div className="space-y-4">
                 {data.historico.map((interacao) => (
                   <div key={interacao.id} className="border-l-4 border-gray-300 pl-4 py-2 hover:bg-gray-50 transition-colors">
-                    <div className="flex justify-between items-start mb-1">
+                    
+                    {/* 🆕 F16: Cabeçalho da interação com Ícone do Canal */}
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-sm font-medium text-gray-600" title={`Canal: ${interacao.canal || 'WHATSAPP'}`}>
+                        {getCanalIcon(interacao.canal || 'WHATSAPP')}
+                      </span>
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                         interacao.tipo === 'mensagem' ? 'bg-blue-100 text-blue-800' :
                         interacao.tipo === 'evento_tracking' ? 'bg-green-100 text-green-800' :
@@ -130,10 +172,11 @@ export default function MemoriaPage() {
                       }`}>
                         {interacao.tipo.replace('_', ' ').toUpperCase()}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 ml-auto">
                         {new Date(interacao.criadoEm).toLocaleString('pt-BR')}
                       </span>
                     </div>
+
                     <p className="text-gray-800 mb-2">{interacao.conteudo}</p>
                     {interacao.metadata && (
                       <details className="text-xs text-gray-500 bg-gray-100 p-2 rounded">

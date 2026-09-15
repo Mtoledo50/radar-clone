@@ -58,7 +58,7 @@ import { TrackingPublicoController } from './tracking/tracking-publico.controlle
 // F14 (Backend da Memória)
 import { MemoriaController } from './memoria/memoria.controller';
 import { AnaliseController } from './analise/analise.controller';
-
+import { FilaController } from './fila/fila.controller';
 @Module({
   imports: [
     // --- Infraestrutura ---
@@ -117,6 +117,8 @@ import { AnaliseController } from './analise/analise.controller';
     TrackingPublicoController,
     MemoriaController, // 👈 adicione esta linha
     AnaliseController, // 👈 adicione esta linha
+    FilaController, // 👈 ESTA LINHA PRECISA ESTAR AQUI
+
   ],
   // providers: [], // Adicionar providers globais aqui se necessário no futuro
 })
