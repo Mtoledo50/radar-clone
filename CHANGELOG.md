@@ -20,6 +20,41 @@ Adicione **no topo** do CHANGELOG.md (logo após o cabeçalho):
 ## [Sprints F15-F17 — Sistema de Envio Completo] 15/09/2026 — ✅ HOMOLOGADO
 
 ### Added
+## [Sprint F18-B — Portal do Cliente] 15/09/2026 — ✅ HOMOLOGADO
+
+### Added
+- **Portal do Cliente tokenizado** (ADR-121): página pública `/portal/<token>`
+  onde o cliente final vê seus documentos, tarefas, DRE e propostas do escritório,
+  sem necessidade de login.
+- **Model `ClientPortalToken`** (1-N por cliente) com `token`, `expiresAt`,
+  `revokedAt`, `lastUsedAt` — permite múltiplos tokens ativos e revogação.
+- **Endpoint público** `GET /api/client-portal/validate/:token` valida token e
+  retorna dados básicos do cliente + data de expiração.
+- **Endpoint público** `GET /api/client-portal/dashboard/:token` carrega
+  dashboard completo (client + tasks + monthlyReports + proposals + dreSummary).
+- **Cálculo de DRE em tempo real** via `AccountingEntry`: filtra lançamentos
+  do mês corrente (status `CONCILIATED`) e soma créditos em RECEITA e débitos
+  em DESPESA. Conversão `Decimal → Number()` para soma segura.
+- **Endpoint ADMIN** `POST /api/client-portal/regenerar/:clienteId` revoga
+  todos os tokens ativos e gera novo UUID com TTL de 90 dias.
+- **Página frontend mobile-first** com 4 abas, badges de status, agrupamento
+  por mês e botões de download de PDFs (relatórios mensais).
+
+### Decisions
+- **ADR-121:** token UUID permanente (não CNPJ) em relação 1-N para permitir
+  revogação (LGPD) e múltiplos acessos simultâneos.
+- **Acesso anônimo:** endpoints públicos sem JWT — token age como credencial.
+  A página em si é protegida pela posse do token (link único enviado por email).
+- **Propostas vinculadas por `clientCnpj`** (campo do schema Proposal), não por
+  `clientId` — compatível com o modelo existente.
+- **DRE apenas de lançamentos `CONCILIATED`:** evita poluir com lançamentos
+  pendentes que ainda não passaram por revisão humana (ADR-030).
+
+### Provas
+- Token `teste-portal-123` → `FERNANDA LOPES TOLEDO` (CNPJ 08432644000160).
+- Dashboard retorna DRE Setembro/2026 com Receitas R$ 0, Despesas R$ 0.
+- Página abre em aba anônima (sem sessão) e renderiza as 4 abas.
+
 
 **F15 — Frontend de Comunicados:**
 - **Tela Fila de Aprovação** (`/dashboard/comunicados/fila`): lista arquivos detectados pelo Watch Folder com preview do email, botões Aprovar/Rejeitar, filtros por status (AGUARDANDO_APROVACAO, SEM_CLIENTE, SEM_EMAIL, ERRO), polling a cada 5s.

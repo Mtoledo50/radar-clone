@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useClientContextStore } from '@/store/clientContextStore';
 import { WORKSPACE_SECTORS } from '@/lib/client-workspace-services';
 import { FolderOpen, Lock, ExternalLink, Loader2, Power } from 'lucide-react';
+import PortalClienteCard from '@/components/PortalClienteCard';
 
 export default function ClientWorkspacePage() {
   const router = useRouter();
