@@ -352,6 +352,9 @@ Adicione **no topo** do CHANGELOG.md (logo após o cabeçalho):
 - **ADR-118:** Parser CNPJ flexível (aceita múltiplos formatos de nome de arquivo).
 - **ADR-119:** Pasta enviados/YYYY-MM/ para auditoria e conformidade LGPD.
 - **ADR-120:** Retry automático com backoff exponencial (1min → 5min → 25min) + reenvio manual ilimitado.
+🆕 ADR-121: Portal do Cliente tokenizado (UUID permanente em relação 1-N,
+acesso anônimo via token, DRE calculado em tempo real de lançamentos
+CONCILIATED, revogação via ADMIN).
 
 ### Provas
 - **Watch Folder:** drop de arquivo em `C:\Documentos\Enviar\` → detectado em <1s → movido para `pendentes/` → aparece na Fila.
@@ -399,7 +402,9 @@ Adicione **no topo** do CHANGELOG.md (logo após o cabeçalho):
 **Banco de Dados:**
 - `prisma/schema.prisma` (modificado — adicionadas tabelas email_envios, email_eventos, email_templates, arquivo_filas)
 - Migrations aplicadas via `npx prisma db push`
-
+- `/portal/<token>` — Portal público do cliente final (sem login, 4 abas:
+  Visão Geral, DRE do Mês, Propostas, Documentos).
+  
 ### Status
 ✅ **HOMOLOGADO em ambiente local** (15/09/2026):
 - Watch Folder detectando arquivos em tempo real

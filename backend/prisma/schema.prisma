@@ -435,6 +435,11 @@ model Client {
   billingInstructions BillingInstruction[]
     // 🆕 Portal do Cliente — tokens de acesso
   portalTokens  ClientPortalToken[]
+    // 🆕 F18-B.2: flags do Portal do Cliente (opt-in por cliente — ADR-122)
+    
+  portalAtivo            Boolean   @default(false)
+  portalMostrarTarefas   Boolean   @default(false)
+  portalMostrarPropostas Boolean   @default(false)
   
   @@index([userId])
   @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
