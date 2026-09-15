@@ -3,7 +3,7 @@
 // Versão 3.0: Limpa dados existentes antes de popular (idempotente)
 // =================================================================
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Canal } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -16,7 +16,7 @@ const tipos = [
   'so_informacao'
 ];
 
-const canais = ['whatsapp', 'instagram', 'facebook'];
+const canais = [Canal.WHATSAPP, Canal.INSTAGRAM, Canal.FACEBOOK];
 
 const conteudos = {
   duvida_simples: ['Como emitir nota fiscal?', 'Qual o prazo para pagar o DAS?', 'Preciso de ajuda com o certificado digital', 'Como acessar o portal do cliente?'],
@@ -90,7 +90,7 @@ async function main() {
     await prisma.comunicacaoEnvio.create({
       data: {
         protocolo: `PROTO-${timestamp}-${i + 1}`,
-        canal,
+        canal: canal, // <-- Agora está perfeito, pois 'canal' já vem do Enum
         contatoId: contatoIdString,
         conteudo,
         status: i % 2 === 0 ? 'visualizado' : 'respondido'
