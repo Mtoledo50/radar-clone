@@ -21,7 +21,6 @@ import {
   Menu,
   X,
   AlertTriangle,
-  BarChart3,
   Activity,
   Scale,
   ChevronDown,
@@ -46,6 +45,8 @@ import {
   Globe,         // 🆕 Sprint F10: Site Conta Certa
   ExternalLink,  // 🆕 Sprint F10: badge "abre em nova aba"
   Mail,          // 🆕 F15: ícone da seção Comunicados
+  Headset,       // 🆕 Para Fila de Atendimento
+  BarChart3,     // 🆕 Para Análise de Conversas
 } from 'lucide-react';
 // =================================================================
 // FIM: IMPORTS E DIRETIVAS
@@ -88,6 +89,7 @@ interface MenuItem {
 const SECTIONS = [
   { id: 'operacional', label: 'Operacional' },
   { id: 'comunicados', label: 'Comunicações' }, // 🆕 F15
+  { id: 'atendimento', label: 'Atendimento' }, // 🆕 NOVA SEÇÃO
   { id: 'comercial', label: 'Comercial' },
   { id: 'fiscal', label: 'Fiscal' },
   { id: 'bancario', label: 'Bancário' },
@@ -174,6 +176,23 @@ const allMenuItems: MenuItem[] = [
       { id: 'comunicados-envios', title: 'Histórico de Envios', href: '/dashboard/comunicados/envios' },
       { id: 'comunicados-templates', title: 'Templates de Email', href: '/dashboard/comunicados/templates' },
     ],
+  },
+   // ─────────────────────────────────────────────────────────
+  // 📞 ATENDIMENTO (🆕 F13-F17: Fale Conosco, Fila, Análise)
+  // ─────────────────────────────────────────────────────────
+  {
+    id: 'fila-atendimento',
+    title: 'Fila de Atendimento',
+    href: '/dashboard/fila',  // ✅ CORRETO
+    icon: Headset,
+    section: 'atendimento',
+  },
+  {
+    id: 'analise-conversas',
+    title: 'Análise de Conversas',
+    href: '/dashboard/analise',  // ✅ CORRETO
+    icon: BarChart3,
+    section: 'atendimento',
   },
 
   // ─────────────────────────────────────────────────────────
