@@ -3016,8 +3016,10 @@ model ComunicacaoEvento {
 // ==========================================
 model MemoriaContato {
   id               String             @id @default(cuid())
-  contatoId        String             @unique // ID mestre unificado (ex: CPF/CNPJ ou ID interno)
-  documento        String?            @unique
+  contatoId        String             @unique // ID mestre unificado
+  documento        String?            @unique // Usaremos para salvar o CPF/CNPJ
+  nomeCliente      String?            //  Nome do cliente (para a saudação)
+  statusFluxo      String             @default("NOVO") // 🆕 NOVO, AGUARDANDO_NOME, AGUARDANDO_CPF, ATIVO
   ultimoAssunto    String?
   
   // 🆕 F16: Identificadores por canal para unificação
@@ -3061,7 +3063,8 @@ model MemoriaInteracao {
      tempoGastoMin Int?     // Minutos gastos no atendimento
      observacao    String?  @db.Text
      status        String   @default("pendente") // "pendente" ou "classificado"
-     
+     analisadoPor  String?  // 🆕 Quem classificou (ID do usuário)
+
      criadoEm      DateTime @default(now())
      atualizadoEm  DateTime @updatedAt
 
