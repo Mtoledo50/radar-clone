@@ -369,8 +369,229 @@ Expiração automática (7 dias)
 🗺️ Roadmap — Onde chegamos e onde vamos
 ✅ Fases 1–5: Fundação, BI, Fiscal, Bancário, Aurora (FD-1 a FD-6), Portal do Cliente, PDFs white-label
 ✅ Sprints F8–F11: Catálogo Permanente, Ops unificado, Menu Ecossistema, Extrator Bancário v1.0 com Mistral OCR
+
 ✅ Sprint F12: Documentação completa e homologação
 🆕 Sprint F13 (Atual): Sistema de Envio com Tracking de Comunicações
+## 📊 Módulo Fale Conosco (F13–F17)
+
+### 🎯 Visão Geral
+Sistema de atendimento multicanal integrado ao Radar, com memória permanente do cliente e análise de conversas.
+
+### 🗺️ Roadmap do Módulo
+
+| Sprint | Status | Entregas |
+|--------|--------|----------|
+| **F13 — Tracking ↔ Radar** | 🚧 Em andamento | Webhooks de evento, ID único casado com `$protocolo`, aba "Envios" no Radar |
+| **F14 — Memória do Cliente** | ✅ Concluída | Tabelas `MemoriaContato` + `MemoriaInteracao`, endpoint de histórico |
+| **F15 — Templates + Envios** | ✅ Concluída | CRUD de templates Handlebars, pipeline de emails com SMTP real |
+| **F16 — Central de Comunicados** | ✅ Concluída | Hub central com métricas do funil, histórico de envios com timeline |
+| **F17 — Fila de Atendimento** | ✅ HOMOLOGADA | Fila de atendimento, locks de conversa, chat com histórico, layout otimizado |
+| **F18 — Análise de Conversas** | 🔜 Próxima | Classificação manual, dashboard de insights, gargalos de tempo |
+
+### ️ Stack do Módulo Fale Conosco
+| Camada | Tecnologia |
+|--------|------------|
+| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind, Zustand, Sonner, Lucide |
+| Backend | NestJS 10, TypeScript, Prisma 5, JWT Auth |
+| Banco | PostgreSQL 15 (models: MemoriaContato, MemoriaInteracao, LockConversa, AnaliseConversa) |
+| Email | SMTP real + Handlebars (templates) |
+| IA (futuro) | Mistral LLM (mesma API do Extrator) + pgvector |
+
+frontend/src/app/dashboard/
+├── comunicados/ # F15-F16: Central de Comunicados
+│ ├── page.tsx # Hub central com métricas
+│ ├── envios/page.tsx # Histórico de envios com timeline
+│ ├── fila/page.tsx # Fila de aprovação
+│ └── templates/page.tsx # CRUD de templates Handlebars
+├── fila/ # F17: Fila de Atendimento
+│ ├── page.tsx # Lista de conversas disponíveis
+│ ── [interacaoId]/
+│ └── page.tsx # Chat da conversa + histórico
+└── analise/ # F18: Análise de Conversas (pendente)
+└── page.tsx
+
+### 🔐 Autenticação
+Todas as rotas sensíveis do módulo Fale Conosco usam `@UseGuards(JwtAuthGuard)`. O token JWT é enviado via header `Authorization: Bearer ${token}` em todas as requisições fetch do frontend.
+
+### 📊 Models do Prisma (F14-F17)
+```prisma
+model MemoriaContato {
+  id               String             @id @default(cuid())
+  contatoId        String             @unique // ID mestre (telefone/CPF)
+  documento        String?            @unique
+  ultimoAssunto    String?
+  telefone         String?  
+  instagramId      String?  
+  facebookId      String?  
+  interacoes       MemoriaInteracao[]
+  criadoEm         DateTime           @default(now())
+  atualizadoEm     DateTime           @updatedAt
+}
+
+model MemoriaInteracao {
+  id            String   @id @default(cuid())
+  contatoId     String
+  canal         Canal    @default(WHATSAPP) 
+  canalExternoId String?
+  lock          LockConversa?
+  tipo          String   // "mensagem", "evento_tracking", "classificacao"
+  conteudo      String   @db.Text
+  metadata      Json?
+  criadoEm      DateTime @default(now())
+  analise       AnaliseConversa?
+  contato       MemoriaContato @relation(fields: [contatoId], references: [id], onDelete: Cascade)
+}
+
+model LockConversa {
+  id              String      @id @default(cuid())
+  interacaoId     String      @unique
+  atendenteId     String
+  atendenteNome   String
+  bloqueadoEm     DateTime    @default(now())
+  expiraEm        DateTime    // Auto-libera após 30 min
+  status          LockStatus  @default(ATIVO)
+  interacao       MemoriaInteracao @relation(fields: [interacaoId], references: [id], onDelete: Cascade)
+  @@index([atendenteId])
+  @@index([expiraEm])
+}
+
+enum LockStatus {
+  ATIVO
+  LIBERADO
+  EXPIRADO
+}
+
+---
+
+## 📋 3. DOCUMENTAÇÃO TÉCNICA DA FILA (para wiki interna)
+
+### 🎯 Fila de Atendimento — Especificação Técnica
+
+**Objetivo:** Permitir que múltiplos atendentes trabalhem simultaneamente em conversas de clientes, sem conflitos, com memória permanente do histórico.
+
+---
+
+#### 🔒 Sistema de Locks
+
+**Como funciona:**
+1. Atendente clica em "Atender" na fila
+2. Backend cria/atualiza registro em `LockConversa` com:
+   - `atendenteId`: ID do usuário logado (JWT)
+   - `atendenteNome`: Nome para exibição
+   - `expiraEm`: 30 minutos a partir de agora
+   - `status`: ATIVO
+3. Se outro atendente tentar assumir a mesma conversa:
+   - Retorna erro 400: "Esta conversa já está sendo atendida por [nome]"
+4. Lock expira automaticamente após 30 min (status → EXPIRADO)
+5. Atendente pode liberar manualmente (status → LIBERADO)
+
+**Regras de negócio:**
+- Máximo de locks ativos por atendente: **ilimitado** (pode ser ajustado)
+- Timeout de lock: **30 minutos**
+- Conversas expiradas voltam automaticamente para a fila de disponíveis
+
+---
+
+#### 📊 Fluxo de Dados
+│ FILA DE ATENDIMENTO │
+│ │
+│ 1. GET /fila/disponiveis │
+│ → Lista interações sem lock (lock: null) │
+│ → Ordenado por criadoEm DESC │
+│ → Limit: 20 │
+│ │
+│ 2. POST /fila/assumir/:interacaoId │
+│ → Cria lock com expiraEm = now + 30min │
+│ → Retorna lockId + minutosRestantes │
+│ │
+│ 3. GET /fila/conversa/:interacaoId │
+│ → Busca interação + contato │
+│ → Busca TODAS as mensagens do contato (histórico) │
+│ → Retorna mensagens ordenadas por criadoEm ASC │
+│ │
+│ 4. POST /fila/conversa/:interacaoId/mensagem │
+│ → Cria nova interação com metadata.remetente='atendente'│
+│ → Retorna mensagem criada │
+│ │
+│ 5. POST /fila/liberar/:interacaoId │
+│ → Atualiza lock.status = 'LIBERADO' │
+│ │
+│ 6. GET /fila/historico/:contatoId │
+│ → Busca interações do contato (ordenadas DESC) │
+│ → Agrupa por gap de tempo (>1h = nova conversa) │
+│ → Retorna últimas 5 conversas │
+└─────────────────────────────────────────────────────────────┘
+
+---
+
+#### 🎨 Layout da Tela de Chat
+
+**Proporção:** 70% conversa atual / 30% histórico
+
+**Coluna Esquerda (70%):**
+- Cabeçalho fixo: nome do cliente, canal, telefone, botão "Liberar"
+- Área de mensagens: scrollável, bolhas estilo WhatsApp
+- Input fixo: sempre visível no fundo da coluna
+
+**Coluna Direita (30%):**
+- Título: "Histórico do Cliente" + contador
+- 2 conversas mais recentes: cards detalhados com data, departamento, última mensagem
+- Conversas antigas: lista compacta com data + assunto
+- Resumo rápido: total de conversas, última interação, setor recorrente
+
+---
+
+#### 🔐 Segurança
+
+- Todas as rotas sensíveis usam `@UseGuards(JwtAuthGuard)`
+- Token JWT enviado via header `Authorization: Bearer ${token}`
+- Dados do atendente (id, name) extraídos do token
+- Fallback seguro: se JWT não popula `req.user`, usa `{ id: 'system', name: 'Sistema' }`
+
+---
+
+#### 🧪 Dados de Teste (Seed)
+
+**Cliente principal:** João Silva (5511999999999)
+- 7 conversas históricas (diferentes assuntos)
+- 32 mensagens no total
+- Datas variadas (14 dias atrás até 12 horas atrás)
+
+**Outros clientes:**
+- Maria Santos (5511988888888) — 1 mensagem
+- Pedro Oliveira (5511977777777) — 1 mensagem
+- Ana Costa (5511966666666) — 1 mensagem
+
+**Executar seed:**
+```bash
+cd backend
+npx ts-node prisma/seeds-fale-conosco.ts
+
+📋 4. STATUS ATUAL DO ROADMAP (visão geral)
+✅ Fases 1–5: Fundação, BI, Fiscal, Bancário, Aurora (FD-1 a FD-6), Portal do Cliente, PDFs white-label
+✅ Sprints F8–F11: Catálogo Permanente, Ops unificado, Menu Ecossistema, Extrator Bancário v1.0
+✅ Sprint F12: Documentação e integração dos sistemas
+✅ Sprint F13-F16: Sistema de Envio com Tracking + Templates + Central de Comunicados
+✅ Sprint F17: Fila de Atendimento + Histórico do Cliente (HOMOLOGADA)
+
+🔜 Sprint F18: Análise de Conversas (classificação manual + dashboard de insights)
+🔜 Sprint F19: WebSocket para tempo real + distribuição automática
+🔜 Sprint F20: Multi-canal unificado (WhatsApp + Instagram + Facebook)
+🔜 Sprint F21: Classificador de intenção com IA (Mistral)
+🔜 Sprint F22: Aprendizado assistido + fila de aprovação humana
+
+📋 5. CHECKLIST PARA PRÓXIMA SPRINT (F18)
+Resolver endpoint GET /fila/historico/:contatoId (retornando vazio)
+Criar tela de Análise de Conversas (/dashboard/analise)
+Implementar classificação manual de conversas
+Criar dashboard de insights (gargalos, tipos de pedido)
+Adicionar botão "Virar mensagem de bot" na análise
+Implementar WebSocket para atualizações em tempo real
+Testar Templates de Email (/dashboard/comunicados/templates)
+Adicionar métricas de SLA na fila
+Implementar distribuição automática (round-robin)
+
+### 📁 Estrutura de Pastas
 ✅ Watch Folder implementado
 ✅ Parser de CNPJ funcional
 ✅ Envio via SendGrid (MODO LOG)
@@ -378,6 +599,7 @@ Expiração automática (7 dias)
 ✅ Painel de controle básico
 ✅ Templates editáveis
 🔜 Fase 6 (Próximos Passos)
+
 F13-b: Melhorias no Módulo de Envio
 Tracking pixel (abertura de email)
 Retry automático com backoff exponencial
@@ -385,14 +607,17 @@ Relatórios de performance (taxa de abertura/download)
 Notificações de falha de envio
 Bulk send (envio em massa)
 Agendamento de envios
+
 F14: Modo Professor (Mapeamento assistido)
 Mapeamento assistido de layouts de extrato desconhecidos via IA
 Sugestão de contas contábeis baseada em histórico
 Aprendizado de máquina para classificação automática
+
 F15: Migração de Regras
 Mover regras_aprendidas.json para tabela PostgreSQL no Radar (multi-tenant)
 Classificação automática usando regras salvas (mantendo revisão humana)
 Histórico de regras por cliente
+
 F16: Hardening de Produção
 CI/CD com GitHub Actions
 Sentry (monitoramento de erros)
@@ -400,6 +625,7 @@ Backups automatizados do Postgres
 Testes automatizados (unitários + integração)
 Load testing
 Documentação de APIs (Swagger/OpenAPI)
+
 F17: Funcionalidades Avançadas
 Integração com WhatsApp (envio de documentos)
 Chatbot de atendimento
@@ -415,6 +641,7 @@ Leia sempre o CONTEXTO_PROJETO.md (cole inteiro no início da conversa)
 Consulte o CHANGELOG.md para entender a evolução das sprints
 Regra de Ouro: Nenhum sprint novo começa sem o anterior homologado
 Governança de ADRs: O registro canônico vive no §3 do CONTEXTO_PROJETO.md. Nunca reutilize números de ADR
+
 📚 Documentação Relacionada
 CONTEXTO_PROJETO.md — Contexto completo do projeto
 CHANGELOG.md — Histórico de mudanças
