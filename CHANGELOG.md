@@ -10,7 +10,23 @@ Status: ✅ MVP funcional em produção
 Progresso: F13 (100%), F14 (100%), F15 (Backend 100%, Frontend 100%)
 
 
----
+---## [Sprint A2 — Extrator Bancário Inteligente] 2026-09
+### Added
+- **Parser Itaú PJ Multimes:** Novo parser (`backend/app/parsers/itau.py`) capaz de ler extratos consolidados de múltiplos meses, extraindo data completa (DD/MM/AAAA), valor, sinal e contraparte com precisão.
+- **Motor de Regras V4 (Fallback Inteligente):** Sistema de classificação automática com especificidade. Regras específicas (ex: "PIX - RECEITA FEDERAL") têm prioridade sobre regras genéricas (ex: "PIX"), com fallback automático se a específica não existir.
+- **Persistência de Aprendizado:** Salvamento de regras editadas manualmente em `data/regras/regras_aprendidas.json` com caminho absoluto (Windows-safe) e normalização idêntica entre salvamento e leitura.
+- **Exportação CSV Contábil:** Geração de CSV com colunas `Conta_Debito` e `Conta_Credito` preenchidas automaticamente pelo motor de regras, pronto para importação em sistemas SCI/Domínio.
+- **UI de Revisão Human-in-the-Loop:** Tabela interativa no Frontend (React/Vite) para edição inline de contas contábeis e salvamento em lote das regras aprendidas.
+
+### Fixed
+- **Falso Positivo Banco do Brasil:** Ajuste na detecção do parser BB para ignorar extratos que contenham "ITAÚ" ou formato de conta com hífen.
+- **Erro de CORS (5173/5174):** Configuração explícita no FastAPI para aceitar requisições do Vite em ambas as portas padrão.
+- **Payload de Classificação:** Correção no Frontend (`App.jsx`) para ler corretamente a resposta aninhada do Backend (`classifyResult.data.lancamentos`), resolvendo o bug onde as contas não apareciam na tela após o F5.
+- **Erro 500 Silencioso:** Adição de blocos `try/except` globais no endpoint `/api/classificar` e restauração do loop de lançamentos que estava órfão.
+
+### Decisions
+- **ADR-025 (Normalização de Regras):** Uso de `re.sub(r'\D', '', ...)` para comparar contas (remove hífens/espaços) e `normalizar_texto()` (UPPER + strip) para descrições, garantindo 100% de match entre Frontend e Backend.
+- **ADR-026 (Prioridade de Especificidade):** Regras ordenadas por tamanho da string (`len(descricao_parcial)`) antes do matching.
 
 ## **ARQUIVO 2 — `CHANGELOG.md` (adição das sprints F15-F17)**
 

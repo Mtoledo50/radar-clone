@@ -36,6 +36,10 @@ class LancamentoBancario(BaseModel):
         )
     """
     dia: int = Field(..., ge=1, le=31, description="Dia do mês (1-31)")
+     # 🆕 NOVO CAMPO: Data completa para extratos multimes (ex: Itaú consolidado)
+    # Se o parser souber o mês/ano, preenche aqui (ex: "15/07/2026").
+    # Se for None, o sistema usa o 'dia' + 'competencia' do cabeçalho (comportamento antigo).
+    data_completa: Optional[str] = Field(None, description="Data completa DD/MM/AAAA (opcional, para extratos de múltiplos meses)")
     tipo: str = Field(..., description="Tipo do lançamento (PIX ENVIADO, PGTO BOLETO, etc)")
     documento: str = Field(..., description="Número do documento")
     valor: float = Field(..., gt=0, description="Valor absoluto (sem sinal)")

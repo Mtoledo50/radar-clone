@@ -9,7 +9,7 @@ from app.parsers.base import BaseParser
 from app.parsers.banrisul import ParserBanrisul
 from app.parsers.sicredi import ParserSicredi
 from app.parsers.bb import ParserBB
-
+from app.parsers.itau import ParserItau  # 🆕 NOVO: Parser do Itaú
 
 class ParserNaoDetectadoError(Exception):
     def __init__(self, mensagem: str, parsers_disponiveis: list[str]):
@@ -23,6 +23,8 @@ class ParserFactory:
             ParserBanrisul(),
             ParserSicredi(),
             ParserBB(),
+            ParserItau(),      # 🆕 NOVO: Itaú antes do BB para prioridade
+
         ]
         
         # Tenta inicializar o serviço de OCR de forma segura

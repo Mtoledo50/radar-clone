@@ -68,6 +68,16 @@ Operacional/Comercial/Fiscal/Bancário/Contábil/Inteligência/Admin conforme ve
 **REGRA:** nada entra antes das Sprints 33–34.
 
 ## 9. Status atual e próximos passos
+
+Sprint A2 (Extrator Bancário Inteligente) CONCLUÍDA E HOMOLOGADA:
+- Parser Itaú multimes funcional.
+- Motor de Regras V4 com fallback inteligente e persistência em JSON.
+- Frontend React sincronizado com Backend FastAPI (correção de payload e CORS).
+- CSV gerado com contas contábeis (Débito/Crédito).
+
+IMEDIATO:
+- Integrar o CSV gerado pelo Extrator diretamente no endpoint `/banking/import` do SaaS principal (NestJS), automatizando o fluxo: Upload PDF -> Extrator -> Banco de Dados Prisma.
+- Retomar Sprint 31 (Docker Compose) para incluir o container do Extrator Bancário (Python) no `docker-compose.yml` raiz.
 ✅ **F8–F12 homologadas** (09/09): catálogo permanente, launcher unificado, Ecossistema, proxy Extrator, cadastro completo S3D + ficha.
 ✅ **Extrator Bancário v1.0 homologado** (10/09): 3 parsers + Mistral OCR + LGPD + Human-in-the-Loop + CSV contábil.
 ✅ **F13-F17 homologadas** (15/09): Sistema de Envio completo (Watch Folder + Parser + Tracking + SMTP + Retry + Templates Editáveis).
