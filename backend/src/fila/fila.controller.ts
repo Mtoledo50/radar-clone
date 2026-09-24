@@ -1,12 +1,10 @@
 // =================================================================
 // 🎯 F17: CONTROLLER DE FILA E LOCKS DE CONVERSA
-// Gerencia a distribuição de conversas entre atendentes
 // =================================================================
 import { Controller, Post, Get, Param, Body, HttpCode, HttpStatus, BadRequestException, UseGuards, Request } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 
-// 🔵 DTO: Dados que o frontend envia ao assumir uma conversa
 interface AssumirConversaDto {
   atendenteId: string;
   atendenteNome: string;
@@ -18,7 +16,6 @@ export class FilaController {
 
   // =========================================================================
   // 🟢 BLOCO 1: POST /fila/assumir/:interacaoId
-  // Quando o atendente clica em "Atender", ele assume o lock da conversa
   // =========================================================================
   @Post('assumir/:interacaoId')
   @HttpCode(HttpStatus.OK)
@@ -26,29 +23,21 @@ export class FilaController {
     @Param('interacaoId') interacaoId: string,
     @Body() dto: AssumirConversaDto,
   ) {
-    // 1. Verifica se já existe um lock ATIVO para essa interação
     const lockExistente = await this.prisma.lockConversa.findUnique({
       where: { interacaoId },
     });
 
-    // 2. Se existe e está ATIVO, verifica se não expirou
     if (lockExistente && lockExistente.status === 'ATIVO') {
       if (lockExistente.expiraEm > new Date()) {
         throw new BadRequestException({
           status: 'lock_ativo',
           message: `Esta conversa já está sendo atendida por ${lockExistente.atendenteNome}`,
-          data: {
-            atendente: lockExistente.atendenteNome,
-            expiraEm: lockExistente.expiraEm,
-          },
         });
       }
     }
 
-    // 3. Calcula a expiração (30 minutos a partir de agora)
     const expiraEm = new Date(Date.now() + 30 * 60 * 1000);
 
-    // 4. Cria ou atualiza o lock
     const lock = await this.prisma.lockConversa.upsert({
       where: { interacaoId },
       update: {
@@ -71,17 +60,12 @@ export class FilaController {
     return {
       status: 'ok',
       message: `Conversa assumida por ${dto.atendenteNome}`,
-      data: {
-        lockId: lock.id,
-        expiraEm: lock.expiraEm,
-        minutosRestantes: 30,
-      },
+      data: { lockId: lock.id, expiraEm: lock.expiraEm, minutosRestantes: 30 },
     };
   }
 
   // =========================================================================
-  // 🟡 BLOCO 2: POST /fila/liberar/:interacaoId
-  // Atendente termina o atendimento e libera a conversa
+  //  BLOCO 2: POST /fila/liberar/:interacaoId
   // =========================================================================
   @Post('liberar/:interacaoId')
   @HttpCode(HttpStatus.OK)
@@ -96,28 +80,16 @@ export class FilaController {
 
   // =========================================================================
   // 🔵 BLOCO 3: GET /fila/status
-  // Lista todas as conversas travadas no momento (visão do gestor)
   // =========================================================================
   @Get('status')
   async getStatusFila() {
     const locksAtivos = await this.prisma.lockConversa.findMany({
-      where: {
-        status: 'ATIVO',
-        expiraEm: { gt: new Date() },
-      },
+      where: { status: 'ATIVO', expiraEm: { gt: new Date() } },
       include: {
         interacao: {
           select: {
-            id: true,
-            conteudo: true,
-            canal: true,
-            criadoEm: true,
-            contato: {
-              select: {
-                contatoId: true,
-                telefone: true,
-              },
-            },
+            id: true, conteudo: true, canal: true, criadoEm: true,
+            contato: { select: { contatoId: true, telefone: true } },
           },
         },
       },
@@ -128,95 +100,74 @@ export class FilaController {
       const nome = lock.atendenteNome;
       if (!acc[nome]) acc[nome] = [];
       acc[nome].push({
-        lockId: lock.id,
-        interacaoId: lock.interacaoId,
+        lockId: lock.id, interacaoId: lock.interacaoId,
         contato: lock.interacao.contato?.contatoId || 'Desconhecido',
-        canal: lock.interacao.canal,
-        bloqueadoEm: lock.bloqueadoEm,
+        canal: lock.interacao.canal, bloqueadoEm: lock.bloqueadoEm,
         expiraEm: lock.expiraEm,
         minutosRestantes: Math.ceil((lock.expiraEm.getTime() - Date.now()) / 60000),
       });
       return acc;
     }, {});
 
-    return {
-      status: 'ok',
-      data: {
-        totalLocksAtivos: locksAtivos.length,
-        porAtendente,
-        locks: locksAtivos,
-      },
-    };
+    return { status: 'ok', data: { totalLocksAtivos: locksAtivos.length, porAtendente, locks: locksAtivos } };
   }
 
   // =========================================================================
-  // 🟣 BLOCO 4: GET /fila/disponiveis
-  // Lista conversas que ainda NÃO estão travadas (para distribuição)
+  //  BLOCO 4: GET /fila/disponiveis
   // =========================================================================
   @Get('disponiveis')
   async getConversasDisponiveis() {
     const interacoes = await this.prisma.memoriaInteracao.findMany({
-      take: 20,
-      orderBy: { criadoEm: 'desc' },
-      where: {
-        lock: {
-          is: null,
-        },
-      },
+      take: 20, orderBy: { criadoEm: 'desc' },
+      where: { lock: { is: null } },
       include: {
-        contato: {
-          select: {
-            contatoId: true,
-            telefone: true,
-            documento: true,
-          },
-        },
+        contato: { select: { contatoId: true, telefone: true, documento: true } },
       },
     });
 
-    return {
-      status: 'ok',
-      data: {
-        total: interacoes.length,
-        interacoes,
-      },
-    };
+    return { status: 'ok', data: { total: interacoes.length, interacoes } };
   }
 
   // =========================================================================
   //  BLOCO 5: GET /fila/conversa/:interacaoId
-  // Busca detalhes completos de uma conversa (histórico + contato)
+  // ✅ CORREÇÃO: Retorna APENAS a conversa atual (a interação específica)
   // =========================================================================
   @UseGuards(JwtAuthGuard)
   @Get('conversa/:interacaoId')
   async getConversaDetalhes(@Param('interacaoId') interacaoId: string) {
-    // 1. Busca a interação inicial para pegar os dados do contato
-    const interacao = await this.prisma.memoriaInteracao.findUnique({
+    // 1. Busca a interação específica (a conversa atual)
+    const interacaoAtual = await this.prisma.memoriaInteracao.findUnique({
       where: { id: interacaoId },
       include: {
         contato: {
           select: {
-            contatoId: true,
-            nomeCliente: true,
-            telefone: true,
-            documento: true,
+            contatoId: true, nomeCliente: true, telefone: true, documento: true,
           },
         },
       },
     });
 
-    if (!interacao) {
+    if (!interacaoAtual) {
       throw new BadRequestException('Conversa não encontrada');
     }
 
-    // 2. Busca TODAS as mensagens desse contato (histórico completo em ordem cronológica)
-    const mensagensDoContato = await this.prisma.memoriaInteracao.findMany({
-      where: { contatoId: interacao.contatoId },
+    // 2. Busca APENAS as mensagens da mesma "sessão" (mesmo dia ou gap < 1 hora)
+    // Para simplificar: retorna apenas a interação atual + mensagens do mesmo dia
+    const inicioDoDia = new Date(interacaoAtual.criadoEm);
+    inicioDoDia.setHours(0, 0, 0, 0);
+    const fimDoDia = new Date(interacaoAtual.criadoEm);
+    fimDoDia.setHours(23, 59, 59, 999);
+
+    const mensagensDaSessao = await this.prisma.memoriaInteracao.findMany({
+      where: {
+        contatoId: interacaoAtual.contatoId,
+        criadoEm: { gte: inicioDoDia, lte: fimDoDia },
+      },
       orderBy: { criadoEm: 'asc' },
     });
 
-    // 3. Formata as mensagens para o frontend
-    const mensagens = mensagensDoContato.map((msg) => ({
+    // 3. Formata as mensagens
+    const mensagens = mensagensDaSessao.map((msg) => ({
       id: msg.id,
       conteudo: msg.conteudo,
       remetente: (msg.metadata as any)?.remetente === 'atendente' ? 'atendente' : 'cliente',
@@ -228,10 +179,10 @@ export class FilaController {
       status: 'ok',
       data: {
         interacao: {
-          id: interacao.id,
-          canal: interacao.canal,
-          criadoEm: interacao.criadoEm,
-          contato: interacao.contato,
+          id: interacaoAtual.id,
+          canal: interacaoAtual.canal,
+          criadoEm: interacaoAtual.criadoEm,
+          contato: interacaoAtual.contato,
         },
         mensagens,
       },
@@ -240,7 +191,6 @@ export class FilaController {
 
   // =========================================================================
   // 🟠 BLOCO 6: POST /fila/conversa/:interacaoId/mensagem
-  // Envia uma mensagem do atendente para o cliente
   // =========================================================================
   @UseGuards(JwtAuthGuard)
   @Post('conversa/:interacaoId/mensagem')
@@ -249,10 +199,8 @@ export class FilaController {
     @Param('interacaoId') interacaoId: string,
     @Body() body: { conteudo: string },
   ) {
-    // Fallback seguro caso o JWT não tenha populado o req.user
     const usuario = req.user || { id: 'system', name: 'Sistema' };
 
-    // Busca o contato para criar nova interação
     const interacaoOriginal = await this.prisma.memoriaInteracao.findUnique({
       where: { id: interacaoId },
       select: { contatoId: true, canal: true },
@@ -262,7 +210,6 @@ export class FilaController {
       throw new BadRequestException('Conversa não encontrada');
     }
 
-    // Cria nova mensagem (resposta do atendente)
     const novaMensagem = await this.prisma.memoriaInteracao.create({
       data: {
         contatoId: interacaoOriginal.contatoId,
@@ -281,10 +228,8 @@ export class FilaController {
       status: 'ok',
       data: {
         mensagem: {
-          id: novaMensagem.id,
-          conteudo: novaMensagem.conteudo,
-          remetente: 'atendente',
-          criadoEm: novaMensagem.criadoEm,
+          id: novaMensagem.id, conteudo: novaMensagem.conteudo,
+          remetente: 'atendente', criadoEm: novaMensagem.criadoEm,
         },
       },
     };
@@ -292,68 +237,60 @@ export class FilaController {
 
   // =========================================================================
   // 🟢 BLOCO 7: GET /fila/historico/:contatoId
-  // Busca histórico de conversas do cliente (excluindo a atual)
+  // ✅ CORREÇÃO: Retorna conversas anteriores agrupadas por dia
   // =========================================================================
   @UseGuards(JwtAuthGuard)
   @Get('historico/:contatoId')
   async getHistoricoCliente(@Param('contatoId') contatoId: string) {
     try {
-      // Busca todas as interações do contato, ordenadas por data (mais recente primeiro)
-      const interacoes = await this.prisma.memoriaInteracao.findMany({
-        where: { 
-          contatoId: contatoId,
-        },
+      // Busca TODAS as interações do contato, ordenadas por data (mais recente primeiro)
+      const todasInteracoes = await this.prisma.memoriaInteracao.findMany({
+        where: { contatoId },
         orderBy: { criadoEm: 'desc' },
-        take: 10, // Limita às 10 mais recentes
         include: {
-          lock: {
-            select: {
-              status: true,
-              atendenteNome: true,
-            },
-          },
+          lock: { select: { status: true, atendenteNome: true } },
         },
       });
 
-      // Agrupa conversas por "sessão" (baseado em gaps de tempo > 1 hora)
-      const conversasAgrupadas = interacoes.reduce((acc: any[], interacao) => {
-        const ultimaConversa = acc[acc.length - 1];
-        const gapHoras = ultimaConversa 
-          ? (new Date(ultimaConversa.criadoEm).getTime() - new Date(interacao.criadoEm).getTime()) / (1000 * 60 * 60)
-          : 999;
-
-        if (gapHoras > 1) {
-          // Nova conversa (gap > 1 hora)
-          acc.push({
-            id: interacao.id,
-            criadoEm: interacao.criadoEm,
-            ultimaMensagem: interacao.conteudo,
-            departamento: interacao.canal,
-            status: interacao.lock?.status || 'CONCLUIDO',
-            totalMensagens: 1,
-          });
-        } else {
-          // Mesma conversa - atualiza a última mensagem
-          if (ultimaConversa) {
-            ultimaConversa.ultimaMensagem = interacao.conteudo;
-            ultimaConversa.totalMensagens++;
-          }
+      // Agrupa por DIA (cada dia = uma "conversa" no histórico)
+      const conversasPorDia: Record<string, any[]> = {};
+      
+      for (const interacao of todasInteracoes) {
+        const dia = new Date(interacao.criadoEm).toLocaleDateString('pt-BR');
+        if (!conversasPorDia[dia]) {
+          conversasPorDia[dia] = [];
         }
+        conversasPorDia[dia].push(interacao);
+      }
 
-        return acc;
-      }, []);
+      // Converte em array de conversas (uma por dia)
+      const historico = Object.entries(conversasPorDia).map(([dia, interacoes]) => {
+        const primeiraInteracao = interacoes[interacoes.length - 1]; // mais antiga do dia
+        const ultimaInteracao = interacoes[0]; // mais recente do dia
+        
+        return {
+          id: primeiraInteracao.id,
+          assunto: (primeiraInteracao.metadata as any)?.assunto || 'Conversa',
+          departamento: primeiraInteracao.canal,
+          criadoEm: primeiraInteracao.criadoEm,
+          ultimaMensagem: ultimaInteracao.conteudo,
+          status: ultimaInteracao.lock?.status || 'CONCLUIDO',
+          totalMensagens: interacoes.length,
+          dia: dia,
+        };
+      });
+
+      // Remove a conversa atual (o dia de hoje, se houver)
+      const hoje = new Date().toLocaleDateString('pt-BR');
+      const historicoFiltrado = historico.filter(h => h.dia !== hoje);
 
       return {
         status: 'ok',
-        data: conversasAgrupadas.slice(0, 5), // Retorna as 5 conversas mais recentes
+        data: historicoFiltrado.slice(0, 5), // Últimas 5 conversas
       };
     } catch (error) {
       console.error('Erro ao buscar histórico:', error);
-      return {
-        status: 'error',
-        message: 'Erro ao buscar histórico do cliente',
-        data: [],
-      };
+      return { status: 'error', message: 'Erro ao buscar histórico', data: [] };
     }
   }
 }

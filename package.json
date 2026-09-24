@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "fs-extra": "^11.4.0",
+    "handlebars": "^4.7.9",
+    "pdf-parse": "^2.4.5",
+    "puppeteer": "^25.11.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}

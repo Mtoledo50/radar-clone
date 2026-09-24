@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Arial', sans-serif; font-size: 11px; color: #333; line-height: 1.4; margin: 0; padding: 30px; }
+        .page { width: 100%; min-height: 95vh; position: relative; page-break-after: always; padding-bottom: 40px; box-sizing: border-box; }
+        
+        /* Header com Logo */
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #0056b3; padding-bottom: 10px; }
+        .logo { max-width: 150px; height: auto; }
+        .date-location { font-size: 10px; color: #666; text-align: right; }
+        
+        h1 { font-size: 18px; color: #0056b3; text-align: center; margin: 10px 0; }
+        h2 { font-size: 13px; color: #0056b3; margin-top: 25px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10px; }
+        th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+        th { background-color: #f4f4f4; font-weight: bold; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; font-size: 10px; }
+        .info-item strong { color: #000; }
+        
+        .footer { position: absolute; bottom: 10px; left: 30px; right: 30px; font-size: 9px; color: #777; text-align: center; border-top: 1px solid #eee; padding-top: 5px; }
+        .highlight-box { background-color: #eef2f7; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #0056b3; }
+        .warning-text { color: #d9534f; font-weight: bold; font-size: 10px; }
+        .conclusion-value { font-size: 14px; font-weight: bold; color: #0056b3; }
+        p { margin-bottom: 10px; text-align: justify; }
+    </style>
+</head>
+<body>
+
+    <!-- PÁGINA 1 -->
+    <div class="page">
+        <div class="header-top">
+            {{#if logoBase64}}
+                <img src="{{logoBase64}}" class="logo" alt="Logo Conta Certa">
+            {{else}}
+                <div style="font-weight:bold; color:#0056b3;">CONTA CERTA</div>
+            {{/if}}
+            <div class="date-location">Alvorada, {{generatedAt}}</div>
+        </div>
+
+        <h1>ANÁLISE DA REFORMA TRIBUTÁRIA</h1>
+        <p style="text-align: center; font-size: 12px; margin-bottom: 20px;">IBS e CBS - Simples Nacional | Projeção para 2027</p>
+        
+        <div class="info-grid">
+            <div class="info-item"><strong>Cliente:</strong> {{companyName}}</div>
+            <div class="info-item"><strong>CNPJ:</strong> {{cnpj}}</div>
+            <div class="info-item"><strong>Atividades:</strong> Comércio - Anexo I | Indústria - Anexo II</div>
+            <div class="info-item"><strong>RBT12 Considerado:</strong> {{formatCurrency rbt12}}</div>
+            <div class="info-item"><strong>Receita Mensal:</strong> {{formatCurrency monthlyRevenue}}</div>
+            <div class="info-item"><strong>Vendas para PJ:</strong> {{inputs.salesPJPercent}}%</div>
+        </div>
+        
+        <h2>1. COMO É A TRIBUTAÇÃO DA SUA EMPRESA HOJE?</h2>
+        <p>Antes de analisar as mudanças para 2027, é importante visualizar o cenário atual e utilizar o DAS efetivamente emitido como referência.</p>
+        
+        <table>
+            <tr><th>DAS REAL - {{period}}</th><th style="text-align:right">VALOR</th></tr>
+            <tr><td>IRPJ - Simples Nacional</td><td style="text-align:right">{{formatCurrency breakdown.irpj}}</td></tr>
+            <tr><td>CSLL - Simples Nacional</td><td style="text-align:right">{{formatCurrency breakdown.csll}}</td></tr>
+            <tr><td>COFINS - Simples Nacional</td><td style="text-align:right">{{formatCurrency breakdown.cofins}}</td></tr>
+            <tr><td>PIS - Simples Nacional</td><td style="text-align:right">{{formatCurrency breakdown.pis}}</td></tr>
+            <tr><td>INSS - Simples Nacional</td><td style="text-align:right">{{formatCurrency breakdown.inss}}</td></tr>
+            <tr><td>IPI - Simples Nacional</td><td style="text-align:right">{{formatCurrency breakdown.ipi}}</td></tr>
+            <tr><td>ICMS - Simples Nacional</td><td style="text-align:right">{{formatCurrency breakdown.icms}}</td></tr>
+            <tr style="font-weight: bold; background-color: #eef2f7;"><td>TOTAL DO DAS</td><td style="text-align:right">{{formatCurrency totalValue}}</td></tr>
+        </table>
+        <p>Esse valor representa o cenário efetivamente apurado no DAS e serve como referência para a análise da projeção de 2027.</p>
+        
+        <div class="footer">Alvorada, {{generatedAt}} | Conta Certa Contabilidade | {{accountantInfo.address}} | Fone: {{accountantInfo.phone}}</div>
+    </div>
+
+    <!-- PÁGINA 2: O QUE MUDA -->
+    <div class="page">
+        <div class="header-top">
+             {{#if logoBase64}}<img src="{{logoBase64}}" class="logo" alt="Logo">{{else}}<div style="font-weight:bold; color:#0056b3;">CONTA CERTA</div>{{/if}}
+             <div class="date-location">Alvorada, {{generatedAt}}</div>
+        </div>
+        <h1>2. O QUE MUDA COM A REFORMA TRIBUTÁRIA?</h1>
+        <p>A Reforma Tributária sobre o consumo promove uma mudança gradual na forma como os tributos sobre o consumo são cobrados no Brasil.</p>
+        <p><strong>IBS - Imposto sobre Bens e Serviços:</strong> novo imposto de competência estadual e municipal que substituirá gradualmente o ICMS e o ISS.</p>
+        <p><strong>CBS - Contribuição sobre Bens e Serviços:</strong> novo tributo federal que substituirá PIS e COFINS.</p>
+        <p>A implementação será gradual, com período de transição até 2033.</p>
+        <div class="footer">Alvorada, {{generatedAt}} | Conta Certa Contabilidade</div>
+    </div>
+
+    <!-- PÁGINA 3: POR QUE ANALISAR AGORA -->
+    <div class="page">
+        <div class="header-top">
+             {{#if logoBase64}}<img src="{{logoBase64}}" class="logo" alt="Logo">{{else}}<div style="font-weight:bold; color:#0056b3;">CONTA CERTA</div>{{/if}}
+             <div class="date-location">Alvorada, {{generatedAt}}</div>
+        </div>
+        <h1>3. POR QUE ESTAMOS ANALISANDO ISSO AGORA?</h1>
+        <p>Para as empresas optantes pelo Simples Nacional, 2027 traz duas possibilidades para o tratamento do IBS e da CBS:</p>
+        <div class="highlight-box">
+            <p><strong>SIMPLES NACIONAL + IBS/CBS DENTRO DO SIMPLES</strong><br>
+            A empresa continua recolhendo os tributos pela sistemática do Simples Nacional, em uma única guia, incluindo IBS e CBS.</p>
+            <p><strong>SIMPLES NACIONAL + IBS/CBS PELO REGIME REGULAR</strong><br>
+            A empresa permanece no Simples Nacional para os demais tributos, mas passa a apurar IBS e CBS pelo regime regular, separadamente do DAS.</p>
+        </div>
+        <p>Essa segunda alternativa merece atenção para empresas que vendem para outras empresas, pois o tratamento dos créditos de IBS e CBS pode produzir efeitos para os clientes PJ.</p>
+        <div class="footer">Alvorada, {{generatedAt}} | Conta Certa Contabilidade</div>
+    </div>
+
+    <!-- PÁGINA 4: SIMULAÇÃO -->
+    <div class="page">
+        <div class="header-top">
+             {{#if logoBase64}}<img src="{{logoBase64}}" class="logo" alt="Logo">{{else}}<div style="font-weight:bold; color:#0056b3;">CONTA CERTA</div>{{/if}}
+             <div class="date-location">Alvorada, {{generatedAt}}</div>
+        </div>
+        <h1>4. SIMULAÇÃO PARA A EMPRESA</h1>
+        <p>O simulador analisado considera os seguintes dados:</p>
+        <table>
+            <tr><th>Indicador</th><th>Dado considerado</th></tr>
+            <tr><td>Receita Bruta Mensal</td><td>{{formatCurrency monthlyRevenue}}</td></tr>
+            <tr><td>RBT12</td><td>{{formatCurrency rbt12}}</td></tr>
+            <tr><td>Valor das aquisições</td><td>{{formatCurrency inputs.acquisitions}}</td></tr>
+            <tr><td>Outras despesas</td><td>{{formatCurrency inputs.otherExpenses}}</td></tr>
+            <tr><td>Vendas PJ x PJ</td><td>{{inputs.salesPJPercent}}%</td></tr>
+            <tr><td>Percentual de crédito</td><td>{{inputs.creditPercent}}%</td></tr>
+        </table>
+
+        <h2>CENÁRIO 1 - IBS E CBS DENTRO DO SIMPLES</h2>
+        <table>
+            <tr><th>Atividade</th><th>Receita mensal</th><th>Total Simples</th></tr>
+            <tr><td>Comércio - Anexo I</td><td>{{formatCurrency commerceRevenue}}</td><td>{{formatCurrency commerceInside}}</td></tr>
+            <tr><td>Indústria - Anexo II</td><td>{{formatCurrency industryRevenue}}</td><td>{{formatCurrency industryInside}}</td></tr>
+            <tr style="font-weight: bold;"><td>TOTAL</td><td>{{formatCurrency monthlyRevenue}}</td><td>{{formatCurrency scenarioInside.total}}</td></tr>
+        </table>
+        <p>No relatório, o cenário por dentro totaliza aproximadamente {{formatCurrency scenarioInside.total}} por mês, praticamente o mesmo valor do DAS real.</p>
+        <div class="footer">Alvorada, {{generatedAt}} | Conta Certa Contabilidade</div>
+    </div>
+
+    <!-- PÁGINA 5: CENÁRIO POR FORA E OBSERVAÇÃO TÉCNICA -->
+    <div class="page">
+        <div class="header-top">
+             {{#if logoBase64}}<img src="{{logoBase64}}" class="logo" alt="Logo">{{else}}<div style="font-weight:bold; color:#0056b3;">CONTA CERTA</div>{{/if}}
+             <div class="date-location">Alvorada, {{generatedAt}}</div>
+        </div>
+        <h1>CENÁRIO 2 - IBS E CBS PELO REGIME REGULAR</h1>
+        <p>No cenário por fora, o relatório apresenta os seguintes valores por atividade:</p>
+        
+        <table>
+            <tr><th>Atividade</th><th>Simples Nacional</th><th>IBS/CBS por fora</th><th>Total</th></tr>
+            <tr><td>Comércio - Anexo I</td><td>{{formatCurrency commerceDasPart}}</td><td>{{formatCurrency commerceOutsidePart}}</td><td>{{formatCurrency commerceTotal}}</td></tr>
+            <tr><td>Indústria - Anexo II</td><td>{{formatCurrency industryDasPart}}</td><td>{{formatCurrency industryOutsidePart}}</td><td>{{formatCurrency industryTotal}}</td></tr>
+            <tr style="font-weight: bold;"><td>Soma por atividade</td><td>{{formatCurrency sumDasPart}}</td><td>{{formatCurrency sumOutsidePart}}</td><td>{{formatCurrency sumTotalActivities}}</td></tr>
+        </table>
+
+        <div class="highlight-box">
+            <p class="warning-text">OBSERVAÇÃO TÉCNICA IMPORTANTE:</p>
+            <p>A página consolidada do próprio simulador apresenta outro total para o cenário por fora ({{formatCurrency scenarioOutside.totalFinal}}), diferente da soma dos valores detalhados por atividade ({{formatCurrency sumTotalActivities}}).</p>
+            <p>Por isso, não adotamos o valor consolidado como uma nova apuração e recomendamos validar essa divergência no sistema antes da decisão definitiva.</p>
+        </div>
+
+        <h2>OBSERVAÇÃO TÉCNICA - CONSIDERAÇÃO DOS CRÉDITOS</h2>
+        <p>Na análise do cenário por fora, é importante considerar que o simulador apresenta, além dos débitos de IBS e CBS, os créditos calculados a partir das informações inseridas na simulação.</p>
+        <p>Foram informados {{formatCurrency inputs.acquisitions}} em aquisições e {{formatCurrency inputs.otherExpenses}} em outras despesas, totalizando {{formatCurrency totalBaseCredit}} considerados pelo simulador para geração de créditos.</p>
+        
+        <table>
+            <tr><th>Tributo</th><th>Débito</th><th>Crédito</th><th>Líquido</th></tr>
+            <tr><td>IBS</td><td>{{formatCurrency ibsDebit}}</td><td>{{formatCurrency ibsCredit}}</td><td>{{formatCurrency ibsLiquid}}</td></tr>
+            <tr><td>CBS</td><td>{{formatCurrency cbsDebit}}</td><td>{{formatCurrency cbsCredit}}</td><td>{{formatCurrency cbsLiquid}}</td></tr>
+        </table>
+        <p>Os créditos considerados pelo simulador totalizam {{formatCurrency totalCredits}}, reduzindo o valor bruto de IBS e CBS.</p>
+        <p><strong>TOTAL POR FORA, APÓS OS CRÉDITOS: {{formatCurrency scenarioOutside.totalFinal}}/mês</strong></p>
+        <div class="footer">Alvorada, {{generatedAt}} | Conta Certa Contabilidade</div>
+    </div>
+
+    <!-- PÁGINA 6: IMPACTO COMERCIAL -->
+    <div class="page">
+        <div class="header-top">
+             {{#if logoBase64}}<img src="{{logoBase64}}" class="logo" alt="Logo">{{else}}<div style="font-weight:bold; color:#0056b3;">CONTA CERTA</div>{{/if}}
+             <div class="date-location">Alvorada, {{generatedAt}}</div>
+        </div>
+        <h1>5. O QUE ISSO SIGNIFICA PARA A EMPRESA?</h1>
+        <p>A empresa possui uma característica importante para a análise: {{inputs.salesPJPercent}}% do faturamento informado é realizado para pessoas jurídicas.</p>
+        <p>Isso significa que a escolha do tratamento do IBS e da CBS precisa ser avaliada não apenas pelo valor do tributo da própria empresa, mas também pelo efeito que a opção poderá produzir para seus clientes PJ, especialmente em relação ao aproveitamento de créditos.</p>
+        <div class="footer">Alvorada, {{generatedAt}} | Conta Certa Contabilidade</div>
+    </div>
+
+    <!-- PÁGINA 7: TRANSIÇÃO -->
+    <div class="page">
+        <div class="header-top">
+             {{#if logoBase64}}<img src="{{logoBase64}}" class="logo" alt="Logo">{{else}}<div style="font-weight:bold; color:#0056b3;">CONTA CERTA</div>{{/if}}
+             <div class="date-location">Alvorada, {{generatedAt}}</div>
+        </div>
+        <h1>6. A ESCOLHA NÃO É DEFINITIVA PARA TODO O ANO</h1>
+        <p>Conforme o material analisado, a escolha realizada para IBS e CBS terá efeito sobre o 1º semestre de 2027 (janeiro a junho). Há nova oportunidade de opção em março de 2027, com efeitos para o 2º semestre de 2027.</p>
+        
+        <h2>7. A REFORMA TRIBUTÁRIA ESTÁ APENAS COMEÇANDO</h2>
+        <table>
+            <tr><th>Ano</th><th>Etapa indicada no material analisado</th></tr>
+            <tr><td>2026</td><td>Ano de testes do IBS e da CBS.</td></tr>
+            <tr><td>2027 e 2028</td><td>Entrada em vigor da CBS e início da nova sistemática do IBS.</td></tr>
+            <tr><td>2029 a 2032</td><td>Transição gradual do ICMS e do ISS para o IBS.</td></tr>
+            <tr><td>2033</td><td>Implementação integral do novo modelo, com extinção do ICMS e do ISS.</td></tr>
+        </table>
+        <div class="footer">Alvorada, {{generatedAt}} | Conta Certa Contabilidade</div>
+    </div>
+
+    <!-- PÁGINA 8: CONCLUSÃO -->
+    <div class="page">
+        <div class="header-top">
+             {{#if logoBase64}}<img src="{{logoBase64}}" class="logo" alt="Logo">{{else}}<div style="font-weight:bold; color:#0056b3;">CONTA CERTA</div>{{/if}}
+             <div class="date-location">Alvorada, {{generatedAt}}</div>
+        </div>
+        <h1>8. NOSSA CONCLUSÃO</h1>
+        <p>Com base nos números atualmente analisados, o cenário de IBS e CBS dentro do Simples apresenta, inicialmente, uma carga mensal praticamente igual ao DAS real: aproximadamente {{formatCurrency scenarioInside.total}}.</p>
+        
+        <h2>COMPARATIVO</h2>
+        <table>
+            <tr><td>IBS/CBS dentro do Simples:</td><td style="text-align:right">{{formatCurrency scenarioInside.total}}</td></tr>
+            <tr><td>IBS/CBS pelo regime regular, após créditos:</td><td style="text-align:right">{{formatCurrency scenarioOutside.totalFinal}}</td></tr>
+            <tr style="background-color: #eef2f7; font-weight: bold;"><td>Diferença mensal estimada:</td><td style="text-align:right">{{formatCurrency differenceMonthly}}</td></tr>
+        </table>
+
+        <h2>RECOMENDAÇÃO DA CONTA CERTA</h2>
+        <p>Não recomendamos escolher o regime apenas pela comparação do valor do imposto. Para a sua empresa, a análise deve combinar carga tributária, possibilidade de créditos para clientes PJ, impacto comercial e evolução das regras para 2027.</p>
+        
+        <p style="font-size: 9px; color: #777; margin-top: 30px;">IMPORTANTE: Esta análise foi elaborada com base nos dados fornecidos e nos parâmetros disponíveis no simulador utilizado. O próprio relatório informa que a ferramenta possui finalidade exclusiva de simulação e não deve ser utilizada como base para a apuração efetiva dos tributos.</p>
+        
+        <div class="footer">Alvorada, {{generatedAt}} | Conta Certa Contabilidade</div>
+    </div>
+
+</body>
+</html>
