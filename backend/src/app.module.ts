@@ -59,6 +59,7 @@ import { TrackingPublicoController } from './tracking/tracking-publico.controlle
 import { MemoriaController } from './memoria/memoria.controller';
 import { AnaliseController } from './analise/analise.controller';
 import { FilaController } from './fila/fila.controller';
+import { DashboardModule } from './dashboard/dashboard.module';
 @Module({
   imports: [
     // --- Infraestrutura ---
@@ -93,6 +94,7 @@ import { FilaController } from './fila/fila.controller';
 
     // --- BI e Planejamento ---
     BiModule,
+    DashboardModule,   // 🆕 home executiva (KPIs) — estava órfão, causava 404 em /dashboard/metrics
     PlanningModule,
 
     // --- Operacional ---

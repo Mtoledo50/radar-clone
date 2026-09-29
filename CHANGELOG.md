@@ -9,6 +9,56 @@ Duração: ~4 horas de desenvolvimento contínuo
 Status: ✅ MVP funcional em produção
 Progresso: F13 (100%), F14 (100%), F15 (Backend 100%, Frontend 100%)
 
+[Sprint 31] 2026-09-29 — Containerização + Blindagem de Ambiente — ✅ HOMOLOGADA
+Added
+  docker-compose.yml (postgres 5433, backend 3001, frontend 3000, volume pgdata,
+  healthchecks, depends_on service_healthy, restart unless-stopped be/fe).
+  backend/Dockerfile multi-stage (node:20-slim + OpenSSL p/ Prisma 5.x; evita musl).
+  frontend/Dockerfile standalone + next.config output:"standalone".
+  iniciar-radar.ps1 reescrito em 2 modos (dev/prod) com MENU interativo; Free-Port
+  protegido (não mata Docker); Wait-PostgresHealthy (lê healthcheck, não sleep fixo);
+  frontend local 3000 (antes 3002).
+Fixed (erros TS do build de produção — npm ci é auditor, start:dev é tolerante)
+  revisao/page.tsx: +handleSelectDebit/Credit e handleClearDebit/Credit.
+  revisao/page.tsx: Lucide title → wrapper <span title> (ADR-021).
+  Removido layout copy.tsx (backup quebrava o build; ADR-022).
+  layout.tsx: item.children?.map (ADR-023).
+  planejamento/page.tsx: Sonner cancel com onClick (ADR-024).
+  frontend/src/app/dashboard/layout.tsx: sec.sectionId → sec.id.
+  frontend/src/app/layout.tsx: removido charset do Metadata (Next 16 já entrega UTF-8).
+  frontend/src/check-encoding.ts: removido (debug importando @prisma/client no FE; ADR-022).
+  backend TaxAnalysis{Service,Controller}+routes/index.ts: arquivados em _archive/
+    (Express órfão, puppeteer não declarado no package.json).
+  migration 20260914232437_f18b2: DROP INDEX/COLUMN → IF EXISTS (idempotente).
+  frontend/.env.local: curado (removidos comandos de shell colados como texto;
+    NEXT_PUBLIC_API_URL=http://localhost:3001).
+  backend/src/app.module.ts: DashboardModule registrado (corrige 404 /dashboard/metrics).
+Decisions
+  ADR-022 reforçada: nenhum backup/teste/script em src/; dev tolerante vs build rígido.
+  ADR-025 (nova): script de infra é ASCII puro (PowerShell 5.1 CP1252 corrompe unicode).
+  ADR-026 (nova): arquivo de config (.env) nunca contém comando de shell.
+  ADR-027 (nova): boot em 2 modos (dev/prod); Cloudflare Tunnel só na Sprint 32.
+  Ritual dev/prod: nunca misturar Docker e local no mesmo serviço (causa do P1001).
+
+### Entregas
+- `docker-compose.yml` com 3 serviços (postgres 5433, backend 3001, frontend 3000), healthchecks, `depends_on` com `condition: service_healthy` e volume `pgdata` persistente.
+- `backend/Dockerfile` multi-stage (node:20-slim + OpenSSL para Prisma 5.x; evita incompatibilidade com musl/Alpine).
+- `frontend/Dockerfile` multi-stage com Next.js standalone.
+- `backend/.env` higienizado (DATABASE_URL apontando para localhost:5433 em dev; o compose injeta `postgres:5432` dentro do container).
+- Migration `20260914232437_f18b2_portal_flags` tornada idempotente (`DROP INDEX IF EXISTS` / `DROP COLUMN IF EXISTS`).
+- Seed Enterprise unificado rodando (tenant demo, catálogo, colaboradores, Aurora, propostas, kanban).
+
+### Correções de Build (dívidas reveladas pelo `npm ci`/produção)
+- `frontend/src/app/dashboard/layout.tsx` — removida propriedade inexistente `sec.sectionId` (usar `sec.id`).
+- `frontend/src/app/layout.tsx` — removida `charset: 'UTF-8'` do objeto `Metadata` (Next 16 já entrega UTF-8; propriedade não existe no tipo).
+- `frontend/src/check-encoding.ts` — removido (script de debug importando `@prisma/client` no frontend; violava ADR-022).
+- `backend/src/{services,controllers,routes}/TaxAnalysis*` — arquivados em `_archive/tax-analysis/` (código Express órfão, não plugado em nenhum `@Module` Nest, importando `puppeteer` não declarado no `package.json`).
+
+### Lição Registrada (ADR-022 reforçada)
+> `start:dev` é tolerante; `npm ci` + build de produção é auditor. Todo `import` que funciona no dev mas quebra no Docker indica **dependência órfã** ou **código morto**. Nenhum arquivo de backup/teste/script de diagnóstico vive dentro de `src/`.
+
+### Status
+✅ **HOMOLOGADO pelo Marcos em 2026-09-29** (`docker compose ps` mostrando 3 Up).
 
 ---## [Sprint A2 — Extrator Bancário Inteligente] 2026-09
 ### Added

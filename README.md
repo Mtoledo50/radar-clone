@@ -704,6 +704,7 @@ Exemplo de ADR
 Localize a seção "## 🗺️ Roadmap" e substitua a partir de "### 🔜 Fase 6" por:
 
 ```markdown
+
 ### ✅ Sprints F13-F17 — Sistema de Envio Completo (15/09/2026)
 - **F13:** Tracking de Comunicações (webhooks + funil visual) ✅
 - **F14:** Memória do Cliente (perfil unificado + timeline) ✅
@@ -754,6 +755,13 @@ Usamos o padrão [Conventional Commits](https://www.conventionalcommits.org/):
 - `test`: Adição ou correção de testes
 - `chore`: Mudanças em arquivos de build, CI, etc
 - `revert`: Reversão de commit
+
+✅ FASE 3.0 — BLINDAGEM DE AMBIENTE (concluída 2026-09-29)
+   ▸ Sprint 31 · Docker + docker-compose + iniciar-radar.ps1 (boot em 1 comando, 2 modos) ✅
+⚠️ FASE 3 — PRODUÇÃO (próxima)
+   ▸ Sprint 32 · Deploy em nuvem/VPS + proxy reverso + Cloudflare Tunnel + Access
+   ▸ Sprint 33 · CI/CD (GitHub Actions)
+   ▸ Sprint 34 · Monitoramento (Sentry) + Backup automático
 
 #### **Exemplos**
 ```bash

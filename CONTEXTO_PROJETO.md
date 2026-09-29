@@ -20,7 +20,79 @@ Sprints autocontidas. ADR-034.2 — entrega all-in-one:
 **Infra:** Docker Compose raiz + túnel Cloudflare (produção local, ADR-077/079) • `Iniciar-Tudo.ps1` p/ dev unificado (F9, ADR-103).
 
 ## 3. ADRs principais (Registro Canônico)
-001 Gráficos CSS puro • 002 CSV com UTF-8+BOM • 003 Zustand persist p/ SSR seguro • 004 Multi-tenant single-database por companyId • 020 Herança de planos derivada em memória • 021 Ícones Lucide: tooltip via wrapper `<span title>` • 022 Proibido arquivo de backup dentro de `src/` • 023 Optional chaining (`?.`) em `.map` de opcionais no JSX • 024 Sonner: action/cancel exigem `onClick` • 025 RBAC em 3 camadas • **030 Regra de Ouro da Aurora: prepara/classifica/calcula/sugere; obrigação legal nunca é transmitida sem aprovação humana** • 031 Cálculo determinístico no backend • 032 Cofres AES-256-GCM p/ credenciais • 034/034.1/034.2 Arquivos estruturais = delta cirúrgico; novos/quebrados = completo • 035 PDFs no backend c/ versões pinadas • 036 NFS-e ABRASF 2.0 c/ adaptadores • 037 Origem do documento em `source` • 038 Memória de cálculo auditável • 039 IMAP como coletor • 043.1 Logo proporcional • 051 Benchmark de cargos • 054 Fórmulas seguras por whitelist • 055 Score 0–100 determinístico • 056 Mentoria derivada do Score • 057 Checklist persistido por tenant • 058 Ranking de níveis multi-tenant • 066 Ciclo Contábil por cliente • 067 Idempotência de imports contábeis • 068 Sugestão em 3 camadas c/ revisão humana obrigatória • 069 Conta bancária da partida detectada pela seção do extrato • 070 Plano sincronizado do balancete • 071 Encoding de CSV detectado • 072 Multi-planos por cliente • 073 Exportação SCI c/ nºs reduzidos e decimal com PONTO • 074 Partida dobrada manual • 077 Radar em produção usa Postgres REAL local (5432) via `host.docker.internal` • 078 `typescript.ignoreBuildErrors=true` apenas no build Docker • 079 Túnel Cloudflare único p/ site + Radar • 080 `migrate resolve --applied` p/ sincronizar migrations • 081 ARG/ENV `NEXT_PUBLIC_*` antes do `next build` • 082 Scroll suave nativo • 083 Limpeza técnica de erros TS • 084 Domínio puro CNAB isolado • 085 Arquitetura híbrida FD-5 • 086 Notificações plugáveis por estratégia • 087 Vínculo Client↔cobrança por auto-match • 088 Monitoramento e backup opt-in • 089 Ajuda contextual em 2 camadas • 090 Catálogo centralizado em TypeScript • 091 Gestão de Usuários e Ciclo Seguro de Senhas • 092 Seed Enterprise Unificado e Idempotente • 093 Drag & Drop nativo HTML5 • 094 Proteção de integridade em projetos • 095 KPIs calculados no backend.
+
+ADR-001 Gráficos CSS puro (Recharts incompatível c/ React 19+Turbopack).
+ADR-002 CSV com UTF-8+BOM (acentos no Excel).
+ADR-003 Zustand persist p/ SSR seguro.
+ADR-004 Multi-tenant single-database por companyId.
+ADR-020 Herança de planos derivada em memória; independente não herda E não doa;
+  ordem por multiplicador; preços com round2.
+ADR-021 Ícones Lucide: tooltip via <span title> wrapper (title não existe no tipo).
+ADR-022 Proibido arquivo de backup/teste/script dentro de src/ (quebra next build;
+  npm ci é auditor, start:dev é tolerante).
+ADR-023 Optional chaining (?.) em .map de opcionais no JSX.
+ADR-024 Sonner: action/cancel exigem onClick (usar () => {} p/ só fechar).
+ADR-025 Script de infra (.ps1, Dockerfile, .env) = ASCII PURO. PowerShell 5.1 lê
+  .ps1 em CP1252; caractere unicode (travessão/emoji/acento) vira byte lixo e
+  corrompe as strings do parser em cascata.
+ADR-026 Arquivo de config (.env/.env.local) NUNCA contém comando de shell (cd,
+  Add-Content, echo). Lixo de shell dentro do .env corrompe a única linha válida
+  de NEXT_PUBLIC_* e se disfarça de "bug de usuário/banco".
+ADR-027 Boot em 2 modos (dev local / prod Docker) — nunca misturar os dois no
+  mesmo serviço. Cloudflare Tunnel só na Sprint 32 (produção + Access); dev fica
+  100% local. Free-Port nunca mata processo do Docker.
+
+001 Gráficos CSS puro 
+• 002 CSV com UTF-8+BOM 
+• 003 Zustand persist p/ SSR seguro 
+• 004 Multi-tenant single-database por companyId 
+• 020 Herança de planos derivada em memória 
+• 021 Ícones Lucide: tooltip via wrapper `<span title>` 
+• 022 Proibido arquivo de backup dentro de `src/` 
+• 023 Optional chaining (`?.`) em `.map` de opcionais no JSX 
+• 024 Sonner: action/cancel exigem `onClick` 
+• 025 RBAC em 3 camadas 
+• **030 Regra de Ouro da Aurora: prepara/classifica/calcula/sugere; obrigação legal nunca é transmitida sem aprovação humana** 
+• 031 Cálculo determinístico no backend 
+• 032 Cofres AES-256-GCM p/ credenciais 
+• 034/034.1/034.2 Arquivos estruturais = delta cirúrgico; novos/quebrados = completo 
+• 035 PDFs no backend c/ versões pinadas 
+• 036 NFS-e ABRASF 2.0 c/ adaptadores 
+• 037 Origem do documento em `source` 
+• 038 Memória de cálculo auditável • 039 IMAP como coletor 
+• 043.1 Logo proporcional 
+• 051 Benchmark de cargos • 054 Fórmulas seguras por whitelist 
+• 055 Score 0–100 determinístico 
+• 056 Mentoria derivada do Score 
+• 057 Checklist persistido por tenant 
+• 058 Ranking de níveis multi-tenant 
+• 066 Ciclo Contábil por cliente 
+• 067 Idempotência de imports contábeis 
+• 068 Sugestão em 3 camadas c/ revisão humana obrigatória 
+• 069 Conta bancária da partida detectada pela seção do extrato 
+• 070 Plano sincronizado do balancete 
+• 071 Encoding de CSV detectado 
+• 072 Multi-planos por cliente 
+• 073 Exportação SCI c/ nºs reduzidos e decimal com PONTO 
+• 074 Partida dobrada manual 
+• 077 Radar em produção usa Postgres REAL local (5432) via `host.docker.internal` 
+• 078 `typescript.ignoreBuildErrors=true` apenas no build Docker 
+• 079 Túnel Cloudflare único p/ site + Radar 
+• 080 `migrate resolve --applied` p/ sincronizar migrations 
+• 081 ARG/ENV `NEXT_PUBLIC_*` antes do `next build` 
+• 082 Scroll suave nativo 
+• 083 Limpeza técnica de erros TS 
+• 084 Domínio puro CNAB isolado 
+• 085 Arquitetura híbrida FD-5 
+• 086 Notificações plugáveis por estratégia 
+• 087 Vínculo Client↔cobrança por auto-match 
+• 088 Monitoramento e backup opt-in 
+• 089 Ajuda contextual em 2 camadas 
+• 090 Catálogo centralizado em TypeScript 
+• 091 Gestão de Usuários e Ciclo Seguro de Senhas 
+• 092 Seed Enterprise Unificado e Idempotente 
+• 093 Drag & Drop nativo HTML5 • 094 Proteção de integridade em projetos 
+• 095 KPIs calculados no backend.
 
 ### 🆕 ADRs de Comunicados (Sprints F15-F17)
 - **ADR-113:** Watch folder via chokidar (Node.js) — monitora pasta configurável (`WATCH_FOLDER_PATH`), ignora temporários (.tmp, ~$), detecta novos arquivos em tempo real.
@@ -67,7 +139,48 @@ Operacional/Comercial/Fiscal/Bancário/Contábil/Inteligência/Admin conforme ve
 **Portal do Cliente** • Relatórios PDF profissionais • Testes E2E (Playwright).
 **REGRA:** nada entra antes das Sprints 33–34.
 
-## 9. Status atual e próximos passos
+4) AMBIENTE DO MARCOS (Windows/PowerShell)
+Projeto: C:\radar-clone (backend/, frontend/, extrator-bancario/, _archive/, logs/).
+Postgres LOCAL 5432 = dados REAIS do Site Conta Certa (o Radar NUNCA aponta pra cá).
+Docker Compose (banco virgem p/ testes, volume pgdata persistente):
+  postgres 5433 / backend 3001 / frontend 3000.
+MAPA DE PORTAS (fixo por texto — reboot NÃO muda porta; porta "pulando" = config
+  inconsistente ou 2 processos disputando, nunca o reinício em si):
+  | App | Serviço | Porta | Sobe quando |
+  | Radar | Frontend Next.js | 3000 | iniciar-radar.ps1 (dev) ou Docker (prod) |
+  | Radar | Backend NestJS | 3001 | idem |
+  | Radar | Postgres Docker | 5433 | docker compose up -d postgres |
+  | Extrator | Frontend Vite | 5174 | SÓ com -ComExtrator (app separada) |
+  | Extrator | Backend FastAPI | 8000 | SÓ com -ComExtrator |
+  | Site | FE 5173 / BE 4000 | — | fora deste boot (init próprio) |
+RITUAL DE BOOT (iniciar-radar.ps1, reescrito 2026-09-29 — ASCII PURO no arquivo):
+  - Chamado pelado abre MENU interativo (modo + extrator); com flag pula o menu
+    (automação/CI). Enter = padrão [dev, sem extrator].
+  - Modo DEV (padrão): Postgres no Docker (5433) + backend/frontend LOCAIS
+    (3001/3000, hot reload). O script PARA os containers be/fe do Docker (evita
+    brigar por porta).
+  - Modo PROD (-Modo prod): docker compose up -d --build (tudo no Docker).
+  - Free-Port mata SÓ node/python/uvicorn — NUNCA com.docker/vpnkit (matar o
+    Docker derruba o Postgres = causa raiz do P1001 "aleatório").
+REGRAS DE OURO DO AMBIENTE:
+  - Reboot = SEGURO (volume pgdata persiste). docker compose down -v = APOCALIPSE
+    (destrói o volume = apaga dados). Nunca use -v.
+  - frontend LOCAL sempre 3000 (não 3002) — bate com .env.local e não duplica o Docker.
+  - .env.local / .env: NÃO conter comando de shell (cd, Add-Content...). Arquivo de
+    config não é terminal. NEXT_PUBLIC_* congela no build: trocou? reinicie dev ou
+    rebuild Docker.
+  - script de infra (.ps1) = ASCII puro (PowerShell 5.1 lê CP1252; unicode corrompe
+    o parser em cascata).
+  - Cloudflare Tunnel: PARADO até Sprint 32 (deploy VPS). Não expor dev com seed
+    (admin/Admin@123456) pra internet. Demo externa segura = Access na frente.
+
+| Sprint | Nome | Status | Observação |
+|---|---|---|---|
+| 31 | Docker & Blindagem de Ambiente | ✅ **HOMOLOGADA (2026-09-29)** | 3 containers Up, portas fixas, volume persistente, build limpo |
+| A2-Comercial | Migração Prisma + Endpoint `/resolved` | ⏸️ **BACKLOG (adiada por decisão do Marcos)** | Schema já pronto (`isIndependent`, `order`); endpoint pendente. Retomar quando a Fase Contábil estabilizar |
+| **CT-1** | **Entrada de Dados Contábil (CSV/OFX) + Balancete Visual** | 🟢 **PRÓXIMA IMEDIATA** | Foco real do produto: organizar importação e ligar o motor contábil |
+
+> **Regra de Ouro (v2):** Nenhum sprint novo começa sem o anterior homologado. **Exceção aprovada pelo Marcos (2026-09-29):** a Sprint A2-Comercial foi deliberadamente adiada em favor da **Fase Contábil (CT-1+)**, pois o CORE do produto é contabilidade/prestação de contas, não a camada comercial. A A2-Comercial permanece em backlog e será retomada quando a Fase Contábil estiver estável.
 
 Sprint A2 (Extrator Bancário Inteligente) CONCLUÍDA E HOMOLOGADA:
 - Parser Itaú multimes funcional.
@@ -86,6 +199,24 @@ IMEDIATO:
 - F18-B: Portal do Cliente (Download de Documentos) — tela pública `/portal/:token`
 - F18-C: Dashboard de BI para Comunicados — métricas agregadas + gráficos
 **EM ANDAMENTO:** hardening de produção (Sentry backend, CI/CD, backup).
+
+9) STATUS ATUAL E PRÓXIMOS PASSOS
+Sprint A1 CONCLUÍDA (domínio de herança de planos, 6 testes verdes).
+Sprint 31 (Docker) ✅ HOMOLOGADA em 2026-09-29 (validação do Marcos: "tudo funcionando").
+  3 containers Up; portas fixas 5433/3001/3000; volume pgdata persistente; build de
+  produção limpo. Fixes da sessão: charset (Metadata), sectionId (layout), remoção de
+  check-encoding.ts (FE), arquivamento de TaxAnalysis{Service,Controller}+routes/index.ts
+  (Express órfão, puppeteer não declarado) em _archive/, migration f18b2 idempotente
+  (IF EXISTS), iniciar-radar.ps1 reescrito (2 modos + menu interativo, Free-Port
+  protegido, frontend local 3000), .env.local curado (removido lixo de shell;
+  NEXT_PUBLIC_API_URL=localhost:3001), DashboardModule ligado no app.module (corrige
+  404 /dashboard/metrics), tunnel Cloudflare parado (token inválido = não expõe nada).
+  Causa raiz do "P1001 aleatório" = Free-Port matava o túnel do Docker. Curada.
+Sprint A2-Comercial ⏸️ BACKLOG (adiada por decisão do Marcos — foco é contabilidade;
+  schema já pronto com isIndependent/order; endpoint /resolved pendente).
+IMEDIATO: Fase Contábil CT-1 = organizar ENTRADA DE DADOS (CSV sólido → OFX próximo
+  → PDF via estratégia/API 3ª, usando o Extrator com -ComExtrator) + Balancete Visual
+  (dados TrialBalance já existem) → DRE → Balanço → Portal do Cliente. Ver §7/roadmap.
 
 ## 10. Instrução para a nova IA
 Leia este arquivo, confirme com "Yes", e continue EXATAMENTE do §11.

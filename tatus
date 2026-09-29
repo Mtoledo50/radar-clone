@@ -1,0 +1,16 @@
+warning: in the working copy of 'CONTEXTO_PROJETO.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/src/app/layout.tsx', LF will be replaced by CRLF the next time Git touches it
+ CHANGELOG.md                                     |  50 [32m+++++[m
+ CONTEXTO_PROJETO.md                              | 135 [32m+++++++++++[m[31m-[m
+ Iniciar-Radar.ps1                                | 221 [32m+++++++++++++++[m[31m-----[m
+ README.md                                        |   8 [32m+[m
+ backend/src/app.module.ts                        |   2 [32m+[m
+ backend/src/controllers/TaxAnalysisController.ts |  41 [31m----[m
+ backend/src/dashboard/dashboard.module.ts        |   7 [32m+[m[31m-[m
+ backend/src/routes/index.ts                      |  20 [31m--[m
+ backend/src/services/TaxAnalysisService.ts       | 252 [31m-----------------------[m
+ frontend/.env.local                              |   6 [32m+[m[31m-[m
+ frontend/src/app/dashboard/layout.tsx            |   4 [32m+[m[31m-[m
+ frontend/src/app/layout.tsx                      |   2 [32m+[m[31m-[m
+ frontend/src/check-encoding.ts                   |  58 [31m------[m
+ 13 files changed, 364 insertions(+), 442 deletions(-)

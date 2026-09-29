@@ -515,8 +515,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     for (const sec of SECTIONS) {
       const items = visibleItems.filter((it) => it.section === sec.id);
       if (items.length > 0) {
-        grouped.push({ sectionId: sec.sectionId ?? sec.id, sectionLabel: sec.label, items });
-      }
+   // ✅ CORRETO (use apenas sec.id)
+   grouped.push({ sectionId: sec.id, sectionLabel: sec.label, items });      }
     }
     return grouped;
   }, [user?.role, user?.allowedModules]);

@@ -29,7 +29,7 @@ const geistMono = Geist_Mono({
 // ⚠️ ATENÇÃO: A linha `charset: 'UTF-8'` abaixo é CRÍTICA!
 // Ela resolve o problema dos caracteres especiais (ç, ã, é) aparecendo como "♦"
 export const metadata: Metadata = {
-  charset: 'UTF-8', // 🆕 CORREÇÃO: Força o navegador a usar UTF-8 (resolve encoding)
+  //charset: 'UTF-8', // 🆕 CORREÇÃO: Força o navegador a usar UTF-8 (resolve encoding)
   title: "Radar Conta Certa - Gestão Empresarial",
   description: "Sistema profissional de gestão para escritórios contábeis - Conta Certa Soluções Empresariais",
 };
