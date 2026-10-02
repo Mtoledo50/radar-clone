@@ -1,52 +1,247 @@
-# 🎯 Radar Conta Certa
-**O cérebro digital do escritório contábil.**
-
-SaaS multi-tenant que transforma 4 horas de trabalho manual em 15 minutos, automatizando a rotina contábil de ponta a ponta: do extrato do banco ao relatório final, com segurança, rastreabilidade e aprovação humana obrigatória (Human-in-the-Loop).
+# 🎯 RADAR CONTA CERTA
 
 <div align="center">
-  <img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js" />
-  <img src="https://img.shields.io/badge/NestJS-10-E0234E?style=for-the-badge&logo=nestjs" />
-  <img src="https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge&logo=postgresql" />
-  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python" />
+
+![Status](https://img.shields.io/badge/Status-Em_Desenvolvimento-yellow?style=for-the-badge)
+![Next.js](https://img.shields.io/badge/Next.js-16.2-black?style=for-the-badge)
+![NestJS](https://img.shields.io/badge/NestJS-10-red?style=for-the-badge)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge)
+![Prisma](https://img.shields.io/badge/Prisma-5-2d3748?style=for-the-badge)
+![Sprints](https://img.shields.io/badge/Sprints_Entregues-32+-f97316?style=for-the-badge)
+
+**O cérebro digital do escritório contábil**
+
+*Um SaaS que transforma 4 horas de trabalho manual em 15 minutos — do extrato do banco ao DRE do cliente, com segurança, rastreabilidade e automação inteligente.*
+
 </div>
 
 ---
 
-## 🚀 Começo Rápido (Local)
+## 📌 Resumo Executivo
 
-1. **Pré-requisitos**: Node.js 18+, Python 3.11+, Docker Desktop, PostgreSQL 15+.
-2. **Clone e instale**:
-   ```bash
-   git clone https://github.com/Mtoledo50/radar-clone.git
-   cd radar-clone
+O **Radar Conta Certa** é um SaaS multi-tenant que automatiza a rotina contábil de ponta a ponta:
 
-3. Boot Unificado (Windows PowerShell):
-   .\Iniciar-Tudo.ps1
-Isso iniciará: Radar Frontend (3002), Radar Backend (3001), Extrator Bancário (8000/5174) e Postgres Docker (5433).
+| Antes (manual) | Com o Radar |
+|---|---|
+| Digitar extrato: 2-4h/cliente | Importar CSV: 10 segundos |
+| Classificar lançamentos: 1-2h | Automático (memória de aprendizado) |
+| Conferir Pix × NF-e: 1-3h | Motor de score com confiança % |
+| Montar DRE no Excel: 1h | 1 clique (exporta CSV/PDF) |
 
-4. Acesse: http://localhost:3002
-🧭 Ecossistema
+---
+
+## 🗺️ Mapa do Sistema
+┌─────────────────────────────────────────────────────────────┐
+│ 📊 OPERACIONAL │
+│ Dashboard • Pessoas/Turnover • Clientes • Projetos/Tarefas │
+├─────────────────────────────────────────────────────────────┤
+│ 💼 COMERCIAL │
+│ Precificação • Propostas • Planos (START/PRIME/BLACK) │
+├─────────────────────────────────────────────────────────────┤
+│ 🧾 FISCAL │
+│ NF-e • Estoque Kardex • Apuração ICMS • SPED Bloco H │
+├─────────────────────────────────────────────────────────────┤
+│ 🏦 BANCÁRIO │
+│ Extrato CSV • Classificação c/ Memória • Fechamento Mensal │
+├─────────────────────────────────────────────────────────────┤
+│ 📒 CONTÁBIL │
+│ Plano SCI • Partidas Dobradas • DRE Oficial • Export SCI │
+├─────────────────────────────────────────────────────────────┤
+│ 📈 INTELIGÊNCIA │
+│ DRE Escritório • Ponto Fora da Curva • Simulador Tributário│
+│ 🤖 AURORA (Funcionário Digital) • Score do Escritório │
+├─────────────────────────────────────────────────────────────┤
+│ 📧 COMUNICAÇÕES │
+│ Watch Folder • Envio c/ Tracking • Templates • Retry │
+└─────────────────────────────────────────────────────────────┘
 
 
-Aplicação             Porta         Função
-Radar Frontend        3002          Painel principal do escritório (Next.js)
-Radar Backend         3001          API principal, regras de negócio, PDFs (NestJS)
-Extrator Bancário     8000 / 5174   API Python (FastAPI) + UI React para OCR e parsing de PDFs
-Postgres (Docker)     5433          Banco de dados de desenvolvimento (virgem)
+---
+
+## ✨ Módulos e Funcionalidades
+
+### 🔐 Segurança & Plataforma
+- [x] Login JWT + refresh token, multi-tenant single-database (ADR-004)
+- [x] RBAC em 3 camadas (Middleware + UI + RolesGuard)
+- [x] Soft delete em entidades críticas
+
+### 📊 Dashboard Executivo
+- [x] KPIs em tempo real, gráficos CSS puro (ADR-001, zero deps pesadas)
+
+### 💼 Comercial 2.0 (Plano 2.0 - Fase A)
+- [x] Motor de herança de planos (ADR-020)
+- [x] Simulador "Dinheiro na Mesa" (ADR-027)
+- [x] Versionamento imutável de propostas (ADR-028)
+- [x] White-label via CSS variables (ADR-043)
+- [x] PDF v2 + PNG de capa no cliente (ADR-045, ADR-046)
+- [x] Dashboard de desempenho comercial
+
+### 👥 Pessoas (Fase B)
+- [x] Tipos contratuais (CLT/Estagiário/Terceirizado/Sócio)
+- [x] Distribuição por setor validada vs benchmark contábil
+- [x] KPIs de novatos e colaboradores críticos
+- [x] Entrevista de desligamento com motor intercambiável (ADR-050)
+- [x] Benchmark de cargos por setor
+
+### 📈 Mentoria e Gamificação (Fases C/D)
+- [x] Benchmark de softwares e serviços extras
+- [x] Indicadores customizados com parser AST seguro (ADR-054)
+- [x] Score 0-100 do escritório (5 dimensões ponderadas, ADR-055)
+- [x] Visão de Futuro e Checklist "Meu Plano"
+- [x] Ranking de níveis (Bronze → Diamante)
+
+### 🧾 Fiscal
+- [x] Upload de NF-e em lote com parser XML 4.0
+- [x] Estoque Kardex com custo médio ponderado móvel
+- [x] Apuração de ICMS mensal + SPED Bloco H
+- [x] Relatório H010 estendido (17 colunas com tributos)
+- [x] Unificação de códigos por similaridade (Dice)
+
+### 🏦 Bancário
+- [x] Parser CSV multi-formato (separador, milhares BR/US, datas)
+- [x] Classificação com memória de aprendizado
+- [x] Naturezas dinâmicas por cliente
+- [x] Fechamento mensal com trava de compliance
+
+### 📒 Contábil
+- [x] Plano de contas SCI 90113 (1.207 contas)
+- [x] Ponte Bancário → Contábil (partida dobrada idempotente)
+- [x] DRE Oficial do Cliente com confronto Contábil × Bancário
+- [x] Exportação SCI-Único v3
+
+### 🔗 Conciliação Inteligente (Sprint 29)
+- [x] Motor de score: valor (60%) + nome Jaccard (30%) + data (10%)
+- [x] Thresholds: 🟢 ≥80% / 🟡 50-79% / 🔴 <50%
+- [x] Revisão humana obrigatória (ADR-030)
+
+### 🤖 Aurora — Funcionário Digital
+- [x] Skills: Conciliação, Classificação, Ponte Contábil, Relatório Mensal
+- [x] Importação NFS-e (XML ABRASF com adaptadores, ADR-036)
+- [x] Guias de imposto (DAS/ISS) com memória de cálculo (ADR-038)
+- [x] Cofre AES-256-GCM para credenciais (ADR-032, ADR-059)
+- [x] Régua de cobrança + CNAB 240 v1 (Itaú)
+- [x] Central de Aprovações (régua 80/50)
+
+### 📧 Sistema de Envio com Tracking (Sprints F13-F17)
+- [x] Watch Folder via chokidar (ADR-113)
+- [x] Parser de CNPJ no nome do arquivo (ADR-118)
+- [x] Envio plugável: SendGrid / SMTP / MODO LOG (ADR-116)
+- [x] Tracking pixel 1x1 + link proxy determinístico (ADR-114)
+- [x] Templates Handlebars editáveis (ADR-115)
+- [x] Retry automático com backoff exponencial
+- [x] Aprovação humana obrigatória (ADR-117)
+
+### 🏦 Extrator Bancário (App Irmã em Python)
+- [x] FastAPI + Mistral OCR como fallback universal (ADR-107)
+- [x] Parsers nativos: Banrisul (stateful), Sicredi, BB, Itaú PJ
+- [x] IA de regras contábeis (aprende com correções do contador)
+- [x] CSV contábil padrão BR (UTF-8+BOM, delimitador `;`)
+
+---
+
+## 🏗️ Arquitetura
+
+┌─────────────────────────────────────────┐
+│ Frontend — Next.js 16 (App Router) │
+│ React 19 + TypeScript + Tailwind │
+│ Zustand • Sonner • Axios • Lucide │
+└──────────────────┬──────────────────────┘
+│ REST + JWT
+┌──────────────────▼──────────────────────┐
+│ Backend — NestJS 10 │
+│ Controllers → Services → DTOs │
+│ JwtAuthGuard • RolesGuard • RBAC │
+└──────────────────┬──────────────────────┘
+│ Prisma ORM
+┌──────────────────▼──────────────────────┐
+│ PostgreSQL 15+ (Multi-Tenant) │
+│ ~80 tabelas • isolamento companyId │
+│ Índices • Soft delete • Enums fortes │
+└─────────────────────────────────────────┘
+
+**Princípios adotados:**
+- Multi-tenant single-database (ADR-004)
+- Enums como fonte da verdade
+- Idempotência por upsert (ADR-066/067)
+- Revisão humana obrigatória (ADR-030)
+- Cálculo tributário determinístico (ADR-031)
+- Zero dependências pesadas de gráfico (ADR-001)
+
+---
+
+## 🚀 Instalação (3 passos)
+
+```bash
+# 1) Backend
+cd backend && npm i && cp .env.example .env
+npx prisma migrate deploy && npx prisma generate && npm run start:dev   # → :3001
+
+# 2) Frontend
+cd frontend && npm i && cp .env.example .env.local
+npm run dev                                                              # → :3002
+
+# 3) Acessar http://localhost:3002 e entrar com o usuário admin do seed
+Boot unificado (Docker):
+
+.\Iniciar-Tudo.ps1
+
+🎨 Identidade Visual
+
+🟩 Teal #0d9488                 🟧 Laranja #f97316         ⬜ Cinza #475569
+Cor primária (ações, sidebar)    Destaques e alertas        Textos neutros
 
 
-📚 Documentação Oficial
+🗺️ Roadmap
 
-Não procure regras de negócio no código. Elas estão documentadas aqui:
-🧠 CONTEXTO_PROJETO.md: Estado atual, stack, ADRs ativos e próximos passos (Leia antes de codar).
-📜 CHANGELOG.md: Histórico cronológico de sprints e entregas.
-🤝 CONTRIBUTING.md: Padrões de código, commits e fluxo de PR.
-📂 /docs: ADRs detalhados, guias de deploy e especificações de módulos (Ex: Aurora, Extrator).
+✅ Concluído
 
-⚖️ Regras de Ouro (Não Negociáveis)
-Human-in-the-Loop (ADR-030): Nenhuma ação que gere obrigação legal, fiscal ou contábil é 100% automática. A IA prepara, o humano aprova.
-Multi-tenant (ADR-004): Toda query no backend deve ser filtrada por companyId.
-Idempotência (ADR-066): Importar o mesmo extrato ou plano de contas duas vezes não pode duplicar dados.
-📞 Suporte e Propriedade
-Propriedade Intelectual: Conta Certa Soluções Empresariais © 2026.
-Desenvolvedor: Marcos Toledo | dev@contacerta.com.br
+Sprints 1-30: Fundação, BI, Fiscal, Bancário, Contábil, Conciliação
+Sprint 31: Containerização (Docker Compose)
+Sprint 32: Produção local (Cloudflare Tunnel)
+Sprints A1-A7: Plano 2.0 — Ciclo Comercial completo
+Sprints FD-1 a FD-8: Aurora (Funcionário Digital)
+Sprints F13-F17: Sistema de Envio com Tracking completo
+Extrator Bancário v1.0: Mistral OCR + parsers stateful
+
+🔜 Próximos Passos
+
+Sprint CT-1: Entrada de Dados Contábil (CSV/OFX) + Balancete Visual
+Sprint F18: Portal do Cliente (download de documentos)
+Sprint 33: CI/CD (GitHub Actions)
+Sprint 34: Monitoramento (Sentry) + Backup automático
+
+📚 Documentação
+
+A documentação completa está organizada em:
+
+🧠 CONTEXTO_PROJETO.md — Estado atual, stack, ADRs ativos, próximos passos
+📋 CHANGELOG.md — Histórico cronológico de sprints
+🤝 CONTRIBUTING.md — Padrões de código, commits, PRs
+📂 docs/ — ADRs, módulos e sprints detalhadas
+
+docs/adrs/ — Architecture Decision Records (67+ identificadas)
+docs/modules/ — Documentação profunda de módulos complexos
+docs/sprints/ — Histórico detalhado de sprints específicas
+
+📖 Glossário
+
+Termo                      Significado
+SaaS                       Software assinado e usado pela internet
+Multi-tenant               Vários escritórios no mesmo sistema, isolamento por tenant
+DRE                        Demonstração do Resultado do Exercício
+NF-e                       Nota Fiscal eletrônica (XML oficial)
+Kardex                     "Extrato do estoque" com custo médio
+SPED                       Arquivo oficial exigido pela Receita Federal
+Partidas dobradas          Regra contábil: todo débito tem um crédito igual
+Conciliação                Conferir se o que saiu no banco bate com a nota fiscal
+Score                      Nota de confiança (0-100%) do motor de matching
+
+🤝 Licença & Autor
+Proprietary License — Copyright © 2026 Conta Certa Soluções Empresariais.
+👨‍💻 Autor: Marcos Toledo — Desenvolvedor Full Stack
+📧 Contato: dev@contacerta.com.br
+🌐 Website: www.contacerta.com.br
+<div align="center">
+
+Feito com ❤️ para transformar a contabilidade brasileira
+</div>

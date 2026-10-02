@@ -5,55 +5,55 @@ Aqui está a lista exaustiva de todas as ADRs que identifiquei nos seus arquivos
 🎨 UX e Frontend (001-010)
 ADR             Título                                                           Status
 ADR-001         Gráficos em CSS puro (Recharts incompatível c/ React 19)        ✅ Já documentada
-ADR-002         CSV com UTF-8+BOM (acentos no Excel)                            📝 Pendente
-ADR-003         Zustand persist p/ SSR seguro                                   📝 Pendente
-ADR-004         Multi-tenant single-database por companyId                      📝 Pendente
-ADR-021         Lucide tooltip via <span title> wrapper                         📝 Pendente
-ADR-022         Proibido arquivo de backup dentro de src/                       📝 Pendente
-ADR-023         Optional chaining (?.) em .map de opcionais no JSX              📝 Pendente
-ADR-024         Sonner: action/cancel exigem onClick                            📝 Pendente
+ADR-002         CSV com UTF-8+BOM (acentos no Excel)                            ✅ Já documentada
+ADR-003         Zustand persist p/ SSR seguro                                   ✅ Já documentada
+ADR-004         Multi-tenant single-database por companyId                      ✅ Já documentada
+ADR-021         Lucide tooltip via <span title> wrapper                         ✅ Já documentada
+ADR-022         Proibido arquivo de backup dentro de src/                       ✅ Já documentada
+ADR-023         Optional chaining (?.) em .map de opcionais no JSX              ✅ Já documentada
+ADR-024         Sonner: action/cancel exigem onClick                            ✅ Já documentada
 
 💼 Comercial e Planos (020-030)
 ADR             Título                                                          Status
 ADR-020         Herança de planos em memória + round2                           ✅ Já documentada
-ADR-025         Ordenação por order (asc) + multiplier (asc)                    📝 Pendente
-ADR-026         Endpoint /resolved expõe herança em memória                     📝 Pendente
-ADR-027         Simulador "Dinheiro na Mesa" usa baseValue × multiplier         📝 Pendente
-ADR-028         Versionamento imutável + clone + cadeia por originalProposalId  📝 Pendente
+ADR-025         Ordenação por order (asc) + multiplier (asc)                    ✅ Já documentada
+ADR-026         Endpoint /resolved expõe herança em memória                     ✅ Já documentada
+ADR-027         Simulador "Dinheiro na Mesa" usa baseValue × multiplier         ✅ Já documentada
+ADR-028         Versionamento imutável + clone + cadeia por originalProposalId  ✅ Já documentada
 ADR-030         Regra de Ouro: Human-in-the-Loop                                ✅ Já documentada
 
 🤖 Aurora / Funcionário Digital (030-040)
-ADR-031         Cálculo tributário determinístico (IA só sugere)                📝 Pendente
-ADR-032         Cofres AES-256-GCM (chave em env)                               📝 Pendente
-ADR-033         Perfis de aprovação (Auxiliar/Analista/Supervisor/Contador)     📝 Pendente
-ADR-034         Arquivos estruturais: sempre delta, nunca substituição total    📝 Pendente
-ADR-035         PDFs no backend (jspdf 2.5.2 / autotable 3.8.2)                 📝 Pendente
-ADR-036         ABRASF com adaptadores                                          📝 Pendente
-ADR-037         source como atributo                                            📝 Pendente
-ADR-038         Memória de cálculo tributário                                   📝 Pendente
-ADR-039         IMAP como coletor                                               📝 Pendente
+ADR-031         Cálculo tributário determinístico (IA só sugere)                ✅ Já documentada
+ADR-032         Cofres AES-256-GCM (chave em env)                               ✅ Já documentada
+ADR-033         Perfis de aprovação (Auxiliar/Analista/Supervisor/Contador)     ✅ Já documentada
+ADR-034         Arquivos estruturais: sempre delta, nunca substituição total    ✅ Já documentada
+ADR-035         PDFs no backend (jspdf 2.5.2 / autotable 3.8.2)                 ✅ Já documentada
+ADR-036         ABRASF com adaptadores                                          ✅ Já documentada
+ADR-037         source como atributo                                            ✅ Já documentada
+ADR-038         Memória de cálculo tributário                                   ✅ Já documentada
+ADR-039         IMAP como coletor                                               ✅ Já documentada
 
 🏢 Plano 2.0 - Fases B/C/D (040-060)
 
-ADR-043         White-label via CSS variables                                   📝 Pendente
-ADR-045         PDF no cliente (zero carga no servidor)                         📝 Pendente
-ADR-046         PNG via Canvas 2D nativo                                        📝 Pendente
-ADR-047         Tipo contratual vive no Employee                                📝 Pendente
-ADR-048         Benchmark contábil (Fiscal 30%, Contábil 25%, etc.)             📝 Pendente
-ADR-049         Flag crítico com cópia histórica                                📝 Pendente
-ADR-050         Motor de entrevista intercambiável (LLM amanhã sem tocar no código)     📝 Pendente
-ADR-051         Domínio puro de benchmark de cargos                             📝 Pendente
-ADR-052         Benchmark híbrido rede+catálogo                                 📝 Pendente
-ADR-053         Serviços extras c/ preço médio                                  📝 Pendente
-ADR-054         Indicadores c/ fórmula (parser AST, zero eval)                  📝 Pendente
-ADR-055         Score 0-100 (5 dimensões ponderadas)                            📝 Pendente
-ADR-056         Visão de Futuro                                                 📝 Pendente
-ADR-057         Checklist "Meu Plano" persistido                                📝 Pendente
-ADR-058         Ranking de Níveis (Bronze→Diamante)                             📝 Pendente
-ADR-059         Cofre local c/ chave em env (reveal auditável)                  📝 Pendente
-ADR-060         EFD-Contribuições v1 sem filtro de competência                  📝 Pendente
-ADR-061         CNAB v1 c/ entradas explícitas                                  📝 Pendente
-ADR-062         Seed idempotente de plano de contas                             📝 Pendente
+ADR-043         White-label via CSS variables                                   ✅ Já documentadae
+ADR-045         PDF no cliente (zero carga no servidor)                         ✅ Já documentada
+ADR-046         PNG via Canvas 2D nativo                                        ✅ Já documentada
+ADR-047         Tipo contratual vive no Employee                                ✅ Já documentada
+ADR-048         Benchmark contábil (Fiscal 30%, Contábil 25%, etc.)             ✅ Já documentada
+ADR-049         Flag crítico com cópia histórica                                ✅ Já documentada
+ADR-050         Motor de entrevista intercambiável (LLM amanhã sem tocar no código)     ✅ Já documentada
+ADR-051         Domínio puro de benchmark de cargos                             ✅ Já documentada
+ADR-052         Benchmark híbrido rede+catálogo                                 ✅ Já documentada
+ADR-053         Serviços extras c/ preço médio                                  ✅ Já documentada
+ADR-054         Indicadores c/ fórmula (parser AST, zero eval)                  ✅ Já documentada
+ADR-055         Score 0-100 (5 dimensões ponderadas)                            ✅ Já documentada
+ADR-056         Visão de Futuro                                                 ✅ Já documentada
+ADR-057         Checklist "Meu Plano" persistido                                ✅ Já documentada
+ADR-058         Ranking de Níveis (Bronze→Diamante)                             ✅ Já documentada
+ADR-059         Cofre local c/ chave em env (reveal auditável)                  ✅ Já documentada
+ADR-060         EFD-Contribuições v1 sem filtro de competência                  ✅ Já documentada
+ADR-061         CNAB v1 c/ entradas explícitas                                  ✅ Já documentada
+ADR-062         Seed idempotente de plano de contas                             ✅ Já documentada
 
 📒 Contábil e Fiscal (060-080)
 

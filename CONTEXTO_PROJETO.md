@@ -1,104 +1,243 @@
-﻿# 🧠 CONTEXTO_PROJETO.md — Radar Conta Certa
-**⚠️ INSTRUÇÃO CRÍTICA PARA IA:** Cole este arquivo INTEIRO no início de toda nova conversa. Este é o único documento que define a realidade do projeto. Ignore qualquer suposição externa.
+﻿
+---
 
-**Última Atualização:** [Data de Hoje] (Pós-Sprint F13: Sistema de Envio com Tracking)
-**Status Geral:** Fase de Hardening e Expansão de Automação (Fases E e F13-b).
+## 📄 2. `CONTEXTO_PROJETO.md` (substituir inteiro)
+
+```markdown
+# 🧠 CONTEXTO_PROJETO.md — Radar Conta Certa
+
+**Arquivo de injeção de contexto.** Cole INTEIRO no início de toda conversa nova.
+
+**Última atualização:** 02/10/2026 (pós-Sprints F13-F17 + documentação reestruturada)
 
 ---
 
-## 1. PERSONAS E REGRAS DE ENGajamento
-- **Usuário:** Marcos (Product Owner / Dev Júnior). Fornece a visão de negócio e valida as entregas.
-- **IA:** Engenheiro de Software Sênior / Tech Lead / CTO. 
-- **Regras Inegociáveis:**
-  1. **Arquitetura antes de código:** Nunca gere código sem explicar o "porquê" e o impacto no sistema.
-  2. **Segurança Multi-tenant:** Toda query no backend DEVE ser filtrada por `companyId`. Sem exceções.
-  3. **Human-in-the-Loop (ADR-030):** Ações que geram obrigação legal, fiscal ou contábil NUNCA são 100% automáticas. A IA prepara, o humano aprova.
-  4. **Idempotência:** Importar o mesmo dado (extrato, plano de contas, NF-e) duas vezes não pode duplicar registros.
-  5. **Clean Code:** Funções pequenas, tipagem estrita (TypeScript), sem `any`, sem lógica de negócio no frontend.
-  6. **Fim de Sprint:** Atualizar este arquivo, o `CHANGELOG.md` e o `README.md` antes de iniciar a próxima tarefa.
+## 1) PERSONAS E MÉTODO DE TRABALHO
+
+- **Usuário:** Marcos (Product Owner / Dev em evolução).
+- **IA:** Engenheiro Sênior + Tech Lead Full Stack + CTO + QA + DevOps.
+
+**Regras inegociáveis:**
+1. Pensar como engenheiro; arquitetura antes de código.
+2. Passo a passo claro; arquivos SUPER comentados.
+3. Nunca entregar código sem contexto, funções gigantes ou soluções improvisadas.
+4. Fim de cada sprint = atualizar README + CHANGELOG + CONTEXTO + validar com Marcos.
+5. Decisões técnicas registradas como ADRs em `docs/adrs/`.
+6. Clean Code, SOLID, modularização, padrões enterprise, SaaS desde o início.
+7. **Multi-tenant obrigatório:** toda query filtrada por `companyId` (ADR-004).
+8. **Human-in-the-Loop:** ações LEGAL nunca são 100% automáticas (ADR-030).
 
 ---
 
-## 2. O PRODUTO
+## 2) O PRODUTO
+
 - **Nome:** Radar Conta Certa (Conta Certa Soluções Empresariais).
-- **Proposta de Valor:** SaaS que transforma 4h de trabalho manual em 15min, automatizando a rotina contábil (do extrato ao DRE) com segurança e rastreabilidade.
-- **Modelo:** Multi-tenant, single-database (isolamento lógico por `companyId`).
-- **Identidade Visual:** Teal `#0d9488` (Primária), Laranja `#f97316` (Destaque/Ação), Cinza `#475569` (Neutro).
+- **Proposta:** SaaS de gestão empresarial para escritórios contábeis.
+- **Arquitetura:** Multi-tenant single-database (isolamento por `companyId`).
+- **Identidade:** teal `#0d9488` • laranja `#f97316` • cinza `#475569`.
 
 ---
 
-## 3. STACK TECNOLÓGICA & AMBIENTE
-### Frontend (Radar)
-- Next.js 16.2.12 (App Router), React 19, TypeScript 5.
-- Tailwind CSS 3, Zustand 4 (com persistência), Sonner (toasts), Axios, Lucide React.
-- Porta Dev: `3002`
+## 3) STACK (VERSÕES)
 
-### Backend (Radar)
-- NestJS 10, TypeScript 5, Prisma ORM 5.
-- PostgreSQL 15+, JWT (Access + Refresh), bcrypt, class-validator.
-- Porta Dev: `3001`
+**Frontend:** Next.js 16.2.12 (App Router), React 19, TS 5, Tailwind 3, Zustand 4 (persist), Sonner, Axios, Lucide React, Turbopack, jspdf/autotable.
 
-### Extrator Bancário (App Irmã em Python)
-- FastAPI, Python 3.11+, pdfplumber, PyMuPDF.
-- OCR: Mistral OCR API (fallback universal via HTTP direto, ADR-107).
-- Portas: Backend `8000`, Frontend `5174`.
+**Backend:** NestJS 10, TS 5, Prisma 5, PostgreSQL 15+, JWT+refresh, bcrypt, class-validator.
 
-### Infraestrutura Local (Windows/PowerShell)
-- **PostgreSQL REAL (Porta 5432):** Dados de produção do Marcos. **NUNCA TOCAR OU RODAR MIGRATIONS AQUI.**
-- **PostgreSQL DEV (Porta 5433):** Banco Docker virgem para desenvolvimento e testes do Radar.
-- **Boot:** Script `Iniciar-Tudo.ps1` (mata processos nas portas, sobe Docker, inicia Next e Nest).
+**Extrator Bancário:** Python 3.11+, FastAPI, pdfplumber, PyMuPDF, Mistral OCR.
+
+**Infra:** Docker Compose (local); alvo futuro: VPS + nginx + Let's Encrypt + CI/CD.
 
 ---
 
-## 4. MÓDULOS ENTREGUES E OPERACIONAIS (A VERDADE)
-Não pergunte sobre módulos que não estão nesta lista. Eles já existem e funcionam.
+## 4) AMBIENTE DO MARCOS (Windows/PowerShell)
 
-1. **Auth & Plataforma:** Multi-tenant, RBAC (Super Admin, Admin, Gerente, Usuário), Soft Delete.
-2. **Comercial 2.0:** Motor de herança de planos (ADR-020), versionamento de propostas, white-label, simulador "Dinheiro na Mesa", funil de vendas.
-3. **Fiscal:** Upload de NF-e (XML), Estoque Kardex (custo médio ponderado), Apuração de ICMS, SPED Bloco H, Unificação de códigos (fuzzy matching).
-4. **Bancário:** Importação CSV (parser robusto), Classificação com memória de aprendizado, Naturezas dinâmicas por cliente, Fechamento mensal com trava de compliance.
-5. **Contábil:** Plano de contas SCI 90113, Ponte Bancário→Contábil (partida dobrada idempotente), DRE Oficial do Cliente.
-6. **Conciliação:** Motor de matching Banco × NF-e (Score: 60% valor, 30% nome, 10% data).
-7. **Operacional:** Projetos e Tarefas (Kanban) com KPIs de progresso.
-8. **BI:** DRE do Escritório, Ponto Fora da Curva (anomalias), Simulador Tributário.
-9. **Aurora (Funcionária Digital):** Skills de Conciliação, Classificação, Ponte Contábil, Relatório Mensal PDF, Importação NFS-e (XML/IMAP), Guias de Imposto, Cofre AES-256-GCM (Certificado A1), Régua de Cobrança/CNAB 240.
-10. **Comunicações (Sprint F13):** Watch Folder, Parser de CNPJ em nome de arquivo, Envio de E-mail com aprovação humana, Tracking (Pixel 1x1 + Link Proxy), Templates Handlebars.
+- **Projeto:** `C:\radar-clone` (pastas `backend/`, `frontend/`, `extrator-bancario/`).
+- **Postgres LOCAL (porta 5432):** dados REAIS — **NUNCA TOCAR**.
+- **Docker Compose:** postgres 5433 / backend 3001 / frontend 3002 (banco virgem p/ testes).
+- **Extrator Bancário:** backend 8000 / frontend 5174.
 
 ---
 
-## 5. ADRs ATIVOS (DECISÕES ARQUITETURAIS CRÍTICAS)
-- **ADR-001:** Gráficos em CSS puro (Recharts incompatível com React 19 + Turbopack).
-- **ADR-002:** Exportação CSV com UTF-8+BOM (para abrir corretamente no Excel).
-- **ADR-004:** Multi-tenant single-database. Isolamento estrito por `companyId`.
-- **ADR-020:** Herança de planos comerciais é derivada em memória. Planos "independentes" não herdam nem doam itens. Preços com `round2`.
-- **ADR-030 (REGRA DE OURO):** Ações com `riskLevel = LEGAL` ou contábil exigem aprovação humana. Score ≥ 80% pode ser auto-aprovado apenas em tarefas operacionais de baixo risco.
+## 5) MÓDULOS ENTREGUES (operacionais)
+
+### Fundação e Plataforma
+Auth multi-tenant • Dashboard executivo (gráficos CSS puro) • Pessoas/Turnover • Clientes • Planejamento • Minha Empresa • Admin.
+
+### 💼 Comercial 2.0 (Fase A — COMPLETA)
+A1 herança de planos ✅ • A2 valor ref. + dinheiro na mesa ✅ • A3 versões de proposta ✅ • A4 fechamento c/ ganho ✅ • A5 white-label ✅ • A6 PDF v2 + PNG ✅ • A7 dashboard desempenho ✅.
+
+### 👥 Pessoas (Fase B — COMPLETA)
+B1 tipos contratuais ✅ • B2 distribuição por setor ✅ • B3 KPIs novatos/crítico ✅ • B4 entrevista de desligamento ✅ • B5 cargos p/ setor ✅.
+
+### 📈 Mercado e Mentoria (Fases C/D — COMPLETAS)
+C1 benchmark softwares ✅ • C2 serviços extras ✅ • C3 indicadores c/ fórmula ✅ • C4 score 0-100 ✅ • D1 Visão de Futuro ✅ • D2 Meu Plano ✅ • D3 ranking níveis ✅.
+
+### 🧾 Fiscal (Sprints 8-20)
+NF-e de entrada • Estoque Kardex • Apuração ICMS • SPED Bloco H • H010 estendido • Unificação de códigos • Manutenção c/ auditoria.
+
+### 🏦 Bancário (Sprints 21-24)
+Extrato CSV • Classificação c/ memória • Naturezas por cliente • Fechamento c/ trava.
+
+### 📒 Contábil (Sprints 20, 25-26)
+Plano SCI 90113 • Lançamentos • Ponte Bancário→Contábil • DRE Oficial • Exportação SCI.
+
+### 🔗 Conciliação (Sprint 29)
+Motor de score Banco × NF-e (valor 60% + nome 30% + data 10%).
+
+### 🤖 Aurora — Funcionário Digital (Sprints FD-1 a FD-8)
+FD-1 Fundação ✅ • FD-2 Conciliação/Classificação/Ponte ✅ • FD-3 NFS-e (XML + IMAP) ✅ • FD-4 Guias (DAS/ISS) ✅ • FD-5 CNAB 240 v1 ✅ • FD-6 EFD-Contribuições ✅ • FD-8 Cofre AES-256-GCM ✅.
+
+### 📧 Sistema de Envio com Tracking (Sprints F13-F17 — COMPLETO)
+F13 Tracking de Comunicações ✅ • F14 Memória do Cliente ✅ • F15 Watch Folder + Parser CNPJ + Tracking Pixel + SMTP ✅ • F16-A Templates Editáveis ✅ • F17-A Retry Automático ✅.
+
+### 🏦 Extrator Bancário v1.0 (Sprints F11-F12)
+FastAPI + Mistral OCR • Parsers: Banrisul (stateful), Sicredi, BB, Itaú PJ • CSV contábil padrão BR.
+
+### 🐳 Infra (Sprints 31-32)
+Sprint 31: Docker Compose + blindagem de ambiente ✅ • Sprint 32: Produção local + Cloudflare Tunnel ✅.
+
+---
+
+## 6) ANÁLISE COMPETITIVA (Radar Gestão Estratégica)
+
+**ELES vencem em:** herança entre planos; proposta white-label; "dinheiro na mesa"; versões de proposta; turnover c/ tipos contratuais + entrevista IA; benchmark de softwares; indicadores c/ fórmula; gamificação; UX (command palette, notificações).
+
+**NÓS vencemos em:** operacional contábil real (Fiscal, Bancário, SCI, Operações) — eles NÃO têm isso.
+
+**Estratégia:** manter vantagem operacional + atropelar na camada comercial/analítica/UX (Plano 2.0 — Fases A/B/C/D já executadas).
+
+---
+
+## 7) PLANO DE EXPANSÃO "CONTA CERTA 2.0"
+
+### ✅ Concluído
+- **Fase A (Comercial):** A1-A7 ✅
+- **Fase B (Pessoas):** B1-B5 ✅
+- **Fase C (Mercado):** C1-C4 ✅
+- **Fase D (Mentoria):** D1-D3 ✅
+
+### 🔜 Próximas Fases
+- **Fase E (UX):** E1 command palette • E2 "onde parou" • E3 notificações.
+- **Sprint CT-1 (IMEDIATO):** Entrada de Dados Contábil (CSV/OFX) + Balancete Visual.
+- **Sprint F18:** Portal do Cliente (download de documentos).
+- **Sprints 33-34:** CI/CD + Monitoramento + Backup.
+
+---
+
+## 8) ADRs ATIVOS (resumo — 67+ identificadas)
+
+### Base do Sistema
+- **ADR-001:** Gráficos CSS puro (Recharts incompatível c/ React 19+Turbopack).
+- **ADR-002:** CSV com UTF-8+BOM (acentos no Excel).
+- **ADR-003:** Zustand persist p/ SSR seguro.
+- **ADR-004:** Multi-tenant single-database por companyId.
+- **ADR-021:** Ícones Lucide: tooltip via `<span title>` wrapper.
+- **ADR-022:** Proibido arquivo de backup dentro de src/.
+- **ADR-023:** Optional chaining (?.) em .map de opcionais no JSX.
+- **ADR-024:** Sonner: action/cancel exigem onClick.
+
+### Comercial
+- **ADR-020:** Herança de planos derivada em memória; independente não herda E não doa; ordem por multiplicador; preços com round2.
+- **ADR-025:** Ordenação de planos por `order` + `multiplier`.
+- **ADR-026:** Endpoint `/resolved` expõe herança em memória.
+- **ADR-027:** Simulador "Dinheiro na Mesa" usa `baseValue × multiplier`.
+- **ADR-028:** Versionamento imutável de propostas + clone + cadeia.
+
+### Aurora / Segurança
+- **ADR-030:** Regra de Ouro — Human-in-the-Loop obrigatório (LEGAL nunca AUTO).
+- **ADR-031:** Cálculo tributário determinístico (IA só sugere).
+- **ADR-032:** Cofres AES-256-GCM (chave em env).
+- **ADR-033:** Perfis de aprovação (Auxiliar/Analista/Supervisor/Contador).
+- **ADR-034:** Arquivos estruturais: sempre delta, nunca substituição total.
+- **ADR-035:** PDFs no backend (jspdf / @react-pdf/renderer).
+- **ADR-036:** Parser NFS-e ABRASF com adaptadores por prefeitura.
+- **ADR-037:** `source` como atributo de origem de documento.
+- **ADR-038:** Memória de cálculo tributário (passo a passo auditável).
+- **ADR-039:** IMAP como coletor de documentos fiscais.
+
+### Plano 2.0 - Fases B/C/D
+- **ADR-043:** White-label via CSS variables.
+- **ADR-045:** PDF de propostas no cliente (zero carga no servidor).
+- **ADR-046:** PNG via Canvas 2D nativo.
+- **ADR-047:** Tipo contratual vive no `Employee`.
+- **ADR-048:** Benchmark contábil (Fiscal 30%, Contábil 25%, etc.).
+- **ADR-049:** Flag crítico com cópia histórica.
+- **ADR-050:** Motor de entrevista intercambiável (domínio puro).
+- **ADR-051:** Domínio puro de benchmark de cargos.
+- **ADR-052:** Benchmark híbrido rede+catálogo.
+- **ADR-053:** Serviços extras c/ preço médio.
+- **ADR-054:** Indicadores c/ fórmula (parser AST, zero eval).
+- **ADR-055:** Score 0-100 (5 dimensões ponderadas).
+- **ADR-056:** Visão de Futuro.
+- **ADR-057:** Checklist "Meu Plano" persistido.
+- **ADR-058:** Ranking de Níveis (Bronze→Diamante).
+- **ADR-059:** Cofre local c/ chave em env (reveal auditável).
+- **ADR-060:** EFD-Contribuições v1 sem filtro de competência.
+- **ADR-061:** CNAB v1 c/ entradas explícitas.
+- **ADR-062:** Seed idempotente de plano de contas.
+
+### Contábil e Infra
 - **ADR-066/067:** Reimportação idempotente (overlap + anti-duplicidade).
-- **ADR-072:** Multi-planos de contas por cliente, com código unificado.
-- **ADR-107:** Mistral OCR como fallback universal via HTTP direto (sem SDK) para evitar quebras de versão.
-- **ADR-117:** Human-in-the-Loop obrigatório no envio de e-mails: preview + lista de destinatários + confirmação antes do disparo.
+- **ADR-070/072:** Plano de contas SCI por cliente, código unificado.
+- **ADR-073:** SCI reduzido + decimal ponto.
+- **ADR-074:** Partida dobrada c/ espelho e auto-conciliação.
+- **ADR-075/076:** Layout oficial SCI-Único v3.
+- **ADR-077-082:** Docker, Cloudflare, migrações, env de build.
+- **ADR-107:** Mistral OCR como fallback universal (HTTP direto).
+- **ADR-108-112:** Extrator Bancário (parser stateful, regras JSON, LGPD, CSV).
+- **ADR-113-119:** Módulo de Envio (watch folder, tracking, templates, retry).
+
+**Índice completo:** `docs/adrs/00-INDICE-ADRs.md`
 
 ---
 
-## 6. STATUS ATUAL E PRÓXIMOS PASSOS (ROADMAP IMEDIATO)
-**✅ CONCLUÍDO:** Sprints A1-A7 (Comercial 2.0), Sprints FD-1 a FD-8 (Aurora), Sprint F13 (Sistema de Envio com Tracking básico).
+## 9) STATUS ATUAL E PRÓXIMOS PASSOS
 
-**🚧 EM PROGRESSO / PRÓXIMAS 48H (Foco Absoluto):**
-1. **Sprint F13-b (Hardening de Envio):** Implementar Tracking Pixel real (endpoint de imagem 1x1), Retry Automático com backoff exponencial para falhas de SMTP, e relatórios de taxa de abertura/download.
-2. **Limpeza de Dívida Técnica:** Remover qualquer referência residual a "Academia do Renan" ou dados mockados antigos dos seeds e documentação.
-3. **Validação Real:** Testar o fluxo completo do Watch Folder com um cliente real (dados de produção anonimizados), não com dados fictícios.
+### ✅ Concluído (até 02/10/2026)
+- **Sprints 1-32:** Fundação completa + Docker + Produção local.
+- **Sprints A1-A7:** Plano 2.0 — Fase A (Comercial) completa.
+- **Sprints FD-1 a FD-8:** Aurora (Funcionário Digital) operacional.
+- **Sprints F13-F17:** Sistema de Envio com Tracking completo.
+- **Extrator Bancário v1.0:** Mistral OCR + parsers stateful.
+- **Documentação reestruturada:** 67+ ADRs identificadas, ~20 documentadas em `docs/adrs/`.
 
-**🔜 FASE 6 (Futuro Próximo):**
-- F14: Modo Professor (Mapeamento assistido de layouts de extrato desconhecidos via IA).
-- F15: Migração de `regras_aprendidas.json` do Extrator para tabela PostgreSQL multi-tenant no Radar.
-- F16: Hardening de Produção (CI/CD, Sentry, Backups automatizados, Testes E2E).
+### 🚧 IMEDIATO (próximas 48h)
+1. **Sprint CT-1:** Entrada de Dados Contábil (CSV/OFX) + Balancete Visual.
+   - Schema já existe (`TrialBalance`, `TrialBalanceRow`).
+   - Implementar parser CSV robusto + upsert idempotente.
+   - Página `/dashboard/contabil/balancete` com árvore hierárquica.
+
+### 🔜 Próximos Passos
+- **Sprint F18:** Portal do Cliente (download de documentos).
+- **Sprints 33-34:** CI/CD (GitHub Actions) + Monitoramento (Sentry) + Backup.
+- **Fase E (UX):** Command palette, "onde parou", notificações.
 
 ---
 
-## 7. PROTOCOLO DE OPERAÇÃO DA IA
-1. **Antes de alterar o Prisma:** Sempre peça ou verifique o `schema.prisma` atual. Nunca assuma a estrutura de uma tabela.
-2. **Antes de criar um novo módulo:** Verifique se a funcionalidade já não existe em outro lugar (ex: não crie um novo "envio de email" se o módulo `email-envio` já existe).
-3. **Geração de Código:** Forneça o código completo do arquivo, não apenas "trechos". Comente as partes complexas.
-4. **Validação:** Ao final de uma tarefa, liste os comandos exatos de PowerShell para o Marcos testar a funcionalidade.
+## 10) COMANDOS ÚTEIS (PowerShell)
+
+```powershell
+# Docker
+docker compose up -d --build
+docker compose ps
+docker compose logs -f backend
+
+# Testes
+cd backend
+npm run test -- --testPathPattern=plan-inheritance
+
+# Documentação
+git add docs/adrs/
+git commit -m "docs(adrs): nova ADR"
+
+11) INSTRUÇÃO PARA A NOVA IA
+Leia este arquivo, confirme com "CONTEXTO CARREGADO".
+Continue EXATAMENTE do §9 (próximos passos).
+Não reimplementar sprints concluídos; não mudar stack; seguir método do §1.
+Consultar docs/adrs/00-INDICE-ADRs.md para decisões arquiteturais.
+Consultar CHANGELOG.md para histórico de sprints.
 
 ---
 **FIM DO CONTEXTO. SE VOCÊ É UMA IA, CONFIRME QUE LEU E ENTENDEU ESTE DOCUMENTO COM "CONTEXTO CARREGADO E ENTENDIDO. AGUARDANDO INSTRUÇÕES."**
+
