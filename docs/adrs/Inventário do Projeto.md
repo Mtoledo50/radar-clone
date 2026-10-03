@@ -57,58 +57,49 @@ ADR-062         Seed idempotente de plano de contas                             
 
 📒 Contábil e Fiscal (060-080)
 
-ADR-066/067     Reimportação idempotente (overlap + anti-duplicidade)           📝 Pendente
-ADR-070/072     Plano de contas SCI por cliente, código unificado               📝 Pendente
-ADR-073         SCI reduzido + decimal ponto                                    📝 Pendente
-ADR-074         Partida dobrada c/ espelho e auto-conciliação                   📝 Pendente
-ADR-075/076     Layout oficial SCI-Único v3 + importação idempotente            📝 Pendente
-ADR-077         Postgres real via host.docker.internal                          📝 Pendente
-ADR-078         ignoreBuildErrors no build Docker                               📝 Pendente
-ADR-079         Túnel único site + Radar                                        📝 Pendente
-ADR-080         migrate resolve --applied                                       📝 Pendente
-ADR-081         env de build > .env.local                                       📝 Pendente
-ADR-082         Scroll suave nativo em vez de hash do router                    📝 Pendente
+ADR-066/067     Reimportação idempotente (overlap + anti-duplicidade)           ✅ Já documentada
+ADR-070/072     Plano de contas SCI por cliente, código unificado               ✅ Já documentada
+ADR-073         SCI reduzido + decimal ponto                                    ✅ Já documentada
+ADR-074         Partida dobrada c/ espelho e auto-conciliação                   ✅ Já documentada
+ADR-075/076     Layout oficial SCI-Único v3 + importação idempotente            ✅ Já documentada
+ADR-077         Postgres real via host.docker.internal                          ✅ Já documentada
+ADR-078         ignoreBuildErrors no build Docker                               ✅ Já documentada
+ADR-079         Túnel único site + Radar                                        ✅ Já documentada
+ADR-080         migrate resolve --applied                                       ✅ Já documentada
+ADR-081         env de build > .env.local                                       ✅ Já documentada
+ADR-082         Scroll suave nativo em vez de hash do router                    ✅ Já documentada
 
 💰 Billing e CNAB (080-090)
 
-ADR-083         Limpeza TS antes de remover ignoreBuildErrors                   📝 Pendente
-ADR-084         Domínio puro CNAB isolado                                       📝 Pendente
-ADR-085         Arquitetura híbrida BillingInstruction + CnabArquivo            📝 Pendente
-ADR-086         Notificações plugáveis (SendGrid/Twilio/Log)                    📝 Pendente
-ADR-087         Vínculo Client↔cobrança por auto-match determinístico           📝 Pendente
-ADR-088         Monitoramento/backup opt-in por env                             📝 Pendente
-ADR-089         Ajuda contextual em 2 camadas (Progressive Disclosure)          📝 Pendente
-ADR-090         Catálogo centralizado em TypeScript (não CMS)                   📝 Pendente
+ADR-083         Limpeza TS antes de remover ignoreBuildErrors                   ✅ Já documentada
+ADR-084         Domínio puro CNAB isolado                                       ✅ Já documentada
+ADR-085         Arquitetura híbrida BillingInstruction + CnabArquivo            ✅ Já documentada
+ADR-086         Notificações plugáveis (SendGrid/Twilio/Log)                    ✅ Já documentada
+ADR-087         Vínculo Client↔cobrança por auto-match determinístico           ✅ Já documentada
+ADR-088         Monitoramento/backup opt-in por env                             ✅ Já documentada
+ADR-089         Ajuda contextual em 2 camadas (Progressive Disclosure)          ✅ Já documentada
+ADR-090         Catálogo centralizado em TypeScript (não CMS)                   ✅ Já documentada
 
 🏗️ Infra e Integrações (090-120)
 
-ADR-097         Motor de PDF white-label no backend (@react-pdf/renderer)       📝 Pendente
-ADR-103         Iniciar-Tudo.ps1: boot unificado com kill cirúrgico             📝 Pendente
-ADR-105         CORS multi-origem (Site 5173, Extrator 5174, Radar 3002)        📝 Pendente
-ADR-106         Proxy NestJS → Python em /accounting/extract-pdf-unified        📝 Pendente
+ADR-097         Motor de PDF white-label no backend (@react-pdf/renderer)       ✅ Já documentada
+ADR-103         Iniciar-Tudo.ps1: boot unificado com kill cirúrgico             ✅ Já documentada
+ADR-105         CORS multi-origem (Site 5173, Extrator 5174, Radar 3002)        ✅ Já documentada
+ADR-106         Proxy NestJS → Python em /accounting/extract-pdf-unified        ✅ Já documentada
 ADR-107         Mistral OCR como fallback universal                             ✅ Já documentada
-ADR-108         Parser stateful para Banrisul                                   📝 Pendente
-ADR-109         Persistência de regras em JSON                                  📝 Pendente
-ADR-110         Mascaramento LGPD no backend                                    📝 Pendente
-ADR-111         CSV Contábil padrão BR (utf-8-sig, delimitador ;)               📝 Pendente
-ADR-112         Human-in-the-Loop no fluxo de classificação                     📝 Pendente
-ADR-113         Watch folder via chokidar                                       📝 Pendente
-ADR-114         Tracking pixel 1x1 + link proxy determinístico                  📝 Pendente
-ADR-115         Templates editáveis (Handlebars)                                📝 Pendente
-ADR-116         Envio plugável (SendGrid/SMTP/LOG)                              📝 Pendente
-ADR-117         Human-in-the-Loop obrigatório no envio                          📝 Pendente
-ADR-118         Identificação de cliente por CNPJ no nome do arquivo            📝 Pendente
-ADR-119         Pasta de enviados com subpastas por competência                 📝 Pendente
+ADR-108         Parser stateful para Banrisul                                   ✅ Já documentadae
+ADR-109         Persistência de regras em JSON                                  ✅ Já documentadae
+ADR-110         Mascaramento LGPD no backend                                    ✅ Já documentada
+ADR-111         CSV Contábil padrão BR (utf-8-sig, delimitador ;)               ✅ Já documentadae
+ADR-112         Human-in-the-Loop no fluxo de classificação                     ✅ Já documentadae
+ADR-113         Watch folder via chokidar                                       ✅ Já documentada
+ADR-114         Tracking pixel 1x1 + link proxy determinístico                  ✅ Já documentada
+ADR-115         Templates editáveis (Handlebars)                                ✅ Já documentada
+ADR-116         Envio plugável (SendGrid/SMTP/LOG)                              ✅ Já documentada
+ADR-117         Human-in-the-Loop obrigatório no envio                          ✅ Já documentada
+ADR-118         Identificação de cliente por CNPJ no nome do arquivo            ✅ Já documentadae
+ADR-119         Pasta de enviados com subpastas por competência                 ✅ Já documentada
 
-Total: 67 ADRs identificadas (4 já documentadas, 63 pendentes).
+Total: 67 ADRs identificadas.
 
 🎯 PLANO DE AÇÃO (EXECUÇÃO EM LOTES)
-
-Não vou documentar todas de uma vez (seria impossível em uma resposta). Vou fazer em 5 lotes organizados:
-Lote            ADRs                                 Prioridade
-Lote 1          002, 003, 004, 021, 022, 023, 024   🔴 Crítico (base do sistema)
-Lote 2          031, 032, 033, 034, 035             🔴 Crítico (Aurora/Segurança)
-Lote 3          066, 067, 070, 072, 073, 074        🟡 Alto (Contábil)
-Lote 4          108, 109, 110, 111, 112             🟡 Alto (Extrator)
-Lote 5          113-119 (Módulo de Envio)           🟢 Normal
-
