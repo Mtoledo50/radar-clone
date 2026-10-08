@@ -188,12 +188,42 @@ Sprint 31: Docker Compose + blindagem de ambiente ✅ • Sprint 32: Produção 
 - **ADR-108-112:** Extrator Bancário (parser stateful, regras JSON, LGPD, CSV).
 - **ADR-113-119:** Módulo de Envio (watch folder, tracking, templates, retry).
 
+ ### Gestão de Obrigações
+ - **ADR-120:** Importação em massa de clientes com agrupamento por CNPJ + ordenação alfabética.
+ - **ADR-121:** Unificação do módulo de obrigações em página única com 5 abas.
+ - **ADR-122:** Sincronização bidirecional cliente ↔ obrigações.
+ - **ADR-123:** Integração catálogo de obrigações × watch folder (campos criados, worker pendente).
+
 **Índice completo:** `docs/adrs/00-INDICE-ADRs.md`
 
 ---
 
 ## 9) STATUS ATUAL E PRÓXIMOS PASSOS
+ ### ✅ Concluído (até 09/10/2026)
+ - **Sprints 1-32:** Fundação completa + Docker + Produção local.
+ - **Sprints A1-A7:** Plano 2.0 — Fase A (Comercial) completa.
+ - **Sprints FD-1 a FD-8:** Aurora (Funcionário Digital) operacional.
+ - **Sprints F13-F17:** Sistema de Envio com Tracking completo.
+ - **Sprints OB-1/OB-2:** Gestão de Obrigações Unificada + Sincronização Cliente.
+ - **Extrator Bancário v1.0:** Mistral OCR + parsers stateful.
+ - **Documentação reestruturada:** 71+ ADRs identificadas, 24 documentadas em `docs/adrs/`.
 
+ ### 🚧 IMEDIATO (próximas 48h)
+ 1. **Sprint OB-3:** Worker de Watch Folder para obrigações (chokidar dinâmico por pasta).
+    - Ler `folderPath` de todas as obrigações ativas.
+    - Registrar watchers dinâmicos via chokidar.
+    - Filtrar arquivos por `fileNamePattern` e criar `ObligationDelivery` pendente.
+    - Executar `postProcessAction` (manter/mover/deletar).
+ 2. **Sprint CT-1:** Entrada de Dados Contábil (CSV/OFX) + Balancete Visual.
+    - Schema já existe (`TrialBalance`, `TrialBalanceRow`).
+    - Implementar parser CSV robusto + upsert idempotente.
+    - Página `/dashboard/contabil/balancete` com árvore hierárquica.
+
+ ### 🔜 Próximos Passos
+ - **Sprint F18:** Portal do Cliente (download de documentos).
+ - **Sprints 33-34:** CI/CD (GitHub Actions) + Monitoramento (Sentry) + Backup.
+ - **Fase E (UX):** Command palette, "onde parou", notificações.
+ 
 ### ✅ Concluído (até 02/10/2026)
 - **Sprints 1-32:** Fundação completa + Docker + Produção local.
 - **Sprints A1-A7:** Plano 2.0 — Fase A (Comercial) completa.
@@ -237,6 +267,14 @@ Continue EXATAMENTE do §9 (próximos passos).
 Não reimplementar sprints concluídos; não mudar stack; seguir método do §1.
 Consultar docs/adrs/00-INDICE-ADRs.md para decisões arquiteturais.
 Consultar CHANGELOG.md para histórico de sprints.
+
+### Módulo de Usuários (RBAC e Gestão)
+- **Endpoints Novos**: 
+  - `GET /users/:id/details` (dados completos com `employees` e `permission`)
+  - `PATCH /users/:id/details` (atualiza nome, email, role)
+  - `PATCH /users/:id/employee` (atualiza departamento e cargo do colaborador ativo)
+  - `POST /users/:id/reset-password` (gera senha temporária e força troca)
+- **Frontend**: Componente `UserEditModal` integrado à tela de Gestão de Usuários (`/dashboard/admin/usuarios`), consumindo a API via `axios` com autenticação por cookie (`radar_auth_token`).
 
 ---
 **FIM DO CONTEXTO. SE VOCÊ É UMA IA, CONFIRME QUE LEU E ENTENDEU ESTE DOCUMENTO COM "CONTEXTO CARREGADO E ENTENDIDO. AGUARDANDO INSTRUÇÕES."**

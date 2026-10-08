@@ -4,20 +4,20 @@
 // INÍCIO: frontend/src/components/clients/ClientProfileModal.tsx
 // =================================================================
 /**
- * 🆕 Sprint F12.5 — Ficha Completa COM MODO EDIÇÃO
+ * 🆕 Sprint F12.5 + Gestão de Obrigações
  * -----------------------------------------------------------------
- * • Botão "Editar cadastro": todos os campos viram inputs.
- * • Contatos: editar, adicionar, remover, definir primário.
- * • Responsáveis por depto: editar, adicionar, remover.
- * • Salvar → PUT /clients/:id/profile (transação no backend).
- * • "Editar contrato" continua abrindo o wizard antigo (planos/serviços).
+ * • ABA "Dados Gerais": todos os campos editáveis + contatos + responsáveis
+ * • ABA "Obrigações Vinculadas": gerencia obrigações do cliente
+ * • Botão "Editar cadastro": modo edição inline
+ * • Botão "Editar contrato": abre wizard de planos/serviços
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 import {
   X, Edit2, Save, MapPin, Users, UserCog, Tags, Building2,
-  CalendarDays, Plus, Trash2, Loader2, FileText,
+  CalendarDays, Plus, Trash2, Loader2, FileText, CheckCircle2,
+  ArrowUpDown, ArrowUpAZ, ArrowDownZA
 } from 'lucide-react';
 
 // ---------------------------- Tipos ----------------------------
@@ -34,6 +34,19 @@ export interface ProfileOwner {
   id?: string;
   department: string;
   ownerName: string;
+}
+export interface Obligation {
+  id: string;
+  name: string;
+  responsibleUser?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+export interface ClientObligation {
+  id: string;
+  status: string;
+  obs?: string;
+  schedule: Obligation;
 }
 export interface ProfileClient {
   id: string;
@@ -73,6 +86,8 @@ export interface ProfileClient {
 
 interface Props {
   client: ProfileClient;
+  obligations?: ClientObligation[];
+  loadingObligations?: boolean;
   onClose: () => void;
   onEditContract?: () => void;
   onSaved?: (updated: ProfileClient) => void;
@@ -107,7 +122,6 @@ function Section({ icon: Icon, title, children }: any) {
   );
 }
 
-/** Campo texto: view = parágrafo | edit = input */
 function Txt({ label, editing, value, onChange, area, span2 }: any) {
   return (
     <div className={span2 ? 'col-span-2' : ''}>
@@ -125,7 +139,6 @@ function Txt({ label, editing, value, onChange, area, span2 }: any) {
   );
 }
 
-/** Campo data: view = dd/mm/aaaa | edit = input date */
 function Dte({ label, editing, value, onChange }: any) {
   return (
     <div>
@@ -149,12 +162,85 @@ function Dte({ label, editing, value, onChange }: any) {
 // =================================================================
 // COMPONENTE PRINCIPAL
 // =================================================================
-export default function ClientProfileModal({ client, onClose, onEditContract, onSaved }: Props) {
+export default function ClientProfileModal({ 
+  client, 
+  obligations = [],
+  loadingObligations = false,
+  onClose, 
+  onEditContract, 
+  onSaved 
+}: Props) {
+  const [activeTab, setActiveTab] = useState<'general' | 'obligations'>('general');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<ProfileClient>(client);
   const [tagsStr, setTagsStr] = useState('');
   const [regsStr, setRegsStr] = useState('');
+  
+  // Estados para obrigações
+  const [allObligations, setAllObligations] = useState<Obligation[]>([]);
+  const [loadingAllObligations, setLoadingAllObligations] = useState(false);
+  const [showAddObligation, setShowAddObligation] = useState(false);
+  const [selectedObligationId, setSelectedObligationId] = useState('');
+  const [addingObligation, setAddingObligation] = useState(false);
+
+  // Carregar todas as obrigações disponíveis quando abrir a aba
+  useEffect(() => {
+    if (activeTab === 'obligations') {
+      fetchAllObligations();
+    }
+  }, [activeTab]);
+
+  const fetchAllObligations = async () => {
+    setLoadingAllObligations(true);
+    try {
+      const { data } = await api.get('/obligations/schedules');
+      setAllObligations(data.filter((ob: Obligation) => ob.isActive));
+    } catch (error) {
+      toast.error('Erro ao carregar obrigações disponíveis');
+    } finally {
+      setLoadingAllObligations(false);
+    }
+  };
+
+  // Adicionar obrigação ao cliente
+  const handleAddObligation = async () => {
+    if (!selectedObligationId) {
+      toast.error('Selecione uma obrigação');
+      return;
+    }
+
+    setAddingObligation(true);
+    try {
+      await api.post(`/obligations/schedules/${selectedObligationId}/clients`, {
+        clientIds: [client.id],
+      });
+      
+      toast.success('Obrigação vinculada ao cliente com sucesso!');
+      setShowAddObligation(false);
+      setSelectedObligationId('');
+      window.location.reload();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao vincular obrigação');
+    } finally {
+      setAddingObligation(false);
+    }
+  };
+
+  // Remover obrigação do cliente
+  const handleRemoveObligation = async (obligationId: string, obligationName: string) => {
+    if (!confirm(`Deseja remover a obrigação "${obligationName}" deste cliente?`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/obligations/schedules/${obligationId}/clients/${client.id}`);
+      toast.success('Obrigação removida do cliente com sucesso!');
+      window.location.reload();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Erro ao remover obrigação');
+    }
+  };
 
   const set = (patch: Partial<ProfileClient>) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -234,7 +320,7 @@ export default function ClientProfileModal({ client, onClose, onEditContract, on
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col">
+      <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col">
         {/* ---------------- Cabeçalho ---------------- */}
         <div className="flex items-start justify-between p-6 border-b border-slate-200 bg-white rounded-t-2xl">
           <div>
@@ -256,7 +342,7 @@ export default function ClientProfileModal({ client, onClose, onEditContract, on
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {editing ? (
+            {activeTab === 'general' && editing ? (
               <>
                 <button onClick={cancelEdit} className="px-3 py-2 text-sm font-semibold border border-slate-300 rounded-lg hover:bg-slate-50">
                   Cancelar
@@ -270,7 +356,7 @@ export default function ClientProfileModal({ client, onClose, onEditContract, on
                   Salvar
                 </button>
               </>
-            ) : (
+            ) : activeTab === 'general' && (
               <>
                 <button
                   onClick={startEdit}
@@ -294,212 +380,410 @@ export default function ClientProfileModal({ client, onClose, onEditContract, on
           </div>
         </div>
 
+        {/* ---------------- Abas ---------------- */}
+        <div className="flex border-b border-slate-200 px-6 bg-white">
+          <button
+            onClick={() => setActiveTab('general')}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'general'
+                ? 'border-teal-600 text-teal-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Building2 className="h-4 w-4" />
+            Dados Gerais
+          </button>
+          <button
+            onClick={() => setActiveTab('obligations')}
+            className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors flex items-center gap-2 ${
+              activeTab === 'obligations'
+                ? 'border-teal-600 text-teal-600'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            Obrigações Vinculadas
+            <span className="px-2 py-0.5 rounded-full text-xs bg-teal-100 text-teal-700">
+              {obligations.length}
+            </span>
+          </button>
+        </div>
+
         {/* ---------------- Corpo ---------------- */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {editing && (
-            <div className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800">
-              <strong>Modo edição ativo:</strong> todos os campos abaixo podem ser alterados.
-              Contatos e responsáveis podem ser adicionados/removidos.
-            </div>
+          
+          {/* ABA: DADOS GERAIS */}
+          {activeTab === 'general' && (
+            <>
+              {editing && (
+                <div className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-800">
+                  <strong>Modo edição ativo:</strong> todos os campos abaixo podem ser alterados.
+                  Contatos e responsáveis podem ser adicionados/removidos.
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* ---------- Identificação ---------- */}
+                <Section icon={Building2} title="Identificação">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Txt label="Nome fantasia" editing={editing} value={c.tradeName} onChange={(v: string) => set({ tradeName: v })} />
+                    <Txt label="Apelido e-contínuo" editing={editing} value={c.s3dNickname} onChange={(v: string) => set({ s3dNickname: v })} />
+                    <Txt label="NIRE" editing={editing} value={c.nire} onChange={(v: string) => set({ nire: v })} />
+                    <Txt label="Grupo de empresas" editing={editing} value={c.companyGroup} onChange={(v: string) => set({ companyGroup: v })} />
+                    <Txt label="Insc. Municipal" editing={editing} value={c.municipalRegistration} onChange={(v: string) => set({ municipalRegistration: v })} />
+                    <Dte label="Dt. Insc. Municipal" editing={editing} value={c.municipalRegistrationDate} onChange={(v: string | null) => set({ municipalRegistrationDate: v })} />
+                    <Txt span2 label="Inscrições Estaduais (separe por vírgula)" editing={editing}
+                      value={editing ? regsStr : (c.stateRegistrations || []).join(' | ')}
+                      onChange={(v: string) => setRegsStr(v)} />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Empresa isenta?</p>
+                      {editing ? (
+                        <select className={inp} value={c.isStateExempt ? '1' : '0'}
+                          onChange={(e) => set({ isStateExempt: e.target.value === '1' })}>
+                          <option value="0">Não</option>
+                          <option value="1">Sim</option>
+                        </select>
+                      ) : (
+                        <p className="text-sm text-slate-800">{c.isStateExempt ? 'Sim' : 'Não'}</p>
+                      )}
+                    </div>
+                    <Txt label="Outros identificadores" editing={editing} value={c.otherIdentifiers} onChange={(v: string) => set({ otherIdentifiers: v })} />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Regime tributário</p>
+                      {editing ? (
+                        <select className={inp} value={c.taxRegime || ''} onChange={(e) => set({ taxRegime: e.target.value || null })}>
+                          <option value="">—</option>
+                          {REGIMES.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      ) : (
+                        <p className="text-sm text-slate-800">{c.taxRegime || '—'}</p>
+                      )}
+                    </div>
+                    <Txt label="Website" editing={editing} value={c.website} onChange={(v: string) => set({ website: v })} />
+                  </div>
+                </Section>
+
+                {/* ---------- Endereço ---------- */}
+                <Section icon={MapPin} title="Endereço">
+                  <div className="space-y-3">
+                    <Txt span2 label="Logradouro" editing={editing} value={c.address} onChange={(v: string) => set({ address: v })} />
+                    <div className="grid grid-cols-3 gap-3">
+                      <Txt label="Número" editing={editing} value={c.addressNumber} onChange={(v: string) => set({ addressNumber: v })} />
+                      <Txt label="Complemento" editing={editing} value={c.addressComplement} onChange={(v: string) => set({ addressComplement: v })} />
+                      <Txt label="CEP" editing={editing} value={c.addressZip} onChange={(v: string) => set({ addressZip: v })} />
+                      <Txt label="Bairro" editing={editing} value={c.addressDistrict} onChange={(v: string) => set({ addressDistrict: v })} />
+                      <Txt label="Cidade" editing={editing} value={c.addressCity} onChange={(v: string) => set({ addressCity: v })} />
+                      <Txt label="UF" editing={editing} value={c.addressState} onChange={(v: string) => set({ addressState: v })} />
+                    </div>
+                    {!editing && <p className="text-xs text-slate-500">{fullAddress || '—'}</p>}
+                    <Txt label="Telefone da empresa" editing={editing} value={c.phone} onChange={(v: string) => set({ phone: v })} />
+                  </div>
+                </Section>
+
+                {/* ---------- Relacionamento ---------- */}
+                <Section icon={CalendarDays} title="Relacionamento">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Dte label="Cliente desde" editing={editing} value={c.clientSince} onChange={(v: string | null) => set({ clientSince: v })} />
+                    <Dte label="Cliente até" editing={editing} value={c.clientUntil} onChange={(v: string | null) => set({ clientUntil: v })} />
+                    <Dte label="Cadastro no S3D" editing={editing} value={c.s3dRegistrationDate} onChange={(v: string | null) => set({ s3dRegistrationDate: v })} />
+                    <Dte label="Abertura da empresa" editing={editing} value={c.foundationDate} onChange={(v: string | null) => set({ foundationDate: v })} />
+                  </div>
+                </Section>
+
+                {/* ---------- Tags + observações ---------- */}
+                <Section icon={Tags} title="Tags e observações">
+                  <div className="space-y-3">
+                    {editing ? (
+                      <Txt span2 label="Tags (separe por vírgula)" editing={editing} value={tagsStr} onChange={(v: string) => setTagsStr(v)} />
+                    ) : (
+                      (c.tags || []).length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {(c.tags || []).map((t, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">{t}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400">Sem tags.</p>
+                      )
+                    )}
+                    <Txt span2 area label="Observações internas" editing={editing} value={c.observations} onChange={(v: string) => set({ observations: v })} />
+                  </div>
+                </Section>
+              </div>
+
+              {/* ---------- Contatos ---------- */}
+              <Section icon={Users} title={`Contatos do cliente (${(c.contacts || []).length})`}>
+                {!editing && (c.contacts || []).length === 0 && (
+                  <p className="text-sm text-slate-400">Nenhum contato importado.</p>
+                )}
+                {editing && (
+                  <button
+                    onClick={() => set({ contacts: [...(c.contacts || []), { name: '', role: null, phone: null, email: null, departments: [], isPrimary: (c.contacts || []).length === 0 }] })}
+                    className="mb-2 flex items-center gap-1 px-2 py-1 text-xs font-semibold text-teal-700 border border-teal-300 rounded-lg hover:bg-teal-50"
+                  >
+                    <Plus className="h-3 w-3" /> Adicionar contato
+                  </button>
+                )}
+                {(c.contacts || []).length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 text-left text-slate-500">
+                        <tr>
+                          <th className="py-2 px-2 font-medium">Primário</th>
+                          <th className="py-2 px-2 font-medium">Nome</th>
+                          <th className="py-2 px-2 font-medium">Cargo</th>
+                          <th className="py-2 px-2 font-medium">Telefone</th>
+                          <th className="py-2 px-2 font-medium">E-mail</th>
+                          <th className="py-2 px-2 font-medium">Departamentos (vírgula)</th>
+                          {editing && <th className="py-2 px-2" />}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(c.contacts || []).map((k, i) => (
+                          <tr key={k.id || i} className="border-t border-slate-100">
+                            <td className="py-1.5 px-2">
+                              <input
+                                type="radio"
+                                name="primary-contact"
+                                checked={!!k.isPrimary}
+                                disabled={!editing}
+                                onChange={() =>
+                                  set({ contacts: (c.contacts || []).map((x, xi) => ({ ...x, isPrimary: xi === i })) })
+                                }
+                              />
+                            </td>
+                            {editing ? (
+                              <>
+                                <td className="py-1.5 px-2"><input className={inp} value={k.name || ''} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, name: e.target.value } : x) })} /></td>
+                                <td className="py-1.5 px-2"><input className={inp} value={k.role || ''} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, role: e.target.value } : x) })} /></td>
+                                <td className="py-1.5 px-2"><input className={inp} value={k.phone || ''} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, phone: e.target.value } : x) })} /></td>
+                                <td className="py-1.5 px-2"><input className={inp} value={k.email || ''} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, email: e.target.value } : x) })} /></td>
+                                <td className="py-1.5 px-2"><input className={inp} value={(k.departments || []).join(', ')} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, departments: e.target.value.split(',').map((d) => d.trim()).filter(Boolean) } : x) })} /></td>
+                                <td className="py-1.5 px-2">
+                                  <button onClick={() => set({ contacts: (c.contacts || []).filter((_, xi) => xi !== i) })} className="p-1 text-red-500 hover:bg-red-50 rounded">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </td>
+                              </>
+                            ) : (
+                              <>
+                                <td className="py-1.5 px-2 font-semibold text-slate-800">
+                                  {k.name}
+                                  {k.isPrimary && <span className="ml-1 px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 text-[9px] font-bold">PRIMÁRIO</span>}
+                                </td>
+                                <td className="py-1.5 px-2 text-slate-600">{k.role || '—'}</td>
+                                <td className="py-1.5 px-2 text-slate-600">{k.phone || '—'}</td>
+                                <td className="py-1.5 px-2 text-slate-600">{k.email || '—'}</td>
+                                <td className="py-1.5 px-2 text-slate-500 max-w-[220px] truncate">{(k.departments || []).join(', ') || '—'}</td>
+                              </>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Section>
+
+              {/* ---------- Time interno ---------- */}
+              <Section icon={UserCog} title={`Time interno por departamento (${(c.departmentOwners || []).length})`}>
+                {editing && (
+                  <button
+                    onClick={() => set({ departmentOwners: [...(c.departmentOwners || []), { department: '', ownerName: '' }] })}
+                    className="mb-2 flex items-center gap-1 px-2 py-1 text-xs font-semibold text-teal-700 border border-teal-300 rounded-lg hover:bg-teal-50"
+                  >
+                    <Plus className="h-3 w-3" /> Adicionar responsável
+                  </button>
+                )}
+                {(c.departmentOwners || []).length === 0 && !editing && (
+                  <p className="text-sm text-slate-400">Nenhum responsável importado.</p>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {(c.departmentOwners || []).map((o, i) =>
+                    editing ? (
+                      <div key={o.id || i} className="flex items-center gap-1">
+                        <input className={inp} value={o.department} placeholder="Departamento"
+                          onChange={(e) => set({ departmentOwners: (c.departmentOwners || []).map((x, xi) => xi === i ? { ...x, department: e.target.value } : x) })} />
+                        <input className={inp} value={o.ownerName} placeholder="Responsável"
+                          onChange={(e) => set({ departmentOwners: (c.departmentOwners || []).map((x, xi) => xi === i ? { ...x, ownerName: e.target.value } : x) })} />
+                        <button onClick={() => set({ departmentOwners: (c.departmentOwners || []).filter((_, xi) => xi !== i) })} className="p-1 text-red-500 hover:bg-red-50 rounded shrink-0">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div key={o.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <span className="text-xs text-slate-500 truncate">{o.department}</span>
+                        <span className="text-xs font-bold text-slate-800 ml-2 truncate">{o.ownerName}</span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </Section>
+            </>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* ---------- Identificação ---------- */}
-            <Section icon={Building2} title="Identificação">
-              <div className="grid grid-cols-2 gap-3">
-                <Txt label="Nome fantasia" editing={editing} value={c.tradeName} onChange={(v: string) => set({ tradeName: v })} />
-                <Txt label="Apelido e-contínuo" editing={editing} value={c.s3dNickname} onChange={(v: string) => set({ s3dNickname: v })} />
-                <Txt label="NIRE" editing={editing} value={c.nire} onChange={(v: string) => set({ nire: v })} />
-                <Txt label="Grupo de empresas" editing={editing} value={c.companyGroup} onChange={(v: string) => set({ companyGroup: v })} />
-                <Txt label="Insc. Municipal" editing={editing} value={c.municipalRegistration} onChange={(v: string) => set({ municipalRegistration: v })} />
-                <Dte label="Dt. Insc. Municipal" editing={editing} value={c.municipalRegistrationDate} onChange={(v: string | null) => set({ municipalRegistrationDate: v })} />
-                <Txt span2 label="Inscrições Estaduais (separe por vírgula)" editing={editing}
-                  value={editing ? regsStr : (c.stateRegistrations || []).join(' | ')}
-                  onChange={(v: string) => setRegsStr(v)} />
+          {/* ABA: OBRIGAÇÕES VINCULADAS */}
+          {activeTab === 'obligations' && (
+            <div className="space-y-6">
+              {/* Header com botão de adicionar */}
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Empresa isenta?</p>
-                  {editing ? (
-                    <select className={inp} value={c.isStateExempt ? '1' : '0'}
-                      onChange={(e) => set({ isStateExempt: e.target.value === '1' })}>
-                      <option value="0">Não</option>
-                      <option value="1">Sim</option>
-                    </select>
-                  ) : (
-                    <p className="text-sm text-slate-800">{c.isStateExempt ? 'Sim' : 'Não'}</p>
-                  )}
+                  <h3 className="text-lg font-semibold text-slate-800">
+                    Obrigações Vinculadas ({obligations.length})
+                  </h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Gerencie as obrigações deste cliente
+                  </p>
                 </div>
-                <Txt label="Outros identificadores" editing={editing} value={c.otherIdentifiers} onChange={(v: string) => set({ otherIdentifiers: v })} />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Regime tributário</p>
-                  {editing ? (
-                    <select className={inp} value={c.taxRegime || ''} onChange={(e) => set({ taxRegime: e.target.value || null })}>
-                      <option value="">—</option>
-                      {REGIMES.map((r) => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  ) : (
-                    <p className="text-sm text-slate-800">{c.taxRegime || '—'}</p>
-                  )}
+                <button
+                  onClick={() => setShowAddObligation(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors font-medium text-sm"
+                >
+                  <Plus className="h-4 w-4" />
+                  Adicionar Obrigação
+                </button>
+              </div>
+
+              {/* Modal de seleção de obrigação */}
+              {showAddObligation && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                  <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                    <h3 className="text-lg font-semibold text-slate-800 mb-4">
+                      Adicionar Obrigação
+                    </h3>
+                    
+                    {loadingAllObligations ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 text-teal-600 animate-spin" />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-slate-700 mb-2">
+                            Selecione a obrigação
+                          </label>
+                          <select
+                            value={selectedObligationId}
+                            onChange={(e) => setSelectedObligationId(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                          >
+                            <option value="">Selecione...</option>
+                            {allObligations
+                              .filter((ob) => !obligations.some((clientOb) => clientOb.schedule.id === ob.id))
+                              .map((ob) => (
+                                <option key={ob.id} value={ob.id}>
+                                  {ob.name} {ob.responsibleUser ? `- ${ob.responsibleUser}` : ''}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => {
+                              setShowAddObligation(false);
+                              setSelectedObligationId('');
+                            }}
+                            className="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg transition-colors font-medium text-sm"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={handleAddObligation}
+                            disabled={!selectedObligationId || addingObligation}
+                            className="flex-1 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium text-sm flex items-center justify-center gap-2"
+                          >
+                            {addingObligation ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4" />
+                            )}
+                            {addingObligation ? 'Adicionando...' : 'Adicionar'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <Txt label="Website" editing={editing} value={c.website} onChange={(v: string) => set({ website: v })} />
-              </div>
-            </Section>
+              )}
 
-            {/* ---------- Endereço ---------- */}
-            <Section icon={MapPin} title="Endereço">
-              <div className="space-y-3">
-                <Txt span2 label="Logradouro" editing={editing} value={c.address} onChange={(v: string) => set({ address: v })} />
-                <div className="grid grid-cols-3 gap-3">
-                  <Txt label="Número" editing={editing} value={c.addressNumber} onChange={(v: string) => set({ addressNumber: v })} />
-                  <Txt label="Complemento" editing={editing} value={c.addressComplement} onChange={(v: string) => set({ addressComplement: v })} />
-                  <Txt label="CEP" editing={editing} value={c.addressZip} onChange={(v: string) => set({ addressZip: v })} />
-                  <Txt label="Bairro" editing={editing} value={c.addressDistrict} onChange={(v: string) => set({ addressDistrict: v })} />
-                  <Txt label="Cidade" editing={editing} value={c.addressCity} onChange={(v: string) => set({ addressCity: v })} />
-                  <Txt label="UF" editing={editing} value={c.addressState} onChange={(v: string) => set({ addressState: v })} />
+              {/* Lista de obrigações */}
+              {loadingObligations ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 text-teal-600 animate-spin" />
                 </div>
-                {!editing && <p className="text-xs text-slate-500">{fullAddress || '—'}</p>}
-                <Txt label="Telefone da empresa" editing={editing} value={c.phone} onChange={(v: string) => set({ phone: v })} />
-              </div>
-            </Section>
+              ) : obligations.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-xl border border-slate-200">
+                  <FileText className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                  <p className="text-slate-500 font-medium">Nenhuma obrigação vinculada</p>
+                  <p className="text-sm text-slate-400 mt-1">
+                    Clique em "Adicionar Obrigação" para vincular
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {obligations.map((obligation) => (
+                    <div
+                      key={obligation.id}
+                      className="border border-slate-200 rounded-xl p-4 hover:shadow-md transition-shadow bg-white"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-slate-900">
+                              {obligation.schedule.name}
+                            </h4>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                obligation.status === 'ENVIADO'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : obligation.status === 'ATRASADO'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-amber-100 text-amber-700'
+                              }`}
+                            >
+                              {obligation.status}
+                            </span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <p className="text-xs text-slate-500">Responsável</p>
+                              <p className="text-slate-700 font-medium">
+                                {obligation.schedule.responsibleUser || '—'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-500">Criada em</p>
+                              <p className="text-slate-700 font-medium">
+                                {fmtDate(obligation.schedule.createdAt)}
+                              </p>
+                            </div>
+                            {obligation.obs && (
+                              <div className="col-span-2 md:col-span-1">
+                                <p className="text-xs text-slate-500">Observação</p>
+                                <p className="text-slate-700 font-medium">{obligation.obs}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
 
-            {/* ---------- Relacionamento ---------- */}
-            <Section icon={CalendarDays} title="Relacionamento">
-              <div className="grid grid-cols-2 gap-3">
-                <Dte label="Cliente desde" editing={editing} value={c.clientSince} onChange={(v: string | null) => set({ clientSince: v })} />
-                <Dte label="Cliente até" editing={editing} value={c.clientUntil} onChange={(v: string | null) => set({ clientUntil: v })} />
-                <Dte label="Cadastro no S3D" editing={editing} value={c.s3dRegistrationDate} onChange={(v: string | null) => set({ s3dRegistrationDate: v })} />
-                <Dte label="Abertura da empresa" editing={editing} value={c.foundationDate} onChange={(v: string | null) => set({ foundationDate: v })} />
-              </div>
-            </Section>
-
-            {/* ---------- Tags + observações ---------- */}
-            <Section icon={Tags} title="Tags e observações">
-              <div className="space-y-3">
-                {editing ? (
-                  <Txt span2 label="Tags (separe por vírgula)" editing={editing} value={tagsStr} onChange={(v: string) => setTagsStr(v)} />
-                ) : (
-                  (c.tags || []).length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {(c.tags || []).map((t, i) => (
-                        <span key={i} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200">{t}</span>
-                      ))}
+                        <button
+                          onClick={() =>
+                            handleRemoveObligation(obligation.schedule.id, obligation.schedule.name)
+                          }
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-4"
+                          title="Remover obrigação"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-400">Sem tags.</p>
-                  )
-                )}
-                <Txt span2 area label="Observações internas" editing={editing} value={c.observations} onChange={(v: string) => set({ observations: v })} />
-              </div>
-            </Section>
-          </div>
-
-          {/* ---------- Contatos ---------- */}
-          <Section icon={Users} title={`Contatos do cliente (${(c.contacts || []).length})`}>
-            {!editing && (c.contacts || []).length === 0 && (
-              <p className="text-sm text-slate-400">Nenhum contato importado.</p>
-            )}
-            {editing && (
-              <button
-                onClick={() => set({ contacts: [...(c.contacts || []), { name: '', role: null, phone: null, email: null, departments: [], isPrimary: (c.contacts || []).length === 0 }] })}
-                className="mb-2 flex items-center gap-1 px-2 py-1 text-xs font-semibold text-teal-700 border border-teal-300 rounded-lg hover:bg-teal-50"
-              >
-                <Plus className="h-3 w-3" /> Adicionar contato
-              </button>
-            )}
-            {(c.contacts || []).length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-50 text-left text-slate-500">
-                    <tr>
-                      <th className="py-2 px-2 font-medium">Primário</th>
-                      <th className="py-2 px-2 font-medium">Nome</th>
-                      <th className="py-2 px-2 font-medium">Cargo</th>
-                      <th className="py-2 px-2 font-medium">Telefone</th>
-                      <th className="py-2 px-2 font-medium">E-mail</th>
-                      <th className="py-2 px-2 font-medium">Departamentos (vírgula)</th>
-                      {editing && <th className="py-2 px-2" />}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(c.contacts || []).map((k, i) => (
-                      <tr key={k.id || i} className="border-t border-slate-100">
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="radio"
-                            name="primary-contact"
-                            checked={!!k.isPrimary}
-                            disabled={!editing}
-                            onChange={() =>
-                              set({ contacts: (c.contacts || []).map((x, xi) => ({ ...x, isPrimary: xi === i })) })
-                            }
-                          />
-                        </td>
-                        {editing ? (
-                          <>
-                            <td className="py-1.5 px-2"><input className={inp} value={k.name || ''} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, name: e.target.value } : x) })} /></td>
-                            <td className="py-1.5 px-2"><input className={inp} value={k.role || ''} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, role: e.target.value } : x) })} /></td>
-                            <td className="py-1.5 px-2"><input className={inp} value={k.phone || ''} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, phone: e.target.value } : x) })} /></td>
-                            <td className="py-1.5 px-2"><input className={inp} value={k.email || ''} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, email: e.target.value } : x) })} /></td>
-                            <td className="py-1.5 px-2"><input className={inp} value={(k.departments || []).join(', ')} onChange={(e) => set({ contacts: (c.contacts || []).map((x, xi) => xi === i ? { ...x, departments: e.target.value.split(',').map((d) => d.trim()).filter(Boolean) } : x) })} /></td>
-                            <td className="py-1.5 px-2">
-                              <button onClick={() => set({ contacts: (c.contacts || []).filter((_, xi) => xi !== i) })} className="p-1 text-red-500 hover:bg-red-50 rounded">
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td className="py-1.5 px-2 font-semibold text-slate-800">
-                              {k.name}
-                              {k.isPrimary && <span className="ml-1 px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 text-[9px] font-bold">PRIMÁRIO</span>}
-                            </td>
-                            <td className="py-1.5 px-2 text-slate-600">{k.role || '—'}</td>
-                            <td className="py-1.5 px-2 text-slate-600">{k.phone || '—'}</td>
-                            <td className="py-1.5 px-2 text-slate-600">{k.email || '—'}</td>
-                            <td className="py-1.5 px-2 text-slate-500 max-w-[220px] truncate">{(k.departments || []).join(', ') || '—'}</td>
-                          </>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Section>
-
-          {/* ---------- Time interno ---------- */}
-          <Section icon={UserCog} title={`Time interno por departamento (${(c.departmentOwners || []).length})`}>
-            {editing && (
-              <button
-                onClick={() => set({ departmentOwners: [...(c.departmentOwners || []), { department: '', ownerName: '' }] })}
-                className="mb-2 flex items-center gap-1 px-2 py-1 text-xs font-semibold text-teal-700 border border-teal-300 rounded-lg hover:bg-teal-50"
-              >
-                <Plus className="h-3 w-3" /> Adicionar responsável
-              </button>
-            )}
-            {(c.departmentOwners || []).length === 0 && !editing && (
-              <p className="text-sm text-slate-400">Nenhum responsável importado.</p>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              {(c.departmentOwners || []).map((o, i) =>
-                editing ? (
-                  <div key={o.id || i} className="flex items-center gap-1">
-                    <input className={inp} value={o.department} placeholder="Departamento"
-                      onChange={(e) => set({ departmentOwners: (c.departmentOwners || []).map((x, xi) => xi === i ? { ...x, department: e.target.value } : x) })} />
-                    <input className={inp} value={o.ownerName} placeholder="Responsável"
-                      onChange={(e) => set({ departmentOwners: (c.departmentOwners || []).map((x, xi) => xi === i ? { ...x, ownerName: e.target.value } : x) })} />
-                    <button onClick={() => set({ departmentOwners: (c.departmentOwners || []).filter((_, xi) => xi !== i) })} className="p-1 text-red-500 hover:bg-red-50 rounded shrink-0">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <div key={o.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <span className="text-xs text-slate-500 truncate">{o.department}</span>
-                    <span className="text-xs font-bold text-slate-800 ml-2 truncate">{o.ownerName}</span>
-                  </div>
-                ),
+                  ))}
+                </div>
               )}
             </div>
-          </Section>
+          )}
         </div>
 
         {/* ---------------- Rodapé ---------------- */}

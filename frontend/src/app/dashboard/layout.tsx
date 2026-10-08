@@ -1,79 +1,86 @@
 'use client';
+
 // =================================================================
-// INÍCIO: IMPORTS E DIRETIVAS
+// 1. IMPORTS DE BIBLIOTECAS E COMPONENTES
 // =================================================================
+
+// React & Next.js
+import { useState, useMemo, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+
+// Stores (Gerenciamento de Estado)
+import { useAuthStore } from '@/store/authStore';
+import { useTrackNavigation } from '@/store/uiStore';
+
+// Componentes Customizados do Projeto
 import CommandPalette from '@/components/CommandPalette';
 import NotificationCenter from '@/components/NotificationCenter';
 import ForcePasswordChange from '@/components/ForcePasswordChange';
-import { useState, useMemo, useEffect } from 'react'; // 🆕 F15: useEffect p/ badge
-import { useRouter, usePathname } from 'next/navigation';
-import { useAuthStore } from '@/store/authStore';
-import { useTrackNavigation } from '@/store/uiStore';
 import PageHelp from '@/components/common/PageHelp';
+
+// =================================================================
+// 2. IMPORTS DE ÍCONES (LUCIDE-REACT)
+// ⚠️ TODOS os itens abaixo são ÍCONES.
+// ✅ Estão rigorosamente em ORDEM ALFABÉTICA para facilitar a manutenção.
+// =================================================================
 import {
-  LayoutDashboard,
-  Building2,
-  Users,
-  UsersRound,
-  Calculator,
-  CalendarDays,
-  LogOut,
-  Menu,
-  X,
-  AlertTriangle,
   Activity,
-  Scale,
+  AlertTriangle,
+  BarChart3,
+  BookOpen,
+  Bot,
+  Brain,
+  Briefcase,
+  Building,
+  Building2,
+  Calculator,
+  CalendarCheck, // ✅ Ícone principal para "Gestão de Obrigações"
+  CalendarDays,
   ChevronDown,
   ChevronRight,
-  Shield,
+  ExternalLink,
   FileText,
   FolderKanban,
-  Receipt,
-  Landmark,
-  Briefcase,
-  BookOpen,
-  Building,
-  Wallet,
-  Brain,
-  Bot,
+  FolderOpen,
   Gauge,
+  Globe,
+  Headset,
+  Landmark,
+  Layers,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  Menu,
+  Receipt,
+  Scale,
+  ScanLine,
+  Shield,
+  ShieldCheck,
+  Tag,
   Telescope,
   Trophy,
-  ShieldCheck,
-  FolderOpen,
-  ScanLine,      // 🆕 Sprint F10: Extrator Bancário
-  Globe,         // 🆕 Sprint F10: Site Conta Certa
-  ExternalLink,  // 🆕 Sprint F10: badge "abre em nova aba"
-  Mail,          // 🆕 F15: ícone da seção Comunicados
-  Headset,       // 🆕 Para Fila de Atendimento
-  BarChart3,     // 🆕 Para Análise de Conversas
+  Upload,
+  Users,
+  UsersRound,
+  Wallet,
+  X, // ✅ Ícone de "Fechar" (X)
 } from 'lucide-react';
-// =================================================================
-// FIM: IMPORTS E DIRETIVAS
-// =================================================================
 
 // =================================================================
-// 🆕 Sprint F10: URLs DAS APPS EXTERNAS (Ecossistema)
+// 3. CONFIGURAÇÕES DE AMBIENTE (URLs Externas)
 // =================================================================
-const EXTRATOR_URL =
-  process.env.NEXT_PUBLIC_EXTRATOR_URL || 'http://localhost:5174';
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:5173';
-
-// 🆕 F15: URL base do backend NestJS (usada pelo badge de pendentes)
+const EXTRATOR_URL = process.env.NEXT_PUBLIC_EXTRATOR_URL || 'http://localhost:5174';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:5173';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-// =================================================================
-// FIM: URLs DAS APPS EXTERNAS
-// =================================================================
 
 // =================================================================
-// INÍCIO: DEFINIÇÃO DE TIPOS
+// 4. DEFINIÇÃO DE TIPOS (TypeScript)
 // =================================================================
 interface MenuItem {
   id: string;
   title: string;
   href: string;
-  icon?: any;
+  icon?: any; // Aceita qualquer componente de ícone do Lucide
   adminOnly?: boolean;
   section?: string;
   external?: boolean;
@@ -84,12 +91,11 @@ interface MenuItem {
   }[];
 }
 
-// Configuração das seções visuais (ordem de renderização)
-// 🆕 F15: seção 'comunicados' inserida após 'operacional'
+// Ordem de exibição das seções no menu lateral
 const SECTIONS = [
   { id: 'operacional', label: 'Operacional' },
-  { id: 'comunicados', label: 'Comunicações' }, // 🆕 F15
-  { id: 'atendimento', label: 'Atendimento' }, // 🆕 NOVA SEÇÃO
+  { id: 'comunicados', label: 'Comunicações' },
+  { id: 'atendimento', label: 'Atendimento' },
   { id: 'comercial', label: 'Comercial' },
   { id: 'fiscal', label: 'Fiscal' },
   { id: 'bancario', label: 'Bancário' },
@@ -98,12 +104,9 @@ const SECTIONS = [
   { id: 'ecossistema', label: 'Ecossistema' },
   { id: 'sistema', label: 'Sistema' },
 ] as const;
-// =================================================================
-// FIM: DEFINIÇÃO DE TIPOS
-// =================================================================
 
 // =================================================================
-// CONFIGURAÇÃO DOS ITENS DO MENU
+// 5. CONFIGURAÇÃO DOS ITENS DO MENU
 // =================================================================
 const allMenuItems: MenuItem[] = [
   // ─────────────────────────────────────────────────────────
@@ -130,7 +133,7 @@ const allMenuItems: MenuItem[] = [
     icon: Users,
     section: 'operacional',
     children: [
-      { id: 'pessoas', title: 'Colaboradores', href: '/dashboard/pessoas' },
+      { id: 'pessoas-colab', title: 'Colaboradores', href: '/dashboard/pessoas' },
       { id: 'turnover', title: 'Turnover', href: '/dashboard/turnover' },
       { id: 'benchmark-cargos', title: 'Benchmark de Cargos', href: '/dashboard/pessoas/benchmark' },
     ],
@@ -144,13 +147,13 @@ const allMenuItems: MenuItem[] = [
   },
   {
     id: 'client-workspace',
-    title: 'Ficha do Cliente (Setores)',
+    title: 'Ficha do Cliente',
     href: '/dashboard/clientes/workspace',
     icon: FolderOpen,
     section: 'operacional',
   },
   {
-    id: 'operacional',
+    id: 'projetos-tarefas',
     title: 'Projetos e Tarefas',
     href: '/dashboard/projetos',
     icon: FolderKanban,
@@ -162,7 +165,7 @@ const allMenuItems: MenuItem[] = [
   },
 
   // ─────────────────────────────────────────────────────────
-  // 📬 COMUNICADOS (🆕 F15 — Sprint F13/F15: watch folder + emails)
+  // 📬 COMUNICAÇÕES
   // ─────────────────────────────────────────────────────────
   {
     id: 'comunicados',
@@ -177,20 +180,21 @@ const allMenuItems: MenuItem[] = [
       { id: 'comunicados-templates', title: 'Templates de Email', href: '/dashboard/comunicados/templates' },
     ],
   },
-   // ─────────────────────────────────────────────────────────
-  // 📞 ATENDIMENTO (🆕 F13-F17: Fale Conosco, Fila, Análise)
+
+  // ─────────────────────────────────────────────────────────
+  // 📞 ATENDIMENTO
   // ─────────────────────────────────────────────────────────
   {
     id: 'fila-atendimento',
     title: 'Fila de Atendimento',
-    href: '/dashboard/fila',  // ✅ CORRETO
+    href: '/dashboard/fila',
     icon: Headset,
     section: 'atendimento',
   },
   {
     id: 'analise-conversas',
     title: 'Análise de Conversas',
-    href: '/dashboard/analise',  // ✅ CORRETO
+    href: '/dashboard/analise',
     icon: BarChart3,
     section: 'atendimento',
   },
@@ -205,7 +209,7 @@ const allMenuItems: MenuItem[] = [
     icon: Calculator,
     section: 'comercial',
     children: [
-      { id: 'precificacao-base', title: 'Calculadora de Precificação', href: '/dashboard/precificacao' },
+      { id: 'precificacao-base', title: 'Calculadora', href: '/dashboard/precificacao' },
       { id: 'propostas', title: 'Propostas Comerciais', href: '/dashboard/precificacao/propostas' },
       { id: 'meus-planos', title: 'Meus Planos', href: '/dashboard/precificacao/meus-planos' },
       { id: 'desempenho', title: 'Desempenho', href: '/dashboard/precificacao/desempenho' },
@@ -220,13 +224,13 @@ const allMenuItems: MenuItem[] = [
   },
 
   // ─────────────────────────────────────────────────────────
-  // 🧾 FISCAL
+  // 🧾 FISCAL (COM SUBMENU DE OBRIGAÇÕES)
   // ─────────────────────────────────────────────────────────
   {
     id: 'fiscal',
     title: 'Fiscal',
     href: '/dashboard/fiscal',
-    icon: Receipt,
+    icon: FileText,
     section: 'fiscal',
     children: [
       { id: 'fiscal-import', title: 'Importar NF-e', href: '/dashboard/fiscal' },
@@ -236,6 +240,21 @@ const allMenuItems: MenuItem[] = [
       { id: 'fiscal-sped', title: 'SPED Fiscal', href: '/dashboard/fiscal/sped' },
       { id: 'fiscal-comparativo', title: 'Comparativo', href: '/dashboard/fiscal/comparativo' },
       { id: 'fiscal-relatorio', title: 'Relatório Inventário', href: '/dashboard/fiscal/relatorio-inventario' },
+      
+      // ✅ NOVO ITEM PAI: GESTÃO DE OBRIGAÇÕES (Com Submenu)
+      {
+        id: 'gestao-obrigacoes',
+        title: 'Gestão de Obrigações',
+        href: '/dashboard/admin/obrigacoes', // 👉 Link para a página principal unificada
+        icon: CalendarCheck,
+        children: [
+          { id: 'obrigacoes-painel', title: 'Painel Unificado', href: '/dashboard/admin/obrigacoes' },
+          { id: 'obrigacoes-importar', title: 'Importar em Lote (Excel)', href: '/dashboard/fiscal/obrigacoes/importar' },
+          { id: 'obrigacoes-lotes', title: 'Obrigações em Lote', href: '/dashboard/fiscal/obrigacoes/lotes' },
+          { id: 'obrigacoes-clientes', title: 'Por Cliente', href: '/dashboard/fiscal/obrigacoes/clientes' },
+          { id: 'obrigacoes-tipo', title: 'Por Tipo de Obrigação', href: '/dashboard/fiscal/obrigacoes/tipo' },
+        ],
+      },
     ],
   },
 
@@ -269,7 +288,7 @@ const allMenuItems: MenuItem[] = [
   // ─────────────────────────────────────────────────────────
   {
     id: 'central-contabil',
-    title: '🏢 Central Contábil do Cliente',
+    title: 'Central Contábil do Cliente',
     href: '/dashboard/central-contabil',
     icon: BookOpen,
     section: 'contabil',
@@ -282,21 +301,10 @@ const allMenuItems: MenuItem[] = [
     section: 'contabil',
     children: [
       { id: 'contabil-sci', title: 'Importar / Exportar SCI', href: '/dashboard/contabil' },
-      { id: 'ciclo-contabil', title: 'Ciclo Contábil do Cliente', href: '/dashboard/contabil/ciclo-contabil' },
+      { id: 'ciclo-contabil', title: 'Ciclo Contábil', href: '/dashboard/contabil/ciclo-contabil' },
       { id: 'contabil-plano', title: 'Plano de Contas', href: '/dashboard/contabil/plano-contas' },
-      { id: 'contabil-extrato', title: 'Extrato / Razão Analítico', href: '/dashboard/contabil/extrato' },
+      { id: 'contabil-extrato', title: 'Extrato / Razão', href: '/dashboard/contabil/extrato' },
       { id: 'contabil-revisao', title: 'Revisão de Lançamentos', href: '/dashboard/contabil/revisao' },
-    ],
-  },
-  {
-    id: 'lancamentos',
-    title: 'Lançamentos Contábeis',
-    href: '/dashboard/lancamentos',
-    icon: FileText,
-    section: 'contabil',
-    children: [
-      { id: 'lancamentos', title: 'Todos os Lançamentos', href: '/dashboard/lancamentos' },
-      { id: 'revisao-manual', title: 'Revisão Manual + Automática', href: '/dashboard/lancamentos/revisao' },
     ],
   },
 
@@ -311,52 +319,10 @@ const allMenuItems: MenuItem[] = [
     section: 'inteligencia',
   },
   {
-    id: 'relatorios-mensais',
-    title: 'Relatórios Mensais',
-    href: '/dashboard/funcionario-digital/relatorios',
-    icon: FileText,
-    section: 'inteligencia',
-  },
-  {
-    id: 'nfse',
-    title: 'NFS-e',
-    href: '/dashboard/funcionario-digital/nfse',
-    icon: Receipt,
-    section: 'inteligencia',
-  },
-  {
-    id: 'guias-imposto',
-    title: 'Guias de Imposto',
-    href: '/dashboard/funcionario-digital/guias',
-    icon: Scale,
-    section: 'inteligencia',
-  },
-  {
-    id: 'legalizacao',
-    title: 'Legalização & Cofre',
-    href: '/dashboard/funcionario-digital/legalizacao',
-    icon: ShieldCheck,
-    section: 'inteligencia',
-  },
-  {
     id: 'bi',
     title: 'DRE do Escritório',
     href: '/dashboard/bi',
     icon: Building,
-    section: 'inteligencia',
-  },
-  {
-    id: 'bi-dre-cliente',
-    title: 'DRE do Cliente (Oficial)',
-    href: '/dashboard/bi/dre-cliente',
-    icon: BookOpen,
-    section: 'inteligencia',
-  },
-  {
-    id: 'ponto-fora-da-curva',
-    title: 'Ponto Fora da Curva',
-    href: '/dashboard/ponto-fora-da-curva',
-    icon: AlertTriangle,
     section: 'inteligencia',
   },
   {
@@ -367,50 +333,15 @@ const allMenuItems: MenuItem[] = [
     section: 'inteligencia',
   },
   {
-    id: 'indicadores-custom',
-    title: 'Indicadores Customizados',
-    href: '/dashboard/indicadores-custom',
-    icon: Calculator,
-    section: 'inteligencia',
-  },
-  {
     id: 'score',
     title: 'Score do Escritório',
     href: '/dashboard/score',
     icon: Gauge,
     section: 'inteligencia',
   },
-  {
-    id: 'mentoria',
-    title: 'Visão de Futuro',
-    href: '/dashboard/mentoria',
-    icon: Telescope,
-    section: 'inteligencia',
-  },
-  {
-    id: 'ranking',
-    title: 'Ranking de Níveis',
-    href: '/dashboard/ranking',
-    icon: Trophy,
-    section: 'inteligencia',
-  },
-  {
-    id: 'planejamento-tributario',
-    title: 'Planejamento Tributário',
-    href: '/dashboard/planejamento-tributario',
-    icon: Scale,
-    section: 'inteligencia',
-  },
-  {
-    id: 'reforma-tributaria',
-    title: 'Reforma Tributária',
-    href: '/dashboard/reforma-tributaria',
-    icon: Scale,
-    section: 'inteligencia',
-  },
 
   // ─────────────────────────────────────────────────────────
-  // 🔗 ECOSSISTEMA (🆕 Sprint F10 — apps externas, nova aba)
+  // 🔗 ECOSSISTEMA (Links Externos)
   // ─────────────────────────────────────────────────────────
   {
     id: 'extrator-app',
@@ -430,7 +361,7 @@ const allMenuItems: MenuItem[] = [
   },
 
   // ─────────────────────────────────────────────────────────
-  // ⚙️ SISTEMA (admin-only)
+  // ⚙️ SISTEMA (Apenas Admin)
   // ─────────────────────────────────────────────────────────
   {
     id: 'admin',
@@ -446,23 +377,22 @@ const allMenuItems: MenuItem[] = [
     ],
   },
 ];
-// =================================================================
-// FIM: ITENS DO MENU
-// =================================================================
 
 // =================================================================
-// INÍCIO: COMPONENTE PRINCIPAL (DashboardLayout)
+// 6. COMPONENTE PRINCIPAL DO LAYOUT
 // =================================================================
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // 🆕 F15: 'Comunicados' entra aberto por padrão
+  
+  // Menus que começam abertos por padrão
   const [expandedMenus, setExpandedMenus] = useState<string[]>([
     'Gestão de Pessoas',
-    'Operacional',
+    'Projetos e Tarefas',
     'Precificação',
     'Comunicados',
+    'Gestão de Obrigações', // ✅ Adicionado para já vir aberto
   ]);
-  // 🆕 F15: contador de arquivos aguardando aprovação (badge na Fila)
+  
   const [filaPendentes, setFilaPendentes] = useState(0);
 
   const { user, logout } = useAuthStore();
@@ -470,19 +400,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   useTrackNavigation();
 
-  // 🆕 F15: busca o total de AGUARDANDO_APROVACAO a cada 30s p/ o badge
+  // Busca pendências na fila a cada 30 segundos (para o badge)
   useEffect(() => {
     const fetchPendentes = async () => {
       try {
-        const res = await fetch(
-          `${API_URL}/api/arquivos-fila?status=AGUARDANDO_APROVACAO&perPage=1`,
-        );
+        const res = await fetch(`${API_URL}/api/arquivos-fila?status=AGUARDANDO_APROVACAO&perPage=1`);
         if (res.ok) {
           const data = await res.json();
           setFilaPendentes(data.meta?.total ?? 0);
         }
       } catch {
-        // backend fora do ar: badge some silenciosamente
+        // Silencioso em caso de erro de rede
       }
     };
     fetchPendentes();
@@ -490,22 +418,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => clearInterval(interval);
   }, []);
 
-  // =================================================================
-  // MENU DINÂMICO (useMemo) — agrupa por seção
-  // =================================================================
+  // Agrupa os itens do menu por seção, filtrando permissões
   const groupedMenuItems = useMemo(() => {
     const visibleItems = allMenuItems
       .map((item) => {
         if (item.adminOnly && user?.role !== 'ADMIN') return null;
         if (item.external) return item;
         if (user?.role === 'ADMIN') return item;
+        
         if (item.children) {
           const visibleChildren = item.children.filter((child) =>
-            user?.allowedModules?.includes(child.id),
+            user?.allowedModules?.includes(child.id)
           );
-          return visibleChildren.length > 0
-            ? { ...item, children: visibleChildren }
-            : null;
+          return visibleChildren.length > 0 ? { ...item, children: visibleChildren } : null;
         }
         return user?.allowedModules?.includes(item.id) ? item : null;
       })
@@ -515,30 +440,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     for (const sec of SECTIONS) {
       const items = visibleItems.filter((it) => it.section === sec.id);
       if (items.length > 0) {
-   // ✅ CORRETO (use apenas sec.id)
-   grouped.push({ sectionId: sec.id, sectionLabel: sec.label, items });      }
+        grouped.push({ sectionId: sec.id, sectionLabel: sec.label, items });
+      }
     }
     return grouped;
   }, [user?.role, user?.allowedModules]);
 
-  // =================================================================
-  // FUNÇÕES AUXILIARES
-  // =================================================================
+  // Verifica se a rota atual está ativa
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard';
     return pathname.startsWith(href);
   };
 
-  // 🆕 F15: o hub (/dashboard/comunicados) só ativa com match exato,
-  // senão ficaria "ativo" também dentro de /fila, /envios, etc.
   const isActiveChild = (href: string) =>
     href === '/dashboard/comunicados' ? pathname === href : isActive(href);
 
   const toggleMenu = (title: string) => {
     setExpandedMenus((prev) =>
-      prev.includes(title)
-        ? prev.filter((item) => item !== title)
-        : [...prev, title],
+      prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]
     );
   };
 
@@ -548,10 +467,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   // =================================================================
-  // RENDERIZAÇÃO
+  // 7. RENDERIZAÇÃO (JSX)
   // =================================================================
   return (
     <div className="min-h-screen bg-slate-50 flex">
+      {/* Botão Mobile para abrir/fechar sidebar */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-teal-700 text-white shadow-lg transition-colors hover:bg-teal-600"
@@ -560,6 +480,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
 
+      {/* Sidebar Lateral */}
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-40 w-64
@@ -569,6 +490,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           flex flex-col shadow-xl
         `}
       >
+        {/* Logo e Nome da Empresa */}
         <div className="p-6 border-b border-teal-800">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-orange-500 flex items-center justify-center font-bold text-white text-lg shadow-md">
@@ -583,6 +505,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
+        {/* Navegação do Menu */}
         <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
           {groupedMenuItems.map((group) => (
             <div key={group.sectionId}>
@@ -599,7 +522,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   const hasChildren = item.children && item.children.length > 0;
                   const isExpanded = expandedMenus.includes(item.title);
 
-                  // Link externo = <a> em nova aba (fora do router)
+                  // Renderização de Link Externo (abre em nova aba)
                   if (item.external) {
                     return (
                       <a
@@ -619,12 +542,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     );
                   }
 
+                  // Renderização de Item de Menu (com ou sem submenu)
                   return (
                     <div key={item.id}>
                       <button
-                        onClick={() =>
-                          hasChildren ? toggleMenu(item.title) : router.push(item.href)
-                        }
+                        onClick={() => (hasChildren ? toggleMenu(item.title) : router.push(item.href))}
                         className={`
                           w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg
                           transition-all duration-200 font-medium text-sm
@@ -644,10 +566,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           )}
                           <span>{item.title}</span>
                         </div>
-                        {hasChildren &&
-                          (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                        {hasChildren && (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                       </button>
 
+                      {/* Submenu (Children) */}
                       {hasChildren && isExpanded && (
                         <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-teal-700 pl-2">
                           {item.children?.map((child) => {
@@ -666,7 +588,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 `}
                               >
                                 <span>{child.title}</span>
-                                {/* 🆕 F15: badge com pendentes na Fila de Aprovação */}
+                                {/* Badge de notificação para a Fila de Aprovação */}
                                 {child.id === 'comunicados-fila' && filaPendentes > 0 && (
                                   <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-500 text-white">
                                     {filaPendentes}
@@ -685,6 +607,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ))}
         </nav>
 
+        {/* Rodapé da Sidebar (Perfil do Usuário e Logout) */}
         <div className="p-4 border-t border-teal-800 bg-teal-950">
           <div className="mb-4 px-2">
             <p className="text-sm font-semibold text-white truncate">
@@ -711,6 +634,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
+      {/* Overlay para fechar menu no mobile */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"
@@ -719,6 +643,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
+      {/* Área Principal de Conteúdo */}
       <main className="flex-1 p-4 lg:p-8 overflow-x-hidden transition-all duration-300">
         <div className="lg:hidden h-12" />
         <div className="flex justify-end items-center gap-2 mb-4">
@@ -728,11 +653,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {children}
       </main>
 
+      {/* Modais Globais */}
       <ForcePasswordChange />
       <CommandPalette />
     </div>
   );
 }
-// =================================================================
-// FIM: COMPONENTE PRINCIPAL
-// =================================================================

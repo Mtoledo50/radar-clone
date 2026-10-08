@@ -7,25 +7,27 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto, UpdateUserDto, ChangePasswordDto } from './dto/create-user.dto';
+import { UpdateUserDetailsDto, UpdateEmployeeDto, UpdateUserPermissionsDto } from './dto/update-user-details.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
 
+  // =========================================================================
+  // 🔍 CONSULTAS (READ)
+  // =========================================================================
+
   async findAll(companyId: string) {
     return this.prisma.user.findMany({
-      where: { companyId, deletedAt: null }, // ✅ Só usuários ativos
+      where: { companyId, deletedAt: null },
       select: { id: true, name: true, email: true, role: true, mustChangePassword: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
   }
 
- async findById(id: string) {
-    // ✅ Guarda defensiva: falha rápido com erro claro, não com erro do Prisma
-    if (!id) {
-      throw new UnauthorizedException('Usuário não autenticado.');
-    }
+  async findById(id: string) {
+    if (!id) throw new UnauthorizedException('Usuário não autenticado.');
 
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -34,6 +36,46 @@ export class UsersService {
     if (!user) throw new NotFoundException('Usuário não encontrado.');
     return user;
   }
+
+  // ✅ VERSÃO CORRIGIDA: Converte BigInt para String para evitar erro no JSON.stringify do Express
+  async findUserWithDetails(id: string, companyId: string) {
+    // 1. Busca o usuário básico
+    const user = await this.prisma.user.findFirst({
+      where: { id, companyId, deletedAt: null },
+    });
+
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    // 2. Busca o colaborador (Employee) ativo separadamente
+    const employees = await this.prisma.employee.findMany({
+      where: { userId: user.id, companyId, status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' },
+      take: 1,
+    });
+
+    // 3. Busca as permissões separadamente
+    const permission = await this.prisma.userPermission.findFirst({
+      where: { userId: user.id },
+    });
+
+    // 4. ✅ CORREÇÃO CRÍTICA: Converte o BigInt para String com segurança
+    const safePermission = permission 
+      ? {
+          ...permission,
+          permissions: permission.permissions.toString(), // BigInt vira String aqui!
+        }
+      : null;
+
+    // 5. Retorna o objeto montado exatamente como o frontend espera
+    return {
+      ...user,
+      employees,
+      permission: safePermission,
+    };
+  }
+  // =========================================================================
+  // ➕ CRIAÇÃO (CREATE)
+  // =========================================================================
 
   async create(createUserDto: CreateUserDto, companyId: string, requesterRole: string) {
     if (requesterRole !== 'SUPER_ADMIN' && requesterRole !== 'ADMIN') {
@@ -57,10 +99,15 @@ export class UsersService {
     });
   }
 
+  // =========================================================================
+  // ✏️ ATUALIZAÇÕES (UPDATE)
+  // =========================================================================
+
   async update(id: string, companyId: string, updateUserDto: UpdateUserDto) {
     const user = await this.prisma.user.findFirst({ where: { id, companyId, deletedAt: null } });
     if (!user) throw new NotFoundException('Usuário não encontrado.');
 
+    // Proteção: Não permitir remover o último ADMIN da empresa
     if (updateUserDto.role && updateUserDto.role !== 'ADMIN' && user.role === 'ADMIN') {
       const adminCount = await this.prisma.user.count({ where: { companyId, role: 'ADMIN', deletedAt: null } });
       if (adminCount <= 1) {
@@ -70,6 +117,49 @@ export class UsersService {
 
     return this.prisma.user.update({ where: { id }, data: updateUserDto });
   }
+
+  async updateUserDetails(id: string, companyId: string, dto: UpdateUserDetailsDto) {
+    const user = await this.prisma.user.findFirst({ where: { id, companyId, deletedAt: null } });
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    return this.prisma.user.update({ where: { id }, data: dto });
+  }
+
+  async updateEmployee(userId: string, companyId: string, dto: UpdateEmployeeDto) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { userId, companyId, status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (!employee) throw new NotFoundException('Colaborador ativo não encontrado para este usuário.');
+
+    return this.prisma.employee.update({
+      where: { id: employee.id },
+      data: dto,
+    });
+  }
+
+  async updateUserPermissions(userId: string, companyId: string, dto: UpdateUserPermissionsDto) {
+    const permission = await this.prisma.userPermission.findFirst({ where: { userId } });
+    
+    // Converte string para BigInt com segurança
+    const permsBigInt = dto.permissions ? BigInt(dto.permissions) : BigInt(0);
+
+    if (!permission) {
+      return this.prisma.userPermission.create({
+        data: { companyId, userId, permissions: permsBigInt },
+      });
+    }
+
+    return this.prisma.userPermission.update({
+      where: { id: permission.id },
+      data: { permissions: permsBigInt },
+    });
+  }
+
+  // =========================================================================
+  // 🔐 GERENCIAMENTO DE SENHA
+  // =========================================================================
 
   async resetPassword(id: string, companyId: string) {
     const user = await this.prisma.user.findFirst({ where: { id, companyId, deletedAt: null } });
@@ -83,40 +173,7 @@ export class UsersService {
       data: { password: hashedPassword, mustChangePassword: true },
     });
 
-    return { tempPassword };
-  }
-
-  // 🆕 NOVO: Exclusão lógica (Soft Delete) com travas de segurança
-  async remove(id: string, companyId: string, requesterId: string) {
-    // Trava 1: Ninguém pode excluir a si mesmo (evita auto-lockout)
-    if (id === requesterId) {
-      throw new BadRequestException('Você não pode excluir o próprio usuário.');
-    }
-
-    // Trava 2: Isolamento multi-tenant + usuário ativo
-    const user = await this.prisma.user.findFirst({ where: { id, companyId, deletedAt: null } });
-    if (!user) throw new NotFoundException('Usuário não encontrado.');
-
-    // Trava 3: Protege o último ADMIN da empresa
-    if (user.role === 'ADMIN') {
-      const adminCount = await this.prisma.user.count({
-        where: { companyId, role: 'ADMIN', deletedAt: null },
-      });
-      if (adminCount <= 1) {
-        throw new BadRequestException('A empresa deve ter pelo menos um administrador ativo.');
-      }
-    }
-
-    // Soft Delete: marca como excluído e libera o e-mail para reuso futuro
-    await this.prisma.user.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        email: `${user.email}__deletado_${Date.now()}`, // Libera a constraint @unique do e-mail
-      },
-    });
-
-    return { message: `Usuário ${user.name} removido com sucesso.` };
+    return { tempPassword, message: 'Senha redefinida com sucesso. O usuário deverá trocá-la no próximo login.' };
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
@@ -151,9 +208,39 @@ export class UsersService {
       if (!rule.ok) throw new BadRequestException(rule.msg);
     }
   }
+
+  // =========================================================================
+  // 🗑️ EXCLUSÃO LÓGICA (SOFT DELETE)
+  // =========================================================================
+
+  async remove(id: string, companyId: string, requesterId: string) {
+    if (id === requesterId) {
+      throw new BadRequestException('Você não pode excluir o próprio usuário.');
+    }
+
+    const user = await this.prisma.user.findFirst({ where: { id, companyId, deletedAt: null } });
+    if (!user) throw new NotFoundException('Usuário não encontrado.');
+
+    if (user.role === 'ADMIN') {
+      const adminCount = await this.prisma.user.count({ where: { companyId, role: 'ADMIN', deletedAt: null } });
+      if (adminCount <= 1) {
+        throw new BadRequestException('A empresa deve ter pelo menos um administrador ativo.');
+      }
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        email: `${user.email}__deletado_${Date.now()}`, // Libera a constraint @unique do e-mail
+      },
+    });
+
+    return { message: `Usuário ${user.name} removido com sucesso.` };
+  }
 }
 
-// Helper: verifica e-mail apenas entre usuários ATIVOS
+// Helper externo: verifica e-mail apenas entre usuários ATIVOS
 function prismaCheckActiveEmail(prisma: any, email: string) {
   return prisma.user.findFirst({ where: { email, deletedAt: null } });
 }

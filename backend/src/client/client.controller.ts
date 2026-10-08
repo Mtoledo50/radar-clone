@@ -3,13 +3,17 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
   Query,
   UseGuards,
-  Request,
+  Request,UseInterceptors, 
+  UploadedFile, 
+  BadRequestException 
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ClientService } from './client.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -170,5 +174,31 @@ export class ClientController {
       data,
     );
     return { success: true, data: result };
+  }
+// =========================================================================
+  // IMPORTAÇÃO EM MASSA VIA CSV
+  // =========================================================================
+  @Post('import-csv')
+  @UseInterceptors(FileInterceptor('file'))
+  async importClientsFromCSV(
+    @UploadedFile() file: Express.Multer.File, 
+    @Request() req
+  ) {
+    if (!file) {
+      throw new BadRequestException('Nenhum arquivo foi enviado.');
+    }
+
+    // ✅ CORREÇÃO: clientService (sem o 's' no final)
+    const stats = await this.clientService.importFromCSV(
+      file.buffer.toString('utf8'),
+      req.user.companyId,
+      req.user.id
+    );
+
+    return {
+      success: true,
+      message: `Importação concluída! ${stats.created} criados, ${stats.updated} atualizados, ${stats.contactsCreated} contatos vinculados. ${stats.errors} erros.`,
+      stats,
+    };
   }
 }

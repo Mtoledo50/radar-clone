@@ -12,11 +12,11 @@ import {
   Loader2, 
   X,
   Trash2,
-  Pencil // ✅ ADICIONADO: Ícone de lápis
+  Pencil // ✅ ADICIONADO: Ícone de lápis para editar
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import api from '@/lib/axios';
-import UserEditModal from '@/components/admin/UserEditModal'; // ✅ Import do modal
+import UserEditModal from '../UserEditModal'; // ✅ ADICIONADO: Import do modal
 
 type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER' | 'CLIENTE';
 
@@ -51,16 +51,13 @@ export default function AdminUsersPage() {
   
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    role: 'USER' as UserRole,
-  });
+  // Estados para Criação
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState({ name: '', email: '', role: 'USER' as UserRole });
 
-  // ✅ ESTADOS PARA EDIÇÃO
+  // ✅ Estados para Edição
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
@@ -78,11 +75,10 @@ export default function AdminUsersPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
     try {
       await api.post('/users', formData);
       toast.success('Usuário criado com sucesso! Uma senha provisória foi gerada.');
-      setIsModalOpen(false);
+      setIsCreateModalOpen(false);
       setFormData({ name: '', email: '', role: 'USER' });
       fetchUsers();
     } catch (error: any) {
@@ -94,17 +90,14 @@ export default function AdminUsersPage() {
 
   const handleResetPassword = async (userId: string, userName: string) => {
     if (!confirm(`Deseja gerar uma nova senha provisória para ${userName}?`)) return;
-    
     try {
       const { data } = await api.post(`/users/${userId}/reset-password`);
-      
       await navigator.clipboard.writeText(data.tempPassword);
-      
       toast.success(
         <div className="flex flex-col gap-1">
           <span>Senha redefinida com sucesso!</span>
           <span className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-800">
-            {data.tempPassword} (Copiada para a área de transferência)
+            {data.tempPassword} (Copiada)
           </span>
         </div>,
         { duration: 6000 }
@@ -116,7 +109,6 @@ export default function AdminUsersPage() {
 
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (!confirm(`Deseja realmente remover ${userName}? O acesso será revogado imediatamente.`)) return;
-    
     try {
       await api.delete(`/users/${userId}`);
       toast.success(`Usuário ${userName} removido com sucesso.`);
@@ -151,7 +143,7 @@ export default function AdminUsersPage() {
           </p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => setIsCreateModalOpen(true)}
           className="flex items-center justify-center gap-2 bg-[#0d9488] hover:bg-[#0f766e] text-white px-5 py-2.5 rounded-lg transition-all font-medium shadow-sm hover:shadow-md"
         >
           <UserPlus size={18} /> Novo Colaborador
@@ -209,7 +201,7 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {/* ✅ BOTÃO EDITAR ADICIONADO */}
+                        {/* ✅ BOTÃO DE EDITAR ADICIONADO AQUI */}
                         <button 
                           onClick={() => {
                             setEditingUserId(user.id);
@@ -260,13 +252,13 @@ export default function AdminUsersPage() {
         )}
       </div>
 
-      {/* Modal de Criação */}
-      {isModalOpen && (
+      {/* Modal de Criação (Mantido do seu código original) */}
+      {isCreateModalOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
               <h2 className="text-xl font-bold text-slate-800">Adicionar Colaborador</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors">
+              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -293,7 +285,7 @@ export default function AdminUsersPage() {
                 <p>Uma <strong>senha provisória</strong> será gerada automaticamente. O usuário será obrigado a alterá-la no primeiro acesso.</p>
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setIsModalOpen(false)} disabled={isSubmitting} className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors disabled:opacity-50">Cancelar</button>
+                <button type="button" onClick={() => setIsCreateModalOpen(false)} disabled={isSubmitting} className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors disabled:opacity-50">Cancelar</button>
                 <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2.5 bg-[#0d9488] text-white rounded-lg hover:bg-[#0f766e] font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-70">
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <UserPlus size={18} />}
                   {isSubmitting ? 'Criando...' : 'Criar Usuário'}
@@ -304,7 +296,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* ✅ MODAL DE EDIÇÃO */}
+      {/* ✅ MODAL DE EDIÇÃO INTEGRADO */}
       <UserEditModal
         userId={editingUserId}
         isOpen={isEditModalOpen}

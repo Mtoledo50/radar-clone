@@ -60,6 +60,9 @@ import { MemoriaController } from './memoria/memoria.controller';
 import { AnaliseController } from './analise/analise.controller';
 import { FilaController } from './fila/fila.controller';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { TaxObligationsModule } from './tax-obligations/tax-obligations.module';
+import { ObligationsModule } from './obligations/obligations.module'; // ✅ ADICIONE ESTA LINHA
+
 @Module({
   imports: [
     // --- Infraestrutura ---
@@ -108,6 +111,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
 
     // --- Comunicação ---
     ComunicadosModule,
+
+    TaxObligationsModule,
+    ObligationsModule, // ✅ ADICIONE ESTA LINHA
+
 
     // Nota: Módulos como ReportsModule ou EmailModule podem ser descomentados e adicionados aqui quando forem utilizados.
   ],

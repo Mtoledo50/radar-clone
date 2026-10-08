@@ -3,9 +3,9 @@
 // =================================================================
 // 🚀 MOTOR DE ONBOARDING E CONTRATOS (Enterprise Edition)
 // 🆕 Sprint 23: Importação em massa de clientes via CSV
-// 🆕 ADR-072: Plano de Contas (SCI) vinculado ao cliente — UM select,
-//    populado com TODOS os planos do sistema, busca isolada (não quebra a página)
+// 🆕 ADR-072: Plano de Contas (SCI) vinculado ao cliente
 // 🆕 Portal do Cliente: Geração de link de acesso seguro por token
+//  F12.4: Exibição de obrigações vinculadas ao cliente no perfil
 // =================================================================
 'use client';
 
@@ -17,11 +17,13 @@ import autoTable from 'jspdf-autotable';
 import {
   Users, Plus, Search, Edit2, Trash2, Eye, Loader2, X, Save, FileText,
   Mail, Phone, Building2, Crown, Package, CheckCircle2, AlertTriangle,
-  ChevronRight, ChevronLeft, DollarSign, Sparkles, Upload, ExternalLink, // 🆕 Adicionado ExternalLink
+  ChevronRight, ChevronLeft, DollarSign, Sparkles, Upload, ExternalLink,
+  FileCheck, // 🆕 Ícone para obrigações
 } from 'lucide-react';
 import ImportClientsModal from '@/components/clients/ImportClientsModal';
-import ImportS3dModal from '@/components/clients/ImportS3dModal'; // 🆕 F12
-import ClientProfileModal from '@/components/clients/ClientProfileModal'; // 🆕 F12.4
+import ImportS3dModal from '@/components/clients/ImportS3dModal';
+import ClientProfileModal from '@/components/clients/ClientProfileModal';
+
 // =================================================================
 // TIPOS E INTERFACES
 // =================================================================
@@ -33,6 +35,7 @@ interface CommercialPlan {
   color?: string;
   description?: string;
 }
+
 interface ServiceItem {
   id: string;
   name: string;
@@ -41,18 +44,34 @@ interface ServiceItem {
   recurrence: string;
   category?: { name: string };
 }
+
 interface ClientContract {
   id: string;
   commercialPlan: CommercialPlan;
   monthlyFee: number;
   status: string;
 }
+
 interface ClientService {
   id: string;
   serviceItem: ServiceItem;
   customPrice?: number;
   status: string;
 }
+
+interface ClientObligation {
+  id: string;
+  status: string;
+  obs?: string;
+  schedule: {
+    id: string;
+    name: string;
+    responsibleUser?: string;
+    isActive: boolean;
+    createdAt: string;
+  };
+}
+
 interface Client {
   id: string;
   companyName: string;
@@ -66,7 +85,7 @@ interface Client {
   contactEmail?: string;
   contactPhone?: string;
   observations?: string;
-  accountingPlan?: string | null; // 🆕 ADR-072
+  accountingPlan?: string | null;
   contracts?: ClientContract[];
   services?: ClientService[];
 }
@@ -78,7 +97,7 @@ export default function ClientesPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [plans, setPlans] = useState<CommercialPlan[]>([]);
   const [serviceItems, setServiceItems] = useState<ServiceItem[]>([]);
-  const [accountingPlans, setAccountingPlans] = useState<string[]>([]); // 🆕 ADR-072
+  const [accountingPlans, setAccountingPlans] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -90,7 +109,12 @@ export default function ClientesPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [currentTab, setCurrentTab] = useState(1);
-  const [showS3dModal, setShowS3dModal] = useState(false); // 🆕 F12
+  const [showS3dModal, setShowS3dModal] = useState(false);
+  
+  // 🆕 Estado para obrigações do cliente
+  const [clientObligations, setClientObligations] = useState<ClientObligation[]>([]);
+  const [loadingObligations, setLoadingObligations] = useState(false);
+
   const [form, setForm] = useState({
     companyName: '',
     cnpj: '',
@@ -104,11 +128,11 @@ export default function ClientesPage() {
     commercialPlanId: '',
     avulsoServiceIds: [] as string[],
     manualMonthlyFee: 0,
-    accountingPlan: '', // 🆕 ADR-072
+    accountingPlan: '',
   });
 
   // =================================================================
-  // CARREGAR DADOS — planos contábeis em chamada ISOLADA (ADR-072)
+  // CARREGAR DADOS INICIAIS
   // =================================================================
   useEffect(() => {
     loadInitialData();
@@ -130,7 +154,8 @@ export default function ClientesPage() {
     } finally {
       setLoading(false);
     }
-    // 🛡️ Busca isolada: se falhar, a página continua funcionando
+    
+    // ️ Busca isolada de planos contábeis
     try {
       const accRes = await api.get('/accounting/plans');
       setAccountingPlans(accRes.data.data || []);
@@ -140,20 +165,71 @@ export default function ClientesPage() {
   }
 
   // =================================================================
+  // 🆕 BUSCAR OBRIGAÇÕES DO CLIENTE
+  // =================================================================
+// =================================================================
+//  BUSCAR OBRIGAÇÕES DO CLIENTE (VERSÃO CORRIGIDA)
+// =================================================================
+const fetchClientObligations = async (clientId: string) => {
+  setLoadingObligations(true);
+  try {
+    // Tentativa 1: Endpoint específico para obrigações do cliente
+    try {
+      const { data } = await api.get(`/obligations/client/${clientId}/obligations`);
+      console.log('✅ Obrigações do cliente (endpoint específico):', data);
+      
+      // Normaliza a resposta para o formato esperado
+      const normalized = Array.isArray(data) ? data : (data.data || []);
+      setClientObligations(normalized);
+      return;
+    } catch (err) {
+      console.warn('⚠️ Endpoint específico falhou, tentando alternativa...');
+    }
+
+    // Tentativa 2: Buscar todas as obrigações e filtrar no frontend
+    const { data: allSchedules } = await api.get('/obligations/schedules');
+    console.log(' Todas as obrigações:', allSchedules);
+    
+    const clientObligations = allSchedules
+      .filter((schedule: any) => 
+        schedule.deliveries?.some((d: any) => d.clientId === clientId)
+      )
+      .map((schedule: any) => {
+        const delivery = schedule.deliveries.find((d: any) => d.clientId === clientId);
+        return {
+          id: delivery.id,
+          status: delivery.status,
+          obs: delivery.obs,
+          schedule: {
+            id: schedule.id,
+            name: schedule.name,
+            responsibleUser: schedule.responsibleUser,
+            isActive: schedule.isActive,
+            createdAt: schedule.createdAt,
+          },
+        };
+      });
+    
+    console.log('✅ Obrigações do cliente (filtradas):', clientObligations);
+    setClientObligations(clientObligations);
+  } catch (error) {
+    console.error('❌ Erro ao carregar obrigações:', error);
+    toast.error('Falha ao carregar obrigações do cliente');
+    setClientObligations([]);
+  } finally {
+    setLoadingObligations(false);
+  }
+};
+
+  // =================================================================
   // 🆕 GERAR LINK DO PORTAL DO CLIENTE
   // =================================================================
   const handleGeneratePortalLink = async (clientId: string) => {
     try {
-      // 1. Chama o backend para gerar/renovar o token
       const res = await api.post('/client-portal/generate', { clientId });
-      
-      // 2. Monta a URL completa (funciona em dev localhost:3000 e em produção)
       const fullUrl = `${window.location.origin}${res.data.url}`;
-      
-      // 3. Copia para a área de transferência
       await navigator.clipboard.writeText(fullUrl);
       
-      // 4. Exibe toast elegante com o link
       toast.success(
         <div className="flex flex-col gap-1">
           <span className="font-medium">Link do portal copiado!</span>
@@ -232,7 +308,7 @@ export default function ClientesPage() {
       commercialPlanId: plans[0]?.id || '',
       avulsoServiceIds: [],
       manualMonthlyFee: 0,
-      accountingPlan: '', // 🆕 ADR-072
+      accountingPlan: '',
     });
     setCurrentTab(1);
     setShowFormModal(true);
@@ -257,7 +333,7 @@ export default function ClientesPage() {
       commercialPlanId: activeContract?.commercialPlan.id || '',
       avulsoServiceIds: activeAvulsos,
       manualMonthlyFee: client.monthlyFee,
-      accountingPlan: client.accountingPlan || '', // 🆕 ADR-072: mostra o plano gravado
+      accountingPlan: client.accountingPlan || '',
     });
     setCurrentTab(1);
     setShowFormModal(true);
@@ -265,6 +341,7 @@ export default function ClientesPage() {
 
   function openViewModal(client: Client) {
     setSelectedClient(client);
+    fetchClientObligations(client.id); //  Busca obrigações ao abrir o modal
     setShowViewModal(true);
   }
 
@@ -299,7 +376,7 @@ export default function ClientesPage() {
         observations: form.observations,
         commercialPlanId: form.commercialPlanId || undefined,
         avulsoServiceIds: form.avulsoServiceIds,
-        accountingPlan: form.accountingPlan || null, // 🆕 ADR-072: grava no cliente
+        accountingPlan: form.accountingPlan || null,
       };
       if (selectedClient) {
         await api.put(`/clients/${selectedClient.id}`, payload);
@@ -398,10 +475,8 @@ export default function ClientesPage() {
           <button onClick={() => setShowImportModal(true)} className={btnSecondary}>
             <Upload className="h-5 w-5" /> Importar CSV
           </button>
-          <button onClick={() => setShowS3dModal(true)}
-            className={btnSecondary}
-            >
-          <Building2 className="h-5 w-5" /> Importar S3D (completo)
+          <button onClick={() => setShowS3dModal(true)} className={btnSecondary}>
+            <Building2 className="h-5 w-5" /> Importar S3D
           </button>
           <button onClick={exportToPDF} className={btnSecondary}>
             <FileText className="h-5 w-5" /> Exportar
@@ -511,7 +586,6 @@ export default function ClientesPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        {/* 🆕 BOTÃO: Gerar Link do Portal */}
                         <button 
                           onClick={() => handleGeneratePortalLink(client.id)} 
                           className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" 
@@ -519,10 +593,15 @@ export default function ClientesPage() {
                         >
                           <ExternalLink className="h-4 w-4" />
                         </button>
-                        
-                        <button onClick={() => openViewModal(client)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Ver"><Eye className="h-4 w-4" /></button>
-                        <button onClick={() => openEditModal(client)} className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors" title="Editar"><Edit2 className="h-4 w-4" /></button>
-                        <button onClick={() => openDeleteModal(client)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Encerrar"><Trash2 className="h-4 w-4" /></button>
+                        <button onClick={() => openViewModal(client)} className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Ver">
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => openEditModal(client)} className="p-2 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors" title="Editar">
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => openDeleteModal(client)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Encerrar">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -548,7 +627,9 @@ export default function ClientesPage() {
                 <Sparkles className="h-6 w-6 text-teal-600" />
                 {selectedClient ? 'Editar Contrato' : 'Novo Contrato de Cliente'}
               </h2>
-              <button onClick={() => setShowFormModal(false)} className="text-slate-400 hover:text-slate-600"><X className="h-6 w-6" /></button>
+              <button onClick={() => setShowFormModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="h-6 w-6" />
+              </button>
             </div>
             <div className="flex border-b border-slate-200 px-6 bg-white">
               <button
@@ -617,7 +698,6 @@ export default function ClientesPage() {
                       <label className="block text-sm font-semibold text-slate-700 mb-1">Telefone</label>
                       <input type="text" value={form.contactPhone} onChange={(e) => setForm({ ...form, contactPhone: e.target.value })} className={inputClass} />
                     </div>
-                    {/* 🆕 ADR-072: ÚNICO select de plano de contas (múltipla escolha) */}
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1">Plano de Contas (SCI)</label>
                       <select
@@ -794,17 +874,19 @@ export default function ClientesPage() {
         </div>
       )}
 
-  {/* MODAL: VISUALIZAR — 🆕 F12.4 Ficha Completa */}
-  {showViewModal && selectedClient && (
-    <ClientProfileModal
-      client={selectedClient as any}
-      onClose={() => setShowViewModal(false)}
-      onEditContract={() => {
-        setShowViewModal(false);
-        openEditModal(selectedClient);
-      }}
-    />
-  )}
+      {/* MODAL: VISUALIZAR — 🆕 F12.4 Ficha Completa com Obrigações */}
+      {showViewModal && selectedClient && (
+        <ClientProfileModal
+          client={selectedClient as any}
+          obligations={clientObligations}
+          loadingObligations={loadingObligations}
+          onClose={() => setShowViewModal(false)}
+          onEditContract={() => {
+            setShowViewModal(false);
+            openEditModal(selectedClient);
+          }}
+        />
+      )}
 
       {/* MODAL: EXCLUSÃO */}
       {showDeleteModal && selectedClient && (
@@ -831,7 +913,7 @@ export default function ClientesPage() {
         </div>
       )}
 
-      {/* Modal de importação legado (Sprint 23 — honorários/contrato) */}
+      {/* Modal de importação legado */}
       {showImportModal && (
         <ImportClientsModal
           onClose={() => setShowImportModal(false)}
@@ -839,7 +921,7 @@ export default function ClientesPage() {
         />
       )}
 
-      {/* 🆕 Sprint F12: importação S3D completa (endereço, contatos, deptos) */}
+      {/* 🆕 Sprint F12: importação S3D completa */}
       {showS3dModal && (
         <ImportS3dModal
           open={showS3dModal}

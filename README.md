@@ -122,14 +122,23 @@ O **Radar Conta Certa** é um SaaS multi-tenant que automatiza a rotina contábi
 - [x] Régua de cobrança + CNAB 240 v1 (Itaú)
 - [x] Central de Aprovações (régua 80/50)
 
-### 📧 Sistema de Envio com Tracking (Sprints F13-F17)
-- [x] Watch Folder via chokidar (ADR-113)
-- [x] Parser de CNPJ no nome do arquivo (ADR-118)
-- [x] Envio plugável: SendGrid / SMTP / MODO LOG (ADR-116)
-- [x] Tracking pixel 1x1 + link proxy determinístico (ADR-114)
-- [x] Templates Handlebars editáveis (ADR-115)
-- [x] Retry automático com backoff exponencial
-- [x] Aprovação humana obrigatória (ADR-117)
+###  Sistema de Envio com Tracking (Sprints F13-F17)
+[x] Watch Folder via chokidar (ADR-113)
+[x] Parser de CNPJ no nome do arquivo (ADR-118)
+[x] Envio plugável: SendGrid / SMTP / MODO LOG (ADR-116)
+[x] Tracking pixel 1x1 + link proxy determinístico (ADR-114)
+[x] Templates Handlebars editáveis (ADR-115)
+[x] Retry automático com backoff exponencial
+[x] Aprovação humana obrigatória (ADR-117)
+
+### 📋 Gestão de Obrigações Unificada (Sprints OB-1/OB-2)
+[x] Página unificada com 5 abas (Visão Geral, Catálogo, Lotes, Por Cliente, Por Responsável)
+[x] Modal completo de configuração com Watch Folder (ADR-123)
+[x] Toggle dia fixo vs dia útil (1º, 2º, ..., 5º dia útil)
+[x] Ordenação alfabética A-Z/Z-A
+[x] Sincronização bidirecional cliente ↔ obrigações (ADR-122)
+[x] Importação CSV de clientes com agrupamento por CNPJ (ADR-120)
+[x] Schema alterado: `@@unique([companyId, cnpj])` permite filiais
 
 ### 🏦 Extrator Bancário (App Irmã em Python)
 - [x] FastAPI + Mistral OCR como fallback universal (ADR-107)
@@ -158,6 +167,10 @@ O **Radar Conta Certa** é um SaaS multi-tenant que automatiza a rotina contábi
 │ ~80 tabelas • isolamento companyId │
 │ Índices • Soft delete • Enums fortes │
 └─────────────────────────────────────────┘
+├─────────────────────────────────────────────────────────────┤
+│ 📋 OBRIGAÇÕES │
+│ Catálogo • Lotes • Watch Folder • Por Cliente • Por Resp. │
+
 
 **Princípios adotados:**
 - Multi-tenant single-database (ADR-004)

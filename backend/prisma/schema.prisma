@@ -249,8 +249,21 @@ model User {
   email                 String                @unique
   password              String
   role                  UserRole              @default(USER) 
-  // 🆕 NOVO: Força o usuário a trocar a senha no próximo login
   mustChangePassword    Boolean               @default(false)
+  // =====================================================================
+  // 🆕 US-1 — Campos vindos do CSV legado e-Contínuo
+  // =====================================================================
+  lastLoginAt           DateTime?             // Coluna "Último Login" do CSV
+  
+  isAdminArea           Boolean               @default(false) // Coluna "Administrativo?" ≠ role
+  
+  /// ID numérico no sistema legado e-Contínuo (ex.: Fernanda = 142620).
+  /// Serve como âncora de upsert idempotente (ADR-066/067).
+  /// Nullable porque usuários criados direto no Radar não têm.
+  legacyId              Int?                  @unique
+  // 🆕 OB-1 — Obrigações onde este usuário é responsável padrão do catálogo global
+  obligationsResponsible Obligation[] @relation("ObligationResp")
+  permission            UserPermission?       // 1:1
   companyId             String
   company               Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
   
@@ -447,10 +460,14 @@ model Client {
   portalAtivo            Boolean   @default(false)
   portalMostrarTarefas   Boolean   @default(false)
   portalMostrarPropostas Boolean   @default(false)
-  
+  // alteração de estrutura para receber os clientes vindos do acessorias 
+  stateRegistration     String?   /// Inscrição Estadual (formato string único do CSV)
+  generalComments       String?   @db.Text /// Comentários e anota
+
   @@index([userId])
-  @@unique([companyId, companyName])  // 🆕 FD-2: upsert seguro por (tenant + nome)
+  @@unique([companyId, cnpj])  // ✅ ÚNICO POR CNPJ, PERMITE NOMES DUPLICADOS  @@map("clients")
   @@map("clients")
+
 }
 
 // =================================================================
@@ -3094,4 +3111,249 @@ enum LockStatus {
   ATIVO       // Trava vigente
   LIBERADO    // Atendente liberou manualmente
   EXPIRADO    // Tempo acabou, liberou automático
+}
+
+// =================================================================
+// 🆕 US-1 — PERMISSÕES GRANULARES (matriz do CSV legado e-Contínuo)
+// =================================================================
+// Cada FEATURE é um BIT. Um usuário carrega UMA máscara BigInt com
+// todos os bits ligados. Níveis ordinais ([2]/[3]/[4]) são máscaras
+// cumulativas já compostas nos helpers. Sem 25 enums separados.
+// =================================================================
+
+model UserPermission {
+  id          String   @id @default(cuid())
+  companyId   String
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Máscara de bits (ver PERMISSIONS.ts). Default 0 = só leitura base.
+  permissions BigInt   @default(0)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+  @@map("user_permissions")
+}
+// =====================================================================
+// 🆕 OB-1 — CATÁLOGO GLOBAL DE OBRIGAÇÕES LEGAIS/FISCAIS/TRABALHISTAS
+// =====================================================================
+// Fonte dos dados: S3D_obrigacoes_20261007081442_142620.xlsx (204 registros)
+// Design baseado em 3 princípios travados nas decisões D1/D2/D3:
+//   D1=b → departmentName String informativo (não FK), pois Department não existe ainda;
+//          evolui para tabela própria junto com CX-1 (árvore pai/filho).
+//   D2=a → responsibleId FK → User, coerente com Task.assigneeId / ApprovalRecord.decidedBy
+//          / CobrancaEvento.aprovadoPorId (todo o resto do sistema já usa userId).
+//   D3=b → @@unique([companyId, slug]) por tenant, preservando isolamento multi-tenant
+//          (ADR-004); outro escritório pode ter obrigação homônima sem conflito.
+// Identidade natural = slug(name), NÃO miniName (colide muito: IRPJ×4, CND×2, LIV-ENTR×2...).
+// Regras mensais separadas em ObligationRule para suportar variações tipo ISS
+// (dia 09 Jan-Jun, dia 08 Jul-Dez) e COMPLEMENTO FISCAL (Não Tem até Abr, 15º dia útil depois).
+// =====================================================================
+
+enum ObligationDayType {
+  BUSINESS_DAY    /// Dias úteis (seg-sex, exclui feriados nacionais/municipais)
+  CALENDAR_DAY    /// Dias corridos (inclui fins-de-semana e feriados)
+}
+
+enum ObligationDeadlinePolicy {
+  ANTECIPATE_PREVIOUS_BUSINESS_DAY  /// Se cair em feriado/fim-de-semana, antecipa p/ dia útil anterior
+  POSTPONE_NEXT_BUSINESS_DAY        /// Se cair em feriado/fim-de-semana, posterga p/ próximo dia útil
+}
+
+enum ObligationCompetence {
+  PREVIOUS_MONTH       /// Competência referente ao mês anterior à execução
+  CURRENT_MONTH        /// Competência referente ao próprio mês de execução
+  NEXT_MONTH           /// Competência referente ao mês seguinte à execução
+  TWO_MONTHS_BEFORE    /// Dois meses antes (ex.: parcelamentos PGFN extraordinários)
+  THREE_MONTHS_BEFORE  /// Três meses antes (ex.: EFD ICMS-IPI retificação)
+  PREVIOUS_YEAR        /// Ano civil anterior (ex.: DIRPF, SPED ECD anual)
+  CURRENT_YEAR         /// Ano civil corrente (ex.: DEFIS MEI, alvarás municipais)
+}
+
+enum ObligationRecurrenceType {
+  NOT_APPLICABLE          /// Sem periodicidade definida ("Não Tem" no Excel)
+  FIXED_DAY_OF_MONTH      /// Todo dia NN (ex.: todo dia 20, todo dia 15)
+  FIRST_BUSINESS_DAY      /// Primeiro dia útil do mês (ex.: COFINS importação serviços)
+  NTH_BUSINESS_DAY        /// Enésimo dia útil (ex.: 5º, 10º, 15º, 20º dia útil)
+  LAST_BUSINESS_DAY       /// Último dia útil do mês (ex.: DARF CSLL trimestral LP)
+}
+
+model Obligation {
+  id            String   @id @default(cuid())
+  companyId     String                   //  isolamento multi-tenant (ADR-004)
+  
+  // ── IDENTIDADE PRINCIPAL ────────────────────────────────────────────────
+  name          String                   // Nome completo exato do legado ("DAS - Mensal")
+  slug          String                   // slugify(name) — chave de upsert idempotente (ADR-066/067)
+  miniName      String?                  // Apelido curto informativo ("PGDAS", "DASN MEI"), NÃO único
+  
+  // ── VÍNCULOS ORGANIZACIONAIS ────────────────────────────────────────────
+  departmentName String?                 // 🔄 era departmentId→FK; vira string até CX-1 (decisão D1=b)
+  responsibleId  String?                 // ✅ FK → User (decisão D2=a)
+  responsible    User?     @relation("ObligationResp", fields:[responsibleId], references:[id], onDelete: SetNull)
+  
+  // ── PARÂMETROS OPERACIONAIS (extraídos fielmente das 204 linhas) ─────────
+  reminderDaysBefore     Int              @default(5)      // Ex.: "5 dias antes", "10 dias antes"
+  reminderDayType        ObligationDayType                 @default(BUSINESS_DAY)
+  deadlinePolicy         ObligationDeadlinePolicy          @default(ANTECIPATE_PREVIOUS_BUSINESS_DAY)
+  saturdayIsBusinessDay  Boolean                           @default(false)   // Maioria Não; exceções: Boleto sindicato, PARCELAMENTO PGFN 4834
+  competence             ObligationCompetence              @default(PREVIOUS_MONTH)
+  requireRobot           Boolean                           @default(false)   // Exigir Robô/Aurora? (GFIP Mensal, DCTFWEB Declaração/Recibo)
+  finePossible           Boolean                           @default(false)   // Passível de multa? (Boleto Honorário, Extrato Simples, GFIP Mensal...)
+  unreadGuideAlert       Boolean                           @default(true)    // Alerta guia não lida? (maioria Sim; exceção: Recadastramento Estadual = Não)
+  notes                  String?           @db.Text                          // Observações livres do contador
+  
+  active                 Boolean                           @default(true)    // Ativa? (todas as 204 são Sim no export atual)
+  
+  // ── CAMPOS DE IDENTIDADE COMPOSTA (devem vir ANTES das relações) ────────
+  companyCount      Int       @default(0)   // Qtde empresas vinculadas (informativo)
+  fingerprint       String    @default("")  // Hash SHA-256 dos campos operacionais (p/ distinguir homônimos)
+  
+  createdAt              DateTime                          @default(now())
+  updatedAt              DateTime                          @updatedAt
+  deletedAt              DateTime?                                           // Soft delete padrão do projeto
+  
+  rules                  ObligationRule[]                                      // Regras mensais detalhadas
+  
+  // ✅ CONSTRAINT EXPLÍCITA COM NOME FIXO (obrigatório p/ Prisma v5 gerar tipo correto)
+  @@unique([companyId, slug, departmentName, fingerprint], name: "ObligationUniqueKey")
+  @@index([companyId, active])                                                // Filtragem rápida de ativas/inativas
+  @@index([companyId, departmentName])                                        // Agrupamento por departamento nas telas
+  @@index([companyId, responsibleId])                                         // Consulta "quais obrigações fulano cuida?"
+  @@map("obligations")                                                        // Convenção snake_case do Prisma
+}
+
+model ObligationRule {
+  id              String                    @id @default(cuid())
+  obligationId    String                    
+  month           Int                       // 1=Janeiro ... 12=Dezembro
+  
+  recurrenceType  ObligationRecurrenceType  @default(NOT_APPLICABLE)
+  dayOfMonth      Int?                      // Usado quando FIXED_DAY_OF_MONTH (ex.: 20, 15, 31)
+  businessDayNumber Int?                    // Usado quando NTH_BUSINESS_DAY (ex.: 1, 5, 10, 15, 20)
+  
+  active          Boolean                   @default(true)
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  
+  obligation      Obligation                @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  
+  @@unique([obligationId, month])           // Garante uma única regra por mês da obrigação
+  @@index([obligationId])                   // Consulta rápida de todas as regras de uma obrigação
+  @@map("obligation_rules")
+}
+
+// =================================================================
+// ENUMS PARA OBRIGAÇÕES TRIBUTÁRIAS
+// =================================================================
+enum ObligationType {
+  DAS
+  DARF_IRRF
+  DARF_CSLL
+  DARF_PIS_COFINS
+  GPS
+  FGTS
+  ISS
+  ICMS
+  OUTROS
+}
+
+enum ObligationStatus {
+  PENDENTE
+  PAGO
+  ATRASADO
+  CANCELADO
+  DISPENSADO
+}
+
+// =================================================================
+// MODEL: OBRIGAÇÃO TRIBUTÁRIA (IMPOSTOS)
+// =================================================================
+model TaxObligation {
+  id          String            @id @default(uuid())
+  companyId   String            
+  clientId    String            
+  
+  type        ObligationType
+  competence  String            
+  dueDate     DateTime          
+  amount      Decimal           @db.Decimal(15, 2) 
+  status      ObligationStatus  @default(PENDENTE)
+  
+  obs         String?           
+  
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // ⚠️ AJUSTE: Se suas tabelas de empresa/cliente tiverem outros nomes, 
+  // altere 'Company' e 'Client' abaixo para os nomes reais do seu schema.
+  // company     Company         @relation(fields: [companyId], references: [id])
+  // client      Client          @relation(fields: [clientId], references: [id])
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([dueDate])
+  @@index([status])
+  @@map("tax_obligations")
+}
+
+// =================================================================
+// MÓDULO DE OBRIGAÇÕES E ENTREGAS
+// =================================================================
+
+enum ObligationDeliveryStatus {
+  PENDENTE
+  ENVIADO
+  ATRASADO
+  CANCELADO
+}
+
+model ObligationSchedule {
+  id                      String   @id @default(uuid())
+  companyId               String
+  name                    String
+  mininome                String?
+  departamento            String?
+  responsibleUser         String?
+  estimatedTimeMinutes    Int?
+  deliveryDays            Json?    // Armazena {jan: "20", fev: "20", ...}
+  reminderDays            Int?     @default(5)
+  dayType                 String?  @default("corridos")
+  nonBusinessDayAction    String?  @default("antecipar")
+  saturdayIsBusinessDay   Boolean? @default(false)
+  competenceRef           String?  @default("mes-anterior")
+  requireBot              Boolean? @default(false)
+  subjectToFine           Boolean? @default(false)
+  alertGuide              Boolean? @default(true)
+  isActive                Boolean  @default(true)
+  defaultComment          String?  @db.Text
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  deliveries ObligationDelivery[]
+  
+  @@map("obligation_schedules")
+}
+
+model ObligationDelivery {
+  id                String                  @id @default(uuid())
+  scheduleId        String
+  clientId          String
+  companyId         String
+  
+  status            ObligationDeliveryStatus @default(PENDENTE)
+  obs               String?                 // Ex: "CNPJ não encontrado no banco na importação"
+  
+  schedule          ObligationSchedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@unique([scheduleId, clientId])
+  @@index([scheduleId])
+  @@index([clientId])
+  @@index([status])
+  @@map("obligation_deliveries")
 }

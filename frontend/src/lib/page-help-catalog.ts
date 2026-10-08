@@ -2193,7 +2193,60 @@ const helpCatalog: Record<string, PageHelpInfo> = {
       ]
     }
   },
-
+  // -----------------------------------------------------------------
+  // 📄 PÁGINA: Administração — Gestão de Usuários
+  // 📍 ROTA: /dashboard/admin/usuarios
+  // 🎯 PROPÓSITO: Gerenciamento centralizado de colaboradores, incluindo 
+  //    criação, edição de dados de acesso e RH, redefinição de senhas 
+  //    e controle de permissões (RBAC).
+  // 👤 USUÁRIO: ADMIN e SUPER_ADMIN apenas
+  // 🔄 ATUALIZAR QUANDO: Novos níveis de acesso (Roles) forem criados, 
+  //    o fluxo de redefinição de senha for alterado ou novos campos 
+  //    de colaborador (Employee) forem adicionados ao modal de edição.
+  // -----------------------------------------------------------------
+  '/dashboard/admin/usuarios': {
+    title: 'Administração: Gestão de Usuários',
+    description: 'Gerenciamento centralizado de colaboradores, incluindo criação, edição de dados de acesso e RH, redefinição de senhas e controle de permissões.',
+    audience: 'Administradores',
+    controlType: 'Interno',
+    steps: [
+      'Visualize a lista de colaboradores e seus níveis de acesso (Roles).',
+      'Adicione novos usuários ou edite dados de acesso e departamento.',
+      'Redefina senhas provisórias ou remova acessos de colaboradores desligados.'
+    ],
+    relatedPages: ['Administração: Visão Geral', 'Administração: Catálogo'],
+    richContent: {
+      intro: 'A tela de Gestão de Usuários permite ao administrador controlar quem tem acesso ao sistema, definindo funções, departamentos e garantindo a segurança através da redefinição forçada de senhas.',
+      workflow: [
+        'Diariamente: Cadastre novos colaboradores ou ajuste departamentos/cargos.',
+        'Semanalmente: Revise e auxilie usuários com status "Troca de Senha Pendente".',
+        'Mensalmente: Desative (soft delete) acessos de colaboradores desligados.',
+        'Trimestralmente: Audite as permissões (Roles) de cada equipe.'
+      ],
+      rules: [
+        'Acesso restrito a roles ADMIN e SUPER_ADMIN.',
+        'Um administrador não pode excluir o próprio usuário.',
+        'A empresa deve manter pelo menos um usuário com role ADMIN ativo.',
+        'Senhas redefinidas geram um código temporário e forçam a troca no próximo login (mustChangePassword).',
+        'A exclusão é lógica (soft delete), liberando o e-mail para reuso futuro.'
+      ],
+      detailedSteps: [
+        {
+          title: 'Editar Usuário e Dados de Colaborador',
+          description: 'Clique no ícone de lápis (Editar). Atualize nome, e-mail, função (Role), departamento e cargo. As alterações são salvas de forma integrada nos módulos de User e Employee.'
+        },
+        {
+          title: 'Redefinir Senha',
+          description: 'Clique em "Redefinir". O sistema gera uma senha temporária forte, copia-a automaticamente para sua área de transferência e obriga o usuário a trocá-la no próximo acesso.'
+        },
+        {
+          title: 'Remover Usuário',
+          description: 'Clique em "Remover". O sistema realiza uma exclusão lógica, revogando o acesso imediatamente, mas mantendo o histórico de atividades para auditoria.'
+        }
+      ]
+    }
+  },
+  
   // -----------------------------------------------------------------
   // 📄 PÁGINA: Administração — Catálogo de Serviços
   // 📍 ROTA: /dashboard/admin/catalogo
