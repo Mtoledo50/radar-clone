@@ -7,7 +7,8 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
+// 👇 ADICIONE ESTA LINHA DE DEBUG 👇
+console.log("🔍 A URL da API que o navegador enxerga é:", process.env.NEXT_PUBLIC_API_URL);
 // Interceptor para adicionar o token JWT automaticamente
 api.interceptors.request.use(
   (config) => {

@@ -31,6 +31,8 @@ import {
 import { EmailProviderFactory } from '../email-provider/email-provider.factory';
 import { EmailTemplateService } from '../email-template/email-template.service';
 import { FileMoverService } from '../file-mover/file-mover.service';
+// 🔗 PONTE OB-6 — reflete o envio na entrega da obrigação
+import { propagateSentByEnvioId } from '../../obligations/obligation-bridge';
 import { AprovarArquivoDto } from '../arquivo-fila/dto/aprovar-arquivo.dto';
 
 @Injectable()
@@ -185,11 +187,22 @@ export class EmailEnvioService {
         fila.caminhoAbsoluto,
         fila.nomeOriginal,
       );
+
+      // 🔧 FIX OB-6: update intermediário só se o caminho REALMENTE mudou
+      // E ignora erro de unique constraint (não bloqueia o envio)
       if (caminhoReal !== fila.caminhoAbsoluto) {
-        await this.prisma.arquivoFila.update({
-          where: { id: fila.id },
-          data: { caminhoAbsoluto: caminhoReal },
-        });
+        try {
+          await this.prisma.arquivoFila.update({
+            where: { id: fila.id },
+            data: { caminhoAbsoluto: caminhoReal },
+          });
+          fila.caminhoAbsoluto = caminhoReal; // mantém estado local sincronizado
+        } catch (e: any) {
+          // Unique constraint ou outro erro → segue em frente com caminhoReal
+          this.logger.warn(
+            `⚠️ Update intermediário ignorado (caminhoReal já em uso): ${e.message}`,
+          );
+        }
       }
 
       // 🆕 F18-A: busca slug da company para isolar enviados por tenant
@@ -205,6 +218,8 @@ export class EmailEnvioService {
               .substring(0, 60)                  // limite de 60 chars
           : null);
 
+      // 🔧 FIX OB-6: usa SEMPRE o caminhoReal (não o antigo do banco)
+      // pois o arquivo FISICAMENTE já está em pendentes/ após registrarDetecao()
       caminhoFinal = await this.fileMover.moverParaEnviadosTenant(
         caminhoReal,
         fila.competencia,
@@ -212,13 +227,21 @@ export class EmailEnvioService {
       );
       this.logger.log(`📁 Arquivo movido para: ${caminhoFinal}`);
 
-      // FIX F15-5: sincroniza o banco com o caminho FINAL (para download)
-      await this.prisma.arquivoFila.update({
-        where: { id: fila.id },
-        data: { caminhoAbsoluto: caminhoFinal },
-      });
+      // FIX F15-5: sincroniza o banco com o caminho FINAL (para download futuro)
+      // 🔧 FIX OB-6: try/catch para não quebrar se já existir outro registro com esse caminho
+      try {
+        await this.prisma.arquivoFila.update({
+          where: { id: fila.id },
+          data: { caminhoAbsoluto: caminhoFinal },
+        });
+      } catch (e: any) {
+        this.logger.warn(
+          `⚠️ Update final do caminho ignorado: ${e.message}`,
+        );
+      }
     } catch (err: any) {
       this.logger.error(`❌ Falha ao mover arquivo: ${err.message}`);
+      // 🔧 FIX OB-6: fallback para o caminhoReal resolvido (não o do banco desatualizado)
       caminhoFinal = fila.caminhoAbsoluto;
     }
 
@@ -235,6 +258,7 @@ export class EmailEnvioService {
       metadata: { envioId: envio.id, companyId: fila.companyId },
     });
 
+    // ── 11. Evento + status final ─────────────────────────────────────────
     // ── 11. Evento + status final ─────────────────────────────────────────
     if (resultado.sucesso) {
       await this.prisma.emailEvento.create({
@@ -265,6 +289,11 @@ export class EmailEnvioService {
         },
       });
       this.logger.log(`Email enviado com sucesso: ${envio.id}`);
+
+      // 🔗 PONTE OB-6 LP2: delivery da obrigação → ENVIADO + sentAt
+      // Não-bloqueante: falha aqui nunca impede o retorno do envio
+      await propagateSentByEnvioId(this.prisma, envio.id);
+
       return {
         ok: true,
         envioId: envio.id,

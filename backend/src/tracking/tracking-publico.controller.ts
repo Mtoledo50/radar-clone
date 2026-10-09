@@ -27,6 +27,8 @@ import { Response, Request } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { FileMoverService } from '../comunicados/file-mover/file-mover.service';
 import { TipoEventoEmail } from '@prisma/client';
+// 🔗 PONTE OB-6 — reflete abertura/download na entrega da obrigação
+import { markTrackingByEnvioId } from '../obligations/obligation-bridge';
 import { createReadStream, existsSync } from 'fs';
 
 // -----------------------------------------------------------------------------
@@ -95,6 +97,7 @@ export class TrackingPublicoController {
       }
 
       // Só registra ABERTO uma vez (dedupe) — evita poluição da timeline
+      // Só registra ABERTO uma vez (dedupe) — evita poluição da timeline
       if (!envio.primeiraAberturaEm) {
         await this.prisma.emailEnvio.update({
           where: { id: envioId },
@@ -114,6 +117,9 @@ export class TrackingPublicoController {
         });
 
         this.logger.log(`📬 ABERTO: ${envioId} (${envio.emailDestinatario})`);
+
+        // 🔗 PONTE OB-6 LP3: grava openedAt na entrega da obrigação
+        await markTrackingByEnvioId(this.prisma, envioId, 'opened');
       } else {
         this.logger.debug(`Abertura duplicada ignorada: ${envioId}`);
       }
@@ -213,6 +219,9 @@ export class TrackingPublicoController {
       });
 
       this.logger.log(`📥 BAIXADO: ${envioId} (${envio.emailDestinatario})`);
+
+      // 🔗 PONTE OB-6 LP3: grava downloadedAt na entrega da obrigação
+      await markTrackingByEnvioId(this.prisma, envioId, 'downloaded');
     }
 
     // ── 6. Stream do arquivo para o cliente ─────────────────────────────

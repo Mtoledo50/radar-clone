@@ -2868,6 +2868,10 @@ model EmailEnvio {
   status             StatusEnvio        @default(PENDENTE_APROVACAO)
   setor              String?            // Fiscal | Contábil | Pessoal | Legalização | BPO
   
+    // 🔗 PONTE OB-6 — permite ao tracking refletir abertura/download na obrigação
+  scheduleId           String?
+  obligationDeliveryId String?
+
   // Retry
   tentativas         Int                @default(0)
   ultimoErro         String?            @db.Text
@@ -2947,7 +2951,11 @@ model ArquivoFila {
   
   // Vínculo com envio após aprovação
   envioId         String?
-  
+
+    // 🔗 PONTE OB-6 — vínculo com o catálogo de obrigações (nulável = seguro)
+  scheduleId           String?
+  obligationDeliveryId String?
+
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -3331,7 +3339,10 @@ model ObligationSchedule {
   defaultComment          String?  @db.Text
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
-  
+    // ✅ NOVOS CAMPOS — Sprint OB-4 (Watch Folder por obrigação)
+  folderPath        String?
+  fileNamePattern   String?
+  postProcessAction String?  @default("manter")
   deliveries ObligationDelivery[]
   
   @@map("obligation_schedules")
@@ -3348,6 +3359,12 @@ model ObligationDelivery {
   
   schedule          ObligationSchedule      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   
+    // 🔗 PONTE OB-6 — rastreio do cumprimento (alimentado pela Central de Envios)
+  sentAt        DateTime?
+  openedAt      DateTime?
+  downloadedAt  DateTime?
+  lastEnvioId   String?
+
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
 

@@ -57,6 +57,59 @@ O **Radar Conta Certa** é um SaaS multi-tenant que automatiza a rotina contábi
 
 
 ---
+## 🚀 Status Atual (Outubro/2026)
+
+### ✅ Funcionalidades em Produção
+
+#### 📧 Central de Envios com Tracking (Sprint OB-6)
+- Watch folder monitora pasta `A_Processar/` e detecta novos arquivos automaticamente
+- Parser extrai CNPJ do nome do arquivo e vincula ao cliente
+- **Ponte automática** com módulo de Obrigações: arquivo detectado → obrigação correspondente marcada
+- Aprovação humana obrigatória antes do envio (Human-in-the-loop)
+- Envio real via SMTP (Gmail) com templates Handlebars editáveis
+- **Tracking completo**: pixel de abertura + proxy de download
+- Lote de obrigações exibe: Situação (CUMPRIDA/PENDENTE), Enviado, Aberto, Baixado com timestamps
+
+####  Infraestrutura Cloudflare Tunnel
+- 5 domínios públicos ativos via túnel criptografado:
+  - `www.contacerta.com.br` → Site institucional (Vite, porta 5173)
+  - `api.contacerta.com.br` → Backend do site (Node, porta 4000)
+  - `radar.contacerta.com.br` → Frontend do Radar (Next.js 16, porta 3000)
+  - `radar-api.contacerta.com.br` → API do Radar (NestJS, porta 3001)
+  - `extrator.contacerta.com.br` → Frontend do Extrator Bancário (Vite, porta 5174)
+- SSL automático, CDN global, proteção DDoS
+- Túnel instalado como serviço do Windows (persistente)
+
+#### 🛠️ Script Unificado de Inicialização
+- `.\iniciar-radar.ps1` sobe todos os serviços com 1 comando
+- Menu interativo: escolhe modo (dev/prod) e serviços opcionais (Site, Extrator)
+- Liberação automática de portas (mata processos zumbis)
+- Healthcheck do Postgres antes de subir apps
+- Logs em arquivo para auditoria
+
+---
+
+## ️ Arquitetura
+
+### Stack Tecnológica
+- **Frontend Radar:** Next.js 16 (Turbopack) + TypeScript + Tailwind + Zustand + Lucide
+- **Backend Radar:** NestJS + Prisma + PostgreSQL 16 (Docker)
+- **Site Institucional:** React + Vite + TypeScript
+- **Extrator Bancário:** FastAPI (Python) + Vite (React)
+- **Infra:** Docker Desktop + Cloudflare Tunnel + Gmail SMTP
+
+### Estrutura de Pastas
+C:\radar-clone
+├── backend/ # NestJS (porta 3001)
+├── frontend/ # Next.js (porta 3000)
+├── docs/adrs/ # 129 ADRs documentadas
+├── Envios/
+│ ├── A_Processar/ # Watch folder (entrada)
+│ └── Enviados/ # Arquivos enviados (isolados por tenant/competência)
+├── iniciar-radar.ps1 # Script unificado de boot
+└── README.md
+C:\Site conta-certa\ # Site institucional (porta 5173)
+
 
 ## ✨ Módulos e Funcionalidades
 
@@ -181,6 +234,67 @@ O **Radar Conta Certa** é um SaaS multi-tenant que automatiza a rotina contábi
 - Zero dependências pesadas de gráfico (ADR-001)
 
 ---
+
+---
+
+## 🚦 Como Iniciar (Desenvolvimento)
+
+### Pré-requisitos
+- Docker Desktop rodando
+- Node.js 18+
+- Python 3.11+ (apenas se usar Extrator)
+- Cloudflare Tunnel instalado como serviço (apenas para acesso remoto)
+
+### Inicialização Rápida
+```powershell
+cd C:\radar-clone
+.\iniciar-radar.ps1
+O script vai:
+Subir o Postgres no Docker (porta 5433)
+Liberar portas de processos zumbis
+Iniciar Backend Radar (3001) + Frontend Radar (3000)
+(Opcional) Site Conta Certa + Extrator Bancário
+
+
+Acessos
+Serviço
+Local
+Público
+Radar Frontend
+http://localhost:3000
+https://radar.contacerta.com.br
+Radar API
+http://localhost:3001
+https://radar-api.contacerta.com.br
+Site Conta Certa
+http://localhost:5173
+https://www.contacerta.com.br
+API do Site
+http://localhost:4000
+https://api.contacerta.com.br
+Extrator
+http://localhost:5174
+https://extrator.contacerta.com.br
+
+Credenciais Seed
+Email: admin@contacerta.com.br
+Senha: Trocar@2026
+
+
+Documentação
+ADRs: 129 decisões técnicas em docs/adrs/
+Índice: docs/adrs/00-INDICE-ADRs.md
+Inventário: docs/adrs/Inventário do Projeto.md
+
+Testes
+# Backend
+cd C:\radar-clone\backend
+npm run test
+
+# Frontend
+cd C:\radar-clone\frontend
+npm run test
+
 
 ## 🚀 Instalação (3 passos)
 

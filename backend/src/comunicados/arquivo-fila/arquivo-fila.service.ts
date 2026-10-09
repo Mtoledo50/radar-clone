@@ -26,6 +26,8 @@ import { MetadadosArquivoService } from '../cnpj-parser/metadados-arquivo.servic
 import { FileMoverService } from '../file-mover/file-mover.service';
 import { AprovarArquivoDto } from './dto/aprovar-arquivo.dto';
 import { VincularClienteDto } from './dto/vincular-cliente.dto';
+// 🔗 PONTE OB-6 — integração com catálogo de obrigações
+import { linkFileToObligation } from '../../obligations/obligation-bridge';
 import { EmailEnvioService } from '../email-envio/email-envio.service';
 
 export interface FiltroArquivoFila {
@@ -201,6 +203,17 @@ export class ArquivoFilaService {
           erro: 'Cliente encontrado mas sem email cadastrado',
         },
       });
+      
+      // 🔗 PONTE OB-6: vínculo parcial (obrigação PENDENTE)
+      // Mesmo sem email, já criamos o delivery para quando o email for cadastrado.
+      const linkOb6 = await linkFileToObligation(this.prisma, {
+        companyId,
+        fileName: nomeOriginal,
+        clientId: cliente.id,
+        filaId: fila.id,
+      });
+      if (linkOb6) this.logger.log(`🔗 OB-6: vinculado à obrigação "${linkOb6.scheduleName}"`);
+      
       await this.fileMover.moverParaPendentes(caminhoAbsoluto);
       this.logger.warn(`⚠️  Cliente sem email → pendentes/ (${fila.id})`);
       return;
@@ -223,13 +236,23 @@ export class ArquivoFilaService {
         status: StatusArquivoFila.AGUARDANDO_APROVACAO,
       },
     });
+    
+    // 🔗 PONTE OB-6: vínculo completo com o catálogo de obrigações
+    // Casa o token do nome (ex: "Acomp") com o mininome da obrigação
+    const linkOb6 = await linkFileToObligation(this.prisma, {
+      companyId,
+      fileName: nomeOriginal,
+      clientId: cliente.id,
+      filaId: fila.id,
+    });
+    if (linkOb6) this.logger.log(`🔗 OB-6: vinculado à obrigação "${linkOb6.scheduleName}"`);
+    
     await this.fileMover.moverParaPendentes(caminhoAbsoluto);
     this.logger.log(
       `✅ Cliente encontrado: ${cliente.companyName} (${email}) → fila (${fila.id})`,
     );
   }
-
-  // --------------------------------------------------------------------------
+    // --------------------------------------------------------------------------
   // RESOLUÇÃO DE EMAIL DO CLIENTE
   // --------------------------------------------------------------------------
   private async resolverEmailCliente(

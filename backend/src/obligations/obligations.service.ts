@@ -2,7 +2,8 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as xlsx from 'xlsx';
 import * as fs from 'fs';
-
+import * as path from 'path';
+import { getDueDate, competenceLabel, dueStatus, fmtDate } from './due-date.util';
 @Injectable()
 export class ObligationsService {
   constructor(private prisma: PrismaService) {}
@@ -18,8 +19,6 @@ export class ObligationsService {
 
       let headerRowIndex = -1;
       let cnpjColIndex = -1;
-      let razaoColIndex = -1;
-      let respColIndex = -1;
 
       // Encontra dinamicamente a linha de cabeçalho
       for (let i = 0; i < Math.min(rawData.length, 20); i++) {
@@ -29,8 +28,6 @@ export class ObligationsService {
         if (cnpjIdx !== -1) {
           headerRowIndex = i;
           cnpjColIndex = cnpjIdx;
-          razaoColIndex = row.findIndex((cell: string) => cell.includes('RAZÃO') || cell.includes('RAZAO'));
-          respColIndex = row.findIndex((cell: string) => cell.includes('RESPONSÁVEL') || cell.includes('RESPONSAVEL'));
           break;
         }
       }
@@ -41,6 +38,7 @@ export class ObligationsService {
 
       const companiesToLink: string[] = [];
       let extractedResponsible = "Não informado";
+      const respColIndex = rawData[headerRowIndex].findIndex((cell: any) => String(cell).toUpperCase().includes('RESPONS'));
 
       // Extrai os dados das linhas
       for (let i = headerRowIndex + 1; i < rawData.length; i++) {
@@ -176,21 +174,32 @@ export class ObligationsService {
   }
 
   // =========================================================================
-  // 4. LISTAR OBRIGAÇÕES DE UM CLIENTE ESPECÍFICO
+  // 4. LISTAR OBRIGAÇÕES DE UM CLIENTE ESPECÍFICO (ÚNICA IMPLEMENTAÇÃO)
   // =========================================================================
   async getClientObligations(clientId: string, companyId: string) {
     const deliveries = await this.prisma.obligationDelivery.findMany({
       where: { clientId, companyId },
       include: {
-        schedule: { select: { id: true, name: true, responsibleUser: true, isActive: true } },
+        schedule: {
+          select: {
+            id: true,
+            name: true,
+            responsibleUser: true,
+            isActive: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: {
+        schedule: { name: 'asc' },
       },
     });
 
-    return deliveries.map(d => ({
-      id: d.id,
-      status: d.status,
-      obs: d.obs,
-      schedule: d.schedule,
+    return deliveries.map(delivery => ({
+      id: delivery.id,
+      status: delivery.status,
+      obs: delivery.obs,
+      schedule: delivery.schedule,
     }));
   }
 
@@ -220,8 +229,36 @@ export class ObligationsService {
   }
 
   // =========================================================================
-  // 6. ATUALIZAR DADOS DA OBRIGAÇÃO (NOME, RESPONSÁVEL, ETC.)
-  // ✅ CORREÇÃO: Filtra dinamicamente os campos para evitar erros de schema
+  // 6. CRIAR NOVA OBRIGAÇÃO
+  // =========================================================================
+  async createSchedule(data: any, companyId: string) {
+    // 🛡️ FILTRO DE SEGURANÇA: Lista apenas os campos permitidos no schema.
+    const allowedFields = [
+      'name', 'mininome', 'departamento', 'responsibleUser', 
+      'estimatedTimeMinutes', 'deliveryDays', 'reminderDays', 
+      'dayType', 'nonBusinessDayAction', 'saturdayIsBusinessDay',
+      'competenceRef', 'requireBot', 'subjectToFine', 
+      'alertGuide', 'isActive', 'defaultComment',
+      'folderPath', 'fileNamePattern', 'postProcessAction' // ✅ Campos do Watch Folder
+    ];
+
+    const createData: any = {};
+    for (const key of allowedFields) {
+      if (data[key] !== undefined) {
+        createData[key] = data[key];
+      }
+    }
+
+    createData.companyId = companyId;
+    createData.isActive = data.isActive !== undefined ? data.isActive : true;
+
+    return this.prisma.obligationSchedule.create({
+      data: createData,
+    });
+  }
+
+  // =========================================================================
+  // 7. ATUALIZAR DADOS DA OBRIGAÇÃO
   // =========================================================================
   async updateSchedule(scheduleId: string, data: any, companyId: string) {
     const existingSchedule = await this.prisma.obligationSchedule.findFirst({
@@ -232,17 +269,14 @@ export class ObligationsService {
       throw new BadRequestException('Obrigação não encontrada ou sem permissão.');
     }
 
-    // 🛡️ FILTRO DE SEGURANÇA: Lista apenas os campos que existem no schema do Prisma.
-    // Se você adicionou campos como 'mininome', 'departamento', 'deliveryDays' no schema.prisma,
-    // basta adicioná-los a esta lista. Caso contrário, o Prisma os ignorá e não quebrará a aplicação.
+    // 🛡️ FILTRO DE SEGURANÇA: Mesma lógica do create para evitar erros de schema
     const allowedFields = [
-      'name', 
-      'responsibleUser', 
-      'isActive',
-      // Descomente as linhas abaixo APENAS se você rodou a migração do Prisma para adicioná-las:
-      // 'mininome', 'departamento', 'estimatedTimeMinutes', 'deliveryDays', 
-      // 'reminderDays', 'dayType', 'nonBusinessDayAction', 'saturdayIsBusinessDay',
-      // 'competenceRef', 'requireBot', 'subjectToFine', 'alertGuide', 'defaultComment'
+      'name', 'mininome', 'departamento', 'responsibleUser', 
+      'estimatedTimeMinutes', 'deliveryDays', 'reminderDays', 
+      'dayType', 'nonBusinessDayAction', 'saturdayIsBusinessDay',
+      'competenceRef', 'requireBot', 'subjectToFine', 
+      'alertGuide', 'isActive', 'defaultComment',
+      'folderPath', 'fileNamePattern', 'postProcessAction' // ✅ Campos do Watch Folder
     ];
 
     const updateData: any = {};
@@ -259,7 +293,7 @@ export class ObligationsService {
   }
 
   // =========================================================================
-  // 7. DELETAR OBRIGAÇÃO INTEIRA (COM CASCADE MANUAL)
+  // 8. DELETAR OBRIGAÇÃO INTEIRA (COM CASCADE MANUAL)
   // =========================================================================
   async deleteSchedule(scheduleId: string, companyId: string) {
     const schedule = await this.prisma.obligationSchedule.findFirst({
@@ -283,7 +317,7 @@ export class ObligationsService {
   }
 
   // =========================================================================
-  // 8. REMOVER EMPRESA ESPECÍFICA DA OBRIGAÇÃO
+  // 9. REMOVER EMPRESA ESPECÍFICA DA OBRIGAÇÃO
   // =========================================================================
   async removeClientFromSchedule(scheduleId: string, clientId: string, companyId: string) {
     const delivery = await this.prisma.obligationDelivery.findFirst({
@@ -300,7 +334,7 @@ export class ObligationsService {
   }
 
   // =========================================================================
-  // 9. LISTAR TODOS OS CLIENTES COM SUAS OBRIGAÇÕES AGRUPADAS POR DEPARTAMENTO
+  // 10. LISTAR TODOS OS CLIENTES COM SUAS OBRIGAÇÕES AGRUPADAS
   // =========================================================================
   async getClientsWithObligations(companyId: string) {
     const clients = await this.prisma.client.findMany({
@@ -356,7 +390,7 @@ export class ObligationsService {
   }
 
   // =========================================================================
-  // 10. LISTAR OBRIGAÇÕES AGRUPADAS POR TIPO (NÃO POR CLIENTE)
+  // 11. LISTAR OBRIGAÇÕES AGRUPADAS POR TIPO (NÃO POR CLIENTE)
   // =========================================================================
   async getByObligationType(companyId: string) {
     const schedules = await this.prisma.obligationSchedule.findMany({
@@ -395,7 +429,7 @@ export class ObligationsService {
         let color: 'green' | 'red' | 'orange' | 'blue' = 'green';
         if (delivery.status === 'ENVIADO') color = 'green';
         else if (delivery.status === 'ATRASADO') color = 'red';
-        else if (delivery.status === 'PENDENTE') color = 'orange'; // Simplificação
+        else if (delivery.status === 'PENDENTE') color = 'orange';
 
         acc[obligationName][color]++;
         acc[obligationName].totalClients++;
@@ -415,59 +449,151 @@ export class ObligationsService {
 
     return Object.values(groupedByType).sort((a, b) => a.name.localeCompare(b.name));
   }
-// ✅ CRIAR NOVA OBRIGAÇÃO
-async createSchedule(data: any, companyId: string) {
-  // Filtra apenas campos permitidos (mesma lógica do update)
-  const allowedFields = [
-    'name', 'mininome', 'departamento', 'responsibleUser', 
-    'estimatedTimeMinutes', 'deliveryDays', 'reminderDays', 
-    'dayType', 'nonBusinessDayAction', 'saturdayIsBusinessDay',
-    'competenceRef', 'requireBot', 'subjectToFine', 
-    'alertGuide', 'isActive', 'defaultComment'
-  ];
+  // =========================================================================
+  // 12. VERIFICAÇÃO DE CUMPRIMENTO (WATCH FOLDER) — SPRINT OB-4
+  //     Pasta com arquivos  → obrigação cumprida.
+  //     Pasta VAZIA         → alerta "NÃO cumprida" ao Super Admin.
+  //     Disparável a qualquer momento via POST /schedules/:id/verify
+  //     (futuro: chamar também via cron na data de vencimento).
+  // =========================================================================
+  async verifyFulfillment(scheduleId: string, companyId: string) {
+    // 1) Busca a obrigação (multi-tenant, ADR-004)
+    const schedule = await this.prisma.obligationSchedule.findFirst({
+      where: { id: scheduleId, companyId },
+    });
+    if (!schedule) throw new BadRequestException('Obrigação não encontrada.');
 
-  const createData: any = {};
-  for (const key of allowedFields) {
-    if (data[key] !== undefined) {
-      createData[key] = data[key];
+    const folderPath = (schedule as any).folderPath as string | undefined;
+    const pattern = ((schedule as any).fileNamePattern as string | undefined) || '*.pdf';
+
+    // 2) Validações de configuração
+    if (!folderPath) {
+      return { fulfilled: false, code: 'SEM_PASTA', files: [],
+        message: 'Obrigação sem pasta de monitoramento configurada.' };
     }
+    if (!fs.existsSync(folderPath)) {
+      return { fulfilled: false, code: 'PASTA_INEXISTENTE', files: [],
+        message: `A pasta configurada não existe: ${folderPath}` };
+    }
+
+    // 3) Converte wildcards (* e ?) em Regex e lista arquivos correspondentes
+    const regex = new RegExp(
+      '^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$',
+      'i',
+    );
+    const files = fs
+      .readdirSync(folderPath)
+      .filter((f) => fs.statSync(path.join(folderPath, f)).isFile() && regex.test(f));
+
+    // 4) Pasta COM arquivos → cumprida (nada a alertar)
+    if (files.length > 0) {
+      return { fulfilled: true, code: 'OK', files,
+        message: `${files.length} arquivo(s) encontrado(s): ${files.join(', ')}` };
+    }
+
+    // 5) Pasta VAZIA → NÃO cumprida: alerta ao Super Admin
+    //    Email resolvido do banco (role SUPER_ADMIN) ou override via .env
+    const adminEmail =
+      process.env.ADMIN_ALERT_EMAIL ||
+      (await this.prisma.user.findFirst({
+        where: { companyId, role: 'SUPER_ADMIN', deletedAt: null },
+        select: { email: true },
+      }))?.email;
+
+    const assunto = `⚠️ Obrigação NÃO cumprida: ${schedule.name}`;
+    const html = `
+      <h3>Obrigação não cumprida</h3>
+      <p>A obrigação <strong>${schedule.name}</strong> foi verificada em
+         <strong>${new Date().toLocaleString('pt-BR')}</strong> e a pasta está <strong>VAZIA</strong>.</p>
+      <p><strong>Pasta verificada:</strong> ${folderPath}</p>
+      <p><strong>Padrão esperado:</strong> ${pattern}</p>
+      <p>Nenhum documento foi disponibilizado para envio ao cliente.</p>
+    `;
+
+    await this.sendAdminAlert(adminEmail || 'admin@contacerta.com.br', assunto, html);
+
+    return { fulfilled: false, code: 'NAO_CUMPRIDA', files: [],
+      message: `Pasta vazia. Alerta enviado para ${adminEmail}.` };
   }
 
-  // Adiciona campos obrigatórios
-  createData.companyId = companyId;
-  createData.isActive = data.isActive !== undefined ? data.isActive : true;
+  // ---------------------------------------------------------------------------
+  // 🔒 ALERTA AO SUPER ADMIN — autocontido de propósito (não acopla ao
+  //    EmailEnvioService para não tocar no módulo de envio que já funciona).
+  //    MODO LOG → imprime no console. SMTP configurado → envio real.
+  //    Futuro (OB-5): migrar para EmailEnvioService p/ reusar templates/tracking.
+  // ---------------------------------------------------------------------------
+  private async sendAdminAlert(to: string, subject: string, html: string) {
+    const mode = process.env.EMAIL_MODE || 'LOG';
 
-  return this.prisma.obligationSchedule.create({
-    data: createData,
-  });
-}
-// ✅ Buscar todas as obrigações de um cliente
-async getClientObligations(clientId: string, companyId: string) {
-  const deliveries = await this.prisma.obligationDelivery.findMany({
-    where: { clientId, companyId },
-    include: {
-      schedule: {
-        select: {
-          id: true,
-          name: true,
-          responsibleUser: true,
-          isActive: true,
-          createdAt: true,
+    if (mode === 'LOG' || !process.env.SMTP_HOST) {
+      console.log('\n════════════════════════════════════════════════');
+      console.log('📧 EMAIL ALERTA (MODO LOG — não enviado de verdade)');
+      console.log(`   Para:    ${to}`);
+      console.log(`   Assunto: ${subject}`);
+      console.log('════════════════════════════════════════════════\n');
+      return;
+    }
+
+    // Envio real via SMTP (mesmas variáveis do módulo de envio)
+    const nodemailer = require('nodemailer');
+    const port = Number(process.env.SMTP_PORT || 587);
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port,
+      secure: port === 465,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || 'noreply@contacerta.com.br',
+      to, subject, html,
+    });
+  }
+  // =========================================================================
+  // 13. LINHA DO TEMPO DA OBRIGAÇÃO — Sprint OB-7
+  //     Por empresa: vencimento do mês, situação (futura/atrasada/cumprida)
+  //     e rastreio do email (enviado/aberto/baixado).
+  //     🔗 Rastreio entra via adaptador OB-6 (ver ponte no final da resposta).
+  // =========================================================================
+  async getScheduleTimeline(scheduleId: string, year: number, monthIdx: number, companyId: string) {
+    const schedule = await this.prisma.obligationSchedule.findFirst({
+      where: { id: scheduleId, companyId },
+    });
+    if (!schedule) throw new BadRequestException('Obrigação não encontrada.');
+
+    const due = getDueDate(schedule as any, year, monthIdx);
+
+    const deliveries = await this.prisma.obligationDelivery.findMany({
+      where: { scheduleId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Join manual de clientes (padrão já usado no findAllSchedules)
+    const clientIds = [...new Set(deliveries.map(d => d.clientId))];
+    const clients = await this.prisma.client.findMany({
+      where: { id: { in: clientIds } },
+      select: { id: true, companyName: true, cnpj: true },
+    });
+    const clientMap = new Map(clients.map(c => [c.id, c]));
+
+    return {
+      scheduleId,
+      month: monthIdx + 1,
+      year,
+      dueDate: due ? due.toISOString() : null,
+      dueDateFmt: fmtDate(due),
+      competence: competenceLabel(schedule as any, year, monthIdx),
+      items: deliveries.map(d => ({
+        deliveryId: d.id,
+        client: clientMap.get(d.clientId) || null,
+        status: d.status,
+        situation: dueStatus(due, d.status),
+               // 🔗 OB-6: rastreio lido direto da entrega (alimentado pelas LP2/LP3)
+        tracking: {
+          sentAt: (d as any).sentAt ?? null,
+          openedAt: (d as any).openedAt ?? null,
+          downloadedAt: (d as any).downloadedAt ?? null,
         },
-      },
-    },
-    orderBy: {
-      schedule: {
-        name: 'asc',
-      },
-    },
-  });
-
-  return deliveries.map(delivery => ({
-    id: delivery.id,
-    status: delivery.status,
-    obs: delivery.obs,
-    schedule: delivery.schedule,
-  }));
-}
+      })),
+    };
+  }
 }
